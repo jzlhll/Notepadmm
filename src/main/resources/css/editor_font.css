@@ -1,0 +1,7 @@
+@font-face {
+    src: url('../font/jbmono.ttf'); /* JetBrains Mono */
+}
+
+.styled-text-area {
+  -fx-font-family: "JetBrains Mono";
+}

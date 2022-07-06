@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import com.jfoenix.controls.JFXToggleButton?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.geometry.Insets?>
+<?import com.jfoenix.controls.JFXRadioButton?>
+
+<?import javafx.scene.control.Hyperlink?>
+<?import com.jfoenix.controls.JFXComboBox?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.ScrollPane?>
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:id="vbox_id"
+            styleClass="custom-main-bg"
+            fx:controller="com.allan.atools.controller.SettingController"
+            prefHeight="650" prefWidth="650">
+    <VBox>
+        <!--- 第1部分 -->
+        <HBox>
+            <VBox.margin>
+                <Insets top="20" left="6"/>
+            </VBox.margin>
+            <Label text="%setting.language" styleClass="normal-label">
+            </Label>
+
+            <JFXComboBox fx:id="localesComboBox" prefWidth="140">
+                <HBox.margin>
+                    <Insets top="-10" left="6"/>
+                </HBox.margin>
+            </JFXComboBox>
+        </HBox>
+
+        <Label text="%setting.newfileDirName" styleClass="normal-label">
+            <VBox.margin>
+                <Insets left="3" top="12"/>
+            </VBox.margin>
+        </Label>
+
+        <Hyperlink fx:id="newFileDirLink" prefWidth="400" prefHeight="30" styleClass="myhyperlink">
+            <VBox.margin>
+                <Insets left="25"/>
+            </VBox.margin>
+        </Hyperlink>
+
+        <Label text="%setting.selectFont" styleClass="normal-label">
+            <VBox.margin>
+                <Insets left="3" top="12"/>
+            </VBox.margin>
+        </Label>
+        <HBox>
+            <JFXRadioButton fx:id="fontThemeDefaultBtn" text="%defaultStr">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="fontThemeCustomBtn" text="%custom">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+        </HBox>
+
+        <HBox>
+            <VBox.margin>
+                <Insets top="8" left="8"/>
+            </VBox.margin>
+            <Hyperlink fx:id="fontCustomLink" visible="false" styleClass="myhyperlink" prefWidth="450">
+                <HBox.margin>
+                    <Insets top="-5" left="15"/>
+                </HBox.margin>
+            </Hyperlink>
+        </HBox>
+
+        <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
+            <VBox.margin>
+                <Insets left="4" top="5"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <!--- 第2部分 -->
+        <Separator prefHeight="2">
+            <VBox.margin>
+                <Insets top="15"/>
+            </VBox.margin>
+        </Separator>
+        <Separator prefHeight="2">
+            <VBox.margin>
+                <Insets top="2"/>
+            </VBox.margin>
+        </Separator>
+
+        <Label text="%search" styleClass="title-label-big">
+            <VBox.margin>
+                <Insets top="3" left="3"/>
+            </VBox.margin>
+        </Label>
+
+        <Label text="%setting.resultArea" styleClass="normal-label">
+            <VBox.margin>
+                <Insets top="15" left="3"/>
+            </VBox.margin>
+        </Label>
+        <VBox>
+            <VBox.margin>
+                <Insets left="10" top="-3"/>
+            </VBox.margin>
+            <JFXToggleButton fx:id="resultAreaWrapBtn" text="%setting.resultAutoEnter" />
+
+            <JFXToggleButton fx:id="resultIfHasNumBtn" text="%setting.showLineNum" selected="true">
+                <VBox.margin>
+                    <Insets top="-12"/>
+                </VBox.margin>
+            </JFXToggleButton>
+
+            <JFXToggleButton fx:id="resultAreaInNewBtn" text="%setting.showInNewWindow">
+                <VBox.margin>
+                    <Insets top="-12"/>
+                </VBox.margin>
+            </JFXToggleButton>
+        </VBox>
+
+        <Label text="%setting.editArea" styleClass="normal-label">
+            <VBox.margin>
+                <Insets top="15" left="3"/>
+            </VBox.margin>
+        </Label>
+        <VBox>
+            <VBox.margin>
+                <Insets left="10" top="6"/>
+            </VBox.margin>
+            <JFXToggleButton fx:id="cycleNextBtn" text="%setting.cycleNext" selected="true">
+                <VBox.margin>
+                    <Insets top="-12"/>
+                </VBox.margin>
+            </JFXToggleButton>
+            <JFXToggleButton fx:id="editIfHasNumBtn" text="%setting.showLineNum" selected="true">
+                <VBox.margin>
+                    <Insets top="-12"/>
+                </VBox.margin>
+            </JFXToggleButton>
+        </VBox>
+
+        <!--- 第3部分 -->
+        <Separator prefHeight="2">
+            <VBox.margin>
+                <Insets top="15"/>
+            </VBox.margin>
+        </Separator>
+        <Separator prefHeight="2">
+            <VBox.margin>
+                <Insets top="2"/>
+            </VBox.margin>
+        </Separator>
+
+        <Label text="%setting.others" styleClass="title-label-big">
+            <VBox.margin>
+                <Insets top="3" left="3"/>
+            </VBox.margin>
+        </Label>
+
+        <JFXToggleButton fx:id="visionBtn" text="%setting.visionname">
+            <VBox.margin>
+                <Insets left="4" />
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="hdScreenBtn2" text="%setting.hdscreenname">
+            <VBox.margin>
+                <Insets top="-10" left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="forceBigStylerBtn" text="强制使用部分Styler" selected="true">
+            <VBox.margin>
+                <Insets left="4" top="-10" />
+            </VBox.margin>
+        </JFXToggleButton>
+    </VBox>
+
+</ScrollPane>

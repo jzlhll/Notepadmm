@@ -1,0 +1,31 @@
+.lineno {
+ -fx-background-color: -au-editor-lineno-color;
+}
+
+.styled-text-area{ /*  */
+  -fx-background-color: -au-editor-bg-color;
+}
+
+.styled-text-area .selection {
+    -fx-fill: -au-editor-selection-words-color;
+}
+
+/*.custom-styled-text-area .selection {
+    -fx-fill: -au-editor-bg-color;
+}
+
+有光标的才会显示；所以不可编辑后，的就不会显示
+.paragraph-box:has-caret {
+   -fx-background-color: -au-editor-caret-line-color;
+}
+*/
+
+/*.styled-text-area .text{   如果设置了这个就会导致无法使用css
+  -fx-fill: -au-editor-text-color;
+  -fx-text-size: 14;
+}*/
+.caret {
+   -fx-stroke: -au-editor-caret-color;
+}
+
+

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXTabPane?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Label?>
+<?import com.jfoenix.controls.JFXComboBox?>
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXCheckBox?>
+<?import com.jfoenix.controls.JFXRadioButton?>
+<?import javafx.geometry.Insets?>
+
+<?import javafx.scene.layout.AnchorPane?>
+<?import com.jfoenix.controls.JFXTextField?>
+<?import com.jfoenix.controls.JFXListView?>
+<?import com.jfoenix.controls.JFXColorPicker?>
+<AnchorPane prefHeight="420.0" styleClass="custom-notepad-pane" prefWidth="550" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.NotepadFindController">
+   <JFXTabPane fx:id="tabPane" prefHeight="50" prefWidth="660" styleClass="custom-jfx-tab-pane">
+      <Tab text="%findWindow.searchWithSpace" />
+      <!-- Tab text="%findWindow.replaceWithSpace" / -->
+      <Tab text="%findWindow.advanceSearchWithSpace" />
+   </JFXTabPane>
+   <VBox AnchorPane.topAnchor="51" fx:id="normalViewVBox">
+      <HBox fx:id="normalViewTopViewsHBox">
+         <VBox.margin>
+            <Insets left="8" />
+         </VBox.margin>
+         <AnchorPane prefWidth="325">
+            <VBox.margin>
+               <Insets bottom="5" left="5" right="5" top="10" />
+            </VBox.margin>
+            <JFXComboBox fx:id="findComboBox" prefWidth="320" AnchorPane.topAnchor="3" styleClass="custom-jfx-combo-box"/>
+            <JFXTextField fx:id="findTextField" prefWidth="292" styleClass="custom-jfx-text-field"/>
+            <JFXComboBox fx:id="replaceComboBox" prefWidth="320" visible="false" AnchorPane.topAnchor="40" styleClass="custom-jfx-combo-box"/>
+            <JFXTextField fx:id="replaceTextField" prefWidth="292" visible="false" AnchorPane.topAnchor="40"/>
+         </AnchorPane>
+
+         <JFXButton buttonType="RAISED" fx:id="startBtn" text="%search" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised">
+            <HBox.margin>
+               <Insets left="20" top="-6"/>
+            </HBox.margin>
+         </JFXButton>
+         <JFXButton buttonType="RAISED" fx:id="startAllBtn" text="%allSearch" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised" visible="false">
+            <HBox.margin>
+               <Insets left="6" top="-6"/>
+            </HBox.margin>
+         </JFXButton>
+      </HBox>
+
+      <VBox>
+         <Label text="%findWindow.LabelBase" styleClass="normal-desc-label">
+            <VBox.margin>
+               <Insets top="12" />
+            </VBox.margin>
+         </Label>
+
+         <HBox>
+            <JFXCheckBox fx:id="caseMatchCheckBox" text="%findWindow.matchCase">
+               <HBox.margin>
+                  <Insets left="22"/>
+               </HBox.margin>
+            </JFXCheckBox>
+
+            <JFXCheckBox fx:id="allWordsCheckBox" text="%findWindow.wholeWord">
+               <HBox.margin>
+                  <Insets left="12"/>
+               </HBox.margin>
+            </JFXCheckBox>
+         </HBox>
+
+         <Label text="%findWindow.LabelSearchMode" styleClass="normal-desc-label">
+            <VBox.margin>
+               <Insets top="22" />
+            </VBox.margin>
+         </Label>
+
+         <HBox>
+            <JFXRadioButton fx:id="findMode0NormalBtn" text="%findWindow.normal" >
+               <HBox.margin>
+                  <Insets left="22"/>
+               </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="findMode1RegexBtn" text="%regexFull">
+               <HBox.margin>
+                  <Insets left="12"/>
+               </HBox.margin>
+            </JFXRadioButton>
+            <JFXButton fx:id="findMode1HelpBtn" text="?">
+               <HBox.margin>
+                  <Insets left="-6" top="-10"/>
+               </HBox.margin>
+            </JFXButton>
+            <JFXRadioButton fx:id="findMode2FakeRegexBtn" text="%fakeRegex" visible="false">
+               <HBox.margin>
+                  <Insets left="10"/>
+               </HBox.margin>
+            </JFXRadioButton>
+            <JFXButton fx:id="findMode2HelpBtn" text="?" visible="false">
+               <HBox.margin>
+                  <Insets left="-6" top="-10"/>
+               </HBox.margin>
+            </JFXButton>
+         </HBox>
+
+         <Label text="%findWindow.LabelColors" styleClass="normal-desc-label">
+            <VBox.margin>
+               <Insets top="16"/>
+            </VBox.margin>
+         </Label>
+         <HBox fx:id="colorParentHBox">
+            <JFXCheckBox fx:id="hightlightCheckBox" text="%highlight">
+               <HBox.margin>
+                  <Insets left="22" top="4"/>
+               </HBox.margin>
+            </JFXCheckBox>
+            <JFXButton fx:id="findColorsBtn" prefWidth="120" text="%colorTests">
+               <HBox.margin>
+                  <Insets left="20" top="-3"/>
+               </HBox.margin>
+            </JFXButton>
+         </HBox>
+      </VBox>
+   </VBox>
+
+   <VBox fx:id="advanceSearchBox" AnchorPane.topAnchor="51">
+      <HBox fx:id="advanceBtnsBox" styleClass="custom-main-bg">
+         <VBox.margin>
+            <Insets top="4" left="12"/>
+         </VBox.margin>
+         <JFXComboBox fx:id="advanceSearchesCfgsCobox" prefWidth="120" prefHeight="35">
+            <HBox.margin>
+               <Insets left="6" top="-2"/>
+            </HBox.margin>
+         </JFXComboBox>
+
+         <JFXButton buttonType="RAISED" fx:id="advanceSearchesCfgSaveBtn" text="%findWindow.saveAs" prefWidth="65" styleClass="custom-jfx-button-nobg">
+         </JFXButton>
+         <JFXButton buttonType="RAISED" fx:id="advanceSearchesCfgDelBtn" text="%findWindow.advDelete" prefWidth="65" styleClass="custom-jfx-button-nobg">
+            <HBox.margin>
+               <Insets left="-6"/>
+            </HBox.margin>
+         </JFXButton>
+
+         <JFXButton buttonType="RAISED" fx:id="advanceStartAllBtn" text="%allSearch" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised" visible="false">
+            <HBox.margin>
+               <Insets left="160" top="-6"/>
+            </HBox.margin>
+         </JFXButton>
+         <JFXButton buttonType="RAISED" fx:id="advanceStartBtn" text="%search" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised">
+            <HBox.margin>
+               <Insets left="12" top="-6"/>
+            </HBox.margin>
+         </JFXButton>
+      </HBox>
+
+      <AnchorPane styleClass="custom-main-bg">
+         <VBox.margin>
+            <Insets top="16" left="-3"/>
+         </VBox.margin>
+
+         <Label text="%advance.enable"   AnchorPane.leftAnchor="28" styleClass="small-desc-label"/>
+         <Label text="%advance.words" AnchorPane.leftAnchor="120" styleClass="small-desc-label"/>
+         <Label text="%advance.matchCaseSimple" AnchorPane.leftAnchor="240" styleClass="small-desc-label"/>
+         <Label text="%findWindow.wholeWordSimple"   AnchorPane.leftAnchor="285" styleClass="small-desc-label"/>
+         <Label text="%highlight"   AnchorPane.leftAnchor="320" styleClass="small-desc-label"/>
+         <Label text="%mode"   AnchorPane.leftAnchor="410" styleClass="small-desc-label"/>
+         <Label text="%color"   AnchorPane.leftAnchor="500" styleClass="small-desc-label"/>
+         <Label text="%copy"   AnchorPane.leftAnchor="559" styleClass="small-desc-label"/>
+         <Label text="%delete"   AnchorPane.leftAnchor="592" styleClass="small-desc-label"/>
+      </AnchorPane>
+
+      <HBox styleClass="custom-main-bg">
+         <VBox.margin>
+            <Insets left="4"/>
+         </VBox.margin>
+         <JFXListView fx:id="advanceSearchsListView" prefWidth="650" styleClass="custom-jfx-list-view" prefHeight="370">
+         </JFXListView>
+      </HBox>
+   </VBox>
+
+   <AnchorPane fx:id="theFloatWindowPane" styleClass="custom-floating-bg" visible="false" AnchorPane.topAnchor="30" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"/>
+
+   <VBox fx:id="floatColorsBox" AnchorPane.topAnchor="60" visible="false">
+      <HBox>
+         <Label text="%textcolor" styleClass="small-desc-label">
+            <HBox.margin>
+               <Insets left="100"/>
+            </HBox.margin>
+         </Label>
+         <JFXColorPicker fx:id="textColorPicker" layoutX="36.0" layoutY="88.0" minWidth="80">
+            <HBox.margin>
+               <Insets left="4" top="-5"/>
+            </HBox.margin>
+         </JFXColorPicker>
+
+         <Label text="%bgcolor" styleClass="small-desc-label">
+            <HBox.margin>
+               <Insets left="20"/>
+            </HBox.margin>
+         </Label>
+         <JFXColorPicker fx:id="bgColorPicker" layoutX="36.0" layoutY="88.0" minWidth="80">
+            <HBox.margin>
+               <Insets left="4" top="-5"/>
+            </HBox.margin>
+         </JFXColorPicker>
+         <JFXButton buttonType="RAISED" fx:id="colorPickerEnterBtn" text="%sure" prefWidth="65" prefHeight="30" styleClass="custom-jfx-button-red">
+            <HBox.margin>
+               <Insets left="20" top="-6"/>
+            </HBox.margin>
+         </JFXButton>
+      </HBox>
+   </VBox>
+
+</AnchorPane>

@@ -1,0 +1,36 @@
+
+TODO 后续再弄：
+9. # 直接从文件浏览器右键打开文本；需要想想办法才行。
+11. 小概率粘贴了全文以后，底部搜索出现问题。
+16. # 底部搜索历史，最好也能下拉选择
+5. ### tab title被遮盖的bug。
+1. ## 实现结果跟随着editor text变化；
+
+待提升：
+4. #一行，选择复制的时候带上了颜色。
+7. #上下多搜索几行。
+3. ###颜色值出现偏差 多匹配搜索的时候
+4. ##搜索历史堆栈数量
+1. # 切换底部搜索词，没有改变个数
+2. ###  显示图片，gif
+3. ### 二进制显示模式
+
+1. # 在里面无法输入中文。 #TODO fixed 验证。做了延迟处理
+ 8. 复制粘贴的时候报crash 可能需要考虑的是文本变化的时候，的搜索匹配全部暂停几秒钟再说。
+ 47 java.lang.IndexOutOfBoundsException: [0, 273223) is not a valid range within [0, 11578)
+ 48     at reactfx@2.0-M5/org.reactfx.util.Lists.checkRange(Lists.java:128)
+ 54     at atools@1.0/com.allan.tools.modulenotepad.bottom.byte.do(SourceFile:100)
+
+
+
+ [15:30:10.95] E: global exception:
+ java.util.NoSuchElementException: No value present
+ 	at java.base/java.util.Optional.get(Unknown Source)
+ 	at org.fxmisc.richtext@0.10.7/org.fxmisc.richtext.GenericStyledArea$2.getTextLocation(GenericStyledArea.java:843)
+ 	at javafx.graphics/javafx.scene.Scene$InputMethodRequestsDelegate.getTextLocation(Scene.java:4152)
+ 	at javafx.graphics/com.sun.javafx.tk.quantum.GlassViewEventHandler.getInputMethodCandidatePos(GlassViewEventHandler.java:671)
+ 	at javafx.graphics/com.sun.glass.ui.View.getInputMethodCandidatePos(View.java:669)
+ 	at javafx.graphics/com.sun.glass.ui.View.notifyInputMethodCandidatePosRequest(View.java:983)
+
+
+

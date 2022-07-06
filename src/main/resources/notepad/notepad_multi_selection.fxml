@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXTextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Label?>
+<VBox prefHeight="285.0" styleClass="custom-notepad-pane" prefWidth="420.0"
+      xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.allan.atools.controller.NotepadMultiSelectionController"
+      fx:id="outVbox">
+   <Label text="%Mode1DeleteDirectly" styleClass="normal-desc-label">
+      <VBox.margin>
+         <Insets top="12" left="3"/>
+      </VBox.margin>
+   </Label>
+   <JFXButton buttonType="RAISED" fx:id="deleteBtn" text="%delete" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised">
+      <VBox.margin>
+         <Insets left="30" top="12"/>
+      </VBox.margin>
+   </JFXButton>
+
+   <Separator prefHeight="2">
+      <VBox.margin>
+         <Insets top="35"/>
+      </VBox.margin>
+   </Separator>
+
+   <Label text="%Mode2Replace" styleClass="normal-desc-label">
+      <VBox.margin>
+         <Insets top="22" left="3"/>
+      </VBox.margin>
+   </Label>
+
+   <HBox>
+      <VBox.margin>
+         <Insets left="6" top="25"/>
+      </VBox.margin>
+
+      <JFXTextField fx:id="textField" prefWidth="250" styleClass="custom-jfx-text-field" />
+      <JFXButton buttonType="RAISED" fx:id="replaceBtn" text="%replace" prefWidth="80" prefHeight="30" styleClass="custom-jfx-button-raised">
+         <HBox.margin>
+            <Insets left="20" top="-5"/>
+         </HBox.margin>
+      </JFXButton>
+   </HBox>
+</VBox>

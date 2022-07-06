@@ -1,0 +1,56 @@
+.root {
+    -au-list-view-bg-color: #2f2f33;
+    -au-split-pane-divider-color: #404247;
+
+    /*allan editor光标颜色*/
+    -au-scroll-bg-color: #313337;
+    -au-scroll-thumb-color: #48494c;
+    -au-scroll-thumb-press-color: #666667;
+
+    -au-editor-caret-color: #dddddd;
+    
+    -au-input-text-color: #efefef;
+    
+    -au-tab-header-background-color: #404244;
+    -au-tab-select-region-color: #4f4e53;
+    -au-tab-select-region-text-color: #f2f3f2;
+
+    /*allan 整体来讲默认的文字颜色*/
+    -au-default-text-color: #eeeeee;
+    /*allan 整体来讲默认的描述性文字颜色*/
+    -au-default-desc-color: #999999;
+
+    -au-main-bg-color: #313337;
+    -au-main-bg-color2: #3a3d3f;
+    -au-main-floating-color: #050505ee;
+
+    -au-main-color: #4285F4;
+    -au-rippler-color: #4285F4;
+
+    -au-red-color: #FE774D;
+    -au-red-light-color: #f6d8d8;
+
+    -au-bg-over-text-color: red;
+
+    /*allan code area 整条光标选中后一行颜色*/
+    -au-editor-caret-line-color: #23252b;
+     /*allan code area 选中某个字段的背景颜色 */
+    -au-editor-selection-words-color: rgb(50,89,61);
+    /*allan code area的左边行号背景*/
+    -au-editor-lineno-color: #404041;
+    /*allan code area的背景色*/
+    -au-editor-bg-color: #292a2f;
+     /*allan code area的文字颜色*/
+    -au-editor-text-color: #f7f6f7;
+
+    /*allan area的界面搜索中的显示文字背景的颜色；*/
+    -au-editor-searched-bg-color: #515b70;
+    -au-editor-search-temp-bg-color: #d6eaff;
+    
+    -au-small-button-bg-color: #444443;
+
+    -au-file-mask-code-color: #007d65;
+    -au-file-mask-media-color: #9b9192;
+    -au-file-mask-image-color: #12a182;
+    -au-file-mask-other-color: #444444;
+}

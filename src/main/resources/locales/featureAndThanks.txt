@@ -1,0 +1,13 @@
+#zh_CN
+欢迎大家使用 Atools【Notepad--】！
+十分感谢openjfx，jfoenix(https://github.com/sshahine/JFoenix)，richtextfx(https://github.com/FXMisc/RichTextFX)
+等众多优秀开源框架。
+本软件采用java17+maven+proguard+上述优秀库等其他库，实现完成。
+本软件是一款javafx实现的material界面的log分析软件。
+通过复杂的高级搜索和底部搜索，方便分析日志。
+特性：
+支持双击
+
+#zh_TW
+
+#en

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.AnchorPane?>
+
+<?import javafx.scene.control.Label?>
+<AnchorPane prefHeight="630.0" prefWidth="870.0" xmlns="http://javafx.com/javafx/15.0.1"
+            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.WebController">
+   <Label fx:id="myName" styleClass="title-label-big" text="爬虫"/>
+   <Label fx:id="myDesc" styleClass="normal-label" layoutY="25"/>
+<!--   <WebView fx:id="myWebView" prefWidth="860" prefHeight="555" layoutX="5" layoutY="45"/>-->
+</AnchorPane>

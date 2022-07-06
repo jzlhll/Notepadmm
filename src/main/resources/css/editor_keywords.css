@@ -1,0 +1,52 @@
+.keyword { /*关键字*/
+    -fx-fill: purple;
+    -fx-font-weight: bold;
+}
+.semicolon { /*分号:*/
+    -fx-font-weight: bold;
+}
+.paren { /* 括号()*/
+    -fx-fill: firebrick;
+    -fx-font-weight: bold;
+}
+.bracket { /*大括号 {}*/
+    -fx-fill: darkgreen;
+    -fx-font-weight: bold;
+}
+.brace { /*大括号 {}*/
+    -fx-fill: teal;
+    -fx-font-weight: bold;
+}
+.string { /*有字的*/
+    -fx-fill: blue;
+}
+
+.comment { /*注释*/
+	-fx-fill: gray;
+}
+
+.tagmark {
+    -fx-fill: gray;
+}
+.anytag {
+    -fx-fill: crimson;
+}
+
+.attribute {
+    -fx-fill: darkviolet;
+}
+.avalue {
+    -fx-fill: black;
+}
+
+.temporary {
+	-rtfx-background-color: -au-editor-search-temp-bg-color;
+}
+
+.search {
+	-rtfx-background-color: -au-editor-searched-bg-color;
+}
+
+.paragraph-box:has-caret {
+    -fx-background-color: #f2f9fc;
+}

@@ -1,0 +1,140 @@
+/*allan find window的背景色*/
+.custom-main-bg {
+   -fx-background-color : -au-main-bg-color;
+}
+
+.custom-main-bg2 {
+   -fx-background-color : -au-main-bg-color2;
+}
+
+.custom-floating-bg {
+   -fx-background-color : -au-main-floating-color;
+}
+
+.custom-notepad-pane {
+   -fx-background-color: -au-main-bg-color;
+}
+
+/* tab pane custom */
+.custom-jfx-tab-pane .headers-region .tab .tab-container .tab-label { /*allan 文字*/
+    -fx-text-fill: -au-default-desc-color;
+    -fx-padding: 2 3 2 3;
+    -fx-font-size: 18;
+}
+
+ .custom-jfx-combo-box > .input-line { /*allan find windows的combobox样式*/
+     -fx-background-color: transparent;
+ }
+
+ .custom-jfx-combo-box > .input-focused-line { /*allan find windows的combobox样式*/
+     -fx-background-color: transparent;
+ }
+
+/* label  */
+.title-label-big {
+    -fx-font-size: 18;
+    -fx-padding: 14.0px;
+    -fx-text-fill: -au-default-text-color;
+}
+
+.title-label-big-bold {
+    -fx-font-size: 18;
+    -fx-padding: 14.0px;
+    -fx-text-fill: -au-default-text-color;
+    -fx-font-weight: bold;
+}
+
+.normal-label {
+    -fx-font-size: 15;
+    -fx-padding: 3.0px;
+    -fx-text-fill: -au-default-text-color;
+}
+
+.normal-desc-label {
+    -fx-font-size: 15;
+    -fx-padding: 3.0px;
+    -fx-text-fill: -au-default-desc-color;
+}
+
+/*默认的editor 文字样式*/
+.editor-default-label {
+    -fx-fill: -au-editor-text-color;
+}
+
+/*默认的editor 文字样式
+    -fx-fill: -au-editor-text-color;
+    -fx-padding: 3.0px;*/
+.editor-selected-label {
+    -rtfx-background-color: -au-editor-searched-bg-color; /*allan todo 修改定制颜色即可*/
+}
+
+.editor-selected-temp-label {
+    -rtfx-background-color: -au-editor-search-temp-bg-color; /*allan todo 修改定制颜色即可*/
+}
+
+.small-desc-label {
+    -fx-font-size: 13;
+    -fx-padding: 3.0px;
+    -fx-text-fill: -au-default-desc-color;
+}
+
+.small-normal-label {
+    -fx-font-size: 13;
+    -fx-padding: 3.0px;
+    -fx-text-fill: -au-editor-text-color;
+}
+
+.small-colored-label {
+    -fx-font-size: 13;
+    -fx-padding: 3.0px;
+    -fx-text-fill: -au-main-color;
+}
+
+.small-red-label {
+    -fx-font-size: 13;
+    -fx-padding: 3.0px;
+    -fx-text-fill: red;
+}
+
+/*定制 listview */
+.custom-jfx-list-view .jfx-list-cell:odd:selected > .jfx-rippler > StackPane, .custom-jfx-list-view .jfx-list-cell:even:selected > .jfx-rippler > StackPane {
+    -fx-background-color: -au-list-view-bg-color;
+}
+
+.custom-jfx-list-view {
+    -fx-background-insets: 0.0;
+    -jfx-cell-horizontal-margin: 0.0;
+    -jfx-cell-vertical-margin: 5.0;
+    -jfx-expanded: false;
+     /* important to hide the list change of height */
+    -fx-background-color: transparent;
+}
+
+.custom-jfx-list-view .jfx-rippler {
+    -jfx-rippler-fill: GRAY;
+}
+
+.custom-jfx-list-view-icon,
+.jfx-list-cell:selected .label .custom-jfx-list-view-icon {
+    /*-fx-text-fill: #5264AE;*/
+    -fx-fill: #5264AE;
+    -fx-padding: 0.0 10.0 0.0 5.0;
+    -fx-cursor: hand;
+}
+
+.custom-jfx-list-view-icon-container {
+    -fx-pref-width: 40px;
+}
+
+.custom-jfx-list-view .sublist-item {
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 1 0 1 0;
+}
+
+.custom-jfx-list-view .jfx-list-cell .sublist-header > .drop-icon {
+    -fx-background-color: GRAY;
+}
+
+.custom-jfx-list-view .jfx-list-cell:filled:hover .sublist-header > .drop-icon {
+    -fx-background-color: BLACK;
+}

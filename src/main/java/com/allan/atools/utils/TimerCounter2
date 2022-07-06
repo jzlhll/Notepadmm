@@ -1,0 +1,67 @@
+package com.allan.utils;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * author     ：zhonglun.jzl
+ * date       ：Created in 2021/12/31 1:54 下午
+ * description：test
+ */
+public final class TimerCounter2 {
+    private static final String TAG = "TimerCounter";
+
+    private TimerCounter2() {}
+
+    public static void log(String s) {
+        Log.d(TAG, s);
+    }
+
+    private static class LongWrap {
+        long cur;
+        long start;
+    }
+
+    private static final class MMapHolder {
+        private static final Map<String, LongWrap> mMap = new HashMap<>(2);
+    }
+
+    private static Map<String, LongWrap> getMap() {
+        return MMapHolder.mMap;
+    }
+
+    public static void start(String tag) {
+        Map<String, LongWrap> map = getMap();
+        LongWrap wrap = new LongWrap();
+        wrap.start = wrap.cur = System.currentTimeMillis();
+        map.put(tag, wrap);
+        log("<" + tag + ">"  + ": 开始统计。。。");
+    }
+
+    public static void center(String tag, String exLog) {
+        Map<String, LongWrap> map = getMap();
+        LongWrap wrap = map.get(tag);
+        if (wrap != null) {
+            long cur = System.currentTimeMillis();
+            String r = "<" + tag + ">" + ": 目前总耗时 " + (cur - wrap.start) + "ms, 一段耗时 " + (cur - wrap.cur) + "ms";
+            wrap.cur = cur;
+            log(exLog + ": " + r);
+            return;
+        }
+        log("<" + tag + ">" + ":" + exLog + " 没有开始");
+    }
+
+    public static void end(String tag, String exLog) {
+        Map<String, LongWrap> map = getMap();
+        LongWrap wrap = map.remove(tag);
+        if (wrap != null) {
+            long cur = System.currentTimeMillis();
+            String r = "<" + tag + ">" + ": 总耗时 " + (cur - wrap.start) + "ms, 一段耗时 " + (cur - wrap.cur) + "ms";
+            wrap.cur = cur;
+            log(exLog + ": " + r);
+            return;
+        }
+
+        log("<" + tag + ">" + ":" + exLog + " 没有开始不能结束");
+    }
+}

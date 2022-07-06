@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.paint.Color?>
+<AnchorPane id="Content" minHeight="-1.0" minWidth="-1.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1">
+    <children>
+        <Label alignment="CENTER" layoutX="14.0" layoutY="14.0" style="&#10;" text="%loading"
+               textAlignment="CENTER" wrapText="false">
+            <font>
+                <Font size="18.0"/>
+            </font>
+            <textFill>
+                <Color red="0.624" green="0.624" blue="0.624" />
+            </textFill>
+        </Label>
+    </children>
+</AnchorPane>

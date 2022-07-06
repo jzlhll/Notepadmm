@@ -1,0 +1,11 @@
+pack_sh
+proguardMap.zip
+out.map
+proguard_use.pro
+.DS_Store
+buildRoot
+target/
+*.iml
+.idea/
+miniJreDeps.txt
+codenet.git.zip

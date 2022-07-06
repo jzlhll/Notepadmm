@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.AnchorPane?>
+<AnchorPane xmlns="http://javafx.com/javafx"
+            fx:id="rootPane"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.allan.atools.controller.ResultNewController"
+            prefHeight="650" prefWidth="500">
+</AnchorPane>

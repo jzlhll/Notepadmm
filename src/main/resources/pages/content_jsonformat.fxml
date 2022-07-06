@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXTextArea?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<?import com.jfoenix.controls.JFXTextField?>
+<AnchorPane prefHeight="630.0" prefWidth="870.0" styleClass="custom-main-bg"
+            xmlns="http://javafx.com/javafx/15.0.1"
+            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.JsonFormatController">
+   <Label text="websocket日志format" styleClass="title-label-big"/>
+   <Label styleClass="normal-label" fx:id="statusLabel" layoutX="200" layoutY="14"/>
+
+   <JFXButton fx:id="webSocketReceiverTextBtn" buttonType="RAISED" layoutX="637.0" layoutY="90.0" prefWidth="150" style="-fx-text-fill:WHITE;-fx-background-color:#5264AE;-fx-font-size:14px;" text="Websocket format" />
+   <JFXButton fx:id="aioDispatcherTextBtn" buttonType="RAISED" layoutX="637.0" layoutY="140.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="Aio format" />
+   <JFXButton fx:id="ignoreEnterTextBtn" buttonType="RAISED" layoutX="637.0" layoutY="190.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="去除回车直接format" />
+   <JFXButton fx:id="oldHopeTextBtn" buttonType="RAISED" layoutX="637.0" layoutY="240.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="老的Websocket fmt" />
+   <JFXButton fx:id="removePercentBtn" buttonType="RAISED" layoutX="637.0" layoutY="290.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="URL解码" />
+   <JFXButton fx:id="addPercentBtn" buttonType="RAISED" layoutX="637.0" layoutY="340.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="URL加码" />
+   <JFXButton fx:id="douhaoBtn" buttonType="RAISED" layoutX="637.0" layoutY="390.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="逗号拼接" />
+   <JFXButton fx:id="removeFanxieBtn" buttonType="RAISED" layoutX="637.0" layoutY="440.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="移除反斜杠" />
+
+   <JFXTextField fx:id="webSocketReceiverText" layoutX="10.0" layoutY="50.0" maxHeight="150" prefHeight="130" prefWidth="620.0" />
+   <JFXTextArea fx:id="webSocketReceiverTextConverted" layoutX="10.0" layoutY="200.0" maxHeight="420" prefHeight="410" prefWidth="620.0" />
+</AnchorPane>

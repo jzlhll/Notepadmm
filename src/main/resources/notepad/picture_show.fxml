@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.control.Label?>
+<?import com.jfoenix.controls.JFXRippler?>
+<?import com.allan.uilibs.controls.Drag2ScrollPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.Insets?>
+<?import com.allan.uilibs.controls.RotatablePaneLayouter?>
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            styleClass="custom-main-bg"
+            fx:id="outAnchorPane"
+            fx:controller="com.allan.atools.controller.PictureController"
+            prefHeight="650" prefWidth="500">
+    <HBox layoutY="2" layoutX="10" fx:id="floatingControlsLayout" >
+        <JFXRippler styleClass="jfx-rippler" layoutY="3">
+            <HBox.margin>
+                <Insets left="10"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="zoomResetBtn" textAlignment="CENTER"/>
+        </JFXRippler>
+
+        <JFXRippler styleClass="jfx-rippler" layoutY="3">
+            <HBox.margin>
+                <Insets left="10"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="zoomBigBtn" textAlignment="CENTER"/>
+        </JFXRippler>
+
+        <JFXRippler styleClass="jfx-rippler" layoutY="3">
+            <HBox.margin>
+                <Insets left="10"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="zoomSmallBtn" textAlignment="CENTER"/>
+        </JFXRippler>
+
+        <JFXRippler styleClass="jfx-rippler" layoutY="3">
+            <HBox.margin>
+                <Insets left="10"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="rotateBtn" textAlignment="CENTER"/>
+        </JFXRippler>
+
+        <JFXRippler styleClass="jfx-rippler" layoutY="3">
+            <HBox.margin>
+                <Insets left="10"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="pickupColorBtn" textAlignment="CENTER"/>
+        </JFXRippler>
+
+        <Label fx:id="currentSizeLabel" textAlignment="CENTER">
+            <HBox.margin>
+                <Insets left="30" top="6"/>
+            </HBox.margin>
+        </Label>
+
+        <Label fx:id="fixWholeWidthLabel" prefHeight="25" prefWidth="80">
+            <HBox.margin>
+                <Insets left="30" top="2" />
+            </HBox.margin>
+        </Label>
+
+        <Label fx:id="colorInfoLabel" textAlignment="CENTER">
+            <HBox.margin>
+                <Insets left="10" top="6" />
+            </HBox.margin>
+        </Label>
+    </HBox>
+
+    <Drag2ScrollPane layoutY="30" fx:id="draggerScrollPane">
+        <RotatablePaneLayouter fx:id="rotatablePane" />
+    </Drag2ScrollPane>
+
+</AnchorPane>
