@@ -44,7 +44,7 @@
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" I "/>
+            <Label maxHeight="1.8" fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
