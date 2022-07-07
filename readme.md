@@ -16,7 +16,7 @@
 理论支持linux系统，目前需要征集Linux开发者，帮忙编译。
 
 ### :revolving_hearts:新一代的大文件着色日志查看分析文本软件。
-![](icons/icon.png)
+<img src="icons/icon.png" style="zoom:22%;" />
 目前的功能状态属于可以使用的状态。欢迎下载体验。
 
 ### 最推荐功能
@@ -48,7 +48,7 @@
 * 代码高亮(因主要目的是文本日志分析功能，支持尚未完善)
 
   ![](previews/colors.png)
- 
+
 * 已知问题：
 * 1. 文件关联不是特别好；
 * 2. windows打包工具有一些问题，暂不发布，并且windows推荐使用notepad++.
