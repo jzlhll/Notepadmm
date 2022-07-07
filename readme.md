@@ -3,15 +3,11 @@
 
 [![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small) ![](https://img.shields.io/badge/platform-windows64%7Cmac%7CmacM1-orange) ![](https://img.shields.io/badge/version-v1.4.0-green)
 
-> 因在mac上缺乏notepad++的搜索多行功能的文本软件，于是一怒之下，使用javafx18 + JDK17 + richtextfx + jfoenix + kotlin等开源软件研发而成。取名为notepad--。能够支持大文件的打开。
+> 因在mac上缺乏notepad++的搜索多行功能的文本软件，一怒之下，使用javafx18 + JDK17 + richtextfx + jfoenix + kotlin等开源软件研发而成。取名为notepad--。支持大文本文件的打开。
 
 安装包采用最新的jpackage打包。mac软件大小仅为38MB。理论支持所有常见系统。
 
-:smile: 支持windows；
-
-:smile: 支持mac；
-
-:smile:支持Mac M1；
+:smile: 支持windows；:smile: 支持mac；:smile:支持Mac M1；
 
 理论支持linux系统，目前需要征集Linux开发者，帮忙编译。
 
@@ -53,4 +49,4 @@
 
 ### 已知问题：
 1. 文件关联不是特别好；
-* 2. windows打包工具有一些问题，暂不发布，并且windows推荐使用notepad++.
+2. windows打包工具有一些问题，暂不发布，并且windows推荐使用notepad++.
