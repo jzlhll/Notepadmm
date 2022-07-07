@@ -47,3 +47,4 @@ The current function status is available. Welcome to experience.
 * Code highlighting (not yet fully supported because the main purpose is text log analysis)
 
   ![](previews/colors.png)
+* Support picture preview.

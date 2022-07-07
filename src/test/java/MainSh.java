@@ -36,8 +36,8 @@ final class MainSh {
         static final String ICON_PATH = IO.IS_WIN ? "" : (IO.IS_OSX ? "icons/mac.icns" : ""); //图标位置
 
         //JAVA_HOME
-        final static boolean USE_MAC_ARM = true;
-        static final String JAVA_HOME_MAC = USE_MAC_ARM ? "/Users/allan/Documents/jdk-17.0.3.1.jdk.arm/Contents/Home" : "/Users/allan/Documents/jdk-17.0.3.1.jdk.x64/Contents/Home";
+        final static boolean USE_MAC_ARM = false;
+        static final String JAVA_HOME_MAC = USE_MAC_ARM ? "/Users/allan/Documents/jdk-17.0.3.1.jdk.arm/Contents/Home" : "/Users/allan/Documents/jdk-17.0.3.1.jdk/Contents/Home";
         static final String JMODE_PATH_MAC = JAVA_HOME_MAC + "/jmods";
         static final String JAVA_HOME = IO.IS_WIN ? "D:\\profiles\\jdk17.0.2" : JAVA_HOME_MAC;
         static final String JMODE_PATH = IO.IS_WIN ? "D:\\profiles\\jdk17.0.2\\jmods" : JMODE_PATH_MAC;
@@ -50,7 +50,7 @@ final class MainSh {
         static final String jlink = IO.combinePath(JAVA_HOME, "bin", "jlink");
         static final String jdeps = IO.combinePath(JAVA_HOME, "bin", "jdeps");
 
-        static final String proguardBin = IO.IS_WIN ? "D:\\profiles\\proguard-7.2.1\\bin\\proguard.bat" : "/Users/allan/Documents/Tools/proguard-7.2.1/bin/proguard.sh";
+        static final String proguardBin = IO.IS_WIN ? "D:\\profiles\\proguard-7.2.1\\bin\\proguard.bat" : "/Users/allan/Documents/Tools/proguard-7.2.2/bin/proguard.sh";
 
         static final String[] subTargetClasses = new String[] {
                 IO.combinePath("BaseParty", "target", "classes"),
@@ -59,7 +59,7 @@ final class MainSh {
         };
 
         //如果本地没有.idea/library目录。则需要在类似如下目录的地方找到这个文件。 todo modify by you
-        static final String IDEA_CACHE_libraries_xml_PATH = "/Users/allan/Library/Caches/JetBrains/IdeaIC2022.1/external_build_system/notepadmm.e9ff2155/project/libraries.xml";
+        static final String IDEA_CACHE_libraries_xml_PATH = "/Users/allan/Library/Caches/JetBrains/IdeaIC2022.1/external_build_system/notepadmm.1f611b3c/project/libraries.xml";
     }
 
     static void func1() {
