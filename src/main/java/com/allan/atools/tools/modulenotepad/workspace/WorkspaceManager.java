@@ -369,9 +369,19 @@ public final class WorkspaceManager implements IWorkspace {
     public void selectDirAsWorkspaceDialog() {
         DirectoryChooser directoryChooser = new DirectoryChooser();
         var initDir = UIContext.sharedPref.getString(KEY_WORKSPACE_FILE, "");
+        boolean isOk = false;
         if (!TextUtils.isEmpty(initDir)) {
-            directoryChooser.setInitialDirectory(new File(initDir));
+            var dir = new File(initDir);
+            if (dir.exists()) {
+                directoryChooser.setInitialDirectory(dir);
+                isOk = true;
+            }
         }
+
+        if (!isOk) {
+            directoryChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+        }
+
         File file = directoryChooser.showDialog(UIContext.context().getStage());
         if (file != null) {
             if (file.exists() && file.isDirectory()) {
