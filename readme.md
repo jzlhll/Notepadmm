@@ -1,7 +1,7 @@
 ## Notepadmm  
 [English ReadME](https://github.com/jzlhll/Notepadmm/blob/main/readme_en.md)
 
-[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small)
+[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small) ![](https://img.shields.io/badge/platform-windows64%7Cmac%7CmacM1-orange)
 
 > 因在mac上缺乏notepad++的搜索多行功能的文本软件，于是一怒之下，使用javafx18 + JDK17 + richtextfx + jfoenix + kotlin等开源软件研发而成。取名为notepad--。能够支持大文件的打开。
 
