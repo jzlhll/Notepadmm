@@ -1,6 +1,6 @@
 ## Notepadmm
 新一代的日志分析工具。
-一款使用javafx18+JDK17+richfx研发的日志分析工具。取名为notepad--。
+一款使用javafx18+JDK17+richfx研发的日志分析工具。取名为notepad--。能够支持大文件的打开（目前暂定150MB）。
 简单并不简约。如图：
 
 ### 高级功能
