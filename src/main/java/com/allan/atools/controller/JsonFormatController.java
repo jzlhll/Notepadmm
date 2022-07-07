@@ -6,7 +6,7 @@ import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXTextArea;
 import com.jfoenix.controls.JFXTextField;
 import com.allan.atools.tools.modulejson.IJsonFormat;
-import com.allan.atools.tools.modulejson.JsonFormatWebSocketLog;
+import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.utils.Log;
 
 import java.net.URLDecoder;
@@ -21,12 +21,9 @@ import javafx.scene.control.Label;
 import javafx.stage.Stage;
 @XmlPaths(paths = {"pages", "content_jsonformat.fxml"})
 public final class JsonFormatController extends AbstractController {
-    public JFXTextField webSocketReceiverText;
-    public JFXButton webSocketReceiverTextBtn;
-    public JFXTextArea webSocketReceiverTextConverted;
-    public JFXButton aioDispatcherTextBtn;
+    public JFXTextField outReceiverText;
+    public JFXTextArea outReceiverTextCvted;
     public JFXButton ignoreEnterTextBtn;
-    public JFXButton oldHopeTextBtn;
     public JFXButton removePercentBtn;
     public JFXButton addPercentBtn;
     public Label statusLabel;
@@ -46,10 +43,10 @@ public final class JsonFormatController extends AbstractController {
         this.statusLabel.textProperty().bind(this.statusProperty);
 
         if (this.mFormat == null) {
-            this.mFormat = new JsonFormatWebSocketLog();
+            this.mFormat = new JsonFormatLog();
         }
 
-        this.webSocketReceiverText.textProperty().addListener(observable -> {
+        this.outReceiverText.textProperty().addListener(observable -> {
             if (observable instanceof StringProperty) {
                 StringProperty s = (StringProperty) observable;
                 String last = this.mLastInput;
@@ -66,80 +63,32 @@ public final class JsonFormatController extends AbstractController {
             }
         });
 
-        this.webSocketReceiverTextBtn.setOnMouseClicked(event -> {
-            try {
-                String newjson = this.mFormat.formatWebSocketAppendEnd(this.webSocketReceiverText.getText());
-                this.webSocketReceiverTextConverted.setText(newjson);
-                String last = this.mLastParsed;
-                this.mLastParsed = newjson;
-                synchronized (this.statusProperty) {
-                    if (newjson.equals(last)) {
-                        this.mParsedStatus = ", 解析框：似乎没有变化┭┮﹏┭┮";
-                    } else {
-                        this.mParsedStatus = ", 解析框：恭喜解析成功！";
-                    }
-                    this.statusProperty.set(this.mInputStatus + this.mInputStatus);
-                }
-            } catch (Exception e) {
-                this.mParsedStatus = ", 解析框：提供的数据有误，解析异常！";
 
-                synchronized (this.statusProperty) {
-                    this.statusProperty.set(this.mInputStatus + this.mInputStatus);
-                }
-            }
-        });
-        this.aioDispatcherTextBtn.setOnMouseClicked(event -> {
-            String newjson = this.mFormat.formatAio(this.webSocketReceiverText.getText());
-
-            this.webSocketReceiverTextConverted.setText(newjson);
-            this.mLastParsed = newjson;
-        });
+   
         this.ignoreEnterTextBtn.setOnMouseClicked(event -> {
-            String newjson = this.mFormat.formatWithoutEnter(this.webSocketReceiverText.getText());
+            String newjson = this.mFormat.formatWithoutEnter(this.outReceiverText.getText());
 
-            this.webSocketReceiverTextConverted.setText(newjson);
+            this.outReceiverTextCvted.setText(newjson);
             this.mLastParsed = newjson;
         });
 
         this.removeFanxieBtn.setOnMouseClicked(event -> {
-            var origin = this.webSocketReceiverText.getText();
+            var origin = this.outReceiverText.getText();
             origin = origin.replace("\\", "");
-            this.webSocketReceiverTextConverted.setText(origin);
+            this.outReceiverTextCvted.setText(origin);
         });
 
-        this.oldHopeTextBtn.setOnMouseClicked(event -> {
-            try {
-                String newjson = this.mFormat.formatWebSocket(this.webSocketReceiverText.getText());
-                this.webSocketReceiverTextConverted.setText(newjson);
-                String last = this.mLastParsed;
-                this.mLastParsed = newjson;
-                synchronized (this.statusProperty) {
-                    if (newjson.equals(last)) {
-                        this.mParsedStatus = ", 解析框：似乎没有变化┭┮﹏┭┮";
-                    } else {
-                        this.mParsedStatus = ", 解析框：恭喜解析成功！";
-                    }
-                    this.statusProperty.set(this.mInputStatus + this.mInputStatus);
-                }
-            } catch (Exception e) {
-                this.mParsedStatus = ", 解析框：提供的数据有误，解析异常！";
-
-                synchronized (this.statusProperty) {
-                    this.statusProperty.set(this.mInputStatus + this.mInputStatus);
-                }
-            }
-        });
         this.removePercentBtn.setOnMouseClicked(e -> {
-            String s = this.webSocketReceiverText.getText();
-            this.webSocketReceiverTextConverted.setText(URLDecoder.decode(s));
+            String s = this.outReceiverText.getText();
+            this.outReceiverTextCvted.setText(URLDecoder.decode(s));
         });
         this.addPercentBtn.setOnMouseClicked(e -> {
-            String s = this.webSocketReceiverTextConverted.getText();
-            this.webSocketReceiverText.setText(URLEncoder.encode(s));
+            String s = this.outReceiverTextCvted.getText();
+            this.outReceiverText.setText(URLEncoder.encode(s));
         });
 
         this.douhaoBtn.setOnMouseClicked(e-> {
-            String s = this.webSocketReceiverText.getText();
+            String s = this.outReceiverText.getText();
             String[] lines = s.split("\n");
             var singles = new ArrayList<String>();
             for(var line : lines) {
@@ -152,7 +101,7 @@ public final class JsonFormatController extends AbstractController {
             }
             var l = singles.stream().distinct().collect(Collectors.toList());
             String r = String.join(",", l);
-            this.webSocketReceiverTextConverted.setText(r);
+            this.outReceiverTextCvted.setText(r);
         });
 
     }

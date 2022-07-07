@@ -5,22 +5,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
-public class JsonFormatWebSocketLog implements IJsonFormat {
+public class JsonFormatLog implements IJsonFormat {
     private static Gson beautifulGson;
 
-    public String formatWebSocket(String log) {
-        return formatInner(log, "receive text--", true);
-    }
-
     private static final String SPACE = "   ";
-
-    public String formatWebSocketAppendEnd(String log) {
-        return formatInner(log, "receive text--", false);
-    }
-
-    public String formatAio(String log) {
-        return formatInner(log, "UNetDelegate.cpp:onPartEnd", false);
-    }
 
     public String formatWithoutEnter(String log) {
         log = log.replace("\n", "");
