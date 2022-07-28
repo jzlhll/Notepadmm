@@ -8,60 +8,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 final class MainSh {
-    static class Cfg {
-        //控制执行步骤。step1_compile~4的动作与第二排5-7的动作必须分开来看。
-        // 直到你统计后将jre的requires列在这里以后才能继续后面5-7步骤。
-        //前期： 调试脚本，尝试的过程，先逐步调试1~4；
-        //后期： 在没有新的引入库，没有新的requires module，只有代码逻辑改动的时候： 第一排全部false，第二排的5~7为true即可。
-        static boolean step1_compile = false, step2_copyLibs = false, step3_copyRes = false;
-        static boolean step4_deps = false, step5_miniJre = false;
-        static boolean step6_jar = true, step6_proguard = true, step7_jpackage = true;
-
-        static final String BUILD_ROOT = "buildRoot";
-        //如下是BUILD_ROOT目录下一层
-        static final String THIRD_LIBS_DIR = "thirdLibs";
-        static final String MY_LIBS_DIR = "myLibs";
-        static final String MINIJRE_DIR = "minijre";
-
-        //其他主参数
-        static final String MAIN_CLASS = "com.allan.atools.toolsstartup.Startup";
-        static final String MAIN_MODULE_NAME = "atools"; //就是你主工程，src里面的module-info.java的模块名
-        static final String APP_NAME = "ATools"; //程序名
-        static final String VERSION = "1.4.0"; //最多三段，四段报错。还不能以0开头。
-
-        static String[] ALL_RES_PATHS = new String[] {
-                IO.combinePath("src", "main", "resources") //我的项目只有主工程有资源文件，故而资源目录放一个。你有多个就放多个
-        };
-
-        static final String ICON_PATH = IO.IS_WIN ? "" : (IO.IS_OSX ? "icons/mac.icns" : ""); //图标位置
-
-        //JAVA_HOME
-        final static boolean USE_MAC_ARM = false;
-        static final String JAVA_HOME_MAC = USE_MAC_ARM ? "/Users/allan/Documents/jdk-17.0.3.1.jdk.arm/Contents/Home" : "/Users/allan/Documents/jdk-17.0.3.1.jdk/Contents/Home";
-        static final String JMODE_PATH_MAC = JAVA_HOME_MAC + "/jmods";
-        static final String JAVA_HOME = IO.IS_WIN ? "D:\\profiles\\jdk17.0.2" : JAVA_HOME_MAC;
-        static final String JMODE_PATH = IO.IS_WIN ? "D:\\profiles\\jdk17.0.2\\jmods" : JMODE_PATH_MAC;
-        //maven的本地仓库 末尾的分隔符不得少
-        static final String M2_PATH = IO.IS_WIN ?"C:\\Users\\Administrator\\.m2\\repository\\" : "/Users/allan/.m2/repository/";
-
-        static final String jmod = IO.combinePath(JAVA_HOME, "bin", "jmod");
-        static final String jpackage = IO.combinePath(JAVA_HOME, "bin", "jpackage");
-        static final String jar = IO.combinePath(JAVA_HOME, "bin", "jar");
-        static final String jlink = IO.combinePath(JAVA_HOME, "bin", "jlink");
-        static final String jdeps = IO.combinePath(JAVA_HOME, "bin", "jdeps");
-
-        static final String proguardBin = IO.IS_WIN ? "D:\\profiles\\proguard-7.2.1\\bin\\proguard.bat" : "/Users/allan/Documents/Tools/proguard-7.2.2/bin/proguard.sh";
-
-        static final String[] subTargetClasses = new String[] {
-                IO.combinePath("BaseParty", "target", "classes"),
-                IO.combinePath("BaseUiLibs", "target", "classes"),
-                //TODO 修改和追加其他子模块。不带最后一个/
-        };
-
-        //如果本地没有.idea/library目录。则需要在类似如下目录的地方找到这个文件。 todo modify by you
-        static final String IDEA_CACHE_libraries_xml_PATH = "/Users/allan/Library/Caches/JetBrains/IdeaIC2022.1/external_build_system/notepadmm.1f611b3c/project/libraries.xml";
-    }
-
     static void func1() {
         if (Cfg.step1_compile) {
             System.out.println(jumpWords(true, 1, "编译") + "目前采用自行编译的方式来解决问题。点击一下【锤子】（编译图标），并不影响太多节奏，这一步不做自动化。");

@@ -3,14 +3,14 @@ import java.util.List;
 
 public class MainShAll {
     public static void main(String[] args) throws IOException {
-        MainSh.Cfg.step1_compile = true;
-        MainSh.Cfg.step2_copyLibs = true;
-        MainSh.Cfg.step3_copyRes = true;
-        MainSh.Cfg.step4_deps = true;
-        MainSh.Cfg.step5_miniJre = true;
-        MainSh.Cfg.step6_jar = true;
-        MainSh.Cfg.step6_proguard = true;
-        MainSh.Cfg.step7_jpackage = true;
+        Cfg.step1_compile = true;
+        Cfg.step2_copyLibs = true;
+        Cfg.step3_copyRes = true;
+        Cfg.step4_deps = true;
+        Cfg.step5_miniJre = true;
+        Cfg.step6_jar = true;
+        Cfg.step6_proguard = true;
+        Cfg.step7_jpackage = true;
 
         mainAction();
         MainSh.func4_packMiniJre(miniJreDeps);
