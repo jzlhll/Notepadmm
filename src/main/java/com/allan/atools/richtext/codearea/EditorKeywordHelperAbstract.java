@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-public abstract class AbstractEditorKeywordHelper {
+public abstract class EditorKeywordHelperAbstract {
     volatile Pattern mLastMatcher;
     final Object LOCK = new Object();
 

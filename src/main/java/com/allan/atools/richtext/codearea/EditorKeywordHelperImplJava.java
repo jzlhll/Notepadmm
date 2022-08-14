@@ -12,7 +12,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class EditorKeywordHelperImplJava extends AbstractEditorKeywordHelper {
+public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
 
     private String keyWordPattern() {
         return "\\b(" + String.join("|", keyWords()) + ")\\b";

@@ -4,8 +4,8 @@ import com.allan.baseparty.ActionR;
 
 import java.io.File;
 
-final class AbstractEditorKeywordHelperFactory {
-    private AbstractEditorKeywordHelperFactory() {}
+final class EditorKeywordHelperFactory {
+    private EditorKeywordHelperFactory() {}
 
 //    static AbstractEditorKeywordHelper createKeywordHelper(String extension) {
 //        return switch (extension) {
@@ -18,7 +18,7 @@ final class AbstractEditorKeywordHelperFactory {
 //        };
 //    }
 
-    static AbstractEditorKeywordHelper create(File file) {
+    static EditorKeywordHelperAbstract create(File file) {
         return switch (sFilePathToExtension.invoke(file)) {
             case "java" -> new EditorKeywordHelperImplJava();
             case "cs" -> new EditorKeywordHelperImplCSharp();

@@ -11,7 +11,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class EditorKeywordHelperImplXml extends AbstractEditorKeywordHelper {
+public class EditorKeywordHelperImplXml extends EditorKeywordHelperAbstract {
     private static final Pattern ATTRIBUTES = Pattern.compile("(\\w+\\h*)(=)(\\h*\"[^\"]+\")");
 
     private static final int GROUP_OPEN_BRACKET = 2;

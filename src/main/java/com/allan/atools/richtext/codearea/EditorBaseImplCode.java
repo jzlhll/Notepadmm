@@ -12,15 +12,15 @@ import java.net.MalformedURLException;
 public final class EditorBaseImplCode extends EditorBase {
     static boolean sJavaKeywordCssFileLoad = false;
 
-    private final AbstractEditorKeywordHelper mKeywordHelper;
-    public AbstractEditorKeywordHelper getHelper() {return mKeywordHelper;}
+    private final EditorKeywordHelperAbstract mKeywordHelper;
+    public EditorKeywordHelperAbstract getHelper() {return mKeywordHelper;}
     private final boolean mIsDropDown; //是否采用掉落为，父类的逻辑
 
     EditorBaseImplCode(EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
-        this(AbstractEditorKeywordHelperFactory.create(sourceFile), area, sourceFile, tab, isFake);
+        this(EditorKeywordHelperFactory.create(sourceFile), area, sourceFile, tab, isFake);
     }
 
-    private EditorBaseImplCode(AbstractEditorKeywordHelper helper, EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
+    private EditorBaseImplCode(EditorKeywordHelperAbstract helper, EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
         super(area, sourceFile, tab, isFake);
         mIsDropDown = helper == null;
         if (!sJavaKeywordCssFileLoad && !mIsDropDown) {
