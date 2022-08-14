@@ -1,7 +1,7 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
@@ -13,7 +13,7 @@ import com.allan.baseparty.handler.HandlerThread;
  * Styler是BottomSearchButtons的一个对象。则每一个Editor有一个它。
  */
 final class Styler {
-    static final boolean DEBUG_STYLER = (true || EditorAreaImpl.DEBUG_EDITOR) && UIContext.DEBUG;
+    static final boolean DEBUG_STYLER = (true || EditorArea.DEBUG_EDITOR) && UIContext.DEBUG;
 
     abstract static class IStylerAction {
         abstract void setVisibleParaChanged();
@@ -45,7 +45,7 @@ final class Styler {
 
         void destroy(){}
 
-        abstract void action(EditorAreaImpl area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType);
+        abstract void action(EditorArea area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType);
     }
 
     final BottomSearchButtons out;
@@ -57,7 +57,7 @@ final class Styler {
         mPartAction = new StylerPartial(this);
     }
 
-    void temporaryAndSearchEndCallback(EditorAreaImpl area, final long flag, OneFileSearchResults items,
+    void temporaryAndSearchEndCallback(EditorArea area, final long flag, OneFileSearchResults items,
                                        BottomHandler.ClickType clickType, ShowType showType) {
         if (DEBUG_STYLER) {
             Log.d("Styler: temporary SearchEndCallback flag=" + flag);

@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.utils.Log;
 import com.allan.atools.beans.ResultItemWrap;
 import com.allan.atools.text.beans.AllFilesSearchResults;
@@ -8,7 +8,7 @@ import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.modulenotepad.Highlight;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.INotepadResultManager;
-import com.allan.uilibs.richtexts.MyCodeArea;
+import com.allan.uilibs.richtexts.CodeArea;
 
 public final class ResultAreaManager implements INotepadResultManager {
     private ResultAreaManager() {}
@@ -61,7 +61,7 @@ public final class ResultAreaManager implements INotepadResultManager {
             //Log.d("double click " + item);
             if (item.lineMode == ResultItemWrap.LineMode.Real) {
                 var firstItem = item.items[areaAndItem.secondIndex];
-                var editArea = (EditorAreaImpl) editor.getArea();
+                var editArea = (EditorArea) editor.getArea();
                 if (editArea != null) {
                     if (!AllEditorsManager.Instance.isCurrentAreaOnFront(editArea)) {
                         AllEditorsManager.Instance.bringAreaToFront(editArea);
@@ -72,11 +72,11 @@ public final class ResultAreaManager implements INotepadResultManager {
                         update.requestFocus();
                     }
 
-                    editArea.getBottom().disableSelectionListenerTemporary(500);
+                    editArea.getBottomSearchButtons().disableSelectionListenerTemporary(500);
                     if (editArea.getEditor().isDestroyed()) {
                         Log.e("jump to next but edior is destroyed!");
                     }
-                    Highlight.jumpToLineAndSelectWordMore((MyCodeArea) editor.getArea(), Highlight.JumpMode.JumpCenter, item.getOrigLine(),
+                    Highlight.jumpToLineAndSelectWordMore((CodeArea) editor.getArea(), Highlight.JumpMode.JumpCenter, item.getOrigLine(),
                             item.lineNum, firstItem.range.start, firstItem.range.end);
                 }
             }

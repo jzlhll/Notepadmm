@@ -1,10 +1,8 @@
 package com.allan.atools.richtext;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.utils.ReflectionUtils;
-import javafx.event.EventHandler;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import org.fxmisc.wellbehaved.event.template.InputMapTemplate;
@@ -55,7 +53,7 @@ public final class GenericStyledAreaBehaviorReflector {
 
     private static void handleShiftOrAltPress(Object behavior, MouseEvent e) {
         if (e.isAltDown()) {
-            EditorAreaImpl area = (EditorAreaImpl) e.getSource();
+            EditorArea area = (EditorArea) e.getSource();
 
             var editorBase = area.getEditor();
             var beforeCol = editorBase.getCurrentCaretColNum();

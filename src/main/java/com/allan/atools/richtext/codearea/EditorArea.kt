@@ -7,20 +7,18 @@ import com.allan.atools.tools.modulenotepad.bottom.BottomSearchButtons
 import com.allan.atools.utils.Log
 import com.allan.baseparty.Action
 import com.allan.baseparty.memory.RefWatcher
-import com.allan.uilibs.richtexts.MyCodeArea
+import com.allan.uilibs.richtexts.CodeArea
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.scene.control.Tab
-import org.fxmisc.richtext.GenericStyledArea
 import java.io.File
-import java.util.*
 
-class EditorAreaImpl(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, beforeInitTextAction: Action<MyCodeArea>) :
-    MyCodeArea(text, beforeInitTextAction) {
+class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, beforeInitTextAction: Action<CodeArea>) :
+    CodeArea(text, beforeInitTextAction) {
 
-    private var mEditor: EditorBase
-    private var bottomSearchButtons: BottomSearchButtons
-    private var fontThemeChanged: ChangeListener<Number>
+    val editor: EditorAreaMgr
+    val bottomSearchButtons: BottomSearchButtons
+    val fontThemeChanged: ChangeListener<Number>
     val multiSelections: EditorAreaImplMultiSelections
 
     companion object {
@@ -31,8 +29,16 @@ class EditorAreaImpl(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String
         val DEBUG_EDITOR = true && UIContext.DEBUG
     }
 
+    private fun build(area: EditorArea, sourceFile: File?, tab: Tab?, isFake: Boolean): EditorAreaMgr {
+        assert(sourceFile != null)
+        val shortcutType = EditorKeywordHelperFactory.sFilePathToExtension.invoke(sourceFile)
+        return if (shortcutType != null) {
+            EditorAreaMgrCode(area, sourceFile, tab, isFake)
+        } else EditorAreaMgr(area, sourceFile, tab, isFake)
+    }
+
     init {
-        mEditor = EditorBaseBuilder.build(this, sourceFile, tab, isFake)
+        editor = build(this, sourceFile, tab, isFake)
         multiSelections = EditorAreaImplMultiSelections(this)
         bottomSearchButtons = BottomSearchButtons(this)
         Highlight.initGenericAreaFont(this)
@@ -50,22 +56,9 @@ class EditorAreaImpl(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String
         Highlight.jumpToHead(this)
 
         if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(this, if (mEditor.sourceFile == null) "" else mEditor.sourceFile.path)
+            RefWatcher.getInstance().watch(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
         }
     }
-
-    fun getSourceFile(): File? {
-        return mEditor.sourceFile
-    }
-
-    fun getEditor(): EditorBase {
-        return mEditor
-    }
-
-    fun getBottom(): BottomSearchButtons {
-        return bottomSearchButtons
-    }
-
 
     fun destroy() {
 //        try {
@@ -77,7 +70,7 @@ class EditorAreaImpl(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String
         dispose()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()
-        getEditor().destroy()
-        getBottom().destroy()
+        editor.destroy()
+        bottomSearchButtons.destroy()
     }
 }

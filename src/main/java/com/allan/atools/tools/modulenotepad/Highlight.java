@@ -6,7 +6,7 @@ import com.allan.atools.utils.Log;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.FontTheme;
 import com.allan.atools.ui.SnackbarUtils;
-import com.allan.uilibs.richtexts.MyCodeArea;
+import com.allan.uilibs.richtexts.CodeArea;
 import javafx.application.Platform;
 import javafx.scene.control.IndexRange;
 import org.fxmisc.richtext.Caret;
@@ -63,7 +63,7 @@ public final class Highlight {
 
     private static final int OFFSET_OF_VISIBLE = 2;
 
-    public static void jumpToLineAndSelectWordMore(MyCodeArea area, JumpMode mode, String lineStr, int paraIndex, int lineStart, int lineEnd) {
+    public static void jumpToLineAndSelectWordMore(CodeArea area, JumpMode mode, String lineStr, int paraIndex, int lineStart, int lineEnd) {
         //String tag = "jumpToLine SelectWord More: ";
 
         //Log.d(">>>>>>>>>>>>>>>" + tag + paraIndex + ", " + lineStart);
@@ -155,7 +155,7 @@ public final class Highlight {
         });
     }
 
-    public static void jumpToLineAndSelectWord(MyCodeArea area, JumpMode mode, int paraIndex, int lineStart, int lineEnd) {
+    public static void jumpToLineAndSelectWord(CodeArea area, JumpMode mode, int paraIndex, int lineStart, int lineEnd) {
         String tag = "jumpToLine SelectWord: ";
 
         Log.d(">>>>>>>>>>>>>>>" + tag + paraIndex + ", " + lineStart);

@@ -1,22 +1,22 @@
 package com.allan.atools.tools.modulenotepad.base;
 
 import com.allan.atools.keyevent.IKeyDispatcherLeaf;
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import javafx.scene.control.Tab;
 
 import java.io.File;
 
 public interface INotepadMainAreaManager extends INotepadManager, ITextMultiFindAndReplace, IKeyDispatcherLeaf {
-    boolean isCurrentAreaOnFront(EditorAreaImpl area);
-    void bringAreaToFront(EditorAreaImpl area);
+    boolean isCurrentAreaOnFront(EditorArea area);
+    void bringAreaToFront(EditorArea area);
 
     String getCurrentTabFilePath();
     String[] getAllTabsFilePaths();
 
-    EditorAreaImpl getAreaByFilePath(File fil);
-    EditorAreaImpl getAreaByFilePath(String filePath);
-    Tab getTabByCodeArea(EditorAreaImpl area);
-    EditorAreaImpl[] getAllAreas();
+    EditorArea getAreaByFilePath(File fil);
+    EditorArea getAreaByFilePath(String filePath);
+    Tab getTabByCodeArea(EditorArea area);
+    EditorArea[] getAllAreas();
 
     void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront);
     void newFakeFile(File fakeFile);

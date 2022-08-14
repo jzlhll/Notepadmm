@@ -1,7 +1,7 @@
 package com.allan.atools.text.beans;
 
 import com.allan.atools.beans.ResultItemWrap;
-import com.allan.atools.richtext.codearea.EditorBase;
+import com.allan.atools.richtext.codearea.EditorAreaMgr;
 
 import java.io.File;
 import java.lang.ref.WeakReference;
@@ -14,9 +14,9 @@ public class OneFileSearchResults {
     public List<ResultItemWrap> results;
     public int totalLen;
     public File file;
-    public WeakReference<EditorBase> area;
+    public WeakReference<EditorAreaMgr> area;
 
-    public OneFileSearchResults addArea(EditorBase area) {
+    public OneFileSearchResults addArea(EditorAreaMgr area) {
         this.area = new WeakReference<>(area);
         return this;
     }

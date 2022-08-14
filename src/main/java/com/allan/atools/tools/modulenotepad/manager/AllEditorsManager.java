@@ -1,30 +1,29 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
+import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
+import com.allan.atools.bean.FileEncodingMap;
+import com.allan.atools.bean.SearchParams;
+import com.allan.atools.beans.FileEncodingMaps;
+import com.allan.atools.beans.ReplaceParams;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.keyevent.IKeyDispatcherLeaf;
 import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.keyevent.ShortCutKeys;
 import com.allan.atools.richtext.codearea.EditorAreaAddModifiAction;
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.threads.ThreadUtils;
+import com.allan.atools.tools.modulenotepad.base.INotepadMainAreaManager;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.utils.*;
-import com.allan.atools.bean.FileEncodingMap;
-import com.allan.atools.bean.SearchParams;
-import com.allan.atools.beans.FileEncodingMaps;
-import com.allan.atools.beans.ReplaceParams;
-import com.allan.baseparty.exception.UnImplementException;
-import com.allan.atools.text.beans.AllFilesSearchResults;
-import com.allan.atools.SettingPreferences;
-import com.allan.atools.tools.modulenotepad.base.INotepadMainAreaManager;
-import com.allan.uilibs.richtexts.MyVirtualScrollPane;
 import com.allan.baseparty.Action;
+import com.allan.baseparty.exception.UnImplementException;
 import com.allan.baseparty.memory.RefWatcher;
+import com.allan.uilibs.richtexts.MyVirtualScrollPane;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.scene.control.Tab;
-import kotlin.jvm.internal.Ref;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,19 +31,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
 
     @Override
-    public boolean isCurrentAreaOnFront(EditorAreaImpl area) {
+    public boolean isCurrentAreaOnFront(EditorArea area) {
         return UIContext.currentAreaProp.get() == area;
     }
 
     @Override
-    public void bringAreaToFront(EditorAreaImpl toTopArea) {
+    public void bringAreaToFront(EditorArea toTopArea) {
         var tabs = UIContext.context().tabPane.getTabs();
         for (Tab tab : tabs) {
             var area = codeAreaExInTab(tab);
@@ -57,8 +55,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     private int tabSize;
 
-    private EditorAreaImpl codeAreaExInTab(Tab tab) {
-        return (EditorAreaImpl) ((MyVirtualScrollPane<?>)tab.getContent()).getContent();
+    private EditorArea codeAreaExInTab(Tab tab) {
+        return (EditorArea) ((MyVirtualScrollPane<?>)tab.getContent()).getContent();
     }
 
     private AllEditorsManager() {
@@ -66,7 +64,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     public static final INotepadMainAreaManager Instance = new AllEditorsManager();
 
-    private void setCurrentArea(EditorAreaImpl newArea) {
+    private void setCurrentArea(EditorArea newArea) {
         var lastArea = UIContext.currentAreaProp.get();
         if (lastArea == newArea) {
             Log.d("EditorBase", "set CurrentArea not change");
@@ -184,7 +182,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public EditorAreaImpl getAreaByFilePath(File fil) {
+    public EditorArea getAreaByFilePath(File fil) {
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
             if (tab.getUserData() == fil) {
@@ -200,7 +198,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public EditorAreaImpl getAreaByFilePath(String filePath) {
+    public EditorArea getAreaByFilePath(String filePath) {
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
             if (tab.getUserData() instanceof File file) {
@@ -264,7 +262,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public Tab getTabByCodeArea(EditorAreaImpl editArea) {
+    public Tab getTabByCodeArea(EditorArea editArea) {
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
             if (codeAreaExInTab(tab) == editArea) {
@@ -275,9 +273,9 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public EditorAreaImpl[] getAllAreas() {
+    public EditorArea[] getAllAreas() {
         var tabs = UIContext.context().tabPane.getTabs();
-        EditorAreaImpl[] codes = new EditorAreaImpl[tabs.size()];
+        EditorArea[] codes = new EditorArea[tabs.size()];
         int i = 0;
         for (var tab : tabs) {
             codes[i++] = codeAreaExInTab(tab);
@@ -304,9 +302,9 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         Log.e(" : open fake file Tab open encode ");
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorAreaImpl editorCodeArea = new EditorAreaImpl(fakeFile, newTab, true, str, new EditorAreaAddModifiAction(/*eb*/));
+            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str, new EditorAreaAddModifiAction(/*eb*/));
             editorCodeArea.getEditor().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
-            editorCodeArea.getBottom().init();
+            editorCodeArea.getBottomSearchButtons().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
@@ -379,10 +377,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorAreaImpl editorCodeArea = new EditorAreaImpl(textFile, newTab, false, str, new EditorAreaAddModifiAction(/*eb*/));
+            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str, new EditorAreaAddModifiAction(/*eb*/));
 
             editorCodeArea.getEditor().setFileEncoding(backEncode[0]);
-            editorCodeArea.getBottom().init();
+            editorCodeArea.getBottomSearchButtons().init();
             Log.d("change encoding " + backEncode[0]);
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             newTab.setContent(vpane);
@@ -418,7 +416,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     private void onTabCloseAction(Tab tab) {
         if (tab.getContent() instanceof MyVirtualScrollPane vpane) {
-            if (vpane.getContent() instanceof EditorAreaImpl editorCodeAreaEx) {
+            if (vpane.getContent() instanceof EditorArea editorCodeAreaEx) {
                 editorCodeAreaEx.destroy();
                 vpane.removeContent();
                 tab.setContent(null);

@@ -11,9 +11,8 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import org.fxmisc.richtext.SelectionImpl
 import org.fxmisc.richtext.SelectionPath
-import kotlin.math.max
 
-class EditorAreaImplMultiSelections(private val area: EditorAreaImpl) {
+class EditorAreaImplMultiSelections(private val area: EditorArea) {
     companion object {
         private val TAG = EditorAreaImplMultiSelections::class.java.simpleName
     }
@@ -36,7 +35,7 @@ class EditorAreaImplMultiSelections(private val area: EditorAreaImpl) {
     private fun addEventFilter() {
         if (eventFilter == null) {
             eventFilter = EventHandler { event: KeyEvent ->
-                val keyArea = event.source as EditorAreaImpl
+                val keyArea = event.source as EditorArea
                 if (keyArea.multiSelections.isMultiSelected) {
                     when (event.code) {
                         KeyCode.DELETE, KeyCode.BACK_SPACE -> {
@@ -83,7 +82,7 @@ class EditorAreaImplMultiSelections(private val area: EditorAreaImpl) {
 
     private fun listeners() {
         Log.d("area: listener----")
-       val editor = area.getEditor()
+       val editor = area.editor
         if (!mIsListenersInit) {
             mIsListenersInit = true
             editor.textChanged.addAction {

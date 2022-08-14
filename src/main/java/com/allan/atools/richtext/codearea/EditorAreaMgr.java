@@ -52,8 +52,8 @@ import static com.allan.atools.SettingPreferences.editHasNumberKey;
 import static org.fxmisc.richtext.model.TwoDimensional.Bias.Backward;
 import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 
-public class EditorBase implements IEditorAreaEx<Collection<String>, String, Collection<String>>, ITextFindAndReplace {
-    static final String TAG = "EditorBase";
+public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, Collection<String>>, ITextFindAndReplace {
+    static final String TAG = "Editor";
 
     private static final String TEMP_MASK_FILE = " *";
 
@@ -64,7 +64,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
 
     public class TextChanged extends BaseChanged<Action0> {
         private final ChangeListener<String> _textChanged = (observableValue, s, t1) -> {
-            if(EditorAreaImpl.DEBUG_EDITOR) Log.v("text changed !!");
+            if(EditorArea.DEBUG_EDITOR) Log.v("text changed !!");
             if (mActions != null) {
                 for (var a : mActions) {
                     a.invoke();
@@ -95,7 +95,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
     public class VisibleParagraphChanged extends BaseChanged<Action0>{
         private double lastY = -124.0;
         private final ChangeListener<Double> _yChanged = (observable, oldValue, newValue) -> {
-            if(EditorAreaImpl.DEBUG_EDITOR) Log.v("area: _y changed " + newValue);
+            if(EditorArea.DEBUG_EDITOR) Log.v("area: _y changed " + newValue);
             if (lastY != newValue) {
                 lastY = newValue;
                 if (mActions != null) {
@@ -141,7 +141,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
 
     public class SelectionChanged extends BaseChanged<Action<String>> {
         private final ChangeListener<IndexRange> mSelectionChanged = (observable, oldValue, newValue) -> {
-            if (EditorAreaImpl.DEBUG_EDITOR) Log.v("selection changed " + newValue.getLength());
+            if (EditorArea.DEBUG_EDITOR) Log.v("selection changed " + newValue.getLength());
 
             if (mActions != null) {
                 String s = newValue.getLength() == 0 ? null : area.getSelectedText();
@@ -184,7 +184,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
 
     public class CaretPosChanged extends BaseChanged<Action5<Integer, Integer, Integer, Integer, Integer>> {
         private final ChangeListener<Integer> mListener = (observable, oldValue, newValue) -> {
-            if (EditorAreaImpl.DEBUG_EDITOR) Log.v("caret pos changed " + newValue);
+            if (EditorArea.DEBUG_EDITOR) Log.v("caret pos changed " + newValue);
             var selection = area.getSelection();
             var s = area.offsetToPosition(selection.getStart(), Forward);
             var s2  = area.offsetToPosition(selection.getEnd(), Backward);
@@ -230,7 +230,8 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
         }
     }
 
-    GenericStyledArea<Collection<String>, String, Collection<String>> area;
+    private GenericStyledArea<Collection<String>, String, Collection<String>> area;
+
     @Override
     public GenericStyledArea<Collection<String>, String, Collection<String>> getArea() {
         return area;
@@ -242,7 +243,10 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
     final BaseChanged<Action5<Integer, Integer, Integer, Integer, Integer>> caretPosChanged = new CaretPosChanged();
 
     private final EditorBaseFocus editorFocus = new EditorBaseFocus(this);
-    File sourceFile;
+    private File sourceFile;
+    public File getSourceFile() {
+        return sourceFile;
+    }
 
     public int getFileLength() {
         return (int) sourceFile.length();
@@ -336,7 +340,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
         Optional.ofNullable(closeBtn).ifPresent(Button::fire);
     }
 
-    EditorBase(EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
+    EditorAreaMgr(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         this.sourceFile = sourceFile;
         UIContext.allOpenedFileList.add(sourceFile);
         Log.w("new EditorBase:: " + sourceFile.lastModified());
@@ -778,10 +782,10 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
     }
 
     private static class EditorBaseFocus {
-        private final EditorBase editorBase;
+        private final EditorAreaMgr editor;
 
-        EditorBaseFocus(EditorBase base) {
-            editorBase = base;
+        EditorBaseFocus(EditorAreaMgr base) {
+            editor = base;
         }
 
         private boolean mIsAddedFocusChanged = false;
@@ -791,39 +795,39 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
         private Action0 mFocused;
 
         private void checkFileChangedTs() {
-            if (editorBase.isFake) {
-                Log.d("EditorBase","checkFile ChangedTs is fake file, ignored!" + editorBase.sourceFile);
+            if (editor.isFake) {
+                Log.d("EditorBase","checkFile ChangedTs is fake file, ignored!" + editor.sourceFile);
                 return;
             }
             //顺序不得变化
-            if (!editorBase.sourceFile.exists()) {
+            if (!editor.sourceFile.exists()) {
                 JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("fileNotExsit"),
                         0, 0,
                         new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("save"), ()-> {
                             removeFocusChanged();
-                            editorBase.saveContent(null, true);
+                            editor.saveContent(null, true);
                             ThreadUtils.globalHandler().postDelayed(this::addFocusChanged, 250);
                         }),
                         new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, Locales.str("close"), ()-> {
                             //说明不想要了。我们先移除监听再说
                             removeFocusChanged();
-                            editorBase.closeTab();
+                            editor.closeTab();
                         }));
                 return;
             }
 
-            if (mLastFileChangedTs == editorBase.sourceFile.lastModified()) {
+            if (mLastFileChangedTs == editor.sourceFile.lastModified()) {
                 //Log.d(TAG, "!@focus no changed this file " + editorBase.sourceFile);
                 return;
             }
 
             //Log.d("!@focus reOpenCurrent： lastModify :  " + lastModify + ", lastFileChangedTs: " + mLastFileChangedTs + " " + sourceFile);
-            AllEditorsManager.Instance.reOpenCurrentFile(editorBase.tab, editorBase.sourceFile, null);
+            AllEditorsManager.Instance.reOpenCurrentFile(editor.tab, editor.sourceFile, null);
         }
 
         private void removeFocusChanged() {
             if (mIsAddedFocusChanged) {
-                Log.d(TAG, " remove focusChanged====" + editorBase.sourceFile);
+                Log.d(TAG, " remove focusChanged====" + editor.sourceFile);
                 UIContext.context().removeMainStageFocused(mFocused);
                 mFocused = null;
                 mIsAddedFocusChanged = false;
@@ -836,7 +840,7 @@ public class EditorBase implements IEditorAreaEx<Collection<String>, String, Col
             }
 
             if (!mIsAddedFocusChanged) {
-                Log.d(TAG, "add focusChanged====" + editorBase.sourceFile);
+                Log.d(TAG, "add focusChanged====" + editor.sourceFile);
                 UIContext.context().addMainStageFocused(mFocused);
                 mIsAddedFocusChanged = true;
             }

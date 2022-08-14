@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.beans.ResultItemWrap;
 import com.allan.atools.beans.ResultItem;
 import com.allan.atools.text.beans.OneFileSearchResults;
@@ -55,7 +55,7 @@ final class Cache {
         public int resultIndex = -1;
     }
 
-    public ResultItem getNextCachedLineNum(EditorAreaImpl area, boolean back, boolean cycleNext, Out out) {
+    public ResultItem getNextCachedLineNum(EditorArea area, boolean back, boolean cycleNext, Out out) {
         var resultItem = getNextCachedLineNum(area, back, cycleNext);
         if (resultItem == null) {
             return null;
@@ -77,7 +77,7 @@ final class Cache {
         return resultItem;
     }
 
-    private ResultItem getNextCachedLineNum(EditorAreaImpl area, boolean back, boolean cycleNext) {
+    private ResultItem getNextCachedLineNum(EditorArea area, boolean back, boolean cycleNext) {
         var oneRes = cacheResult;
         if (oneRes == null || oneRes.results == null || oneRes.results.size() == 0) {
             return null;

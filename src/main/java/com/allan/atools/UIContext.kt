@@ -3,7 +3,7 @@ package com.allan.atools
 import com.allan.atools.bases.AbstractMainController
 import com.allan.atools.controller.AToolsController
 import com.allan.atools.controller.NotepadController
-import com.allan.atools.richtext.codearea.EditorAreaImpl
+import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.CacheLocation
 import com.allan.atools.utils.Log
@@ -60,7 +60,7 @@ class UIContext {
          * 监听tab变化。其实是无所谓他的返回值了。
          */
         @JvmField
-        val currentAreaProp = SimpleObjectProperty<EditorAreaImpl>()
+        val currentAreaProp = SimpleObjectProperty<EditorArea>()
 
         @JvmField
         val currentTabProp = SimpleObjectProperty<Tab>()

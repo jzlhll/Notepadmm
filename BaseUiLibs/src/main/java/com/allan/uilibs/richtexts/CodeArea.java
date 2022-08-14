@@ -18,9 +18,9 @@ import java.util.Collections;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
-public abstract class MyCodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
-    private MyCodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
-                      @NamedArg("preserveStyle") boolean preserveStyle) {
+public abstract class CodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
+    private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
+                     @NamedArg("preserveStyle") boolean preserveStyle) {
         super(Collections.<String>emptyList(),
                 (paragraph, styleClasses) -> paragraph.getStyleClass().addAll(styleClasses),
                 new ArrayList<String>(1),
@@ -61,7 +61,7 @@ public abstract class MyCodeArea extends StyledTextArea<Collection<String>, Coll
      *
      * @param text Initial text com.base.content.
      */
-    public MyCodeArea(@NamedArg("text") String text, Action<MyCodeArea> beforeInitAction) {
+    public CodeArea(@NamedArg("text") String text, Action<CodeArea> beforeInitAction) {
         this(new SimpleEditableStyledDocument<>(
                 Collections.<String>emptyList(), Collections.<String>emptyList()
         ), false);

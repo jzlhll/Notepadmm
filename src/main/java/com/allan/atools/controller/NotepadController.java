@@ -324,7 +324,7 @@ public final class NotepadController extends AbstractMainController {
             notepadMainEncodeLabel.setOnMouseClicked(event -> {
                 if (UIContext.currentTabProp.get() != null) {
                     var area = UIContext.currentAreaProp.get();
-                    var f = area.getSourceFile();
+                    var f = area.getEditor().getSourceFile();
                     if (!f.exists() || area.getEditor().getIsFake()) {
                         SnackbarUtils.show(Locales.str("fileIsNotSave"));
                         return;
@@ -335,12 +335,12 @@ public final class NotepadController extends AbstractMainController {
                     var curTab = UIContext.currentTabProp.get();
                     if (curTab != null) {
                         var area = UIContext.currentAreaProp.get();
-                        var f = area.getSourceFile();
+                        var f = area.getEditor().getSourceFile();
                         if (!f.exists() || area.getEditor().getIsFake()) {
                             SnackbarUtils.show(Locales.str("fileIsNotSave"));
                             return;
                         } else {
-                            AllEditorsManager.Instance.reOpenCurrentFile(curTab, UIContext.currentAreaProp.get().getSourceFile(), forceEncoding);
+                            AllEditorsManager.Instance.reOpenCurrentFile(curTab, UIContext.currentAreaProp.get().getEditor().getSourceFile(), forceEncoding);
                         }
                     }
                     GlobalPopupManager.instance().hide();

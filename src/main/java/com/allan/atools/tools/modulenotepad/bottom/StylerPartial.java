@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.local.StyleCreator;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
@@ -8,7 +8,6 @@ import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ManualGC;
 import com.allan.atools.utils.TimerCounter;
 import com.allan.atools.text.beans.OneFileSearchResults;
-import com.allan.atools.tools.modulenotepad.local.AdvanceSearchedStyledDocument;
 import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 
@@ -34,7 +33,7 @@ final class StylerPartial extends Styler.IStylerAction {
 
     private void setBigParaStylePartRunFunction() {
         Log.d("style when scrolled======>>>");
-        actionEndPart(mStyler.out.editorAreaImpl, 0, mStyler.out.getBottomCache().cacheResult,
+        actionEndPart(mStyler.out.editorArea, 0, mStyler.out.getBottomCache().cacheResult,
                 BottomHandler.ClickType.None, lastShowType);
     }
     private final Runnable setBigParaStylePartRunnable = this::setBigParaStylePartRunFunction;
@@ -49,23 +48,23 @@ final class StylerPartial extends Styler.IStylerAction {
     void setVisibleParaChanged() {
         if (!setVisibleParaChanged) {
             setVisibleParaChanged = true;
-            mStyler.out.editorAreaImpl.getEditor().visibleParagraphChanged.addAction(visibleParaChanged);
+            mStyler.out.editorArea.getEditor().visibleParagraphChanged.addAction(visibleParaChanged);
         }
     }
 
     void removeVisibleParaChanged() {
         if (setVisibleParaChanged) {
             setVisibleParaChanged = false;
-            mStyler.out.editorAreaImpl.getEditor().visibleParagraphChanged.removeAction(visibleParaChanged);
+            mStyler.out.editorArea.getEditor().visibleParagraphChanged.removeAction(visibleParaChanged);
         }
     }
 
     @Override
-    void action(EditorAreaImpl area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
+    void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         actionEndPart(area, flag, items, clickType, showType);
     }
 
-    private VisibleIndexes getIndexesFix(EditorAreaImpl area) {
+    private VisibleIndexes getIndexesFix(EditorArea area) {
         int first = area.firstVisibleParToAllParIndex();
         int last = area.lastVisibleParToAllParIndex();
         int max = area.getParagraphs().size() - 1;
@@ -77,7 +76,7 @@ final class StylerPartial extends Styler.IStylerAction {
         return mIndexes;
     }
 
-    private void actionEndPart(EditorAreaImpl area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
+    private void actionEndPart(EditorArea area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         if (flag != mStyler.out.lastChangeSearchFlag.get()) {
             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed11 flag=" + flag);
             return;

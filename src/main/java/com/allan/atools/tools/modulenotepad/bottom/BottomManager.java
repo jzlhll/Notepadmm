@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.utils.Log;
@@ -29,21 +29,21 @@ public final class BottomManager {
         UIContext.context().bottomSearchTextField.textProperty().addListener((observable, oldValue, newValue) -> {
             var curArea = UIContext.currentAreaProp.get();
             if (isBottomSearchTextListenerSendIt && curArea != null) {
-                curArea.getBottom().bottomSearchTextChanged(newValue);
+                curArea.getBottomSearchButtons().bottomSearchTextChanged(newValue);
             }
         });
 
         UIContext.context().bottomSearchTextUpperBtn.setOnMouseClicked(mouseEvent -> {
             var ar = UIContext.currentAreaProp.get();
             if (ar != null) {
-                ar.getBottom().jumpToNext(ar, true, false);
+                ar.getBottomSearchButtons().jumpToNext(ar, true, false);
             }
         });
 
         UIContext.context().bottomSearchTextDownBtn.setOnMouseClicked(mouseEvent -> {
             var ar = UIContext.currentAreaProp.get();
             if (ar != null) {
-                ar.getBottom().jumpToNext(ar, false, false);
+                ar.getBottomSearchButtons().jumpToNext(ar, false, false);
             }
         });
 
@@ -73,21 +73,22 @@ public final class BottomManager {
         });
     }
 
-    private void changeTo(EditorAreaImpl area) {
+    private void changeTo(EditorArea area) {
+        var bottom = area == null ? null : area.getBottomSearchButtons();
         if (area != null) {
-            UIContext.context().bottomSearchTextCaseBtn.setOnMouseClicked(new WeakEventHandler<>(area.getBottom().caseBtnClick));
-            UIContext.context().bottomSearchTextWholeWordsBtn.setOnMouseClicked(new WeakEventHandler<>(area.getBottom().wholeWordClick));
-            UIContext.context().bottomSearchTextRuleBtn.setOnMouseClicked(new WeakEventHandler<>(area.getBottom().ruleClick));
+            UIContext.context().bottomSearchTextCaseBtn.setOnMouseClicked(new WeakEventHandler<>(bottom.caseBtnClick));
+            UIContext.context().bottomSearchTextWholeWordsBtn.setOnMouseClicked(new WeakEventHandler<>(bottom.wholeWordClick));
+            UIContext.context().bottomSearchTextRuleBtn.setOnMouseClicked(new WeakEventHandler<>(bottom.ruleClick));
 
-            BottomSearchButtons.changeSearchTextCaseBtn(area.getBottom().mSearchParamAndIndicatorParam.searchParams.useCaseMatch);
-            BottomSearchButtons.changeWholeWordBtn(area.getBottom().mSearchParamAndIndicatorParam.searchParams.useWholeWords);
-            BottomSearchButtons.changeRuleBtn(area.getBottom().mSearchParamAndIndicatorParam.searchParams.type);
+            BottomSearchButtons.changeSearchTextCaseBtn(bottom.mSearchParamAndIndicatorParam.searchParams.useCaseMatch);
+            BottomSearchButtons.changeWholeWordBtn(bottom.mSearchParamAndIndicatorParam.searchParams.useWholeWords);
+            BottomSearchButtons.changeRuleBtn(bottom.mSearchParamAndIndicatorParam.searchParams.type);
         }
 
-        UIContext.bottomSearchedIndicateProp.set(area == null ? "" : area.getBottom().mSearchParamAndIndicatorParam.indicator);
+        UIContext.bottomSearchedIndicateProp.set(area == null ? "" : bottom.mSearchParamAndIndicatorParam.indicator);
         //设置状态文字 切换tab的时候，要先禁用一小会儿；监听底部文字变化；重新设置到新tab的文字内容。
         isBottomSearchTextListenerSendIt = false;
-        UIContext.context().bottomSearchTextField.setText(area == null ? "" : area.getBottom().mSearchParamAndIndicatorParam.searchParams.words);
+        UIContext.context().bottomSearchTextField.setText(area == null ? "" : bottom.mSearchParamAndIndicatorParam.searchParams.words);
         //Log.d("BottomManager change tab setText...");
         ThreadUtils.globalHandler().postDelayed(() -> {
             isBottomSearchTextListenerSendIt = true;

@@ -1,13 +1,12 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.tools.modulenotepad.local.StyleCreator;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ManualGC;
 import com.allan.atools.text.beans.OneFileSearchResults;
-import com.allan.atools.tools.modulenotepad.local.AdvanceSearchedStyledDocument;
 import javafx.application.Platform;
 
 final class StylerFull extends Styler.IStylerAction {
@@ -26,7 +25,7 @@ final class StylerFull extends Styler.IStylerAction {
     private boolean isLastEmpty = true;
 
     @Override
-    void action(EditorAreaImpl area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
+    void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         if (flag != mStyler.out.lastChangeSearchFlag.get()) {
             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed55 flag=" + flag);
             return;

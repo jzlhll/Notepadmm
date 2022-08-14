@@ -34,7 +34,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
 
     private static <PS> IntFunction<Node> get( GenericStyledArea<PS, ?, ?> area, IntFunction<String> format )
     {
-        if (area instanceof MyCodeArea classArea) {
+        if (area instanceof CodeArea classArea) {
             return get( classArea, format, classArea.getFoldStyleCheck(), classArea.getRemoveFoldStyle() );
         }
 

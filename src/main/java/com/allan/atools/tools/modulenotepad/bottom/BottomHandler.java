@@ -1,7 +1,7 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
 import com.allan.atools.bean.SearchParams;
@@ -164,7 +164,7 @@ final class BottomHandler extends Handler {
         if (area == null) {
             return;
         }
-        if(EditorAreaImpl.DEBUG_EDITOR) Log.v("search In Thread start....");
+        if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread start....");
         SearchParams curParams, curTempParams;
         String tempWord;
         curParams = out.mSearchParamAndIndicatorParam.searchParams.copy();
@@ -215,7 +215,7 @@ final class BottomHandler extends Handler {
                 cache.cacheResult = null;
                 cache.cacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
             }
-            if(EditorAreaImpl.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
+            if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
             styler.temporaryAndSearchEndCallback(area, flag, cache.cacheResult, clickType, showType);
         } while (false);
     }

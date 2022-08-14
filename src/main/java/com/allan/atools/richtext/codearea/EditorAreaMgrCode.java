@@ -9,18 +9,18 @@ import javafx.scene.control.Tab;
 import java.io.File;
 import java.net.MalformedURLException;
 
-public final class EditorBaseImplCode extends EditorBase {
+public final class EditorAreaMgrCode extends EditorAreaMgr {
     static boolean sJavaKeywordCssFileLoad = false;
 
     private final EditorKeywordHelperAbstract mKeywordHelper;
     public EditorKeywordHelperAbstract getHelper() {return mKeywordHelper;}
     private final boolean mIsDropDown; //是否采用掉落为，父类的逻辑
 
-    EditorBaseImplCode(EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
+    EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         this(EditorKeywordHelperFactory.create(sourceFile), area, sourceFile, tab, isFake);
     }
 
-    private EditorBaseImplCode(EditorKeywordHelperAbstract helper, EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
+    private EditorAreaMgrCode(EditorKeywordHelperAbstract helper, EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         super(area, sourceFile, tab, isFake);
         mIsDropDown = helper == null;
         if (!sJavaKeywordCssFileLoad && !mIsDropDown) {
@@ -44,8 +44,8 @@ public final class EditorBaseImplCode extends EditorBase {
     }
 
     public void trigger(SearchParams temporaryText, SearchParams searchText) {
-        Log.d(sourceFile + " trigger");
-        mKeywordHelper.triggerAllText(area, temporaryText, searchText);
+        Log.d(getSourceFile() + " trigger");
+        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText);
     }
 }
 

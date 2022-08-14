@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.richtext.codearea.EditorAreaImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.utils.Locales;
@@ -28,7 +28,7 @@ final class SearchParamsAndIndicator {
 public final class BottomSearchButtons {
     static final String TAG = "BottomSearchButtons";
 
-    final EditorAreaImpl editorAreaImpl;
+    final EditorArea editorArea;
 
     final AtomicLong lastChangeSearchFlag = new AtomicLong(0);
     private final BottomHandler handler;
@@ -37,8 +37,8 @@ public final class BottomSearchButtons {
     private String temporaryWord;
     public String getTemporaryWord() {return temporaryWord;}
 
-    public BottomSearchButtons(EditorAreaImpl editorImpl) {
-        editorAreaImpl = editorImpl;
+    public BottomSearchButtons(EditorArea editorImpl) {
+        editorArea = editorImpl;
         handler = new BottomHandler(this);
     }
 
@@ -47,14 +47,14 @@ public final class BottomSearchButtons {
     }
 
     public void init() {
-        editorAreaImpl.getEditor().textChanged.addAction(() -> {
-            if(EditorAreaImpl.DEBUG_EDITOR) Log.d("code area text changed refresh search！");
+        editorArea.getEditor().textChanged.addAction(() -> {
+            if(EditorArea.DEBUG_EDITOR) Log.d("code area text changed refresh search！");
             var flag = lastChangeSearchFlag.incrementAndGet();
             if(Styler.DEBUG_STYLER) Log.d("Styler: bottom text changed 11 flag=" + flag);
             handler.triggerSearchWhenTextChanged(flag);
         });
 
-        editorAreaImpl.getEditor().selectionChanged.addAction(selectStr-> {
+        editorArea.getEditor().selectionChanged.addAction(selectStr-> {
             if (isEnableSelectionListener) {
                 if (!TextUtils.equalsAllowNullOrEmptyEqual(selectStr, temporaryWord)) {
                     var flag = lastChangeSearchFlag.incrementAndGet();
@@ -96,14 +96,14 @@ public final class BottomSearchButtons {
         handler.triggerSearchParamsChanged(flag);
     }
 
-    void jumpToNext(EditorAreaImpl area, boolean back, boolean forceWrap) {
+    void jumpToNext(EditorArea area, boolean back, boolean forceWrap) {
         Log.d("jump to next");
         var out = new Cache.Out();
         var cycleNext = SettingPreferences.getBoolean(SettingPreferences.cycleNextKey);
         if (forceWrap) {
             cycleNext = true;
         }
-        var item = handler.cache.getNextCachedLineNum(editorAreaImpl, back, cycleNext, out);
+        var item = handler.cache.getNextCachedLineNum(editorArea, back, cycleNext, out);
         if (item == null) {
             //todo GlobalProfs.bottomSearchedIndicateProp.set("");
             return;
