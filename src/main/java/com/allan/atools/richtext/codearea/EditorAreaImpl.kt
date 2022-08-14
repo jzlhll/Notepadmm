@@ -32,7 +32,7 @@ class EditorAreaImpl(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String
     }
 
     init {
-        mEditor = EditorBase.build(this, sourceFile, tab, isFake)
+        mEditor = EditorBaseBuilder.build(this, sourceFile, tab, isFake)
         multiSelections = EditorAreaImplMultiSelections(this)
         bottomSearchButtons = BottomSearchButtons(this)
         Highlight.initGenericAreaFont(this)

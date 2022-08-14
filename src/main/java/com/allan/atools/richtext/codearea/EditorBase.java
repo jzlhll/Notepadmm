@@ -53,40 +53,6 @@ import static org.fxmisc.richtext.model.TwoDimensional.Bias.Backward;
 import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 
 public class EditorBase implements IEditorAreaEx<Collection<String>, String, Collection<String>>, ITextFindAndReplace {
-    public static EditorBase build(EditorAreaImpl area, File sourceFile, Tab tab, boolean isFake) {
-        ActionR<File, String> sFileToShortcutType = (file) -> {
-            if(file.getName().equalsIgnoreCase("module-info.java")) {
-                return "module-info";
-            }
-            int lastIndexOf = file.getName().lastIndexOf(".");
-            //获取文件的后缀名
-            var suffix = file.getName().substring(lastIndexOf + 1);
-            if (suffix.equalsIgnoreCase("java")) {
-                return "java";
-            }
-            if (suffix.equalsIgnoreCase("cs")) {
-                return "cs";
-            }
-            if (suffix.equalsIgnoreCase("cpp") || suffix.equalsIgnoreCase("cc")
-                    || suffix.equalsIgnoreCase("hpp") || suffix.equalsIgnoreCase("h")
-                    || suffix.equalsIgnoreCase("c")) {
-                return "cpp";
-            }
-            if (suffix.toLowerCase().endsWith("xml")) {
-                return "xml";
-            }
-            return null;
-        };
-
-        assert sourceFile != null;
-        var shortcutType = sFileToShortcutType.invoke(sourceFile);
-        if (shortcutType != null) {
-            return new EditorBaseImplCode(shortcutType, area, sourceFile, tab, isFake);
-        }
-
-        return new EditorBase(area, sourceFile, tab, isFake);
-    }
-
     static final String TAG = "EditorBase";
 
     private static final String TEMP_MASK_FILE = " *";

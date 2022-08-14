@@ -2,7 +2,7 @@ package com.allan.atools.richtext.codearea;
 
 public final class EditorKeywordHelperImplCC extends EditorKeywordHelperImplJava{
     private final String[] keywords = new String[] {
-            "alignas",	"decltype",	"namespace",	"struct",
+            "#define",  "alignas",	"decltype",	"namespace",	"struct",
             "alignof",	"default",	"new",	"switch",
             "and",	"delete",	"noexcept",	"template",
             "and_eq",	"do",	"not",	"this",
