@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea;
 
+import com.allan.atools.richtext.codearea.keywordhelper.*;
 import com.allan.baseparty.ActionR;
 
 import java.io.File;

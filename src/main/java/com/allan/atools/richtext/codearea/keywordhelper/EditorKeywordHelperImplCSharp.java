@@ -1,4 +1,4 @@
-package com.allan.atools.richtext.codearea;
+package com.allan.atools.richtext.codearea.keywordhelper;
 
 public final class EditorKeywordHelperImplCSharp extends EditorKeywordHelperImplJava{
     private final String[] keywords = new String[] {

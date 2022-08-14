@@ -2,6 +2,7 @@ package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.UIContext;
 import com.allan.atools.bean.SearchParams;
+import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import javafx.scene.control.Tab;

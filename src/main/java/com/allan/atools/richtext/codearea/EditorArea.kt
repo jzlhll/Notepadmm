@@ -19,7 +19,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
     val editor: EditorAreaMgr
     val bottomSearchButtons: BottomSearchButtons
     val fontThemeChanged: ChangeListener<Number>
-    val multiSelections: EditorAreaImplMultiSelections
+    val multiSelections: EditorAreaMultiSelectionsMgr
 
     companion object {
         @JvmStatic
@@ -39,7 +39,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
 
     init {
         editor = build(this, sourceFile, tab, isFake)
-        multiSelections = EditorAreaImplMultiSelections(this)
+        multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchButtons = BottomSearchButtons(this)
         Highlight.initGenericAreaFont(this)
         //Editor的Fontsize不是那样来的。所以不用。设置fontSize监听

@@ -1,4 +1,4 @@
-package com.allan.atools.richtext.codearea;
+package com.allan.atools.richtext.codearea.keywordhelper;
 
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.bean.SearchParams;

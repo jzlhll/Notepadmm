@@ -1,4 +1,4 @@
-package com.allan.atools.richtext.codearea;
+package com.allan.atools.richtext.codearea.keywordhelper;
 
 import com.allan.atools.bean.SearchParams;
 import org.fxmisc.richtext.model.StyleSpans;

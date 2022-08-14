@@ -12,9 +12,9 @@ import javafx.scene.input.KeyEvent
 import org.fxmisc.richtext.SelectionImpl
 import org.fxmisc.richtext.SelectionPath
 
-class EditorAreaImplMultiSelections(private val area: EditorArea) {
+class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     companion object {
-        private val TAG = EditorAreaImplMultiSelections::class.java.simpleName
+        private val TAG = EditorAreaMultiSelectionsMgr::class.java.simpleName
     }
 
     private var cachedSelections: HashMap<Int, SelectionImpl<Collection<String>, String, Collection<String>>>? =

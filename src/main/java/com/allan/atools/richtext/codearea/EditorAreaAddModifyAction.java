@@ -3,13 +3,13 @@ package com.allan.atools.richtext.codearea;
 import com.allan.uilibs.richtexts.CodeArea;
 import com.allan.baseparty.Action;
 
-public final class EditorAreaAddModifiAction implements Action<CodeArea> {
+public final class EditorAreaAddModifyAction implements Action<CodeArea> {
     private final EditorAreaMgr eb;
-    public EditorAreaAddModifiAction(EditorAreaMgr eb) {
+    public EditorAreaAddModifyAction(EditorAreaMgr eb) {
         this.eb = eb;
     }
 
-    public EditorAreaAddModifiAction() {
+    public EditorAreaAddModifyAction() {
         eb = null;
     }
 

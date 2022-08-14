@@ -10,7 +10,7 @@ import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.keyevent.IKeyDispatcherLeaf;
 import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.keyevent.ShortCutKeys;
-import com.allan.atools.richtext.codearea.EditorAreaAddModifiAction;
+import com.allan.atools.richtext.codearea.EditorAreaAddModifyAction;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.threads.ThreadUtils;
@@ -302,7 +302,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         Log.e(" : open fake file Tab open encode ");
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str, new EditorAreaAddModifiAction(/*eb*/));
+            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str, new EditorAreaAddModifyAction(/*eb*/));
             editorCodeArea.getEditor().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
             editorCodeArea.getBottomSearchButtons().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
@@ -377,7 +377,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str, new EditorAreaAddModifiAction(/*eb*/));
+            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str, new EditorAreaAddModifyAction(/*eb*/));
 
             editorCodeArea.getEditor().setFileEncoding(backEncode[0]);
             editorCodeArea.getBottomSearchButtons().init();
