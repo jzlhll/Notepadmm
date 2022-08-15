@@ -23,7 +23,7 @@ final class BottomHandler extends Handler {
     static final String SEARCH_PARAMS_KEY = "searchParams";
 
     private final BottomSearchButtons out;
-    final Styler styler;
+    private final Styler styler;
 
     final Cache cache = new Cache();
 

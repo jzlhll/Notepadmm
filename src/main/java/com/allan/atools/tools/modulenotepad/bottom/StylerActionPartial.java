@@ -11,9 +11,9 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 
-final class StylerPartial extends Styler.IStylerAction {
-    StylerPartial(Styler styler) {
-        super(styler);
+final class StylerActionPartial extends StylerAction {
+    StylerActionPartial(BottomSearchButtons out) {
+        super(out);
     }
 
     private record VisibleIndexes(int first, int last, int max, int startNum, int endNum/*, startPos*/) {
@@ -33,7 +33,7 @@ final class StylerPartial extends Styler.IStylerAction {
 
     private void setBigParaStylePartRunFunction() {
         Log.d("style when scrolled======>>>");
-        actionEndPart(mStyler.out.editorArea, 0, mStyler.out.getBottomCache().cacheResult,
+        actionEndPart(out.editorArea, 0, out.getBottomCache().cacheResult,
                 BottomHandler.ClickType.None, lastShowType);
     }
     private final Runnable setBigParaStylePartRunnable = this::setBigParaStylePartRunFunction;
@@ -48,14 +48,14 @@ final class StylerPartial extends Styler.IStylerAction {
     void setVisibleParaChanged() {
         if (!setVisibleParaChanged) {
             setVisibleParaChanged = true;
-            mStyler.out.editorArea.getEditor().visibleParagraphChanged.addAction(visibleParaChanged);
+            out.editorArea.getEditor().visibleParagraphChanged.addAction(visibleParaChanged);
         }
     }
 
     void removeVisibleParaChanged() {
         if (setVisibleParaChanged) {
             setVisibleParaChanged = false;
-            mStyler.out.editorArea.getEditor().visibleParagraphChanged.removeAction(visibleParaChanged);
+            out.editorArea.getEditor().visibleParagraphChanged.removeAction(visibleParaChanged);
         }
     }
 
@@ -77,7 +77,7 @@ final class StylerPartial extends Styler.IStylerAction {
     }
 
     private void actionEndPart(EditorArea area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
-        if (flag != mStyler.out.lastChangeSearchFlag.get()) {
+        if (flag != out.lastChangeSearchFlag.get()) {
             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed11 flag=" + flag);
             return;
         }
@@ -88,7 +88,7 @@ final class StylerPartial extends Styler.IStylerAction {
         Log.d("part style when init======>>>");
         //此时还在异步线程
         Platform.runLater(() -> {
-            if (flag != mStyler.out.lastChangeSearchFlag.get()) {
+            if (flag != out.lastChangeSearchFlag.get()) {
                 if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed22 flag=" + flag);
                 return;
             }
@@ -101,7 +101,7 @@ final class StylerPartial extends Styler.IStylerAction {
             ThreadUtils.execute(() -> {
                 if (styleSpansEx != null) {
                     Platform.runLater(()-> {
-                        if (flag != mStyler.out.lastChangeSearchFlag.get()) {
+                        if (flag != out.lastChangeSearchFlag.get()) {
                             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed33 flag=" + flag);
                             return;
                         }
@@ -109,7 +109,7 @@ final class StylerPartial extends Styler.IStylerAction {
                         Log.d("start pos " + styleSpansEx.areaStartPos() + ", " + styleSpansEx.styleSpans().length());
                         area.setStyleSpans(styleSpansEx.areaStartPos(), styleSpansEx.styleSpans());
                         if (clickType == BottomHandler.ClickType.Search) {
-                            mStyler.out.jumpToNext(area, false, true);
+                            out.jumpToNext(area, false, true);
                         }
 
                         ManualGC.lessGC();
@@ -118,7 +118,7 @@ final class StylerPartial extends Styler.IStylerAction {
                 else
                 {
                     Platform.runLater(()->{
-                        if (flag != mStyler.out.lastChangeSearchFlag.get()) {
+                        if (flag != out.lastChangeSearchFlag.get()) {
                             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed44 flag=" + flag);
                             return;
                         }
@@ -128,7 +128,7 @@ final class StylerPartial extends Styler.IStylerAction {
                         //GlobalProfs.bottomSearchedIndicateProp.set("0/0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
                         area.setStyle(startPos, endPos, area.getInitialTextStyle());
                         if (clickType == BottomHandler.ClickType.Search) {
-                            mStyler.out.jumpToNext(area, false, true);
+                            out.jumpToNext(area, false, true);
                         }
                     });
                 }
