@@ -3,7 +3,7 @@ package com.allan.atools.richtext.codearea
 import com.allan.atools.FontTheme
 import com.allan.atools.UIContext
 import com.allan.atools.tools.modulenotepad.Highlight
-import com.allan.atools.tools.modulenotepad.bottom.BottomSearchButtons
+import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr
 import com.allan.atools.utils.Log
 import com.allan.baseparty.Action
 import com.allan.baseparty.memory.RefWatcher
@@ -17,7 +17,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
     CodeArea(text, beforeInitTextAction) {
 
     val editor: EditorAreaMgr
-    val bottomSearchButtons: BottomSearchButtons
+    val bottomSearchBtnsMgr: BottomSearchBtnsMgr
     val fontThemeChanged: ChangeListener<Number>
     val multiSelections: EditorAreaMultiSelectionsMgr
 
@@ -40,7 +40,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
     init {
         editor = build(this, sourceFile, tab, isFake)
         multiSelections = EditorAreaMultiSelectionsMgr(this)
-        bottomSearchButtons = BottomSearchButtons(this)
+        bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)
         Highlight.initGenericAreaFont(this)
         //Editor的Fontsize不是那样来的。所以不用。设置fontSize监听
         fontThemeChanged =
@@ -71,6 +71,6 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()
         editor.destroy()
-        bottomSearchButtons.destroy()
+        bottomSearchBtnsMgr.destroy()
     }
 }

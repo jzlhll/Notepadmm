@@ -7,28 +7,36 @@ import com.allan.atools.utils.Log;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.text.FinderFactory;
 import com.allan.atools.text.beans.OneFileSearchResults;
-import com.allan.baseparty.handler.Handler;
-import com.allan.baseparty.handler.Message;
-import com.allan.baseparty.handler.TextUtils;
+import com.allan.baseparty.handler.*;
 import com.google.gson.Gson;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * BottomHandler是BottomSearchButtons的对象，即每一个Editor有一个Handler。
+ * BottomHandler是BottomSearchBtnsMgr的对象，即每一个Editor有一个Handler。
  * 但是所有的BottomHandler都共用一个Thread Looper。
  */
 final class BottomHandler extends Handler {
     static final String SEARCH_PARAMS_KEY = "searchParams";
 
-    private final BottomSearchButtons out;
+    private final BottomSearchBtnsMgr out;
     private final Styler styler;
 
     final Cache cache = new Cache();
 
-    public BottomHandler(BottomSearchButtons out) {
-        super(BottomManager.Instance.getHandlerThreadLooper());
+    private static HandlerThread mThread;
+
+    private static Looper getHandlerThreadLooper() {
+        if (mThread == null) {
+            mThread = new HandlerThread("bottom_handle_thread");
+            mThread.start();
+        }
+        return mThread.getLooper();
+    }
+
+    public BottomHandler(BottomSearchBtnsMgr out) {
+        super(getHandlerThreadLooper());
         this.out = out;
         styler = new Styler(out);
     }
@@ -211,7 +219,7 @@ final class BottomHandler extends Handler {
                 int[] totalLines = {0};
                 //TimerCounter.start("bottom_search_in_thread");
                 var lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
-                //Log.d(BottomSearchButtons.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
+                //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
                 cache.cacheResult = null;
                 cache.cacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
             }

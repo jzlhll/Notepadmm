@@ -18,7 +18,7 @@ final class StylerActionFull extends StylerAction {
     void removeVisibleParaChanged() {
     }
 
-    StylerActionFull(BottomSearchButtons out) {
+    StylerActionFull(BottomSearchBtnsMgr out) {
         super(out);
     }
 

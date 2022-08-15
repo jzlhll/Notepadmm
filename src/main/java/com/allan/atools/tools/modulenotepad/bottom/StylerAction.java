@@ -29,8 +29,8 @@ abstract class StylerAction {
         return sHandler;
     }
 
-    final BottomSearchButtons out;
-    StylerAction(BottomSearchButtons out) {
+    final BottomSearchBtnsMgr out;
+    StylerAction(BottomSearchBtnsMgr out) {
         this.out = out;
     }
 

@@ -304,7 +304,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         try {
             EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str, new EditorAreaAddModifyAction(/*eb*/));
             editorCodeArea.getEditor().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
-            editorCodeArea.getBottomSearchButtons().init();
+            editorCodeArea.getBottomSearchBtnsMgr().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
@@ -380,7 +380,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str, new EditorAreaAddModifyAction(/*eb*/));
 
             editorCodeArea.getEditor().setFileEncoding(backEncode[0]);
-            editorCodeArea.getBottomSearchButtons().init();
+            editorCodeArea.getBottomSearchBtnsMgr().init();
             Log.d("change encoding " + backEncode[0]);
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             newTab.setContent(vpane);

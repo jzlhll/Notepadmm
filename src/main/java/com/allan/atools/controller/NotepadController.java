@@ -9,7 +9,7 @@ import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.FileOpenSupportsKt;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
-import com.allan.atools.tools.modulenotepad.bottom.BottomManager;
+import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.pop.GlobalPopupManager;
@@ -203,7 +203,7 @@ public final class NotepadController extends AbstractMainController {
         searchedIndicateLabel.textProperty().bind(UIContext.bottomSearchedIndicateProp);
         notepadMainEncodeLabel.textProperty().bind(UIContext.fileEncodeIndicateProp);
 
-        BottomManager.Instance.initAfterBottomCreated();
+        BottomEntry.initAfterBottomCreated();
 
         initEncodingIndicateClick();
 

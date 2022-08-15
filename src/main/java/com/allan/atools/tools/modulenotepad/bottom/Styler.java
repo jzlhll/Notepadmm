@@ -8,14 +8,14 @@ import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
 
 /**
- * Styler是BottomSearchButtons的一个对象。则每一个Editor有一个它。
+ * Styler是BottomSearchBtnsMgr的一个对象。则每一个Editor有一个它。
  */
 final class Styler {
     static final boolean DEBUG_STYLER = (true || EditorArea.DEBUG_EDITOR) && UIContext.DEBUG;
-    final BottomSearchButtons out;
+    final BottomSearchBtnsMgr out;
     private final StylerAction mFullAction, mPartAction;
 
-    Styler(BottomSearchButtons out) {
+    Styler(BottomSearchBtnsMgr out) {
         this.out = out;
         mFullAction = new StylerActionFull(out);
         mPartAction = new StylerActionPartial(out);

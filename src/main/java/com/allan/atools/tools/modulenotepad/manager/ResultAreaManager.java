@@ -72,7 +72,7 @@ public final class ResultAreaManager implements INotepadResultManager {
                         update.requestFocus();
                     }
 
-                    editArea.getBottomSearchButtons().disableSelectionListenerTemporary(500);
+                    editArea.getBottomSearchBtnsMgr().disableSelectionListenerTemporary(500);
                     if (editArea.getEditor().isDestroyed()) {
                         Log.e("jump to next but edior is destroyed!");
                     }

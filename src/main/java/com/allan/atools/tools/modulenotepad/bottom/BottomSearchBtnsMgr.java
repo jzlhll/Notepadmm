@@ -1,43 +1,39 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.richtext.codearea.EditorArea;
-import com.allan.atools.threads.ThreadUtils;
-import com.allan.atools.ui.IconfontCreator;
-import com.allan.atools.utils.Locales;
-import com.allan.atools.utils.Log;
-import com.allan.atools.bean.SearchParams;
 import com.allan.atools.Colors;
 import com.allan.atools.SettingPreferences;
-import com.allan.atools.tools.modulenotepad.Highlight;
 import com.allan.atools.UIContext;
+import com.allan.atools.bean.SearchParams;
+import com.allan.atools.bean.SearchParamsIndicator;
+import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.threads.ThreadUtils;
+import com.allan.atools.tools.modulenotepad.Highlight;
+import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.SnackbarUtils;
+import com.allan.atools.utils.Locales;
+import com.allan.atools.utils.Log;
 import com.allan.baseparty.handler.TextUtils;
 import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-final class SearchParamsAndIndicator {
-    SearchParams searchParams;
-    String indicator;
-}
-
 /**
- * 现在，BottomSearchButtons是每一个Editor独有的一个对象。
+ * BottomSearchBtnsMgr是每一个EditorArea独有的一个对象。
  */
-public final class BottomSearchButtons {
-    static final String TAG = "BottomSearchButtons";
+public final class BottomSearchBtnsMgr {
+    static final String TAG = "BottomSearchBtnsMgr";
 
     final EditorArea editorArea;
 
     final AtomicLong lastChangeSearchFlag = new AtomicLong(0);
     private final BottomHandler handler;
 
-    SearchParamsAndIndicator mSearchParamAndIndicatorParam;
+    SearchParamsIndicator mSearchParamAndIndicatorParam;
     private String temporaryWord;
     public String getTemporaryWord() {return temporaryWord;}
 
-    public BottomSearchButtons(EditorArea editorImpl) {
+    public BottomSearchBtnsMgr(EditorArea editorImpl) {
         editorArea = editorImpl;
         handler = new BottomHandler(this);
     }
@@ -68,7 +64,7 @@ public final class BottomSearchButtons {
         });
         temporaryWord = null;
 
-        var pair = new SearchParamsAndIndicator();
+        var pair = new SearchParamsIndicator();
         pair.indicator = "";
         pair.searchParams = BottomHandler.getTemplateParams().copy();
         mSearchParamAndIndicatorParam = pair;

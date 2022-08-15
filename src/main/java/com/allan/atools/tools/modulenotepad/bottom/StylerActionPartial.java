@@ -12,7 +12,7 @@ import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 
 final class StylerActionPartial extends StylerAction {
-    StylerActionPartial(BottomSearchButtons out) {
+    StylerActionPartial(BottomSearchBtnsMgr out) {
         super(out);
     }
 
