@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class WorkspaceManager implements IWorkspace {
+    private static final boolean DEBUG = false;
     private static final String TAG = "WorkspaceManager";
 
     private static final String KEY_WORKSPACE_FILE = "workspace_dir";
@@ -97,7 +98,7 @@ public final class WorkspaceManager implements IWorkspace {
 
     @Override
     public void ifRefreshWorkspace(File changedFile) {
-        Log.d(TAG, "refresh workspace " + isWorkspaceShown);
+        if(DEBUG) Log.d(TAG, "refresh workspace " + isWorkspaceShown);
         if (isWorkspaceShown) {
             var dir = IO.getParentPath(changedFile.getAbsolutePath(), false);
             var curDir = currentDir.getAbsolutePath();
@@ -105,7 +106,7 @@ public final class WorkspaceManager implements IWorkspace {
                 curDir = curDir.substring(0, curDir.length() - 1);
             }
             if (TextUtils.equals(dir, curDir)) {
-                Log.d(TAG, "need refresh workspace: " + currentDir);
+                if(DEBUG) Log.d(TAG, "need refresh workspace: " + currentDir);
                 openWorkspace(currentDir);
             }
         }
@@ -115,18 +116,18 @@ public final class WorkspaceManager implements IWorkspace {
     private final Runnable saveWorkspaceVBoxWidthRunnable = () -> {
         //多偏移2个像素
         UIContext.sharedPref.edit().putInt(KEY_WORKSPACE_WIDTH, workspaceWidth + 2).commit();
-        Log.d("save workspace box width " + workspaceWidth);
+        if(DEBUG) Log.d("save workspace box width " + workspaceWidth);
     };
 
     private void setSplitPanePosition() {
         double totalWidth = UIContext.context().notepadSubSplitPane.getWidth();
         double pos = (double) workspaceWidth / totalWidth;
-        Log.d(TAG, "todo notepad SubSplitPane setDividerPositions " + pos + " workspace Width:" + workspaceWidth + "/ notepadSub SplitPane width: " + totalWidth);
+        if(DEBUG) Log.d(TAG, "todo notepad SubSplitPane setDividerPositions " + pos + " workspace Width:" + workspaceWidth + "/ notepadSub SplitPane width: " + totalWidth);
         UIContext.context().notepadSubSplitPane.setDividerPositions(pos);
     }
 
     private void initOnce() {
-        Log.d(TAG, "init once");
+        if(DEBUG) Log.d(TAG, "init once");
         var c = UIContext.context();
         if (c.workspaceRefreshBtn.getOnMouseClicked() != null) {
             return;
@@ -136,20 +137,20 @@ public final class WorkspaceManager implements IWorkspace {
         if (workspaceWidth == 0) {
             workspaceWidth = UIContext.sharedPref.getInt(KEY_WORKSPACE_WIDTH, 175);
         }
-        Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
+        if(DEBUG) Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
 
         c.workspaceVBox.widthProperty().addListener((observable, oldValue, newValue) -> {
             workspaceWidth = newValue.intValue();
-            Log.d(TAG, "todo mWorkspace Width " + newValue.intValue() + " total notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
+            if(DEBUG) Log.d(TAG, "todo mWorkspace Width " + newValue.intValue() + " total notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
             if (workspaceWidth < WIDTH_OF_WORKSPACE_MIN) {
                 if(c.workspaceVBox.isVisible()) {
-                    Log.d(TAG, "change workspace VBox false");
+                    if(DEBUG) Log.d(TAG, "change workspace VBox false");
                     c.workspaceVBox.setVisible(false);
                 }
             } else {
                 if (!c.workspaceVBox.isVisible()) {
                     c.workspaceVBox.setVisible(true);
-                    Log.d(TAG, "change workspace VBox true");
+                    if(DEBUG) Log.d(TAG, "change workspace VBox true");
                 }
             }
 
@@ -160,7 +161,7 @@ public final class WorkspaceManager implements IWorkspace {
                 nextCurrentDir = null;
                 ThreadUtils.executeDelay(100, ()-> {
                     Platform.runLater(()-> {
-                        Log.d(TAG, "treeItems: delayed to do after width info<<<< " + finalNextCurrentDir);
+                        if(DEBUG) Log.d(TAG, "treeItems: delayed to do after width info<<<< " + finalNextCurrentDir);
                         openWorkspace(finalNextCurrentDir);
                     });
                 });
@@ -268,12 +269,12 @@ public final class WorkspaceManager implements IWorkspace {
         //init once
         initOnce();
         if (!isWorkspaceVBoxAdded) {
-            Log.d(TAG, "first init treeItems");
+            if(DEBUG) Log.d(TAG, "first init treeItems");
             isWorkspaceVBoxAdded = true;
             //*** 这里delay去等待width的变化；如果出现removeWorkspace或者快速的二次开启就会有bug。
             //不过我认为不可能出现这种case
             nextCurrentDir = dir; //*** 标记nextCurrentDir 等待 ****
-            Log.d(TAG, "treeItems: delay to wait for width change info...>>>...nextCurFile: " + dir + "current width notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
+            if(DEBUG) Log.d(TAG, "treeItems: delay to wait for width change info...>>>...nextCurFile: " + dir + "current width notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
 
             var ctrl = UIContext.context();
             ctrl.notepadSubSplitPane.getItems().add(0, ctrl.workspaceVBox);
@@ -289,7 +290,7 @@ public final class WorkspaceManager implements IWorkspace {
             ctrl.workspaceTree.setRoot(base);
             ctrl.workspaceTree.setShowRoot(false);
         } else {
-            Log.d(TAG, "treeItems: just directly action...>>>...<<<...");
+            if(DEBUG) Log.d(TAG, "treeItems: just directly action...>>>...<<<...");
             if (!dir.exists()) {
                 return;
             }
@@ -297,7 +298,7 @@ public final class WorkspaceManager implements IWorkspace {
             currentDir = dir;
             var path = dir.getAbsolutePath();
 
-            Log.d(TAG, "treeItems: real doing.....");
+            if(DEBUG) Log.d(TAG, "treeItems: real doing.....");
             var ctrl = UIContext.context();
             var base = ctrl.workspaceTree.getRoot();
             base.getChildren().clear();
@@ -342,7 +343,7 @@ public final class WorkspaceManager implements IWorkspace {
             }
 
             isWorkspaceShown = true;
-            Log.d(TAG, "treeItems: real done!");
+            if(DEBUG) Log.d(TAG, "treeItems: real done!");
             ThreadUtils.globalHandler().post(()->
                     UIContext.sharedPref.edit()
                             .putString(KEY_WORKSPACE_FILE, path)
@@ -413,7 +414,7 @@ public final class WorkspaceManager implements IWorkspace {
         deleteMenu.setOnAction(event -> {
             WorkspaceManager workspaceManager = (WorkspaceManager) UIContext.context().getWorkspaceManager();
             File file = (File) workspaceManager.currentItem.ex;
-            Log.d(WorkspaceManager.TAG, "" + file);
+            if(DEBUG) Log.d(WorkspaceManager.TAG, "" + file);
 
             if (file.exists() && file.isDirectory()) {
                 IO.deleteDirJava(file);
@@ -454,12 +455,12 @@ public final class WorkspaceManager implements IWorkspace {
                                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, null,
                                             () -> {
                                                 var newFullPa = ans.run().invoke();
-                                                Log.d(WorkspaceManager.TAG, "changed name " + newFullPa);
+                                                if(DEBUG) Log.d(WorkspaceManager.TAG, "changed name " + newFullPa);
                                             }),
                                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, null, null)
                             );
                         } else if (ans.newFullPath() != null) {
-                            Log.d(WorkspaceManager.TAG, "changed name " + ans.newFullPath());
+                            if(DEBUG) Log.d(WorkspaceManager.TAG, "changed name " + ans.newFullPath());
                             UIContext.context().getWorkspaceManager().refreshWorkspace();
                         }
                     }

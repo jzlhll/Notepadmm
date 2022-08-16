@@ -53,7 +53,7 @@ public final class BottomEntry {
             } else {
                 UIContext.context().bottomSearchTextCaseBtn.setVisible(true);
                 UIContext.context().bottomSearchTextWholeWordsBtn.setVisible(true);
-                UIContext.context().bottomSearchTextRuleBtn.setVisible(true); //当初code模式下为何不可见 !newValue.getEditor().isEditorCodeFind()
+                UIContext.context().bottomSearchTextRuleBtn.setVisible(true); //当初code模式下为何不可见 !newValue.getEditor().isEditorCodeMode()
                 UIContext.context().bottomSearchTextUpperBtn.setVisible(true);
                 UIContext.context().bottomSearchTextDownBtn.setVisible(true);
                 UIContext.context().bottomSearchTextField.setVisible(true);

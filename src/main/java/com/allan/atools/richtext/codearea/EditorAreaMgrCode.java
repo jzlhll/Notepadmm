@@ -14,7 +14,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     static boolean sJavaKeywordCssFileLoad = false;
 
     private final EditorKeywordHelperAbstract mKeywordHelper;
-    public EditorKeywordHelperAbstract getHelper() {return mKeywordHelper;}
     private final boolean mIsDropDown; //是否采用掉落为，父类的逻辑
 
     EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
@@ -40,7 +39,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     }
 
     @Override
-    public boolean isEditorCodeFind() {
+    public boolean isEditorCodeMode() {
         return !mIsDropDown;
     }
 

@@ -46,15 +46,18 @@ public abstract class EditorKeywordHelperAbstract {
         return new String[]{tempPattern, searchPattern};
     }
 
+    /**
+     *
+     */
     public void triggerAllText(GenericStyledArea<Collection<String>, String, Collection<String>> area,
                                SearchParams temporaryTextParam, SearchParams searchTextParam) {
         mLastMatcher = getPattern(temporaryTextParam, searchTextParam);
         var spans = getComputeHighlightFun().apply(area.getText());
-        Platform.runLater(()-> {
-            area.setStyleSpans(0, spans);
-        });
+        Platform.runLater(()-> area.setStyleSpans(0, spans));
     }
-//
+
+//   todo 实现局部刷新。暂时代码文件以全刷为准
+    //
 //    public void triggerVisible(GenericStyledArea<Collection<String>, String, Collection<String>> area,
 //                               SearchParams temporaryTextParam, SearchParams searchTextParam) {
 //        mLastMatcher = getPattern(temporaryTextParam, searchTextParam);
@@ -69,18 +72,4 @@ public abstract class EditorKeywordHelperAbstract {
 //            prevParagraph = paragraph;
 //        }
 //    }
-
-//    public void triggerAllLines(MyCodeArea area, SearchParams temporaryTextParam, SearchParams searchTextParam) {
-//        mLastMatcher = getPattern(temporaryTextParam, searchTextParam);
-//
-//        String[] ss = area.getText().split("\n");
-//        for (var s : ss) {
-//            var spans = getComputeHighlightFun().apply(s);
-//        }
-//
-//        Platform.runLater(()-> {
-//            area.setStyleSpans(0, s);
-//        });
-//    }
-
 }

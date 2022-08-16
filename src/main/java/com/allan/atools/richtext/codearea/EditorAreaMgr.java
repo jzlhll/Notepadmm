@@ -66,7 +66,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     @Override
-    public boolean isEditorCodeFind() {
+    public boolean isEditorCodeMode() {
         return false;
     }
 

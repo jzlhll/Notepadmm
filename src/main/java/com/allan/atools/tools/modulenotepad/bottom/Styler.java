@@ -2,6 +2,8 @@ package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.UIContext;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorAreaMgr;
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.tools.modulenotepad.StaticsProf;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
@@ -12,16 +14,19 @@ import com.allan.atools.utils.Log;
  */
 final class Styler {
     static final boolean DEBUG_STYLER = (true || EditorArea.DEBUG_EDITOR) && UIContext.DEBUG;
-    final BottomSearchBtnsMgr out;
+    final EditorArea area;
     private final StylerAction mFullAction, mPartAction;
 
     Styler(BottomSearchBtnsMgr out) {
-        this.out = out;
+        this.area = out.editorArea;
         mFullAction = new StylerActionFull(out);
         mPartAction = new StylerActionPartial(out);
     }
 
-    void temporaryAndSearchEndCallback(EditorArea area, final long flag, OneFileSearchResults items,
+    /**
+     * 将Temp模式的搜索结果和Search模式的结果都做颜色匹配生成Styler配色
+     */
+    void stylingNormal(final long flag, OneFileSearchResults items,
                                        BottomHandler.ClickType clickType, ShowType showType) {
         if (DEBUG_STYLER) {
             Log.d("Styler: temporary SearchEndCallback flag=" + flag);

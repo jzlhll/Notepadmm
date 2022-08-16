@@ -168,7 +168,7 @@ final class BottomHandler extends Handler {
     }
 
     private void searchInThread(int triggerId, ClickType clickType, final long flag) {
-        var area = UIContext.currentAreaProp.get();
+        var area = out.editorArea;// UIContext.currentAreaProp.get();
         if (area == null) {
             return;
         }
@@ -179,52 +179,49 @@ final class BottomHandler extends Handler {
         tempWord = out.getTemporaryWord();
         curTempParams = curParams.copy(tempWord, false, true);
 
-        do {
-            if (triggerId == MSG_TRIGGER_SEARCH_TEXT_CHANGE) {
-                if (area.getEditor().isEditorCodeFind()) {
-                    area.getEditor().trigger(curTempParams, curParams);
-                }
-            }
+        SearchParams[] searchParams;
+        boolean isEmptyCur = TextUtils.isEmpty(curParams.words);
+        boolean isEmptyTemp = TextUtils.isEmpty(curTempParams.words);
 
-            SearchParams[] searchParams;
-            boolean isEmptyCur = TextUtils.isEmpty(curParams.words);
-            boolean isEmptyTemp = TextUtils.isEmpty(curTempParams.words);
+        ShowType showType = null;
 
-            ShowType showType = null;
-
-            if (isEmptyCur && isEmptyTemp) {
-                searchParams = null;
-            } else if (isEmptyCur && !isEmptyTemp) {
-                searchParams = new SearchParams[]{curTempParams};
-                showType = ShowType.Temp;
-            } else if (!isEmptyCur && isEmptyTemp) {
+        if (isEmptyCur && isEmptyTemp) {
+            searchParams = null;
+        } else if (isEmptyCur && !isEmptyTemp) {
+            searchParams = new SearchParams[]{curTempParams};
+            showType = ShowType.Temp;
+        } else if (!isEmptyCur && isEmptyTemp) {
+            searchParams = new SearchParams[]{curParams};
+            showType = ShowType.Search;
+        } else { //(!isEmptyCur && !isEmptyTemp)
+            if (curParams.type == SearchParams.Type.Normal && curParams.words.equals(curTempParams.words)) {
                 searchParams = new SearchParams[]{curParams};
                 showType = ShowType.Search;
-            } else { //(!isEmptyCur && !isEmptyTemp)
-                if (curParams.type == SearchParams.Type.Normal && curParams.words.equals(curTempParams.words)) {
-                    searchParams = new SearchParams[]{curParams};
-                    showType = ShowType.Search;
-                } else {
-                    searchParams = new SearchParams[]{curParams, curTempParams};
-                    showType = ShowType.BothSearchFrontTempBehind;
-                }
-            }
-
-            var t = area.getText();
-            if (t == null || t.length() == 0) {
-                cache.cacheResult = new OneFileSearchResults();
-            } else if (searchParams == null) {
-                cache.cacheResult = new OneFileSearchResults().addTotalLen(t.length());
             } else {
-                int[] totalLines = {0};
-                //TimerCounter.start("bottom_search_in_thread");
-                var lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
-                //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
-                cache.cacheResult = null;
-                cache.cacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
+                searchParams = new SearchParams[]{curParams, curTempParams};
+                showType = ShowType.BothSearchFrontTempBehind;
             }
-            if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
-            styler.temporaryAndSearchEndCallback(area, flag, cache.cacheResult, clickType, showType);
-        } while (false);
+        }
+
+        var t = area.getText();
+        if (t == null || t.length() == 0) {
+            cache.cacheResult = new OneFileSearchResults();
+        } else if (searchParams == null) {
+            cache.cacheResult = new OneFileSearchResults().addTotalLen(t.length());
+        } else {
+            int[] totalLines = {0};
+            //TimerCounter.start("bottom_search_in_thread");
+            var lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
+            //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
+            cache.cacheResult = null;
+            cache.cacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
+        }
+        if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
+
+        if (area.getEditor().isEditorCodeMode()) {
+            area.getEditor().trigger(curTempParams, curParams);
+        } else {
+            styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
+        }
     }
 }
