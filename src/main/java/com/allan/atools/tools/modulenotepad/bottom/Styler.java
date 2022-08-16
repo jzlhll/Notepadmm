@@ -1,6 +1,7 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorAreaMgr;
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
@@ -15,12 +16,16 @@ import com.allan.atools.utils.Log;
 final class Styler {
     static final boolean DEBUG_STYLER = (true || EditorArea.DEBUG_EDITOR) && UIContext.DEBUG;
     final EditorArea area;
-    private final StylerAction mFullAction, mPartAction;
+    private final StylerActionFull mFullAction;
+    private final StylerActionPartial mPartAction;
+
+    private final StylerActionCode mCodeAction;
 
     Styler(BottomSearchBtnsMgr out) {
         this.area = out.editorArea;
         mFullAction = new StylerActionFull(out);
         mPartAction = new StylerActionPartial(out);
+        mCodeAction = new StylerActionCode(out);
     }
 
     /**
@@ -42,8 +47,13 @@ final class Styler {
         }
     }
 
+    void stylingCode(BottomHandler.ClickType clickType, SearchParams curTempParams, SearchParams curParams) {
+        mCodeAction.action(clickType, curTempParams, curParams);
+    }
+
     void destroy() {
         mPartAction.destroy();
         mFullAction.destroy();
+        mCodeAction.destroy();
     }
 }

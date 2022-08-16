@@ -9,7 +9,7 @@ import com.allan.atools.utils.ManualGC;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import javafx.application.Platform;
 
-final class StylerActionFull extends StylerAction {
+final class StylerActionFull extends StylerAction implements StylerAction.INormalAction {
     @Override
     void setVisibleParaChanged() {
     }
@@ -25,7 +25,7 @@ final class StylerActionFull extends StylerAction {
     private boolean isLastEmpty = true;
 
     @Override
-    void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
+    public void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         if (flag != out.lastChangeSearchFlag.get()) {
             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed55 flag=" + flag);
             return;
@@ -45,11 +45,7 @@ final class StylerActionFull extends StylerAction {
                     if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed77 flag=" + flag);
                     return;
                 }
-                if (clickType == BottomHandler.ClickType.Search) {
-                    if(Styler.DEBUG_STYLER) Log.w(">>>>>>jump To Next<<<<");
-                    out.jumpToNext(area, false, true);
-                }
-                ManualGC.decupleGC();
+                onStyleOver(clickType);
             });
         } else {
             //走到这里说明是empty

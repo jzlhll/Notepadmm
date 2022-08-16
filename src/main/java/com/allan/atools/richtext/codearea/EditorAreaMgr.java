@@ -746,7 +746,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return null;
     }
 
-    public void trigger(SearchParams temporaryText, SearchParams searchText) {
+    public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 end) {
         //do nothing...
         throw new RuntimeException("base should not call trigger in EditorBase");
     }

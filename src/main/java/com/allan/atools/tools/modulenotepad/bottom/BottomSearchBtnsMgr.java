@@ -101,7 +101,7 @@ public final class BottomSearchBtnsMgr {
         }
         var item = handler.cache.getNextCachedLineNum(editorArea, back, cycleNext, out);
         if (item == null) {
-            //todo GlobalProfs.bottomSearchedIndicateProp.set("");
+            //todo GlobalProfs.bottomSearchedIndicateProp.set("0");
             return;
         }
         Highlight.JumpMode mode = back ? Highlight.JumpMode.GoUp : Highlight.JumpMode.GoDown;

@@ -5,6 +5,7 @@ import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
+import com.allan.baseparty.Action0;
 import javafx.scene.control.Tab;
 
 import java.io.File;
@@ -35,7 +36,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
         mKeywordHelper = helper;
 
-        if(!mIsDropDown) trigger(null, null);
+        if(!mIsDropDown) trigger(null, null, null);
     }
 
     @Override
@@ -43,9 +44,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return !mIsDropDown;
     }
 
-    public void trigger(SearchParams temporaryText, SearchParams searchText) {
+    public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
         Log.d(getSourceFile() + " trigger");
-        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText);
+        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText, endSetStyleCallback);
     }
 }
 

@@ -219,7 +219,7 @@ final class BottomHandler extends Handler {
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
 
         if (area.getEditor().isEditorCodeMode()) {
-            area.getEditor().trigger(curTempParams, curParams);
+            styler.stylingCode(clickType, curTempParams, curParams);
         } else {
             styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
         }

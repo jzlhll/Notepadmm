@@ -11,7 +11,7 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 
-final class StylerActionPartial extends StylerAction {
+final class StylerActionPartial extends StylerAction implements StylerAction.INormalAction {
     StylerActionPartial(BottomSearchBtnsMgr out) {
         super(out);
     }
@@ -60,7 +60,7 @@ final class StylerActionPartial extends StylerAction {
     }
 
     @Override
-    void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
+    public void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         actionEndPart(area, flag, items, clickType, showType);
     }
 
@@ -108,11 +108,8 @@ final class StylerActionPartial extends StylerAction {
 
                         Log.d("start pos " + styleSpansEx.areaStartPos() + ", " + styleSpansEx.styleSpans().length());
                         area.setStyleSpans(styleSpansEx.areaStartPos(), styleSpansEx.styleSpans());
-                        if (clickType == BottomHandler.ClickType.Search) {
-                            out.jumpToNext(area, false, true);
-                        }
 
-                        ManualGC.lessGC();
+                        onStyleOver(clickType);
                     });
                 }
                 else
@@ -127,9 +124,8 @@ final class StylerActionPartial extends StylerAction {
                         int startPos = area.getAbsolutePosition(indexes.startNum, 0);
                         //GlobalProfs.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
                         area.setStyle(startPos, endPos, area.getInitialTextStyle());
-                        if (clickType == BottomHandler.ClickType.Search) {
-                            out.jumpToNext(area, false, true);
-                        }
+
+                        onStyleOver(clickType);
                     });
                 }
             });

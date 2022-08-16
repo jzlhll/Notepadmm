@@ -1,12 +1,23 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
+import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
+import com.allan.atools.utils.Log;
+import com.allan.atools.utils.ManualGC;
 import com.allan.baseparty.handler.HandlerThread;
 
 abstract class StylerAction {
+    public interface INormalAction {
+        void action(EditorArea area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType);
+    }
+
+    public interface ICodeAction {
+        void action(BottomHandler.ClickType clickType, SearchParams curTempParams, SearchParams curParams);
+    }
+
     abstract void setVisibleParaChanged();
 
     abstract void removeVisibleParaChanged();
@@ -36,5 +47,11 @@ abstract class StylerAction {
 
     void destroy(){}
 
-    abstract void action(EditorArea area, final long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType);
+    protected final void onStyleOver(BottomHandler.ClickType clickType) {
+        if (clickType == BottomHandler.ClickType.Search) {
+            if(Styler.DEBUG_STYLER) Log.w(">>>>>>jump To Next<<<<");
+            out.jumpToNext(out.editorArea, false, true);
+        }
+        ManualGC.lessGC();
+    }
 }

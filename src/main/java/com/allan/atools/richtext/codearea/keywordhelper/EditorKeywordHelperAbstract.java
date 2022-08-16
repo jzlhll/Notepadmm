@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea.keywordhelper;
 
+import com.allan.baseparty.Action0;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.bean.SearchParams;
 import javafx.application.Platform;
@@ -49,11 +50,14 @@ public abstract class EditorKeywordHelperAbstract {
     /**
      *
      */
-    public void triggerAllText(GenericStyledArea<Collection<String>, String, Collection<String>> area,
-                               SearchParams temporaryTextParam, SearchParams searchTextParam) {
+    public final void triggerAllText(GenericStyledArea<Collection<String>, String, Collection<String>> area,
+                                     SearchParams temporaryTextParam, SearchParams searchTextParam, Action0 endOfSetStyle) {
         mLastMatcher = getPattern(temporaryTextParam, searchTextParam);
         var spans = getComputeHighlightFun().apply(area.getText());
-        Platform.runLater(()-> area.setStyleSpans(0, spans));
+        Platform.runLater(()-> {
+            area.setStyleSpans(0, spans);
+            if(endOfSetStyle != null) endOfSetStyle.invoke();
+        });
     }
 
 //   todo 实现局部刷新。暂时代码文件以全刷为准
