@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.pop.impl.TabTitleCreatorImpl;
+import com.allan.atools.text.IEditorAreaState;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.beans.ReplaceParams;
@@ -56,6 +57,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     static final String TAG = "Editor";
 
     private static final String TEMP_MASK_FILE = " *";
+
+    private final EditorAreaState state;
+
+    @Override
+    public IEditorAreaState getState() {
+        return state;
+    }
 
     @Override
     public boolean isEditorCodeFind() {
@@ -248,11 +256,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return sourceFile;
     }
 
-    public int getFileLength() {
-        return (int) sourceFile.length();
-    }
-
-    String fullPath;
     Tab tab;
     public Tab getTab() {
         return tab;
@@ -268,39 +271,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private boolean isFake;
     public boolean getIsFake() {return isFake;}
-
-    private String fileEncoding;
-
-    private int currentCaretPos, selectedLength, selectLineCount, currentCaretColNum, currentCaretLineNum;
-
-    public int getCurrentCaretPos() {
-        return currentCaretPos;
-    }
-
-    public int getSelectLineCount() {return selectLineCount;}
-
-    public int getSelectedLen() {
-        return selectedLength;
-    }
-
-    /**
-     * 新增：底部是wrap的状态。
-     */
-    public boolean isWrap = false;
-
-    public int getCurrentCaretColNum() {
-        return currentCaretColNum;
-    }
-
-    public int getCurrentCaretLineNum() {
-        return currentCaretLineNum;
-    }
-
-    @Override
-    public void setFileEncoding(String fileEncoding) {this.fileEncoding = fileEncoding;}
-
-    @Override
-    public String getFileEncoding() {return fileEncoding;}
 
     @Override
     public void destroy() {
@@ -342,9 +312,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     EditorAreaMgr(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         this.sourceFile = sourceFile;
+        state = new EditorAreaState(area);
         UIContext.allOpenedFileList.add(sourceFile);
         Log.w("new EditorBase:: " + sourceFile.lastModified());
-        this.fullPath = sourceFile.getAbsolutePath();
         this.tab = tab;
         this.isFake = isFake;
         tab.setText(isFake ? sourceFile.getName() + TEMP_MASK_FILE : sourceFile.getName());
@@ -412,7 +382,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private void saveContentInner(boolean forceSave, String sourceCode) {
         try {
             Log.d("Files writeString save content forceSave:" + forceSave);
-            Files.writeString(Path.of(sourceFile.getAbsolutePath()), sourceCode, Charset.forName(getFileEncoding()));
+            Files.writeString(Path.of(sourceFile.getAbsolutePath()), sourceCode, Charset.forName(state.getFileEncoding()));
             isFake = false;
             markCurrentFileTs();
             notifyWorkspaceRefreshDelayed();
@@ -478,13 +448,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
         caretPosChanged.addAction((caretPos, lineNum, colNum, length, lineCount) -> {
             Log.d("area: caretPos changed!");
-            selectLineCount = lineCount;
+            state.selectLineCount = lineCount;
             var s = length > 0 ? String.format(Locales.str("editor.caretIndicate"), /*caretPos,*/ lineNum, colNum, length, lineCount)
                     : String.format(Locales.str("editor.caretIndicate.short"), lineNum, colNum);
-            selectedLength = length;
-            currentCaretPos = caretPos;
-            currentCaretColNum = colNum;
-            currentCaretLineNum = lineNum;
+            state.selectedLength = length;
+            state.currentCaretPos = caretPos;
+            state.currentCaretColNum = colNum;
+            state.currentCaretLineNum = lineNum;
             UIContext.bottomIndicateProp.set(s);
         });
 
@@ -637,7 +607,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private void afterRename(String newFile) {
         editorFocus.removeFocusChanged();
         var newf = new File(newFile);
-        AllEditorsManager.Instance.reOpenCurrentFile(tab, newf, getFileEncoding());
+        AllEditorsManager.Instance.reOpenCurrentFile(tab, newf, state.getFileEncoding());
         var oldFile = sourceFile;
         UIContext.allOpenedFileList.remove(oldFile);
         sourceFile = newf;

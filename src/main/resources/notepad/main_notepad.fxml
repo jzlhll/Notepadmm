@@ -136,9 +136,9 @@
         <Label fx:id="notepadMainNotHasFileText" styleClass="title-label-big" StackPane.alignment="CENTER" text="%dragFileIntoAndOpen"/>
     </StackPane>
 
-    <HBox fx:id="notepadMainBottomBox" styleClass="custom-main-bg" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER">
+    <HBox fx:id="notepadMainBottomBox" styleClass="custom-main-bg" alignment="CENTER_LEFT" spacing="3.0" VBox.vgrow="NEVER">
         <padding>
-            <Insets bottom="1.0" left="2.0" right="3.0" top="3.0"/>
+            <Insets bottom="1.0" left="2.0" right="2.0" top="3.0"/>
         </padding>
         <JFXTextField fx:id="bottomSearchTextField" prefWidth="240" prefHeight="20"/>
         <JFXRippler styleClass="jfx-rippler">
@@ -183,18 +183,24 @@
         <Pane HBox.hgrow="ALWAYS"/>
         <Label fx:id="indicateLabel" HBox.hgrow="NEVER" styleClass="small-desc-label">
             <HBox.margin>
-                <Insets right="6"/>
+                <Insets right="2"/>
             </HBox.margin>
         </Label>
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
-                <Insets right="6"/>
+                <Insets right="2"/>
             </HBox.margin>
             <Label maxHeight="1.8" fx:id="wrapTextCheckBtn" text="%setting.autoEnter" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
         </JFXRippler>
-        <JFXRippler styleClass="jfx-rippler">
+        <JFXRippler styleClass="jfx-rippler" >
             <HBox.margin>
-                <Insets right="8"/>
+                <Insets right="2"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="notepadReadonlyCheckBtn" text="%setting.readonly" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+        </JFXRippler>
+        <JFXRippler styleClass="jfx-rippler" maxWidth="80" minWidth="40">
+            <HBox.margin>
+                <Insets right="0"/>
             </HBox.margin>
             <Label maxHeight="1.8" fx:id="notepadMainEncodeLabel" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-colored-label"/>
         </JFXRippler>

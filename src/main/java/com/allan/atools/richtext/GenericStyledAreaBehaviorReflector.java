@@ -55,10 +55,11 @@ public final class GenericStyledAreaBehaviorReflector {
         if (e.isAltDown()) {
             EditorArea area = (EditorArea) e.getSource();
 
-            var editorBase = area.getEditor();
-            var beforeCol = editorBase.getCurrentCaretColNum();
-            var beforeLine = editorBase.getCurrentCaretLineNum();
-            var beforePos = editorBase.getCurrentCaretPos();
+            var editor = area.getEditor();
+            var state = editor.getState();
+            var beforeCol = state.getCurrentCaretColNum();
+            var beforeLine = state.getCurrentCaretLineNum();
+            var beforePos = state.getCurrentCaretPos();
 
             Method m = null;
             if (handleFirstPrimaryPressMethod != null) {
@@ -83,9 +84,9 @@ public final class GenericStyledAreaBehaviorReflector {
                 ex.printStackTrace();
             }
 
-            var afterCol = editorBase.getCurrentCaretColNum();
-            var afterLine = editorBase.getCurrentCaretLineNum();
-            var afterPos = editorBase.getCurrentCaretPos();
+            var afterCol = state.getCurrentCaretColNum();
+            var afterLine = state.getCurrentCaretLineNum();
+            var afterPos = state.getCurrentCaretPos();
 
             Log.d("area: " + beforeCol + ", " + beforeLine + ",,,, " + afterCol + ", " + afterLine);
 //            JfoenixDialogUtils.confirm("delete", "area: " + beforeCol + ", " + beforeLine + ",,,, " + afterCol + ", " + afterLine, 0, 0,

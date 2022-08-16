@@ -29,7 +29,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
         val DEBUG_EDITOR = true && UIContext.DEBUG
     }
 
-    private fun build(area: EditorArea, sourceFile: File?, tab: Tab?, isFake: Boolean): EditorAreaMgr {
+    private fun createEditorAreaMgr(area: EditorArea, sourceFile: File?, tab: Tab?, isFake: Boolean): EditorAreaMgr {
         assert(sourceFile != null)
         val shortcutType = EditorKeywordHelperFactory.sFilePathToExtension.invoke(sourceFile)
         return if (shortcutType != null) {
@@ -38,7 +38,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, be
     }
 
     init {
-        editor = build(this, sourceFile, tab, isFake)
+        editor = createEditorAreaMgr(this, sourceFile, tab, isFake)
         multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)
         Highlight.initGenericAreaFont(this)

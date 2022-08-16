@@ -151,16 +151,6 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
     }
 
     @Override
-    public void setFileEncoding(String encoding) {
-        throw new RuntimeException("不用支持2");
-    }
-
-    @Override
-    public String getFileEncoding() {
-        throw new RuntimeException("不用支持1");
-    }
-
-    @Override
     public GenericStyledArea<ParStyle, String, TextStyle> getArea() {
         return this;
     }

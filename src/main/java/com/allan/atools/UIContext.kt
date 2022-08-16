@@ -74,6 +74,7 @@ class UIContext {
         val allOpenedFileList = FXCollections.observableArrayList<File>()
         @JvmField
         val fileEncodeIndicateProp = SimpleStringProperty("")
+
         @JvmField
         val bottomIndicateProp = SimpleStringProperty("")
         @JvmField

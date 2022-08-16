@@ -73,7 +73,7 @@
 }
 
 .small-desc-label {
-    -fx-font-size: 13;
+    -fx-font-size: 12;
     -fx-padding: 3.0px;
     -fx-text-fill: -au-default-desc-color;
 }
@@ -85,7 +85,7 @@
 }
 
 .small-colored-label {
-    -fx-font-size: 13;
+    -fx-font-size: 12;
     -fx-padding: 3.0px;
     -fx-text-fill: -au-main-color;
 }

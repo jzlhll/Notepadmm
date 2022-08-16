@@ -72,6 +72,7 @@ public final class NotepadController extends AbstractMainController {
     public Label searchedIndicateLabel;
 
     public Label notepadMainEncodeLabel;
+    public Label notepadReadonlyCheckBtn;
     public HBox notepadMainBottomBox;
     public StackPane mainPane;
     public Label notepadMainNotHasFileText;
@@ -313,11 +314,15 @@ public final class NotepadController extends AbstractMainController {
             UIContext.currentAreaProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("change wrap check");
                 if (newValue != null) {
-                    UIContext.fileEncodeIndicateProp.set(newValue.getEditor().getFileEncoding());
-                    changeWrapTextCheckStyle(newValue.getEditor().isWrap);
+                    UIContext.fileEncodeIndicateProp.set(newValue.getEditor().getState().getFileEncoding());
+
+                    changeBottomTextBtnCheckStyle(wrapTextCheckBtn, newValue.getEditor().getState().isWrap());
+                    changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
-                    changeWrapTextCheckStyle(null);
+
+                    changeBottomTextBtnCheckStyle(wrapTextCheckBtn, null);
+                    changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
                 }
             });
 
@@ -352,27 +357,36 @@ public final class NotepadController extends AbstractMainController {
             wrapTextCheckBtn.setOnMouseClicked(ev -> {
                 var curArea = UIContext.currentAreaProp.get();
                 if (curArea != null) {
-                    var w = !curArea.getEditor().isWrap;
-                    curArea.getEditor().isWrap = w;
+                    var w = !curArea.getEditor().getState().isWrap();
+                    curArea.getEditor().getState().setWrap(w);
                     curArea.setWrapText(w);
-                    changeWrapTextCheckStyle(w);
+                    changeBottomTextBtnCheckStyle(wrapTextCheckBtn, w);
+                }
+            });
+
+            notepadReadonlyCheckBtn.setOnMouseClicked(ev->{
+                var curArea = UIContext.currentAreaProp.get();
+                if (curArea != null) {
+                    var s = !curArea.getEditor().getState().isCurrentReadonly();
+                    curArea.getEditor().getState().setCurrentReadonly(s);
+                    changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, s);
                 }
             });
         }
     }
 
-    public void changeWrapTextCheckStyle(Boolean isWrap) {
-        Log.d("change wrap text button: " + isWrap);
-        if (isWrap == null) {
-            wrapTextCheckBtn.setVisible(false);
+    private void changeBottomTextBtnCheckStyle(Label label, Boolean enable) {
+        Log.d("" + label + ", enable: " + enable);
+        if (enable == null) {
+            label.setVisible(false);
         } else {
-            wrapTextCheckBtn.setVisible(true);
-            if (isWrap) {
-                wrapTextCheckBtn.getStyleClass().removeAll("small-desc-label", "small-colored-label");
-                wrapTextCheckBtn.getStyleClass().add("small-colored-label");
+            label.setVisible(true);
+            if (enable) {
+                label.getStyleClass().removeAll("small-desc-label", "small-colored-label");
+                label.getStyleClass().add("small-colored-label");
             } else {
-                wrapTextCheckBtn.getStyleClass().removeAll("small-desc-label", "small-colored-label");
-                wrapTextCheckBtn.getStyleClass().add("small-desc-label");
+                label.getStyleClass().removeAll("small-desc-label", "small-colored-label");
+                label.getStyleClass().add("small-desc-label");
             }
         }
     }

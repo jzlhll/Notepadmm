@@ -303,7 +303,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
             EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str, new EditorAreaAddModifyAction(/*eb*/));
-            editorCodeArea.getEditor().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
+            editorCodeArea.getEditor().getState().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
             editorCodeArea.getBottomSearchBtnsMgr().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             newTab.setContent(vpane);
@@ -347,7 +347,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 alreadyTab.setUserData(textFile); //第一时间更新
                 StringBuilder sb = FileUtils.readString(textFile.getAbsolutePath(), forceEncoding, backEncode);
                 var are = codeAreaExInTab(alreadyTab);
-                are.getEditor().setFileEncoding(backEncode[0]);
+                are.getEditor().getState().setFileEncoding(backEncode[0]);
                 are.getEditor().resetText(sb.toString());
                 //只有这种情况需要更新当前的编码文字
                 UIContext.fileEncodeIndicateProp.set(forceEncoding);
@@ -379,7 +379,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         try {
             EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str, new EditorAreaAddModifyAction(/*eb*/));
 
-            editorCodeArea.getEditor().setFileEncoding(backEncode[0]);
+            editorCodeArea.getEditor().getState().setFileEncoding(backEncode[0]);
             editorCodeArea.getBottomSearchBtnsMgr().init();
             Log.d("change encoding " + backEncode[0]);
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
