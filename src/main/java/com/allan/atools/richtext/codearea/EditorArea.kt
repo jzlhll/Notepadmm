@@ -13,8 +13,8 @@ import javafx.beans.value.ObservableValue
 import javafx.scene.control.Tab
 import java.io.File
 
-class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String, beforeInitTextAction: Action<CodeArea>) :
-    CodeArea(text, beforeInitTextAction) {
+class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
+    CodeArea(text) {
 
     val editor: EditorAreaMgr
     val bottomSearchBtnsMgr: BottomSearchBtnsMgr

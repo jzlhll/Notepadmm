@@ -61,7 +61,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
      *
      * @param text Initial text com.base.content.
      */
-    public CodeArea(@NamedArg("text") String text, Action<CodeArea> beforeInitAction) {
+    private CodeArea(@NamedArg("text") String text, Action<CodeArea> beforeInitAction) {
         this(new SimpleEditableStyledDocument<>(
                 Collections.<String>emptyList(), Collections.<String>emptyList()
         ), false);
@@ -75,6 +75,10 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
         // position the caret at the beginning
         selectRange(0, 0);
+    }
+
+    public CodeArea(@NamedArg("text") String text) {
+        this(text, null);
     }
 
     @Override // to select words containing underscores
