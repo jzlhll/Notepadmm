@@ -63,7 +63,7 @@ final class StylerActionFull extends StylerAction {
                     if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed88 flag=" + flag);
                     return;
                 }
-                UIContext.bottomSearchedIndicateProp.set("0/0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
+                UIContext.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
                 var len = area.getLength();
                 if (len > 0) {
                     if(Styler.DEBUG_STYLER) Log.w(">>>>>set style initialTextStyle " + len + "<<<<< last is empty: " + isLastEmpty);

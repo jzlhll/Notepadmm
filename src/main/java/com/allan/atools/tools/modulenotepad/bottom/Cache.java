@@ -83,6 +83,9 @@ final class Cache {
             return null;
         }
 
+        int sz = oneRes.results.size();
+        int sz_1 = sz - 1;
+
         var posAndLineNum = Highlight.getCurrentCaretPosAndLineNum(area);
         int caretPosition = posAndLineNum[0];
         int caretLine = posAndLineNum[1];
@@ -116,7 +119,7 @@ final class Cache {
                     }
                 }
                 //没有比现在更大的，则追加一个
-                if (curLineItemIndex < oneRes.results.size() - 1) {
+                if (curLineItemIndex < sz_1) {
                    nextLineIndex = curLineItemIndex + 1;
                 }
             }
@@ -124,16 +127,16 @@ final class Cache {
 
         if (cycleNext) {
             if (curLineItemIndex == 0 && nextLineIndex == 0 && back) { //同时为0，又没有在上面的该行中找到则跳到最后咯。
-                nextLineIndex = oneRes.results.size() - 1;
+                nextLineIndex = sz_1;
             }
 
-            if (curLineItemIndex == oneRes.results.size() - 1 && nextLineIndex == oneRes.results.size() - 1 && !back) { //都是最后一个匹配行，又走到这里就跳到最开始
+            if (curLineItemIndex == sz_1 && nextLineIndex == sz_1 && !back) { //都是最后一个匹配行，又走到这里就跳到最开始
                 nextLineIndex = 0;
             }
         }
 
         //不相同，我们就不用判断了，只需要往上，往下，不过要注意往下是直接拿本尊；往上是拿最后一个second，拿不到再本尊
-        if (curLineItemIndex != nextLineIndex) {
+        //不做判断。不拦截为1的情况。if (curLineItemIndex != nextLineIndex) {
             if (back) {
                 var item = oneRes.results.get(nextLineIndex);
                 return item.items[item.items.length - 1];
@@ -141,7 +144,7 @@ final class Cache {
                 var item = oneRes.results.get(nextLineIndex);
                 return item.items[0];
             }
-        }
-        return null;
+        //}
+        //return null;
     }
 }

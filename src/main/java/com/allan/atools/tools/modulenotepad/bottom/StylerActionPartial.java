@@ -125,7 +125,7 @@ final class StylerActionPartial extends StylerAction {
 
                         int endPos = area.getAbsolutePosition(indexes.endNum, 0);
                         int startPos = area.getAbsolutePosition(indexes.startNum, 0);
-                        //GlobalProfs.bottomSearchedIndicateProp.set("0/0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
+                        //GlobalProfs.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
                         area.setStyle(startPos, endPos, area.getInitialTextStyle());
                         if (clickType == BottomHandler.ClickType.Search) {
                             out.jumpToNext(area, false, true);
