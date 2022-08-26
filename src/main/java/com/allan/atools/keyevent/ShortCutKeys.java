@@ -1,9 +1,11 @@
 package com.allan.atools.keyevent;
 
+import com.allan.atools.UIContext;
+
 import static com.allan.atools.keyevent.ShortCutKeys.CombineKey.*;
 
 public final class ShortCutKeys {
-    public static final boolean DEBUG_KEY = true;
+    public static final boolean DEBUG_KEY = UIContext.DEBUG;
 
     public enum CombineKey {
         NotAccept,

@@ -1,11 +1,11 @@
 package com.allan.atools.keyevent;
 
 import com.allan.atools.KeyEventDispatchCenter;
-import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.utils.Log;
 import javafx.scene.Parent;
+import javafx.scene.input.KeyCode;
 
-import java.util.Vector;
+import java.util.HashSet;
 
 /**
  * 借鉴android的事件分发。如果level最高的页面消费掉了事件，则level低的父节点不做使用。
@@ -46,7 +46,8 @@ public final class KeyEventDispatcher {
         }
     }
 
-    private static final Vector<String> pressedKeyCodes = new Vector<>(2);
+    private static final HashSet<String> pressedKeyCodes = new HashSet<>(4);
+    private static final String[] STR_TO_ARR = new String[0];
 
     public void init(Parent root) {
         root.setOnKeyReleased(event -> {
@@ -54,22 +55,11 @@ public final class KeyEventDispatcher {
             StringBuilder stringBuilder = new StringBuilder();
             var n = event.getCode().getName();
             synchronized (pressedKeyCodes) {
-                boolean isEq = false;
-                for (var keyCode : pressedKeyCodes) {
-                    if (TextUtils.equals(keyCode, n)) {
-                        isEq = true;break;
-                    }
-                }
-                if (!isEq) {
-                    log("Release added n " + n);
-                    pressedKeyCodes.add(n);
-                }
-
+                pressedKeyCodes.add(n);
                 pressedKeyCodes.forEach(s -> stringBuilder.append(s).append("+"));
-                sb = pressedKeyCodes.toArray(new String[0]);
-
+                sb = pressedKeyCodes.toArray(STR_TO_ARR);
                 pressedKeyCodes.remove(n);
-                log("pressedKeyCodes clear: " + stringBuilder + " siz= " + pressedKeyCodes.size());
+                log("%%pressed clr: " + stringBuilder + " ,size: " + pressedKeyCodes.size());
             }
 
             dispatch(sb);
@@ -80,9 +70,13 @@ public final class KeyEventDispatcher {
 //        });
 
         root.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.UNDEFINED) {
+                return;
+            }
+
             synchronized (pressedKeyCodes) {
                 pressedKeyCodes.add(event.getCode().getName());
-                log("%%Pressed after added: " + event.getCode().getName() + " siz " + pressedKeyCodes.size());
+                log("%%pressed add: " + event.getCode().getName() + " ,size: " + pressedKeyCodes.size());
             }
             //dispatch(event, KeyMode.Pressed);
         });
