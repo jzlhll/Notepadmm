@@ -41,7 +41,7 @@
   ![](previews/normal_search.png)
 
 
-* 代码高亮(因主要目的是文本日志分析功能，支持尚未完善)
+* 代码高亮
 
   ![](previews/colors.png)
 
