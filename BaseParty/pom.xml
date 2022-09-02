@@ -11,13 +11,13 @@
     <packaging>pom</packaging>
 
     <properties>
-        <javafx.version>18.0.1</javafx.version>
+        <javafx.version>18.0.2</javafx.version>
 <!--        <javafx.platform>mac-x64</javafx.platform>-->
         <javafx.platform>mac-aarch64</javafx.platform>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <kotlin.version>1.6.20</kotlin.version>
+        <kotlin.version>1.7.10</kotlin.version>
     </properties>
 
     <dependencies>
