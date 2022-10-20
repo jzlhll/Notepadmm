@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -209,8 +210,9 @@ public final class IO {
         try {
             process = Runtime.getRuntime().exec(cmdArr, SystemEnvp);
             // 方法阻塞, 等待命令执行完成（成功会返回0）
-            bufrIn = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-            bufrError = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8));
+            var cs = IO.IS_WIN ? Charset.forName("GBK") : StandardCharsets.UTF_8;
+            bufrIn = new BufferedReader(new InputStreamReader(process.getInputStream(), cs));
+            bufrError = new BufferedReader(new InputStreamReader(process.getErrorStream(), cs));
             new Thread(()-> {
                 // 获取命令执行结果, 有两个结果: 正常的输出 和 错误的输出（PS: 子进程的输出就是主进程的输入）
                 // 读取输出

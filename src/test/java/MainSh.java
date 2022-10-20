@@ -1,3 +1,5 @@
+import com.allan.baseparty.Action0;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.module.ModuleFinder;
@@ -273,7 +275,17 @@ final class MainSh {
         return list;
     }
 
-    static void func6_5_proguard(List<String> jreDeps, boolean saveToFileOrRead, boolean replaceOrig) {
+   public static class ProguardParam {
+        boolean saveToFileOrRead;
+        boolean replaceOrigJar;
+        boolean deleteProguard_use;
+    }
+
+    static void func6_5_proguard(List<String> jreDeps, ProguardParam param, Action0 end) {
+        boolean saveToFileOrRead = param.saveToFileOrRead;
+        boolean replaceOrig = param.replaceOrigJar;
+        boolean deleteProguardUse = param.deleteProguard_use;
+
         var miniJreDepsPath = Path.of(IO.combinePath(Cfg.BUILD_ROOT, "miniJreDeps.txt"));
 
         if (saveToFileOrRead) {
@@ -346,46 +358,66 @@ final class MainSh {
                 e.printStackTrace();
             }
 
-            do {
-                var srcJar = IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, Cfg.MAIN_MODULE_NAME + ".jar"); // TODO 多模块
-                var targetJar = IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, Cfg.MAIN_MODULE_NAME + "_cvt.jar"); // TODO 多模块
-                String cmd = Cfg.proguardBin + " @proguard_use.pro -injars " + srcJar + " -outjars " + targetJar;
-                System.out.println("执行混淆命令为：" + cmd);
-                List<String> ss = IO.runBig(cmd, false);
-                //第一次混淆成功
-                if (Files.exists(Path.of(targetJar))) {
-                    //统计map
-                    try {
-                        getOutDotMap();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                    try {
-                        if (replaceOrig) {
-                            Files.delete(Path.of(srcJar));
-                            Files.move(Path.of(targetJar), Path.of(srcJar));
-                        }
-                        System.out.println("!!!>>>### 混淆成功@@!!： " + srcJar);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        System.out.println("Error: 混淆 " + srcJar);
-                    }
-                } else {
-                    StringBuilder sblog = new StringBuilder();
-                    ss.forEach(s -> sblog.append(s).append("\n"));
-                    System.out.println(sblog);
-                    System.out.println("Error: 混淆失败。不存在混淆后的文件 " + targetJar);
-                }
-            } while(false);
-
-            if (Files.exists(pathProguardUse)) {
+            new Thread(()->{
                 try {
-                    Files.delete(pathProguardUse);
-                } catch (IOException e) {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-            }
+                if (Files.exists(pathProguardUse)) {
+                    do {
+                        var srcJar = IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, Cfg.MAIN_MODULE_NAME + ".jar"); // TODO 多模块
+                        var targetJar = IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, Cfg.MAIN_MODULE_NAME + "_cvt.jar"); // TODO 多模块
+
+                        String cmd;
+                        if (IO.IS_WIN) {
+                            var atPro = "\"@proguard_use.pro\"";
+                            cmd = Cfg.java + " -jar " + Cfg.proguardBinOrJar[1] + " " + atPro + " -injars " + srcJar + " -outjars " + targetJar;
+                        } else {
+                            var atPro = "@proguard_use.pro";
+                            cmd = Cfg.proguardBinOrJar[0] + " " + atPro + " -injars " + srcJar + " -outjars " + targetJar;
+                        }
+
+                        System.out.println("执行混淆命令为：" + cmd);
+                        List<String> ss = IO.runBig(cmd, false);
+                        //第一次混淆成功
+                        if (Files.exists(Path.of(targetJar))) {
+                            //统计map
+                            try {
+                                getOutDotMap();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
+                            try {
+                                if (replaceOrig) {
+                                    Files.delete(Path.of(srcJar));
+                                    Files.move(Path.of(targetJar), Path.of(srcJar));
+                                }
+                                System.out.println("!!!>>>### 混淆成功@@!!： " + srcJar);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                System.out.println("Error: 混淆 " + srcJar);
+                            }
+                        } else {
+                            StringBuilder sblog = new StringBuilder();
+                            ss.forEach(s -> sblog.append(s).append("\n"));
+                            System.out.println(sblog);
+                            System.out.println("Error: 混淆失败。不存在混淆后的文件 " + targetJar);
+                        }
+                    } while(false);
+
+                    try {
+                       if(deleteProguardUse) Files.delete(pathProguardUse);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    System.out.println("竟然没有生成文件。");
+                }
+
+                end.invoke();
+            }).start();
         } else {
             System.out.println("混淆，跳过！");
         }
@@ -403,14 +435,14 @@ final class MainSh {
                 throw new RuntimeException(e);
             }
 
-            System.out.println("cd到" + Cfg.BUILD_ROOT + "\" 后，自行复制如下命令去执行。\n执行以后，他会有很长的时间，耐心等待...");
+            System.out.println("请注意：！！！！\ncd到" + Cfg.BUILD_ROOT + "\" !!!!后，自行复制如下命令去执行。\n执行以后，他会有很长的时间，耐心等待...");
             String iconPath = IO.IS_WIN ? "../icons/windows.ico" : "../icons/mac.icns";
 
             var cmd = Cfg.jpackage + " -n " + Cfg.APP_NAME
                     + " --icon " + iconPath
                     + " -i resources"
                     //+ " --file-associations " + IO.combinePath("..", "FileAssociations", "FA.txt")
-                    + " -p " + Cfg.THIRD_LIBS_DIR + JPACKAGE_MODULE_PATH_SPLIT + Cfg.MY_LIBS_DIR;
+                    + " -p " + "\"" + Cfg.THIRD_LIBS_DIR + JPACKAGE_MODULE_PATH_SPLIT + Cfg.MY_LIBS_DIR + "\"";
             var vmOption = getVMOptions();
             if (vmOption != null) {
                 cmd += " --java-options " + vmOption;

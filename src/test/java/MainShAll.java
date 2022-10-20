@@ -1,3 +1,5 @@
+import com.allan.baseparty.Action0;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -12,17 +14,18 @@ public class MainShAll {
         Cfg.step6_proguard = true;
         Cfg.step7_jpackage = true;
 
-        mainAction();
-        MainSh.func4_packMiniJre(miniJreDeps);
-        System.out.println("================================");
-        System.out.println();
+        mainAction(()->{
+            MainSh.func4_packMiniJre(miniJreDeps);
+            System.out.println("================================");
+            System.out.println();
 
-        /////777
-        MainSh.func7();
+            /////777
+            MainSh.func7();
+        });
     }
 
     static List<String> miniJreDeps;
-    public static void mainAction() {
+    public static void mainAction(Action0 end) {
         IO.currentDirPrint();
 
         /////111
@@ -54,8 +57,14 @@ public class MainShAll {
         MainSh.func6_jarPack();
         System.out.println("================================");
         System.out.println();
-        MainSh.func6_5_proguard(miniJreDeps, true, true);
-        System.out.println("================================");
-        System.out.println();
+        var param = new MainSh.ProguardParam();
+        param.saveToFileOrRead = true;
+        param.deleteProguard_use = true;
+        param.replaceOrigJar = true;
+        MainSh.func6_5_proguard(miniJreDeps,  param, ()->{
+            System.out.println("================================");
+            System.out.println();
+            end.invoke();
+        });
     }
 }

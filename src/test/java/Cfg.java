@@ -1,7 +1,7 @@
 import java.io.IOException;
 
 public class Cfg {
-    private static final String CfgConfig = "./src/test/java/cfg_mac_arm.config";
+    private static final String CfgConfig = "./src/test/java/cfg_win.config";
     //运行入口
     static final String MAIN_CLASS;
     //主模块
@@ -14,7 +14,11 @@ public class Cfg {
     //maven的本地仓库 末尾的分隔符不得少
     static final String M2_PATH;
 
-    static final String proguardBin;
+    /**
+     * 如果是传入bin，就是proguard.bat或者.sh
+     * 如果传入lib/proguard.jar，则是第二个参数。
+     */
+    static final String[] proguardBinOrJar;
 
 
     //如果本地没有.idea/library目录。则需要在类似如下目录的地方找到这个文件。 todo modify by you
@@ -64,7 +68,10 @@ public class Cfg {
         }
 
         M2_PATH = reader.get("M2_PATH");
-        proguardBin = reader.get("proguardBin");
+        proguardBinOrJar = new String[]{null, null};
+        proguardBinOrJar[0] = reader.get("proguardBin");
+        var proguardJar = reader.get("proguardJar");
+        proguardBinOrJar[1] = (proguardJar == null || proguardJar.length() == 0) ? null : proguardJar;
         IDEA_CACHE_libraries_xml_PATH = reader.get("IDEA_CACHE_libraries_xml_PATH");
     }
 
@@ -88,10 +95,12 @@ public class Cfg {
 
 
     static final String jmod = IO.combinePath(JAVA_HOME, "bin", "jmod");
+
     static final String jpackage = IO.combinePath(JAVA_HOME, "bin", "jpackage");
     static final String jar = IO.combinePath(JAVA_HOME, "bin", "jar");
     static final String jlink = IO.combinePath(JAVA_HOME, "bin", "jlink");
     static final String jdeps = IO.combinePath(JAVA_HOME, "bin", "jdeps");
+    static final String java = IO.combinePath(JAVA_HOME, "bin", "java");
 
     static final String[] subTargetClasses = new String[] {
             IO.combinePath("BaseParty", "target", "classes"),
