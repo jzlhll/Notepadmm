@@ -346,9 +346,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         this.area = area;
         initArea();
 
-        if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(this, sourceFile.getPath());
-        }
+        RefWatcher.watchs(this, sourceFile.getPath());
     }
 
     private void textSaved() {

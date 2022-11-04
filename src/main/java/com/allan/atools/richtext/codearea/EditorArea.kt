@@ -55,9 +55,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
         //setUseInitialStyleForInsertion(false);
         Highlight.jumpToHead(this)
 
-        if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
-        }
+        RefWatcher.watchs(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
     }
 
     fun destroy() {

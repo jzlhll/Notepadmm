@@ -290,9 +290,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     @Override
     public void newFakeFile(File fakeFile) {
         Tab newTab = new Tab();
-        if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(newTab, "fakeFile " + fakeFile.getPath());
-        }
+
+        RefWatcher.watchs(newTab, "fakeFile " + fakeFile.getPath());
 
         newTab.setUserData(fakeFile);
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
@@ -360,9 +359,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
 
         Tab newTab = new Tab();
-        if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(newTab, "openFile");
-        }
+        RefWatcher.watchs(newTab, "openFile");
 
         newTab.setUserData(textFile);
         newTab.setOnClosed(event -> onTabCloseAction(newTab));

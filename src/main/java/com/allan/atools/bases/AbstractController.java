@@ -98,9 +98,7 @@ public abstract class AbstractController {
             c.setRootView(view);
         }
 
-        if (RefWatcher.getInstance() != null) {
-            RefWatcher.getInstance().watch(c, xmlPath.toString());
-        }
+        RefWatcher.watchs(c, xmlPath.toString());
         return c;
     }
 
