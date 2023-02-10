@@ -1,7 +1,8 @@
 import java.io.IOException;
 
 public class Cfg {
-    private static final String CfgConfig = "./src/test/java/cfg_win.config";
+    //todo: 不能的电脑，配置修改这里。
+    private static final String CfgConfig = "./src/test/java/cfg_mac_arm.config";
     //运行入口
     static final String MAIN_CLASS;
     //主模块
