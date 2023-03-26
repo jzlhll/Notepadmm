@@ -1,14 +1,10 @@
 package com.allan.atools;
 
 import com.allan.atools.bases.AbstractController;
-import com.allan.atools.controller.ColorController;
-import com.allan.atools.controller.JsonFormatController;
-import com.allan.atools.controller.TransferController;
-import com.allan.atools.utils.ResLocation;
+import com.allan.atools.controller.*;
 import javafx.collections.ObservableList;
 
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Map;
 
 public final class AToolsViewsConfigure {
@@ -20,6 +16,10 @@ public final class AToolsViewsConfigure {
         names.add("color");
         pages.put(indexCount++, TransferController.class);
         names.add("transfer");
+        pages.put(indexCount++, NumbersGameController.class);
+        names.add("numbers");
+        pages.put(indexCount++, FfmpegController.class);
+        names.add("ffmpeg");
 
         return indexCount;
     }

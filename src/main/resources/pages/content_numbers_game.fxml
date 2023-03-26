@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.AnchorPane?>
+
+<?import com.jfoenix.controls.JFXButton?>
+<?import javafx.scene.control.Label?>
+<?import com.jfoenix.controls.JFXComboBox?>
+<AnchorPane prefHeight="630.0" styleClass="custom-main-bg"
+            prefWidth="870.0" xmlns="http://javafx.com/javafx/15.0.1"
+            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.NumbersGameController">
+   <Label fx:id="titleLabel" styleClass="title-label-large-large" layoutX="50" layoutY="18" text="你记住了吗？"/>
+   <JFXButton fx:id="startBtn" buttonType="RAISED" layoutX="500.0" layoutY="18.0" prefWidth="120" styleClass="custom-jfx-button-raised" text="刷新" />
+   <Label fx:id="numbersLabel" styleClass="title-label-large-large" layoutX="200" layoutY="140"/>
+   <Label fx:id="numbersCountDownLabel" styleClass="title-label-large-large" layoutX="600" layoutY="140"/>
+   <JFXComboBox fx:id="countSelectBox" prefWidth="100" layoutX="100.0" layoutY="400.0" styleClass="custom-jfx-combo-box"/>
+   <JFXComboBox fx:id="countDownBox" prefWidth="100" layoutX="100.0" layoutY="400.0" styleClass="custom-jfx-combo-box"/>
+</AnchorPane>

@@ -47,7 +47,7 @@
 <VBox prefHeight="650.0" prefWidth="1000" xmlns="http://javafx.com/javafx/15.0.1"
       xmlns:fx="http://javafx.com/fxml/1" styleClass="custom-main-bg"
       fx:controller="com.allan.atools.controller.AToolsController">
-    <AnchorPane prefWidth="1000" prefHeight="630">
+    <AnchorPane prefWidth="1100" prefHeight="670">
         <HBox fx:id="mainSplitPane" prefWidth="1000" prefHeight="630">
             <AnchorPane fx:id="leftMenuHolder" prefWidth="120">
                 <JFXListView fx:id="leftMenuListView" prefWidth="120" styleClass="custom-jfx-list-view"/>

@@ -1,9 +1,10 @@
 package com.allan.atools.utils;
 
+import com.allan.atools.threads.ThreadUtils;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +52,7 @@ public final class IO {
     /**
      * 将参数用分隔符/或者\分割拼接。末尾没有/或者\
      */
-    static String combinePath(String... paths) {
+    public static String combinePath(String... paths) {
         String r = combinePathWithInclineEnd(paths);
         return r.substring(0, r.length() - 1);
     }
@@ -59,7 +60,7 @@ public final class IO {
     /**
      * 将参数用分隔符/或者\分割拼接。末尾保留/或者\
      */
-    static String combinePathWithInclineEnd(String... paths) {
+    public static String combinePathWithInclineEnd(String... paths) {
         StringBuilder sb = new StringBuilder();
         for (String dir: paths) {
             sb.append(dir).append(File.separatorChar);
@@ -213,15 +214,34 @@ public final class IO {
             // 方法阻塞, 等待命令执行完成（成功会返回0）
             bufrIn = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
             bufrError = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8));
-            new Thread(()-> {
+
+            ThreadUtils.execute(()-> {
+                // 获取命令执行结果, 有两个结果: 正常的输出 和 错误的输出（PS: 子进程的输出就是主进程的输入）
+                // 读取输出
+                String line;
+                {
+                    try {
+                        while ((line = bufrIn.readLine()) != null) {
+                            if(printLog) System.out.println("[cmd]: " + line);
+                            results.add(line);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        System.out.println("似乎读取有点小问题了。");
+                    } finally {
+                        closeStream(bufrIn);
+                        // 销毁子进程
+                        process.destroy();
+                    }
+                }
+
+            });
+            ThreadUtils.execute(()-> {
                 // 获取命令执行结果, 有两个结果: 正常的输出 和 错误的输出（PS: 子进程的输出就是主进程的输入）
                 // 读取输出
                 String line;
                 try {
-                    while ((line = bufrIn.readLine()) != null) {
-                        if(printLog) System.out.println("[cmd]: " + line);
-                        results.add(line);
-                    }
+
                     while ((line = bufrError.readLine()) != null) {
                         if(printLog) System.out.println("[cmd]: " + line);
                         results.add(line);
@@ -231,11 +251,10 @@ public final class IO {
                     System.out.println("似乎读取有点小问题了。");
                 } finally {
                     closeStream(bufrError);
-                    closeStream(bufrIn);
                     // 销毁子进程
                     process.destroy();
                 }
-            }).start();
+            });
             int status = process.waitFor();
         } catch (Exception e) {
             e.printStackTrace();

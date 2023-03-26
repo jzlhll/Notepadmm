@@ -31,6 +31,12 @@
  }
 
 /* label  */
+.title-label-large-large {
+    -fx-font-size: 48;
+    -fx-padding: 18.0px;
+    -fx-text-fill: -au-default-text-color;
+}
+
 .title-label-big {
     -fx-font-size: 18;
     -fx-padding: 14.0px;

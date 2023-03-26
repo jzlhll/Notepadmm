@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane fx:id="splitPane" dividerPositions="0.5" maxHeight="610" maxWidth="920" minHeight="610" minWidth="920" prefHeight="610" prefWidth="920" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.FfmpegController">
+
+   <JFXTabPane fx:id="tabPane" maxHeight="580" maxWidth="630" minHeight="580" minWidth="630" prefHeight="580" prefWidth="630" styleClass="custom-jfx-tab-pane">
+
+      <Tab text=" 视频导入 ">
+         <VBox minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+            <Label styleClass="normal-label" text="选择一个含有待处理视频的目录(建议单独一个文件夹)">
+               <VBox.margin>
+                  <Insets left="15" top="15" />
+               </VBox.margin>
+            </Label>
+            <JFXButton fx:id="selectADirBtn" buttonType="RAISED" prefHeight="30" prefWidth="80" styleClass="custom-jfx-button-raised" text="Select...">
+               <VBox.margin>
+                  <Insets left="10" top="30" />
+               </VBox.margin>
+            </JFXButton>
+
+            <Label fx:id="selectADirLabel" styleClass="normal-label" />
+
+            <Hyperlink fx:id="selectFfmpegDir" prefHeight="30" prefWidth="400" styleClass="myhyperlink" text="设置ffmpeg目录：">
+               <VBox.margin>
+                  <Insets left="15" top="35" />
+               </VBox.margin>
+            </Hyperlink>
+
+            <Label fx:id="ffmpegDirLabel" styleClass="normal-label" />
+         </VBox>
+
+      </Tab>
+
+      <Tab text=" 提取封面 ">
+         <VBox minHeight="0.0" minWidth="0.0" prefHeight="300.0" prefWidth="500.0">
+            <Label styleClass="normal-label" text="从列表中选择视频提取封面(建议选择原视频)">
+               <VBox.margin>
+                  <Insets left="15" top="15" />
+               </VBox.margin>
+            </Label>
+
+            <Label fx:id="coverSureVideoLabel" styleClass="normal-label">
+               <VBox.margin>
+                  <Insets left="15" top="15" />
+               </VBox.margin>
+            </Label>
+
+            <HBox>
+               <Label styleClass="normal-label" text="第几秒开始？">
+                  <HBox.margin>
+                     <Insets left="15" top="7"/>
+                  </HBox.margin>
+               </Label>
+               <JFXButton fx:id="coverStartSecondMinusBtn" buttonType="RAISED" prefHeight="30" prefWidth="40" styleClass="custom-jfx-button-small" text="-">
+                  <HBox.margin>
+                     <Insets left="15" />
+                  </HBox.margin>
+               </JFXButton>
+               <Label fx:id="coverStartSecondLabel" styleClass="normal-label" text="0">
+                  <HBox.margin>
+                     <Insets left="15" top="7"/>
+                  </HBox.margin>
+               </Label>
+               <JFXButton fx:id="coverStartSecondPlusBtn" buttonType="RAISED" prefHeight="30" prefWidth="40" styleClass="custom-jfx-button-small" text="+">
+                  <HBox.margin>
+                     <Insets left="15"/>
+                  </HBox.margin>
+               </JFXButton>
+            </HBox>
+
+            <HBox>
+               <Label styleClass="normal-label" text="共截取几秒？">
+                  <HBox.margin>
+                     <Insets left="15"  top="7"/>
+                  </HBox.margin>
+               </Label>
+               <JFXButton fx:id="coverTotalSecondMinusBtn" buttonType="RAISED" prefHeight="30" prefWidth="40" styleClass="custom-jfx-button-small" text="-">
+                  <HBox.margin>
+                     <Insets left="15" />
+                  </HBox.margin>
+               </JFXButton>
+               <Label fx:id="coverTotalSecondLabel" styleClass="normal-label" text="1">
+                  <HBox.margin>
+                     <Insets left="15" top="7"/>
+                  </HBox.margin>
+               </Label>
+               <JFXButton fx:id="coverTotalSecondPlusBtn" buttonType="RAISED" prefHeight="30" prefWidth="40" styleClass="custom-jfx-button-small" text="+">
+                  <HBox.margin>
+                     <Insets left="15"/>
+                  </HBox.margin>
+               </JFXButton>
+               <VBox.margin>
+                  <Insets top="15"/>
+               </VBox.margin>
+            </HBox>
+
+            <JFXButton fx:id="coverSureVideoBtn" buttonType="RAISED" prefHeight="30" prefWidth="70" styleClass="custom-jfx-button-raised" text="Start...">
+               <VBox.margin>
+                  <Insets left="15" top="10" />
+               </VBox.margin>
+            </JFXButton>
+
+            <Label fx:id="coverToastLabel" styleClass="normal-label">
+               <HBox.margin>
+                  <Insets left="15" top="200"/>
+               </HBox.margin>
+            </Label>
+         </VBox>
+      </Tab>
+
+      <Tab text=" 近似压缩 ">
+         <VBox>
+            <Label styleClass="normal-label" text="1. 选择压缩参数：0 - 18(推荐) - 23(不错) - 28(一般) - 51(模糊)">
+               <VBox.margin>
+                  <Insets left="15" top="12" />
+               </VBox.margin>
+            </Label>
+            <HBox>
+               <JFXSlider fx:id="compressCrfSlide" maxWidth="250" prefHeight="20" prefWidth="250">
+                  <HBox.margin>
+                     <Insets left="15" top="10" />
+                  </HBox.margin>
+               </JFXSlider>
+               <Label fx:id="compressCrfLabel" styleClass="normal-label" text="18">
+                  <HBox.margin>
+                     <Insets left="25" top="8" />
+                  </HBox.margin>
+               </Label>
+            </HBox>
+
+            <Label styleClass="normal-label" text="2. 选择压缩速度(影响最终质量)">
+               <VBox.margin>
+                  <Insets left="15" top="20" />
+               </VBox.margin>
+            </Label>
+
+            <HBox>
+               <JFXSlider fx:id="compressSpeedSlide" maxWidth="250" prefHeight="20" prefWidth="250">
+                  <HBox.margin>
+                     <Insets left="15" top="8" />
+                  </HBox.margin>
+               </JFXSlider>
+               <Label fx:id="compressSpeedLabel" styleClass="normal-label" text="placebo">
+                  <HBox.margin>
+                     <Insets left="25" top="8" />
+                  </HBox.margin>
+               </Label>
+            </HBox>
+
+            <HBox>
+               <Label fx:id="compressStartSureFileLabel" styleClass="normal-label" text="">
+                  <HBox.margin>
+                     <Insets left="15" top="15" bottom="5"/>
+                  </HBox.margin>
+               </Label>
+            </HBox>
+
+            <JFXButton fx:id="compressStartBtn" buttonType="RAISED" prefHeight="30" prefWidth="80" styleClass="custom-jfx-button-raised" text="Start...">
+               <VBox.margin>
+                  <Insets bottom="20" left="15" />
+               </VBox.margin>
+            </JFXButton>
+            <Separator prefWidth="200.0" />
+
+            <Label styleClass="normal-label" text="3. 去【提取封面】中制作封面">
+               <VBox.margin>
+                  <Insets bottom="20" left="15" top="20" />
+               </VBox.margin>
+            </Label>
+            <Separator prefWidth="200.0" />
+
+            <Label styleClass="normal-label" text="4. 选择封面 并 合成">
+               <VBox.margin>
+                  <Insets left="15" top="15" />
+               </VBox.margin>
+            </Label>
+
+            <HBox>
+               <Label fx:id="combineCoverLabel" styleClass="normal-label" text="">
+                  <HBox.margin>
+                     <Insets left="15" top="15" bottom="5"/>
+                  </HBox.margin>
+               </Label>
+            </HBox>
+
+            <JFXButton fx:id="combineCoverBtn" buttonType="RAISED" prefHeight="30" prefWidth="100" styleClass="custom-jfx-button-raised" text="Combine...">
+               <VBox.margin>
+                  <Insets bottom="20" left="10" />
+               </VBox.margin>
+            </JFXButton>
+
+            <Separator prefWidth="200.0">
+               <VBox.margin>
+                  <Insets top="20" />
+               </VBox.margin>
+            </Separator>
+         </VBox>
+      </Tab>
+
+   </JFXTabPane>
+
+   <VBox maxHeight="580" maxWidth="280" minHeight="580" minWidth="280" prefHeight="580" prefWidth="280">
+      <HBox>
+         <JFXButton fx:id="refreshFileListBtn" prefHeight="36" prefWidth="85" styleClass="custom-jfx-button-raised" text="刷新列表">
+            <HBox.margin>
+               <Insets top="3" />
+            </HBox.margin>
+         </JFXButton>
+         <JFXButton fx:id="openToExploreBtn" prefHeight="36" prefWidth="85" styleClass="custom-jfx-button-raised" text="打开目录">
+            <HBox.margin>
+               <Insets left="10" top="3" />
+            </HBox.margin>
+         </JFXButton>
+      </HBox>
+
+      <ScrollPane>
+         <VBox fx:id="listFileFlowPane" prefHeight="550.0" prefWidth="248">
+
+         </VBox>
+      </ScrollPane>
+
+   </VBox>
+
+</SplitPane>

@@ -2,8 +2,8 @@ package com.allan.atools.controller;
 
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
-import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.tools.AToolsControllerInitial;
+import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.utils.Log;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXListView;
@@ -54,6 +54,10 @@ public final class AToolsController extends AbstractController {
 
             this.leftMenuHolder.getChildren().add(searchBtn);
         }
+
+        stage.setWidth(1100);
+        stage.setHeight(680);
+        stage.setResizable(false);
     }
 
     @FXML
@@ -66,4 +70,5 @@ public final class AToolsController extends AbstractController {
 
     public void showGlobalDialog() {
     }
+
 }

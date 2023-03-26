@@ -1,0 +1,22 @@
+https://file-converter-online.com/    48.2M-》17.9M
+
+1. 压缩
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -c:v libx265 -x265-params crf=22:preset=placebo new2.mp4   -》 9M，缺失封面
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -c:v libx265 -x265-params crf=24:preset=placebo new3.mp4   -》 9M，缺失封面
+
+2. 提取封面
+potPlayer提取视频封面(打开视频播放，暂停，点击设置->播放->定位，勾选以关键帧定位，再按键盘快捷键F前进，D倒退来寻找合适的帧)
+然后视频->截取当前原画面为... 保存为jpg。
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -ss 00:00:01 -t 5 -f image2 -r 2 ls/pic03-%03d.jpg
+
+3. 合成封面到视频中去
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i cover.jpg -i new1.mp4 -map 1:0 -map 1:1 -map 0:0 -c copy -disposition:2 attached_pic new1Cover.mp4
+
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i cover.jpg -i smallCut.mp4 -map 1:0 -map 1:1 -map 0:0 -c copy -disposition:2 attached_pic smallCut2.mp4
+超快
+
+
+其他命令：
+转分辨率：
+D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -vf scale=1920:960 small.mp4 -hide_banner
+
