@@ -55,6 +55,7 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
 
         ctrl.ffmpegDirLabel.text = ffmpegBinDir
         ctrl.selectADirLabel.text = workspaceDir
+        ctrl.selectADirLabel2.text = workspaceDir
 
         ctrl.selectFfmpegDir.setOnMouseClicked {
             val directoryChooser = DirectoryChooser()
@@ -73,6 +74,7 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
             val file = directoryChooser.showDialog(ctrl.stage) ?: return@setOnMouseClicked
             if (file.exists() && file.isDirectory) {
                 ctrl.selectADirLabel.text = file.absolutePath
+                ctrl.selectADirLabel2.text = file.absolutePath
                 workspaceDir = file.absolutePath
                 UIContext.sharedPref.edit().putString("ffmpegWorkspaceDir", file.absolutePath).commit()
                 ctrl.stage.toFront()

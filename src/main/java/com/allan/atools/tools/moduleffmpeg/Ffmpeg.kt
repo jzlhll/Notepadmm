@@ -22,6 +22,26 @@ class Ffmpeg(private val settings:FfmpegSettings) {
         return String.format("%02d:%02d:%02d", hour, minute, second)
     }
 
+    fun combine(videoFile:File, imageFile:File) {
+        //D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i cover.jpg -i smallCut.mp4 -map 1:0 -map 1:1 -map 0:0 -c copy -disposition:2 attached_pic smallCut2.mp4
+
+        var index = 1
+        val fileName = videoFile.name
+        var newFileNam:String? = null
+        while (true) {
+            val f = File(IO.combinePath(settings.workspaceDir, "combine_${index}_$fileName"))
+            if (!f.exists()) {
+                newFileNam = f.absolutePath
+                break
+            }
+            index++
+        }
+
+        val cmd = ffmpegBin() + " -i ${imageFile.absolutePath} -i ${videoFile.absolutePath} -map 1:0 -map 1:1 -map 0:0 -c copy -disposition:2 attached_pic $newFileNam"
+        Log.d("combineCover: $cmd")
+        IO.runBig(cmd, true)
+    }
+
     fun generateCovers(videoFile:File, start:Int, total:Int, perSecond:Int) {
         //D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -ss 00:00:01 -t 5 -f image2 -r 2 ls/pic03-%03d.jpg
         val startStr = formatSecondsToTime(start)
@@ -49,7 +69,7 @@ class Ffmpeg(private val settings:FfmpegSettings) {
         var index = 1
         var newFileNam:String? = null
         while (true) {
-            val f = File(IO.combinePath(settings.workspaceDir, "_${index}_$fileName"))
+            val f = File(IO.combinePath(settings.workspaceDir, "compress_${index}_$fileName"))
             if (!f.exists()) {
                 newFileNam = f.absolutePath
                 break
@@ -57,7 +77,7 @@ class Ffmpeg(private val settings:FfmpegSettings) {
             index++
         }
 
-        val cmd = ffmpegBin() + " -i ${videoFile.absolutePath} -ss -c:v libx265 -x265-params crf=${crf}:preset=${speed} $newFileNam"
+        val cmd = ffmpegBin() + " -i ${videoFile.absolutePath} -c:v libx265 -x265-params crf=${crf}:preset=${speed} $newFileNam"
         Log.d("compressVideo: $cmd")
         IO.runBig(cmd)
     }

@@ -12,10 +12,43 @@ import java.io.File
 class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
     private var currentTabIndex = 0
     private var mGotoGenerateCoverVideo:String? = null
+    private var mGotoCompressVideo:String? = null
+    private var mGotoCombineVideo:String? = null
+    private var mGotoCombineImage:String? = null
 
     init {
         ctrl.tabPane.selectionModel.selectedIndexProperty().addListener { p0, p1, p2 ->
             currentTabIndex = p2.toInt()
+        }
+
+        ctrl.combineCover2Btn.setOnMouseClicked {
+            ctrl.combineCover2Btn.isDisable = true
+
+            ThreadUtils.execute{
+                val ff = Ffmpeg(ctrl.mSetting)
+                val imageFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineImage))
+                val videoFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineVideo))
+
+                if (!imageFile.exists()) {
+                    Platform.runLater {
+                        ctrl.combineCoverHint.text = "请在右侧选择封面。"
+                    }
+                } else if (!videoFile.exists()) {
+                    Platform.runLater {
+                        ctrl.combineCoverHint.text = "请在右侧选择没有封面的视频。"
+                    }
+                } else {
+                    ff.combine(videoFile, imageFile)
+                    Platform.runLater {
+                        ctrl.combineCoverHint.text = "完成！"
+                        ctrl.mSetting.updateFileList()
+                    }
+                }
+
+                Platform.runLater {
+                    ctrl.combineCover2Btn.isDisable = false
+                }
+            }
         }
 
         ctrl.compressStartBtn.setOnMouseClicked {
@@ -23,9 +56,25 @@ class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
 
             ThreadUtils.execute{
                 val ff = Ffmpeg(ctrl.mSetting)
+                val file = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCompressVideo))
+                if (file.exists()) {
+                    Platform.runLater {
+                        ctrl.compressStartHint.text = "压缩开始...十分耗时，耐心等待...todo时间显示..."
+                    }
+                    ff.compressVideo(file, ctrl.mSetting.crf, ctrl.mSetting.speed)
+                    Platform.runLater {
+                        ctrl.compressStartHint.text = "压缩完成!"
+                        ctrl.mSetting.updateFileList()
+                    }
+                } else {
+                    Platform.runLater {
+                        ctrl.compressStartHint.text = "请选择要压缩的视频。"
+                        ctrl.mSetting.updateFileList()
+                    }
+                }
 
                 Platform.runLater {
-                    ctrl.coverSureVideoBtn.isDisable = false
+                    ctrl.compressStartBtn.isDisable = false
                 }
             }
         }
@@ -61,15 +110,21 @@ class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
     }
 
     override fun invoke(name: String?, isVideo:Boolean) {
-        if (currentTabIndex == 0) {
-        } else if (currentTabIndex == 1) {
+        if (currentTabIndex == 1) {
             ctrl.coverSureVideoLabel.text = name
             mGotoGenerateCoverVideo = name
         } else if (currentTabIndex == 2) {
             if (isVideo) {
                 ctrl.compressStartSureFileLabel.text = name
+                mGotoCompressVideo = name
+            }
+        } else if (currentTabIndex == 3) {
+            if (isVideo) {
+                mGotoCombineVideo = name
+                ctrl.combineCoverLabel.text = (mGotoCombineImage?:"") + " " + (mGotoCombineVideo?:"")
             } else {
-                ctrl.combineCoverLabel.text = name
+                mGotoCombineImage = name
+                ctrl.combineCoverLabel.text = (mGotoCombineImage?:"") + " " + (mGotoCombineVideo?:"")
             }
         }
     }
