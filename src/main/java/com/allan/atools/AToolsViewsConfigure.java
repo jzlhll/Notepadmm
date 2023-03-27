@@ -20,6 +20,8 @@ public final class AToolsViewsConfigure {
         names.add("numbers");
         pages.put(indexCount++, FfmpegController.class);
         names.add("ffmpeg");
+        pages.put(indexCount++, ASMController.class);
+        names.add("ASM");
 
         return indexCount;
     }

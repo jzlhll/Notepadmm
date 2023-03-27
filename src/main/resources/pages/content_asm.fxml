@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXTextField?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import com.jfoenix.controls.JFXButton?>
+<AnchorPane prefHeight="630.0" prefWidth="870.0"
+            styleClass="custom-main-bg"
+            xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.allan.atools.controller.ASMController">
+   <Label styleClass="title-label-big" text="ASM" />
+
+   <JFXButton fx:id="enterBtn" layoutX="350.0" layoutY="66.0" text="确定" styleClass="custom-jfx-button-nobg"/>
+</AnchorPane>
