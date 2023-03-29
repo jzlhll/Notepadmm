@@ -53,6 +53,7 @@ public class FfmpegController extends AbstractController {
     public Label combineCoverHint;
     public Label selectADirLabel2;
     public JFXButton combineCover2Btn;
+    public Label videoInfoLabel;
     private FfmpegTable mTable;
 
     public void init(Stage stage) {
@@ -78,6 +79,7 @@ public class FfmpegController extends AbstractController {
         splitPane.setPrefHeight(AToolsController.HEIGHT - AToolsController.OFFSET_Y);
 
         selectADirLabel2.setWrapText(true);
+        videoInfoLabel.setWrapText(true);
 
         tabPane.setPrefWidth(640);
         tabPane.setMinWidth(600);

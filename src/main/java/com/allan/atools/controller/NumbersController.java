@@ -15,8 +15,5 @@ public final class NumbersController extends AbstractController {
     public void init(Stage stage) {
         super.init(stage);
         System.out.println("tiem: " + System.currentTimeMillis());
-        enterBtn.setOnMouseClicked(mouseEvent -> {
-
-        });
     }
 }

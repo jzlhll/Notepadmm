@@ -7,10 +7,13 @@ import com.allan.atools.ui.JfoenixDialogUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Utils
 import com.allan.baseparty.Action2
+import com.allan.uilibs.controls.MyJFXButton
 import com.jfoenix.controls.JFXButton
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.css.converter.StringConverter
+import javafx.geometry.Pos
+import javafx.scene.text.TextAlignment
 import javafx.stage.DirectoryChooser
 import java.io.File
 
@@ -59,7 +62,11 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
 
         ctrl.selectFfmpegDir.setOnMouseClicked {
             val directoryChooser = DirectoryChooser()
-            val file = directoryChooser.showDialog(ctrl.stage) ?: return@setOnMouseClicked
+            val stage = UIContext.toolsController?.stage ?: return@setOnMouseClicked
+            val file = directoryChooser.showDialog(stage) ?: return@setOnMouseClicked
+            stage.show()
+            stage.toFront()
+
             if (file.exists() && file.isDirectory) {
                 ctrl.ffmpegDirLabel.text = file.absolutePath
                 ffmpegBinDir = file.absolutePath
@@ -71,7 +78,11 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
 
         ctrl.selectADirBtn.setOnMouseClicked {
             val directoryChooser = DirectoryChooser()
-            val file = directoryChooser.showDialog(ctrl.stage) ?: return@setOnMouseClicked
+            val stage = UIContext.toolsController?.stage ?: return@setOnMouseClicked
+            val file = directoryChooser.showDialog(stage) ?: return@setOnMouseClicked
+            stage.show()
+            stage.toFront()
+
             if (file.exists() && file.isDirectory) {
                 ctrl.selectADirLabel.text = file.absolutePath
                 ctrl.selectADirLabel2.text = file.absolutePath
@@ -177,6 +188,16 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
         }
     }
 
+    private fun formatSize(size: Long): String {
+        val kb = size / 1024.0
+        val mb = kb / 1024.0
+        return when {
+            mb >= 1.0 -> "%.1f MB".format(mb)
+            kb >= 1.0 -> "%.1f KB".format(kb)
+            else -> "$size B"
+        }
+    }
+
     fun updateFileList() {
         val dir = File(workspaceDir)
         if (!dir.isDirectory) {
@@ -190,23 +211,32 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
             fileList.forEach {
                 val fileNm = it.name.toLowerCase()
                 if (fileNm.endsWith("jpg") || fileNm.endsWith("jpeg")) {
-                    flowPane.children.add(createJFXButton("jpg", 17, it.name).also { btn->
+                    val btn = createJFXButton("jpg", 18, it.name + " " + formatSize(it.length())).also { btn->
                         listBtnEx(btn)
-                    })
+                        btn.ex = it.name
+                    }
+                    btn.minWidth = 290.0
+                    flowPane.children.add(btn)
                 } else if (fileNm.endsWith("mp4")) {
-                    flowPane.children.add(createJFXButton("video", 21, it.name).also { btn->
+                    val btn = createJFXButton("video", 22, it.name + " " + formatSize(it.length())).also { btn->
                         listBtnEx(btn)
-                    })
+                        btn.ex = it.name
+                    }
+                    btn.minWidth = 290.0
+                    flowPane.children.add(btn)
                 }
             }
         }
     }
 
-    private fun listBtnEx(btn: JFXButton) {
+    private fun listBtnEx(btn: MyJFXButton) {
         btn.isMnemonicParsing = false
+        btn.alignment = Pos.CENTER_LEFT
         btn.setOnMouseClicked { event->
+            val myBtn = event.source as MyJFXButton
+            val str = myBtn.ex.toString()
             onFileSelectedListenerArray.forEach {
-                it.invoke(btn.text, btn.text.toLowerCase().endsWith("mp4"))
+                it.invoke(str, str.toLowerCase().endsWith("mp4"))
             }
         }
     }

@@ -11,6 +11,10 @@
    -fx-background-color : -au-main-floating-color;
 }
 
+.custom-light-yellow-bg {
+   -fx-background-color : #ffe89f;
+}
+
 .custom-notepad-pane {
    -fx-background-color: -au-main-bg-color;
 }

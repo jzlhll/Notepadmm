@@ -25,29 +25,7 @@ class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
             ctrl.combineCover2Btn.isDisable = true
 
             ThreadUtils.execute{
-                val ff = Ffmpeg(ctrl.mSetting)
-                val imageFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineImage))
-                val videoFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineVideo))
-
-                if (!imageFile.exists()) {
-                    Platform.runLater {
-                        ctrl.combineCoverHint.text = "请在右侧选择封面。"
-                    }
-                } else if (!videoFile.exists()) {
-                    Platform.runLater {
-                        ctrl.combineCoverHint.text = "请在右侧选择没有封面的视频。"
-                    }
-                } else {
-                    ff.combine(videoFile, imageFile)
-                    Platform.runLater {
-                        ctrl.combineCoverHint.text = "完成！"
-                        ctrl.mSetting.updateFileList()
-                    }
-                }
-
-                Platform.runLater {
-                    ctrl.combineCover2Btn.isDisable = false
-                }
+                doCombineCoverAndVideo()
             }
         }
 
@@ -55,27 +33,7 @@ class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
             ctrl.compressStartBtn.isDisable = true
 
             ThreadUtils.execute{
-                val ff = Ffmpeg(ctrl.mSetting)
-                val file = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCompressVideo))
-                if (file.exists()) {
-                    Platform.runLater {
-                        ctrl.compressStartHint.text = "压缩开始...十分耗时，耐心等待...todo时间显示..."
-                    }
-                    ff.compressVideo(file, ctrl.mSetting.crf, ctrl.mSetting.speed)
-                    Platform.runLater {
-                        ctrl.compressStartHint.text = "压缩完成!"
-                        ctrl.mSetting.updateFileList()
-                    }
-                } else {
-                    Platform.runLater {
-                        ctrl.compressStartHint.text = "请选择要压缩的视频。"
-                        ctrl.mSetting.updateFileList()
-                    }
-                }
-
-                Platform.runLater {
-                    ctrl.compressStartBtn.isDisable = false
-                }
+                doCompressVideo()
             }
         }
 
@@ -83,29 +41,107 @@ class FfmpegTable(private val ctrl:FfmpegController): Action2<String, Boolean> {
             ctrl.coverSureVideoBtn.isDisable = true
 
             ThreadUtils.execute{
-                val ff = Ffmpeg(ctrl.mSetting)
-                ff.deleteCoverFiles()
+                doGetCovers()
+            }
+        }
+    }
 
+
+    private fun doCombineCoverAndVideo() {
+        val ff = Ffmpeg(ctrl.mSetting)
+        val imageFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineImage))
+        val videoFile = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCombineVideo))
+
+        if (!imageFile.exists()) {
+            Platform.runLater {
+                ctrl.combineCoverHint.text = "请在右侧选择封面。"
+            }
+        } else if (!videoFile.exists()) {
+            Platform.runLater {
+                ctrl.combineCoverHint.text = "请在右侧选择没有封面的视频。"
+            }
+        } else {
+            try {
+                ff.combine(videoFile, imageFile)
                 Platform.runLater {
-                    ctrl.coverToastLabel.text = ("covers清理完毕，开始生成...")
+                    ctrl.combineCoverHint.text = "完成！"
                     ctrl.mSetting.updateFileList()
                 }
-
-                val file = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoGenerateCoverVideo))
-                if (file.exists()) {
-                    ff.generateCovers(file, ctrl.mSetting.startSecond, ctrl.mSetting.totalSecond, 5)
-                    Platform.runLater {
-                        ctrl.coverToastLabel.text = ("covers生成完毕！")
-                        ctrl.mSetting.updateFileList()
-                    }
-                } else if (mGotoGenerateCoverVideo == null) {
-                    Platform.runLater { ctrl.coverToastLabel.text = ("warn: 请选择一个视频，建议是原视频") }
-                }
-
+            } catch (e:NoFfmpegBinException) {
                 Platform.runLater {
-                    ctrl.coverSureVideoBtn.isDisable = false
+                    ctrl.combineCoverHint.text = "请在【设置】中设定正确的ffmpeg bin目录!"
+                    ctrl.mSetting.updateFileList()
                 }
             }
+        }
+
+        Platform.runLater {
+            ctrl.combineCover2Btn.isDisable = false
+        }
+    }
+
+    private fun doCompressVideo() {
+        val ff = Ffmpeg(ctrl.mSetting)
+        val file = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoCompressVideo))
+        if (file.exists()) {
+            Platform.runLater {
+                ctrl.compressStartHint.text = "压缩开始...十分耗时，耐心等待...todo时间显示..."
+            }
+            try {
+                ff.compressVideo(file, ctrl.mSetting.crf, ctrl.mSetting.speed)
+                Platform.runLater {
+                    ctrl.compressStartHint.text = "压缩完成!"
+                    ctrl.mSetting.updateFileList()
+                }
+            } catch (e:NoFfmpegBinException) {
+                Platform.runLater {
+                    ctrl.compressStartHint.text = "请在【设置】中设定正确的ffmpeg bin目录!"
+                    ctrl.mSetting.updateFileList()
+                }
+            }
+
+        } else {
+            Platform.runLater {
+                ctrl.compressStartHint.text = "请选择要压缩的视频。"
+                ctrl.mSetting.updateFileList()
+            }
+        }
+
+        Platform.runLater {
+            ctrl.compressStartBtn.isDisable = false
+        }
+    }
+
+    private fun doGetCovers() {
+        val ff = Ffmpeg(ctrl.mSetting)
+        ff.deleteCoverFiles()
+
+        Platform.runLater {
+            ctrl.coverToastLabel.text = ("covers清理完毕，开始生成...")
+            ctrl.mSetting.updateFileList()
+        }
+
+        val file = File(IO.combinePath(ctrl.mSetting.workspaceDir, mGotoGenerateCoverVideo))
+        if (file.exists()) {
+            try {
+                ff.generateCovers(file, ctrl.mSetting.startSecond, ctrl.mSetting.totalSecond, 5)
+                Platform.runLater {
+                    ctrl.coverToastLabel.text = ("covers生成完毕！")
+                    ctrl.mSetting.updateFileList()
+                }
+            } catch (e:NoFfmpegBinException) {
+                Platform.runLater {
+                    ctrl.coverToastLabel.text = "请在【设置】中设定正确的ffmpeg bin目录!"
+                    ctrl.mSetting.updateFileList()
+                }
+            }
+
+        } else if (mGotoGenerateCoverVideo == null) {
+            Platform.runLater { ctrl.coverToastLabel.text = ("warn: 请选择一个视频，建议是原视频") }
+        }
+
+        Platform.runLater {
+            ctrl.coverSureVideoBtn.isDisable = false
         }
     }
 

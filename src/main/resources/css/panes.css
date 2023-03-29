@@ -51,7 +51,7 @@
 }
 
 .jfx-tab-pane .headers-region .tab .tab-container .tab-label { /*allan 文字*/
-    -fx-text-fill: #636363;
+    -fx-text-fill: #888888;
     -fx-padding: 2 3 2 3;
     -fx-font-size: 14;
 }
@@ -67,6 +67,11 @@
 .jfx-tab-pane .headers-region .tab:selected { /*allan 当前选中的文件名颜色*/
     -fx-background-color: -au-tab-select-region-color;
 }
+
+.jfx-tab-pane:top .depth-container .tab-header-area .headers-region .tab-selected-line {
+    -fx-background-color: transparent;
+}
+
 
 .jfx-tab-pane .headers-region .tab .tab-container .tab-close-button .jfx-rippler{ /*allan close按钮的*/
     -jfx-rippler-fill: -au-red-light-color;

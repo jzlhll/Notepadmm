@@ -33,20 +33,13 @@
                </VBox.margin>
             </Label>
 
-            <Label text="设置ffmpeg目录:" styleClass="normal-label">
+            <Label text="视频信息:" styleClass="normal-label">
                <VBox.margin>
-                  <Insets left="15" top="50" />
+                  <Insets left="15" top="4" />
                </VBox.margin>
             </Label>
-            <AnchorPane fx:id="selectFfmpegDirHost">
-<!--               <Hyperlink fx:id="selectFfmpegDir" prefHeight="30" prefWidth="400" styleClass="myhyperlink" text="设置ffmpeg目录：">-->
-<!--               </Hyperlink>-->
-               <VBox.margin>
-                  <Insets left="15" top="8" />
-               </VBox.margin>
-            </AnchorPane>
 
-            <Label fx:id="ffmpegDirLabel" styleClass="normal-red-label">
+            <Label fx:id="videoInfoLabel" styleClass="normal-label">
                <VBox.margin>
                   <Insets left="15" top="4" />
                </VBox.margin>
@@ -236,6 +229,29 @@
 
       </Tab>
 
+      <Tab text="设置">
+         <VBox>
+            <Label text="设置ffmpeg bin目录:" styleClass="normal-label">
+               <VBox.margin>
+                  <Insets left="15" top="50" />
+               </VBox.margin>
+            </Label>
+            <AnchorPane fx:id="selectFfmpegDirHost">
+               <!--               <Hyperlink fx:id="selectFfmpegDir" prefHeight="30" prefWidth="400" styleClass="myhyperlink" text="设置ffmpeg目录：">-->
+               <!--               </Hyperlink>-->
+               <VBox.margin>
+                  <Insets left="15" top="8" />
+               </VBox.margin>
+            </AnchorPane>
+
+            <Label fx:id="ffmpegDirLabel" styleClass="normal-red-label">
+               <VBox.margin>
+                  <Insets left="15" top="4" />
+               </VBox.margin>
+            </Label>
+         </VBox>
+      </Tab>
+
    </JFXTabPane>
 
    <VBox fx:id="rightListFileBox">
@@ -258,7 +274,7 @@
 <!--         </JFXButton>-->
       </HBox>
 
-      <ScrollPane styleClass="custom-floating-bg">
+      <ScrollPane styleClass="custom-light-yellow-bg">
          <VBox fx:id="listFileFlowPane" >
          </VBox>
       </ScrollPane>

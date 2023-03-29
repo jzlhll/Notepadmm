@@ -2,6 +2,7 @@ package com.allan.atools.ui;
 
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
+import com.allan.uilibs.controls.MyJFXButton;
 import com.jfoenix.controls.JFXButton;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
@@ -94,14 +95,14 @@ public final class IconfontCreator {
         button.setText((decode(text)));
     }
 
-    public static JFXButton createJFXButton(String iconFontName, int fontSize, String realName) {
+    public static MyJFXButton createJFXButton(String iconFontName, int fontSize, String realName) {
         asset();
         Label lbl = new Label();
 
         lbl.setFont(Font.font(FONT_FAMILY, fontSize));
         var text = sGlyphMap.get(iconFontName);
         lbl.setText(decode(text));
-        JFXButton button = new JFXButton(realName, lbl);
+        MyJFXButton button = new MyJFXButton(realName, lbl);
         button.setWrapText(true);
         button.setContentDisplay(ContentDisplay.LEFT);
         button.setButtonType(JFXButton.ButtonType.FLAT);
