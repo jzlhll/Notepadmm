@@ -9,6 +9,8 @@ import kotlin.jvm.Throws
 
 
 class Ffmpeg(private val settings:FfmpegSettings) {
+    //other：ffmpeg -y -loglevel error  -i "$1" -movflags faststart "$1-fast.mp4"
+
     //D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -c:v libx265 -x265-params crf=24:preset=placebo new3.mp4
     //D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -ss 00:00:01 -t 5 -f image2 -r 2 ls/pic03-%03d.jpg
     //D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i cover.jpg -i smallCut.mp4 -map 1:0 -map 1:1 -map 0:0 -c copy -disposition:2 attached_pic smallCut2.mp4

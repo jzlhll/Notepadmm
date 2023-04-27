@@ -20,3 +20,6 @@ D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i cover.jpg -i smallCut.mp4 -m
 转分辨率：
 D:\profiles\ffmpeg-6.0-full_build\bin\ffmpeg.exe -i orig.mp4 -vf scale=1920:960 small.mp4 -hide_banner
 
+
+
+ffmpeg -y -loglevel error  -i "$1" -movflags faststart "$1-fast.mp4"
