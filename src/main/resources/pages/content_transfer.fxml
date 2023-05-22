@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.layout.AnchorPane?>
-
+<?import com.jfoenix.controls.JFXTextField?>
 <?import com.jfoenix.controls.JFXButton?>
 <?import javafx.scene.control.Label?>
 <AnchorPane prefHeight="630.0"  styleClass="custom-main-bg"
             prefWidth="870.0" xmlns="http://javafx.com/javafx/15.0.1"
             xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.TransferController">
-   <JFXButton fx:id="startAServerBtn" buttonType="RAISED" layoutX="637.0" layoutY="340.0" prefWidth="120" styleClass="custom-jfx-button-raised" text="开启服务端" />
-   <Label styleClass="normal-label" fx:id="serverLabel" layoutX="200" layoutY="14"/>
+   <JFXButton fx:id="startAServerBtn" buttonType="RAISED" layoutX="637.0" layoutY="20.0" prefWidth="120" styleClass="custom-jfx-button-raised" text="准备接收文件" />
+   <JFXButton fx:id="startSendFileBtn" buttonType="RAISED" layoutX="637.0" layoutY="140.0" prefWidth="120" styleClass="custom-jfx-button-raised" text="准备发送文件" />
+
+   <Label styleClass="normal-label" layoutX="10" layoutY="5" text="IP"/>
+   <JFXTextField fx:id="sendFileIpEdit" layoutX="10" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="80" />
+   <Label styleClass="normal-label" layoutX="245" layoutY="5" text="Port"/>
+   <JFXTextField fx:id="sendFilePortEdit" layoutX="245" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="80" />
+
+   <JFXTextField fx:id="sendFileLabel" layoutX="10" layoutY="120" maxHeight="20.0" prefHeight="15.0" prefWidth="500" text="选择文件或者文件夹拖进来准备发送."/>
+   <Label styleClass="normal-label" fx:id="logLabel" layoutX="40" layoutY="450" text="log"/>
 </AnchorPane>

@@ -2,27 +2,78 @@ package com.allan.atools.controller;
 
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
+import com.allan.atools.utils.Log;
 import com.jfoenix.controls.JFXButton;
-import com.allan.atools.tools.moduletransfer.TransferHelper;
+import com.jfoenix.controls.JFXTextField;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.event.EventHandler;
 import javafx.scene.control.Label;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.TransferMode;
 import javafx.stage.Stage;
+
+import java.io.File;
+import java.util.List;
+
 @XmlPaths(paths = {"pages", "content_transfer.fxml"})
 public class TransferController extends AbstractController {
     public JFXButton startAServerBtn;
-    public Label serverLabel;
-    private TransferHelper mTransferHelper;
-    private final StringProperty serverLabelText = new SimpleStringProperty("");
+    public final StringProperty logText = new SimpleStringProperty("");
+    public JFXButton startSendFileBtn;
+    public JFXTextField sendFileIpEdit;
+    public JFXTextField sendFilePortEdit;
+    public Label logLabel;
+    public JFXTextField sendFileLabel;
+
+    private File dragInFile;
+
+    private TransferController2 helper;
+
+    public String isDragFileOrDirectory() {
+        var file = getDragInFile();
+        if (file == null) {
+            return "";
+        }
+        if (file.exists()) {
+            if (file.isFile()) {
+                return "file";
+            } else {
+                return "dir";
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 获取被拖入的文件
+     */
+    public File getDragInFile() {
+        return dragInFile;
+    }
 
     public void init(Stage stage) {
         super.init(stage);
-        this.serverLabel.textProperty().bind(this.serverLabelText);
+        helper = new TransferController2(this);
 
-        this.startAServerBtn.setOnMouseClicked(e -> {
-            if (this.mTransferHelper == null)
-                this.mTransferHelper = new TransferHelper();
-            this.startAServerBtn.setDisable(true);
-        });
+        logText.set("服务器先去准备。");
+
+        this.logLabel.textProperty().bind(this.logText);
+
+        EventHandler<DragEvent> dragOver = event-> {
+            if (event.getDragboard() != null && event.getDragboard().hasFiles()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+        };
+        EventHandler<DragEvent> dragDrop = event -> {
+            Log.d("drag dropped!");
+            List<File> currentDropped = event.getDragboard().getFiles();
+            if (currentDropped != null && currentDropped.size() >= 1) {
+                dragInFile = currentDropped.get(0);
+            }
+        };
+        //因为我们默认它显示；直接上来直接设置tabPane即可。
+        sendFileLabel.setOnDragOver(dragOver);
+        sendFileLabel.setOnDragDropped(dragDrop);
     }
 }
