@@ -28,8 +28,6 @@ public class TransferController extends AbstractController {
 
     private File dragInFile;
 
-    private TransferController2 helper;
-
     public String isDragFileOrDirectory() {
         var file = getDragInFile();
         if (file == null) {
@@ -54,7 +52,7 @@ public class TransferController extends AbstractController {
 
     public void init(Stage stage) {
         super.init(stage);
-        helper = new TransferController2(this);
+        new TransferController2(this);
 
         logText.set("服务器先去准备。");
 
@@ -70,6 +68,7 @@ public class TransferController extends AbstractController {
             List<File> currentDropped = event.getDragboard().getFiles();
             if (currentDropped != null && currentDropped.size() >= 1) {
                 dragInFile = currentDropped.get(0);
+                sendFileLabel.setText(dragInFile.getAbsolutePath());
             }
         };
         //因为我们默认它显示；直接上来直接设置tabPane即可。
