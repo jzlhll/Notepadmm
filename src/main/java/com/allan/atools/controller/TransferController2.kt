@@ -24,7 +24,7 @@ class TransferController2(ctrl:TransferController) {
             ctrl.startAServerBtn.isDisable = true
             transfer = SingleServer(
             logger = {
-                ctrl.logText.set(it)
+                Platform.runLater { ctrl.logText.set(it) }
             }, endCallback = {
                 Platform.runLater {
                     transfer = null
@@ -50,7 +50,7 @@ class TransferController2(ctrl:TransferController) {
             ctrl.startSendFileBtn.isDisable = true
             transfer = Client(
             logger = {
-                ctrl.logText.set(it)
+                Platform.runLater { ctrl.logText.set(it) }
             },
             endCallback = {
                 Platform.runLater {
