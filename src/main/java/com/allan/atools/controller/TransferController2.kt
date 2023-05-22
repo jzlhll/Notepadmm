@@ -47,6 +47,16 @@ class TransferController2(ctrl:TransferController) {
                 return@setOnMouseClicked
             }
 
+            if (ctrl.sendFileIpEdit.text.isNullOrBlank()) {
+                ctrl.logText.set("ip没有填写")
+                return@setOnMouseClicked
+            }
+
+            if (ctrl.sendFilePortEdit.text.isNullOrBlank()) {
+                ctrl.logText.set("port没有填写")
+                return@setOnMouseClicked
+            }
+
             ctrl.startSendFileBtn.isDisable = true
             transfer = Client(
             logger = {

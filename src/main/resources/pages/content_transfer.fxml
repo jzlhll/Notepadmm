@@ -11,10 +11,10 @@
    <JFXButton fx:id="startSendFileBtn" buttonType="RAISED" layoutX="637.0" layoutY="140.0" prefWidth="120" styleClass="custom-jfx-button-raised" text="准备发送文件" />
 
    <Label styleClass="normal-label" layoutX="10" layoutY="5" text="IP"/>
-   <JFXTextField fx:id="sendFileIpEdit" layoutX="10" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="80" />
+   <JFXTextField fx:id="sendFileIpEdit" layoutX="10" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="120" />
    <Label styleClass="normal-label" layoutX="245" layoutY="5" text="Port"/>
-   <JFXTextField fx:id="sendFilePortEdit" layoutX="245" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="80" />
+   <JFXTextField fx:id="sendFilePortEdit" layoutX="245" layoutY="30" maxHeight="20.0" prefHeight="15.0" prefWidth="65" />
 
    <JFXTextField fx:id="sendFileLabel" layoutX="10" layoutY="120" maxHeight="20.0" prefHeight="15.0" prefWidth="500" text="选择文件或者文件夹拖进来准备发送."/>
-   <Label styleClass="normal-label" fx:id="logLabel" layoutX="40" layoutY="450" text="log"/>
+   <Label styleClass="normal-label" fx:id="logLabel" layoutX="40" layoutY="400" text="log"/>
 </AnchorPane>

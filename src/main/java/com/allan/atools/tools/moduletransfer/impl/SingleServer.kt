@@ -31,7 +31,7 @@ class SingleServer(override val logger: (log: String) -> Unit,
         val ip = getMyIp()
         val emptyFile = randomAFile(directory)
 
-        logger("准备接收文件到 $emptyFile ...(ip $ip, port $SERVER_PORT)")
+        logger("(ip $ip, port $SERVER_PORT) 准备接收文件到 $emptyFile")
 
         //服务器接收客户端的数据并返回消息
         val server = ServerSocket(SERVER_PORT)
