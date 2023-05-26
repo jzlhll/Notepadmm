@@ -12,13 +12,13 @@
 
     <properties>
 <!--        <javafx.platform>mac-x64</javafx.platform>-->
-        <javafx.platform>mac-aarch64</javafx.platform>
-        <maven.compiler.source>17</maven.compiler.source>
+<!--        <javafx.platform>mac-aarch64</javafx.platform>-->
+        <maven.compiler.source>16</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <kotlin.version>1.8.0</kotlin.version>
-        <javafx.version>19.0.2.1</javafx.version>
+        <kotlin.version>1.8.21</kotlin.version>
+        <javafx.version>20.0.1</javafx.version>
     </properties>
 
     <dependencies>
@@ -60,7 +60,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>23.0.0</version>
+            <version>24.0.1</version>
             <scope>compile</scope>
         </dependency>
 

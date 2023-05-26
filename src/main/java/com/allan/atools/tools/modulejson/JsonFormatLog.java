@@ -12,6 +12,9 @@ public class JsonFormatLog implements IJsonFormat {
 
     public String formatWithoutEnter(String log) {
         log = log.replace("\n", "");
+        if (log.isEmpty()) {
+            return "";
+        }
         return formatJson(log);
     }
 
