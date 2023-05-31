@@ -7,11 +7,10 @@ import com.allan.atools.ui.listener.DisAndEnableChangeListener;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.DigitsLimit;
 import com.allan.atools.utils.Log;
-import com.jfoenix.controls.JFXButton;
-import com.jfoenix.controls.JFXColorPicker;
-import com.jfoenix.controls.JFXTextField;
-import com.jfoenix.controls.JFXToggleButton;
+import com.jfoenix.controls.*;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -50,13 +49,7 @@ public final class ColorController extends AbstractController {
 
     private final DisAndEnableChangeListener<Color> colorPickerListener = new DisAndEnableChangeListener<>();
 
-    public JFXToggleButton useAlphaToggle;
-
     public Label fALabel;
-
-    public Label jinzhiLabel;
-
-    public Label jinzhiAlphaLabel;
 
     public Button enterForRGBBtn;
 
@@ -67,7 +60,8 @@ public final class ColorController extends AbstractController {
     public Label exampleLabel3;
     public FlowPane flowPane;
     public JFXButton enterForHexBtn;
-    public Label sALabel;
+    public JFXComboBox<String> chooseAlphaModeCombo;
+    public Label errorInfo;
 
     private class OtherListenerForPicker implements DisAndEnableChangeListener.OtherControlChangeListener<Color> {
         public void onRemoveBeforeSetValue() {
@@ -78,7 +72,7 @@ public final class ColorController extends AbstractController {
         }
 
         public void onSetValue(Color newValueFromMe) {
-            String c = ColorController.toString(newValueFromMe, useAlphaToggle.isSelected());
+            String c = colorToHex(newValueFromMe, chooseAlphaModeCombo.getSelectionModel().getSelectedIndex());
             Log.d("colorPicker changed: " + c);
             ColorController.this.hexColorInput.setText(c);
             ColorController.this.fR.setText(String.format("%.0f", newValueFromMe.getRed() * 255.0D));
@@ -117,13 +111,24 @@ public final class ColorController extends AbstractController {
         this.exampleLabel2.textFillProperty().bind(this.circleColor);
         this.exampleLabel3.textFillProperty().bind(this.circleColor);
         System.out.println("tiem: " + System.currentTimeMillis());
-        this.useAlphaToggle.selectedProperty().addListener((observable, oldValue, newValue) -> {
-            this.fALabel.setVisible(newValue);
-            this.sA.setVisible(newValue);
-            this.sALabel.setVisible(newValue);
-            this.jinzhiAlphaLabel.setVisible(newValue);
-            this.jinzhiLabel.setVisible(oldValue);
+
+        chooseAlphaModeCombo.getItems().add("noAlpha");
+        chooseAlphaModeCombo.getItems().add("Alpha0%-100%");
+        chooseAlphaModeCombo.getItems().add("Alpha 0.0-1.0");
+        chooseAlphaModeCombo.getItems().add("Alpha 0-255");
+
+        chooseAlphaModeCombo.getSelectionModel().select(0);
+
+        chooseAlphaModeCombo.getSelectionModel().selectedIndexProperty().addListener((observableValue, oldVal, newVal) -> {
+            if (newVal.intValue() == 0) {
+                this.fALabel.setVisible(false);
+                this.sA.setVisible(false);
+            } else {
+                this.fALabel.setVisible(true);
+                this.sA.setVisible(true);
+            }
         });
+
         System.out.println("tiem: " + System.currentTimeMillis());
 
         this.enterForHexBtn.setOnMouseClicked(event -> {
@@ -134,9 +139,10 @@ public final class ColorController extends AbstractController {
 
             this.hexColorInput.setText(currentWithoutEnter);
             double opacity = 1.0;
-            var isUseAlpha = useAlphaToggle.isSelected();
-            if (currentWithoutEnter.length() == 6 && !isUseAlpha) {
-            } else if (isUseAlpha && currentWithoutEnter.length() == 8) {
+            var alphaIndex = chooseAlphaModeCombo.getSelectionModel().getSelectedIndex();
+            if (currentWithoutEnter.length() == 6 && alphaIndex == 0) {
+
+            } else if (alphaIndex > 0 && currentWithoutEnter.length() == 8) {
                 var s = currentWithoutEnter.substring(0, 2);
                 opacity = Integer.parseInt(s, 16) / 255f;
                 currentWithoutEnter = currentWithoutEnter.substring(2);
@@ -145,12 +151,11 @@ public final class ColorController extends AbstractController {
                 return;
             }
 
-            setColorByHex(currentWithoutEnter, opacity, useAlphaToggle.isSelected());
+            setColorByHex(currentWithoutEnter, opacity, alphaIndex);
         });
 
         this.enterForRGBBtn.setOnMouseClicked(event -> {
-            if (this.sA.getText().length() == 0)
-                this.sA.setText("255");
+            double alpha = 1f;
             if (this.fR.getText().length() == 0)
                 this.fR.setText("255");
             if (this.fG.getText().length() == 0)
@@ -161,16 +166,21 @@ public final class ColorController extends AbstractController {
             String alphaStr = sA.getText();
             if (alphaStr.endsWith("%")) {
                 alphaStr = alphaStr.substring(0, alphaStr.length() - 1);
-                var alphaSize = Float.parseFloat(alphaStr);
-                int color = (int) (alphaSize * 255);
-                sA.setText("" + color);
             }
-            double alpha = Integer.parseInt(this.sA.getText()) / 255.0D;
-            double r = Integer.parseInt(this.fR.getText()) / 255.0D;
-            double g = Integer.parseInt(this.fG.getText()) / 255.0D;
-            double b = Integer.parseInt(this.fB.getText()) / 255.0D;
+
+            if (chooseAlphaModeCombo.getSelectionModel().getSelectedIndex() == 1) {
+                alpha = Float.parseFloat(alphaStr) / 100;
+            } else if (chooseAlphaModeCombo.getSelectionModel().getSelectedIndex() == 2) {
+                alpha = Float.parseFloat(alphaStr);
+            } else if (chooseAlphaModeCombo.getSelectionModel().getSelectedIndex() == 3) {
+                alpha = Float.parseFloat(alphaStr) / 255;
+            }
+
+            double r = Double.parseDouble(this.fR.getText()) / 255.0D;
+            double g = Double.parseDouble(this.fG.getText()) / 255.0D;
+            double b = Double.parseDouble(this.fB.getText()) / 255.0D;
             Color c = new Color(r, g, b, alpha);
-            setColorByColor(c, this.useAlphaToggle.isSelected());
+            setColorByColor(c, chooseAlphaModeCombo.getSelectionModel().getSelectedIndex());
         });
         System.out.println("tiem: " + System.currentTimeMillis());
         ThreadUtils.globalHandler().post(() -> {
@@ -186,18 +196,18 @@ public final class ColorController extends AbstractController {
         });
     }
 
-    private static String toString(Color c, boolean withAlpha) {
+    private static String colorToHex(Color c, int alphaIndex) {
         int r = (int) Math.round(c.getRed() * 255.0D);
         int g = (int) Math.round(c.getGreen() * 255.0D);
         int b = (int) Math.round(c.getBlue() * 255.0D);
-        if (withAlpha) {
+        if (alphaIndex > 0) {
             int o = (int) Math.round(c.getOpacity() * 255.0D);
             return String.format("%02x%02x%02x%02x", o, r, g, b);
         }
         return String.format("%02x%02x%02x", r, g, b);
     }
 
-    private void setColorByHex(String hex, double opacity, boolean withAlpha) {
+    private void setColorByHex(String hex, double opacity, int alphaIndex) {
         Color c;
         c = Color.web(hex, opacity);
 
@@ -205,18 +215,25 @@ public final class ColorController extends AbstractController {
         int r = (int) Math.round(c.getRed() * 255.0D);
         int g = (int) Math.round(c.getGreen() * 255.0D);
         int b = (int) Math.round(c.getBlue() * 255.0D);
-        if (withAlpha) {
+        if (alphaIndex == 1) { //%
+            double a = Math.round(c.getOpacity() / 255.0D);
+            int percent = (int)(a * 100);
+            this.sA.setText(percent + "%");
+        } else if (alphaIndex == 2) { //0.0-1.0
+            double a = Math.round(c.getOpacity() / 255.0D);
+            this.sA.setText(String.format("%.2f", a));
+        } else if (alphaIndex == 3) {//1-255
             int a = (int) Math.round(c.getOpacity() * 255.0D);
-            this.sA.setText("" + a);
+            this.sA.setText(String.valueOf(a));
         }
-        this.fR.setText("" + r);
-        this.fG.setText("" + g);
-        this.fB.setText("" + b);
+        this.fR.setText(String.valueOf(r));
+        this.fG.setText(String.valueOf(g));
+        this.fB.setText(String.valueOf(b));
     }
 
-    private void setColorByColor(Color c, boolean withAlpha) {
+    private void setColorByColor(Color c, int alphaIndex) {
         this.colorPicker.setValue(c);
-        String hex = toString(c, withAlpha);
+        String hex = colorToHex(c, alphaIndex);
         this.hexColorInput.setText(hex);
     }
 }

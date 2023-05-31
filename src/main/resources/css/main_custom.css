@@ -160,3 +160,15 @@
 .custom-jfx-list-view .jfx-list-cell:filled:hover .sublist-header > .drop-icon {
     -fx-background-color: BLACK;
 }
+
+.white-bg {
+   -fx-background-color : #ffffff;
+}
+
+.gray-bg {
+   -fx-background-color : #eeeeee;
+}
+
+.black-bg {
+   -fx-background-color : #121121;
+}
