@@ -93,14 +93,14 @@
 
       <VBox>
          <HBox.margin><Insets left="8"/> </HBox.margin>
-         <JFXTextField fx:id="fB" maxHeight="20.0" prefHeight="15.0" prefWidth="65.0" />
-         <Label prefHeight="17.0" prefWidth="0.0" styleClass="normal-label" text="B" />
+         <JFXTextField fx:id="fG" maxHeight="20.0" prefHeight="15.0" prefWidth="65.0" />
+         <Label prefHeight="17.0" prefWidth="0.0" styleClass="normal-label" text="G" />
       </VBox>
 
       <VBox>
          <HBox.margin><Insets left="8"/> </HBox.margin>
-         <JFXTextField fx:id="fG" maxHeight="20.0" prefHeight="15.0" prefWidth="65.0" />
-         <Label prefHeight="17.0" prefWidth="0.0" styleClass="normal-label" text="G" />
+         <JFXTextField fx:id="fB" maxHeight="20.0" prefHeight="15.0" prefWidth="65.0" />
+         <Label prefHeight="17.0" prefWidth="0.0" styleClass="normal-label" text="B" />
       </VBox>
 
       <JFXButton fx:id="enterForRGBBtn" layoutX="461.0" layoutY="158.0" text="确定" styleClass="custom-jfx-button-nobg"/>
