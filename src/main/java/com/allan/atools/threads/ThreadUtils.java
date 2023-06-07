@@ -1,8 +1,6 @@
 package com.allan.atools.threads;
 
-import com.allan.baseparty.handler.Handler;
 import com.allan.baseparty.handler.HandlerThread;
-import com.allan.baseparty.handler.Looper;
 import com.allan.atools.utils.Log;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -11,18 +9,6 @@ import javafx.concurrent.Task;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadFactory;
-
-class HolderHandler {
-    static volatile ThreadUtils.ClosedDroppedHandler mBackgroundHandler;
-    static HandlerThread mBackgroundThread;
-
-    static {
-        HandlerThread handlerThread = new HandlerThread("main_global_handler");
-        mBackgroundThread = handlerThread;
-        handlerThread.start();
-        mBackgroundHandler = new ThreadUtils.ClosedDroppedHandler(handlerThread.getLooper());
-    }
-}
 
 class ExDefaultThreadFactory implements ThreadFactory {
     private static final AtomicInteger poolNumber = new AtomicInteger(1);
@@ -51,19 +37,6 @@ class ExDefaultThreadFactory implements ThreadFactory {
             t.setPriority(Thread.NORM_PRIORITY);
         t.setUncaughtExceptionHandler(ExDefaultThreadFactory::uncaughtException);
         return t;
-    }
-}
-
-class HolderGeneric{
-    static final ExecutorService genericService = new ThreadPoolExecutor(1, Integer.MAX_VALUE,
-            120, TimeUnit.SECONDS,
-            new SynchronousQueue<Runnable>(),
-            new ExDefaultThreadFactory());
-    static void shutdown() {
-        if (genericService.isShutdown()) {
-            return;
-        }
-        genericService.shutdown();
     }
 }
 
@@ -180,22 +153,5 @@ public final class ThreadUtils {
         };
         Log.d("run " + run);
         ThreadUtils.execute(run);
-    }
-
-    public static class ClosedDroppedHandler extends Handler {
-        public ClosedDroppedHandler(Looper looper) {
-            super(looper);
-        }
-
-        public void postDelayedCheckClosed(Runnable r, long delay) {
-            if (ThreadUtils.sBeClosing) {
-                return;
-            }
-            super.postDelayed(() -> {
-                if (!ThreadUtils.sBeClosing) {
-                    r.run();
-                }
-            }, delay);
-        }
     }
 }
