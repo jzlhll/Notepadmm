@@ -2,9 +2,11 @@ package com.allan.atools.tools;
 
 import com.allan.atools.AToolsViewsConfigure;
 import com.allan.atools.bases.AbstractController;
+import com.allan.atools.beans.SizeAndXy;
 import com.allan.atools.beans.SubWindowCreatorInfo;
 import com.allan.atools.controller.AToolsController;
 import com.allan.atools.utils.ResLocation;
+import com.allan.baseparty.Action;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -104,20 +106,20 @@ public final class AToolsControllerInitial {
     Inner mainViewManager;
     public static final int DEFAULT_PAGE_INDEX = Inner.FIRST_PAGE_INDEX;
 
-    public AToolsController createMainView() {
+    public AToolsController createAToolsWindow() {
         this.mainViewManager = new Inner();
         Parent root;
-        AToolsController mainController;
+        AToolsController aToolsController;
         try {
-            mainController = AbstractController.load(AToolsController.class);
-            assert mainController != null;
-            root = mainController.getRootView();
+            aToolsController = AbstractController.load(AToolsController.class);
+            assert aToolsController != null;
+            root = aToolsController.getRootView();
         } catch (Exception e) {
             throw new RuntimeException("主window main fxml error!");
         }
 
         //初始化controller代码
-        mainController.pageHolderPanel.contentProperty().bind(this.pageContentProp);
+        aToolsController.pageHolderPanel.contentProperty().bind(this.pageContentProp);
         replacePageWithLoading();
 
         //Stage初始化
@@ -133,16 +135,18 @@ public final class AToolsControllerInitial {
         //初始化主Stage（主window）
         var stage = AllStagesManager.getInstance().newStage(createInfo, root, false, () -> {
             replacePageByIndex(DEFAULT_PAGE_INDEX);
+        }, sizeAndXy -> {
+            aToolsController.sizeXyChangedProp.set(aToolsController.sizeXyChangedProp.getValue() + 1);
         });
-        mainController.setMainControllerInit(this);
-        mainController.init(stage);
+        aToolsController.setMainControllerInit(this);
+        aToolsController.init(stage);
 
         stage.setOnCloseRequest(ev -> {
             mainViewManager.destroy();
-            mainController.destroy();
+            aToolsController.destroy();
         });
 
-        return mainController;
+        return aToolsController;
     }
 
     public void replacePageByIndex(int index) {

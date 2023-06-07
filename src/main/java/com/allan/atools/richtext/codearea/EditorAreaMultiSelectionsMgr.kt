@@ -3,6 +3,7 @@ package com.allan.atools.richtext.codearea
 import com.allan.atools.Colors
 import com.allan.atools.UIContext
 import com.allan.atools.bean.MultiSelection
+import com.allan.atools.controller.NotepadController
 import com.allan.atools.utils.Log
 import com.allan.baseparty.Action5
 import javafx.beans.value.ChangeListener
@@ -105,7 +106,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
         }
         if (!isSizeXyListenerSet) {
             isSizeXyListenerSet = true
-            UIContext.sizeXyChangedProp.addListener(sizeXyListener)
+            NotepadController.sizeXyChangedProp.addListener(sizeXyListener)
         }
     }
 
@@ -117,7 +118,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
         Log.d("area: removeListeners----")
         if (sizeXyListener == null) return
         if (isSizeXyListenerSet) {
-            UIContext.sizeXyChangedProp.removeListener(sizeXyListener)
+            NotepadController.sizeXyChangedProp.removeListener(sizeXyListener)
             isSizeXyListenerSet = false
         }
     }

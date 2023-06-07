@@ -56,7 +56,7 @@ object UIContext {
     fun showToolsController() {
         val ctrl = toolsController
         if (ctrl == null || ctrl.stage == null) {
-            toolsController = AToolsControllerInitial().createMainView()
+            toolsController = AToolsControllerInitial().createAToolsWindow()
             toolsController?.stage?.show()
         } else {
             ctrl.stage.toFront()
@@ -71,9 +71,6 @@ object UIContext {
 
     @JvmField
     val currentTabProp = SimpleObjectProperty<Tab>()
-
-    @JvmField
-    val sizeXyChangedProp = SimpleLongProperty()
 
     @JvmField
     val focus:FocusHelper = FocusHelper()

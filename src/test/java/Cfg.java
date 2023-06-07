@@ -2,7 +2,7 @@ import java.io.IOException;
 
 public class Cfg {
     //todo: 不能的电脑，配置修改这里。
-    private static final String CfgConfig = "./src/test/java/cfg_mac_arm.config";
+    private static final String CfgConfig = "./src/test/java/cfg_win.config";
     //运行入口
     static final String MAIN_CLASS;
     //主模块
@@ -44,28 +44,7 @@ public class Cfg {
         VERSION = reader.get("VERSION");
 
         {
-            boolean[] homes = new boolean[3];
-            homes[0] = reader.containsKey("JDK_HOME_WIN");
-            homes[1] = reader.containsKey("JDK_HOME_MAC_INTEL");
-            homes[2] = reader.containsKey("JDK_HOME_MAC_ARM");
-            int count = 0;
-            for (var home : homes) {
-                if (home) {
-                    count++;
-                }
-            }
-
-            if (count != 1) {
-                throw new RuntimeException("cfg.config配置的JavaHome有问题！");
-            }
-
-            if (homes[0]) {
-                JAVA_HOME = reader.get("JDK_HOME_WIN");
-            } else if (homes[1]) {
-                JAVA_HOME = reader.get("JDK_HOME_MAC_INTEL");
-            } else { // if (homes[2])
-                JAVA_HOME = reader.get("JDK_HOME_MAC_ARM");
-            }
+            JAVA_HOME = reader.get("JDK_HOME");
         }
 
         M2_PATH = reader.get("M2_PATH");

@@ -4,6 +4,9 @@ import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.tools.AToolsControllerInitial;
 import com.jfoenix.controls.JFXListView;
+import javafx.beans.property.SimpleLongProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXML;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
@@ -12,12 +15,15 @@ import javafx.stage.Stage;
 
 @XmlPaths(paths = {"main", "atools.fxml"})
 public final class AToolsController extends AbstractController {
-    public static final int WIDTH = 1100;
-    public static final int HEIGHT = 680;
+    /**
+     * a tools: xy 变化
+     */
+    public final SimpleLongProperty sizeXyChangedProp = new SimpleLongProperty();
 
     public static final int OFFSET_Y = 28 + 5;
 
     public static int pageWidth;
+    public static int pageHeight;
 
     @FXML
     public HBox mainSplitPane;
@@ -43,16 +49,19 @@ public final class AToolsController extends AbstractController {
             System.out.println("newValue : " + newValue + " " + index);
             mInit.replacePageByIndex(index);
         });
+        stage.setResizable(true);
 
-        stage.setWidth(WIDTH);
-        stage.setHeight(HEIGHT);
-        stage.setResizable(false);
+        sizeXyChangedProp.addListener((observable, oldValue, newValue) -> {
+            var s = getStage();
+            if (s != null) {
+                mainSplitPane.setPrefWidth(s.getWidth());
+                mainSplitPane.setPrefHeight(s.getHeight());
+                pageHeight = (int) s.getHeight();
+                separator.setPrefHeight(s.getHeight());
+                pageWidth = (int) (s.getWidth() - 120 - 15);
+            }
+        });
 
-        mainSplitPane.setPrefWidth(WIDTH);
-        mainSplitPane.setPrefHeight(HEIGHT);
-        separator.setPrefHeight(HEIGHT);
         leftMenuListView.setPrefWidth(120);
-
-        pageWidth = WIDTH - 120 - 15;
     }
 }

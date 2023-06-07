@@ -3,21 +3,49 @@
 <?import com.jfoenix.controls.JFXButton?>
 <?import com.jfoenix.controls.JFXTextArea?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.AnchorPane?>
 
 <?import com.jfoenix.controls.JFXTextField?>
-<AnchorPane prefHeight="630.0" prefWidth="870.0" styleClass="custom-main-bg"
-            xmlns="http://javafx.com/javafx/15.0.1"
-            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.JsonFormatController">
-   <Label text="json format" styleClass="title-label-big"/>
-   <Label styleClass="normal-label" fx:id="statusLabel" layoutX="200" layoutY="14"/>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.Insets?>
+<VBox styleClass="custom-main-bg"
+      xmlns="http://javafx.com/javafx/15.0.1"
+      xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.JsonFormatController">
+   <HBox>
+      <Label text="json format" styleClass="title-label-big"/>
+      <Label styleClass="normal-label" fx:id="statusLabel"/>
+   </HBox>
 
-   <JFXButton fx:id="ignoreEnterTextBtn" buttonType="RAISED" layoutX="637.0" layoutY="190.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="去除回车直接format" />
-   <JFXButton fx:id="removePercentBtn" buttonType="RAISED" layoutX="637.0" layoutY="290.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="URL解码" />
-   <JFXButton fx:id="addPercentBtn" buttonType="RAISED" layoutX="637.0" layoutY="340.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="URL加码" />
-   <JFXButton fx:id="douhaoBtn" buttonType="RAISED" layoutX="637.0" layoutY="390.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="逗号拼接" />
-   <JFXButton fx:id="removeFanxieBtn" buttonType="RAISED" layoutX="637.0" layoutY="440.0" prefWidth="150" styleClass="custom-jfx-button-raised" text="移除反斜杠" />
+   <HBox>
+      <VBox.margin>
+         <Insets top="10" left="10"/>
+      </VBox.margin>
+      <JFXButton fx:id="ignoreEnterTextBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="去除回车直接format">
+         <VBox.margin>
+            <Insets left="10"/>
+         </VBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="removePercentBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="URL解码">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="addPercentBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="URL加码">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="douhaoBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="逗号拼接">
+         <HBox.margin>
+            <Insets  left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="removeFanxieBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="移除反斜杠">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+   </HBox>
 
-   <JFXTextField fx:id="outReceiverText" layoutX="10.0" layoutY="50.0" maxHeight="150" prefHeight="130" prefWidth="620.0" />
-   <JFXTextArea fx:id="outReceiverTextCvted" layoutX="10.0" layoutY="200.0" maxHeight="420" prefHeight="410" prefWidth="620.0" />
-</AnchorPane>
+   <JFXTextField fx:id="outReceiverText" maxHeight="100" prefHeight="100" prefWidth="200" />
+</VBox>

@@ -22,6 +22,7 @@ import com.jfoenix.controls.JFXTabPane;
 import com.jfoenix.controls.JFXTextField;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
@@ -44,6 +45,11 @@ import java.util.List;
 
 @XmlPaths(paths = {"notepad", "main_notepad.fxml"})
 public final class NotepadController extends AbstractMainController {
+    /**
+     * 主程序的size xy 变化
+     */
+    public static final SimpleLongProperty sizeXyChangedProp = new SimpleLongProperty();
+
     private final SimpleDoubleProperty mHeightProp = new SimpleDoubleProperty();
 
     //fxml action head buttons

@@ -34,7 +34,7 @@ public final class NotepadHeadButtons {
         IconfontCreator.setText(mMain.notepadMainActionBarAToolsBtn, "smile", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarAToolsBtn.setOnMouseClicked(e ->{
             if (UIContext.toolsController == null || UIContext.toolsController.getStage() == null) {
-                UIContext.toolsController = new AToolsControllerInitial().createMainView();
+                UIContext.toolsController = new AToolsControllerInitial().createAToolsWindow();
                 UIContext.toolsController.getStage().show();
             } else {
                 UIContext.toolsController.getStage().toFront();

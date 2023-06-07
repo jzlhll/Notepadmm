@@ -76,7 +76,7 @@ public class FfmpegController extends AbstractController {
         mSetting.getOnFileSelectedListenerArray().add(mTable);
 
         splitPane.setPrefWidth(AToolsController.pageWidth);
-        splitPane.setPrefHeight(AToolsController.HEIGHT - AToolsController.OFFSET_Y);
+        splitPane.setPrefHeight(AToolsController.pageHeight - AToolsController.OFFSET_Y);
 
         selectADirLabel2.setWrapText(true);
         videoInfoLabel.setWrapText(true);

@@ -1,6 +1,7 @@
 package com.allan.atools.pop;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.controller.NotepadController;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action;
 import com.jfoenix.controls.JFXPopup;
@@ -24,7 +25,7 @@ public final class GlobalPopupManager extends Popup {
     private static void initWindowChangedOnlyOnce() {
         if (!isInitWindowChanged) { //init once
             isInitWindowChanged = true;
-            UIContext.sizeXyChangedProp.addListener((observable, oldValue, newValue) -> {
+            NotepadController.sizeXyChangedProp.addListener((observable, oldValue, newValue) -> {
                 if (instance != null && instance.isShowing()) {
                     instance.hide();
                     instance = null;

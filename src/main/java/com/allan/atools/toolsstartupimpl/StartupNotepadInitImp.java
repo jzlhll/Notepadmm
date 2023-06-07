@@ -121,7 +121,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
             UIContext.context().setIsDecorate();
         }
         AllStagesManager.getInstance().initMainStage(stage, createInfo, root, (sz) -> {
-            UIContext.sizeXyChangedProp.set(UIContext.sizeXyChangedProp.getValue() + 1);
+            NotepadController.sizeXyChangedProp.set(NotepadController.sizeXyChangedProp.getValue() + 1);
         });
         UIContext.mainWindow = stage.getScene().getWindow();
         KeyEventDispatcher.instance.init(root);

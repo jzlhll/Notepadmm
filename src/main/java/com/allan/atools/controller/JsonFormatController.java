@@ -1,5 +1,6 @@
 package com.allan.atools.controller;
 
+import com.allan.atools.UIContext;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.jfoenix.controls.JFXButton;
@@ -17,12 +18,13 @@ import java.util.stream.Collectors;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.control.Label;
 import javafx.stage.Stage;
 @XmlPaths(paths = {"pages", "content_jsonformat.fxml"})
 public final class JsonFormatController extends AbstractController {
     public JFXTextField outReceiverText;
-    public JFXTextArea outReceiverTextCvted;
     public JFXButton ignoreEnterTextBtn;
     public JFXButton removePercentBtn;
     public JFXButton addPercentBtn;
@@ -63,27 +65,25 @@ public final class JsonFormatController extends AbstractController {
             }
         });
 
-
-   
         this.ignoreEnterTextBtn.setOnMouseClicked(event -> {
             String newjson = this.mFormat.formatWithoutEnter(this.outReceiverText.getText());
 
-            this.outReceiverTextCvted.setText(newjson);
+            this.outReceiverText.setText(newjson);
             this.mLastParsed = newjson;
         });
 
         this.removeFanxieBtn.setOnMouseClicked(event -> {
             var origin = this.outReceiverText.getText();
             origin = origin.replace("\\", "");
-            this.outReceiverTextCvted.setText(origin);
+            this.outReceiverText.setText(origin);
         });
 
         this.removePercentBtn.setOnMouseClicked(e -> {
             String s = this.outReceiverText.getText();
-            this.outReceiverTextCvted.setText(URLDecoder.decode(s));
+            this.outReceiverText.setText(URLDecoder.decode(s));
         });
         this.addPercentBtn.setOnMouseClicked(e -> {
-            String s = this.outReceiverTextCvted.getText();
+            String s = this.outReceiverText.getText();
             this.outReceiverText.setText(URLEncoder.encode(s));
         });
 
@@ -101,8 +101,31 @@ public final class JsonFormatController extends AbstractController {
             }
             var l = singles.stream().distinct().collect(Collectors.toList());
             String r = String.join(",", l);
-            this.outReceiverTextCvted.setText(r);
+            this.outReceiverText.setText(r);
         });
 
+        assert UIContext.toolsController != null;
+        UIContext.toolsController.sizeXyChangedProp.addListener((observable, oldValue, newValue) -> {
+            changedEditBoxSize();
+        });
+
+        changedEditBoxSize();
+    }
+
+    private void changedEditBoxSize() {
+        if (UIContext.toolsController != null && UIContext.toolsController.getStage() != null) {
+            var width = UIContext.toolsController.getStage().getWidth() - 200;
+            var height = UIContext.toolsController.getStage().getHeight() - 150;
+
+            outReceiverText.setPrefWidth(width);
+            outReceiverText.setPrefHeight(height);
+
+            outReceiverText.setMaxWidth(width);
+            outReceiverText.setMaxHeight(height);
+
+            outReceiverText.setMinWidth(width);
+            outReceiverText.setMinHeight(height);
+            Log.d("width " + width + " height " + height);
+        }
     }
 }

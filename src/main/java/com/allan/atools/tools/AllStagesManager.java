@@ -150,6 +150,9 @@ public final class AllStagesManager {
     }
 
     public Stage newStage(SubWindowCreatorInfo info, Parent rootView, boolean initOwner, Action0 onShownAction) {
+        return newStage(info, rootView, initOwner, onShownAction, null);
+    }
+    public Stage newStage(SubWindowCreatorInfo info, Parent rootView, boolean initOwner, Action0 onShownAction, Action<SizeAndXy> sizeOrXYChanged) {
         // Create sized scene
         Scene scene;
         // Create window
@@ -208,6 +211,7 @@ public final class AllStagesManager {
             mWindowInfo.loadCached();
             mWindowInfo.setSizeAndXy();
             mWindowInfo.afterSetData();
+            mWindowInfo.setXyChangedListener(sizeOrXYChanged);
         }
 
         //组合拳解决闪屏黑色问题 再恢复透明#2
