@@ -41,6 +41,7 @@ public final class StartupApplication extends Application{
     public void start(Stage stage) {
         var init = create();
         DirectFileLog.append2("start111");
+        new Test().test();
         assert init != null;
         init.beforeStart(stage);
         DirectFileLog.append2("beforeStart aftaer");

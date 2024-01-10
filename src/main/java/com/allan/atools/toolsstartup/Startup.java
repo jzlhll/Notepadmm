@@ -57,6 +57,7 @@ public final class Startup {
             Startup.sInitArgs = args;
         }
         Application.launch(StartupApplication.class, args);
+
         ThreadUtils.shutdown();
     }
 }

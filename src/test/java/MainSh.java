@@ -454,6 +454,10 @@ final class MainSh {
             cmd = cmd.replace("-DA_DEBUG=true ", "")
                     .replace("-DA_MEM_WATCHER=print ", "")
                     .replace("-DA_MEM_WATCHER=real ", "");
+
+            if (IO.IS_WIN) {
+                cmd += "--vendor --win-dir-chooser --win-shortcut";
+            }
             System.out.println(cmd);
 
             String finalCmd = cmd;

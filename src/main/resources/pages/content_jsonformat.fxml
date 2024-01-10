@@ -13,7 +13,6 @@
       xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.JsonFormatController">
    <HBox>
       <Label text="json format" styleClass="title-label-big"/>
-      <Label styleClass="normal-label" fx:id="statusLabel"/>
    </HBox>
 
    <HBox>
@@ -47,5 +46,5 @@
       </JFXButton>
    </HBox>
 
-   <JFXTextField fx:id="outReceiverText" maxHeight="100" prefHeight="100" prefWidth="200" />
+   <JFXTextArea fx:id="outReceiverText" maxHeight="100" prefHeight="100" prefWidth="200" />
 </VBox>
