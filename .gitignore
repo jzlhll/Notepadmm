@@ -9,3 +9,4 @@ target/
 .idea/
 miniJreDeps.txt
 codenet.git.zip
+build/
