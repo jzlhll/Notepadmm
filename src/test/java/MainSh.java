@@ -162,7 +162,8 @@ final class MainSh {
 
             //将所有的module-info.class计算出来；如果你是非模块化，自行修改。
             Set<File> moduleInfoClassPaths = new HashSet<>();
-            IO.getAllFilesInDirWithFilter(moduleInfoClassPaths, new File("."),
+            var cur = new File(".");
+            IO.getAllFilesInDirWithFilter(moduleInfoClassPaths, cur,
                     f-> "module-info.class".equals(f.getName()),
                     d -> { //过滤目录名和编译结果
                         var n = d.getName();
@@ -176,6 +177,9 @@ final class MainSh {
                             return false;
                         }
                         if (Cfg.BUILD_ROOT.equals(n)) {
+                            return false;
+                        }
+                        if (Objects.equals(d.getParent(), cur.getName()) && "build".equals(n)) {
                             return false;
                         }
                         return true;
@@ -435,7 +439,10 @@ final class MainSh {
                 throw new RuntimeException(e);
             }
 
-            System.out.println("请注意：！！！！\ncd到" + Cfg.BUILD_ROOT + "\" !!!!后，自行复制如下命令去执行。\n执行以后，他会有很长的时间，耐心等待...");
+            System.out.println("最后一步：打包动作, 请打开文件目录，使用cmd命令打开进入到本目录\n" +
+                    "请注意：！！！！\n" +
+                    "cd到" + Cfg.BUILD_ROOT + "\" 后，\n" +
+                    "自行复制如下命令去执行。\n执行以后，他会有很长的时间，耐心等待...");
             String iconPath = IO.IS_WIN ? "../icons/windows.ico" : "../icons/mac.icns";
 
             var cmd = Cfg.jpackage + " -n " + Cfg.APP_NAME
