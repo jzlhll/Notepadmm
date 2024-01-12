@@ -179,9 +179,9 @@ final class MainSh {
                         if (Cfg.BUILD_ROOT.equals(n)) {
                             return false;
                         }
-                        if (Objects.equals(d.getParent(), cur.getName()) && "build".equals(n)) {
-                            return false;
-                        }
+//                        if (Objects.equals(d.getParent(), cur.getName()) && "build".equals(n)) {
+//                            return false;
+//                        }
                         return true;
                     });
 
@@ -441,8 +441,7 @@ final class MainSh {
 
             System.out.println("最后一步：打包动作, 请打开文件目录，使用cmd命令打开进入到本目录\n" +
                     "请注意：！！！！\n" +
-                    "cd到" + Cfg.BUILD_ROOT + "\" 后，\n" +
-                    "自行复制如下命令去执行。\n执行以后，他会有很长的时间，耐心等待...");
+                    "cd到" + Cfg.BUILD_ROOT + "\" 后，执行xxx.sh或者xxx.bash!!");
             String iconPath = IO.IS_WIN ? "../icons/windows.ico" : "../icons/mac.icns";
 
             var cmd = Cfg.jpackage + " -n " + Cfg.APP_NAME
@@ -462,25 +461,30 @@ final class MainSh {
                     .replace("-DA_MEM_WATCHER=print ", "")
                     .replace("-DA_MEM_WATCHER=real ", "");
 
+            String finalCmd1 = cmd;
+            String finalCmd2 = cmd;
             if (IO.IS_WIN) {
-                cmd += "--vendor --win-dir-chooser --win-shortcut";
-            }
-            System.out.println(cmd);
-
-            String finalCmd = cmd;
-            new Thread(()-> {
+                finalCmd1 = cmd + " --vendor --win-dir-chooser --win-shortcut";
+                finalCmd2 = cmd + " --type app-image --vendor raven";
                 try {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    Files.move(Path.of("proguardMap.zip"), Path.of(IO.combinePath(Cfg.BUILD_ROOT, "resources", "resources", "pro.map")));
-                    Files.writeString(Path.of(IO.combinePath(Cfg.BUILD_ROOT, "jpackageCmd.sh")), finalCmd);
+                    Files.writeString(Path.of(IO.combinePath(Cfg.BUILD_ROOT, "jpackageCmdExe.sh")), finalCmd1);
+                    Files.writeString(Path.of(IO.combinePath(Cfg.BUILD_ROOT, "jpackageCmdGreenExe.sh")), finalCmd2);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e);
                 }
-            }).start();
+            } else {
+                try {
+                    Files.writeString(Path.of(IO.combinePath(Cfg.BUILD_ROOT, "jpackageCmd.sh")), cmd);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            try {
+                Files.move(Path.of("proguardMap.zip"), Path.of(IO.combinePath(Cfg.BUILD_ROOT, "resources", "resources", "pro.map")));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         } else {
             System.out.println(jumpWords(false, 7, "打包程序"));
         }
