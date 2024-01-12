@@ -15,8 +15,6 @@ import com.allan.atools.utils.*;
 import com.allan.atools.beans.WindowCreatorInfo;
 import com.allan.atools.controller.NotepadController;
 import com.allan.uilibs.jfoenix.MyJFXDecorator;
-import com.allan.baseparty.handler.TextUtils;
-import com.allan.baseparty.memory.RefWatcher;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.image.Image;
@@ -56,7 +54,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
     public void beforeStart(Stage stage) {
         foreInit();
 
-        DirectFileLog.append2("application 33");
+        Log.e("application 33");
         //初始化css
         var paths = getCssPaths();
         System.out.println("application 44");
@@ -65,12 +63,12 @@ public final class StartupNotepadInitImp implements IStartupInit {
         customMap.put(CacheLocation.CustomFontSize, CacheLocation.fontSizeFile());
         customMap.put(CacheLocation.CustomFontFamily, CacheLocation.fontFamilyFile(-1));
         AllStagesManager.getInstance(paths, customMap);
-        DirectFileLog.append2("application 55");
+        Log.e("application 55");
         AllStagesManager.getInstance().setMainStage(stage);
-        DirectFileLog.append2("application 66");
+        Log.e("application 66");
 
         //here add your before init code
-        DirectFileLog.append2("Startup main thid:" + Thread.currentThread().getId());
+        Log.e("Startup main thid:" + Thread.currentThread().getId());
 
         GenericStyledAreaBehaviorReflector.action();
     }
@@ -79,18 +77,18 @@ public final class StartupNotepadInitImp implements IStartupInit {
     public void createMainView(Stage stage) {
         Parent root;
 
-        DirectFileLog.append2("createMainView 111");
+        Log.e("createMainView 111");
         NotepadController mainController;
         try {
             mainController = AbstractController.load(NotepadController.class);
             root = mainController.getRootView();
         } catch (Exception e) {
             Log.e("主window main fxml error, e: ", e);
-            DirectFileLog.append2("主window main fxml error");
+            Log.e("主window main fxml error");
             throw new RuntimeException("主window main fxml error!");
         }
 
-        DirectFileLog.append2("createMainView 222");
+        Log.e("createMainView 222");
         UIContext.mainController = mainController;
         //初始化controller代码
         mainController.init(stage);
@@ -106,7 +104,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
         createInfo.isSystemWindow = false;
         createInfo.sizeAndLocateCachePrefixName = "notepad_main_";
 
-        DirectFileLog.append2("createMainView 333");
+        Log.e("createMainView 333");
         //初始化主Stage（主window）
         if (!UIContext.CAN_DECORATOR) {
             createInfo.isSystemWindow = true;
@@ -126,7 +124,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
         UIContext.mainWindow = stage.getScene().getWindow();
         KeyEventDispatcher.instance.init(root);
 
-        DirectFileLog.append2("createMainView 444");
+        Log.e("createMainView 444");
         stage.setMinHeight(480);
         stage.setMinWidth(720);
 
