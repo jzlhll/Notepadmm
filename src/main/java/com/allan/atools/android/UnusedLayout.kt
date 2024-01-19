@@ -11,8 +11,8 @@ class UnusedLayout(unusedDir:String) {
     private val unusedDirFile = File(if(unusedDir.isNotBlank())unusedDir else "D:\\code\\typhur\\typhurApp")
 
     private val codesMap = hashMapOf<File, Array<String>>()
+    private val imagesMap = hashMapOf<File, Array<String>>()
     private val layoutsMap = hashMapOf<File, Array<String>>()
-    private val otherGoodMap = hashMapOf<File, Array<String>>()
 
     private fun initFileToMap(map:MutableMap<File, Array<String>>, file:File) {
         if (map.containsKey(file)) {
@@ -92,6 +92,15 @@ class UnusedLayout(unusedDir:String) {
                 }
             }
         }
+        for (kv in imagesMap) {
+            val lines = kv.value
+            for (line in lines) {
+                if (line.contains("/$noExName")) {
+                    Log.d(f.name + " --(use)-> " + kv.key)
+                    return true
+                }
+            }
+        }
         return false
     }
 
@@ -163,6 +172,7 @@ class UnusedLayout(unusedDir:String) {
             Log.d("--\n\n\n\n\n\n所有的images------")
             for (item in imgList) {
                 Log.d(item.absolutePath)
+                initFileToMap(imagesMap, item)
             }
 
             Log.d("--\n\n\n\n\n\n所有的layouts------")
