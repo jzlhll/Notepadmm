@@ -106,5 +106,18 @@
       <JFXButton fx:id="enterForRGBBtn" layoutX="461.0" layoutY="158.0" text="确定" styleClass="custom-jfx-button-nobg"/>
    </HBox>
 
+   <HBox>
+      <VBox.margin>
+         <Insets top="30" left="10"/>
+      </VBox.margin>
+
+      <Label styleClass="normal-label" text="android无用layout和drawable查询">
+         <HBox.margin><Insets top="10"/> </HBox.margin>
+      </Label>
+      <JFXTextField fx:id="unusedLayoutPath" maxHeight="20.0" prefHeight="15.0" prefWidth="200.0" />
+   </HBox>
+
+   <JFXButton fx:id="androidUnusedLayoutScanBtn" layoutX="461.0" layoutY="158.0" text="确定" styleClass="custom-jfx-button-nobg"/>
+
    <Label fx:id="errorInfo" styleClass="normal-label" />
 </VBox>

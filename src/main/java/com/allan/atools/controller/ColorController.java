@@ -1,5 +1,6 @@
 package com.allan.atools.controller;
 
+import com.allan.atools.android.UnusedLayout;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.ui.JfoenixDialogUtils;
@@ -62,6 +63,8 @@ public final class ColorController extends AbstractController {
     public JFXButton enterForHexBtn;
     public JFXComboBox<String> chooseAlphaModeCombo;
     public Label errorInfo;
+    public JFXButton androidUnusedLayoutScanBtn;
+    public JFXTextField unusedLayoutPath;
 
     private class OtherListenerForPicker implements DisAndEnableChangeListener.OtherControlChangeListener<Color> {
         public void onRemoveBeforeSetValue() {
@@ -152,6 +155,11 @@ public final class ColorController extends AbstractController {
             }
 
             setColorByHex(currentWithoutEnter, opacity, alphaIndex);
+        });
+        
+        this.androidUnusedLayoutScanBtn.setOnMouseClicked(mouseEvent ->
+        {
+            new UnusedLayout(unusedLayoutPath.getText()).scan();
         });
 
         this.enterForRGBBtn.setOnMouseClicked(event -> {
