@@ -5,9 +5,11 @@ import com.allan.atools.bases.AbstractMainController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.pop.impl.EncodingChooseCreatorImpl;
+import com.allan.atools.pop.impl.JSONChooseCreatorImpl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.FileOpenSupportsKt;
+import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
@@ -97,7 +99,9 @@ public final class NotepadController extends AbstractMainController {
     public Label workspaceCreateFileBtn;
     public Label workspaceSortBtn;
     public Label notepadMainInsertEmptyLineBtn;
+    public Label jsonPopBtn;
     private AnchorPane notepadMainResultLayout;
+
     public AnchorPane getNotepadMainResultLayout() {
         if (notepadMainResultLayout == null) {
             notepadMainResultLayout = new AnchorPane();
@@ -324,10 +328,12 @@ public final class NotepadController extends AbstractMainController {
 
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, newValue.getEditor().getState().isWrap());
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
+                    jsonPopBtn.setVisible(true);
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
 
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, null);
+                    jsonPopBtn.setVisible(false);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
                 }
             });
@@ -368,6 +374,22 @@ public final class NotepadController extends AbstractMainController {
                     curArea.setWrapText(w);
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, w);
                 }
+            });
+
+            jsonPopBtn.setOnMouseClicked(event -> {
+                var contentMenu = new JSONChooseCreatorImpl().createMenu(action -> {
+                    var text = UIContext.currentAreaProp.get().getText();
+                    var fmt = new JsonFormatLog();
+                    if (action.equals(Locales.str("removeUnknownSymbols"))) {
+                        var newText = fmt.removeFanxieExtraQuote(text);
+                        UIContext.currentAreaProp.get().getEditor().resetText(newText);
+                    } else if (action.equals("Format")) {
+                        var newText = fmt.format(fmt.removeEnter(text));
+                        UIContext.currentAreaProp.get().getEditor().resetText(newText);
+                    }
+                });
+                contentMenu.show(jsonPopBtn,
+                        javafx.geometry.Side.BOTTOM, -100, 0);
             });
 
             notepadReadonlyCheckBtn.setOnMouseClicked(ev->{

@@ -186,6 +186,14 @@
                 <Insets right="2"/>
             </HBox.margin>
         </Label>
+
+        <JFXRippler styleClass="jfx-rippler">
+            <HBox.margin>
+                <Insets right="2"/>
+            </HBox.margin>
+            <Label maxHeight="1.8" fx:id="jsonPopBtn" text="JSON" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+        </JFXRippler>
+
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets right="2"/>

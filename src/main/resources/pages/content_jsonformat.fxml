@@ -19,10 +19,15 @@
       <VBox.margin>
          <Insets top="10" left="10"/>
       </VBox.margin>
-      <JFXButton fx:id="ignoreEnterTextBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="去除回车直接format">
-         <VBox.margin>
+      <JFXButton fx:id="removeFanxieBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="移除回车、反斜杠和双引号">
+         <HBox.margin>
             <Insets left="10"/>
-         </VBox.margin>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="ignoreEnterTextBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="去除回车并format">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
       </JFXButton>
       <JFXButton fx:id="removePercentBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="URL解码">
          <HBox.margin>
@@ -34,17 +39,16 @@
             <Insets left="10"/>
          </HBox.margin>
       </JFXButton>
-      <JFXButton fx:id="douhaoBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="逗号拼接">
-         <HBox.margin>
-            <Insets  left="10"/>
-         </HBox.margin>
-      </JFXButton>
-      <JFXButton fx:id="removeFanxieBtn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="移除反斜杠">
+      <JFXButton fx:id="restoreBackupButton" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="回退">
          <HBox.margin>
             <Insets left="10"/>
          </HBox.margin>
       </JFXButton>
    </HBox>
 
-   <JFXTextArea fx:id="outReceiverText" maxHeight="100" prefHeight="100" prefWidth="200" />
+   <JFXTextArea fx:id="outReceiverText" maxHeight="100" prefHeight="100" prefWidth="200">
+      <HBox.margin>
+         <Insets left="10" top="10"/>
+      </HBox.margin>
+   </JFXTextArea>
 </VBox>

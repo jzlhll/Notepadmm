@@ -24,14 +24,9 @@ public final class JsonFormatController extends AbstractController {
     public JFXButton ignoreEnterTextBtn;
     public JFXButton removePercentBtn;
     public JFXButton addPercentBtn;
-    public Label statusLabel;
-    public JFXButton douhaoBtn;
     public JFXButton removeFanxieBtn;
-    private String mInputStatus = "";
-    private String mParsedStatus = "";
-
-    private String mLastInput;
-    private String mLastParsed;
+    public JFXButton restoreBackupButton;
+    private String mBackup;
     private IJsonFormat mFormat;
 
     public void init(Stage stage) {
@@ -42,42 +37,41 @@ public final class JsonFormatController extends AbstractController {
         }
 
         this.ignoreEnterTextBtn.setOnMouseClicked(event -> {
-            String newjson = this.mFormat.formatWithoutEnter(this.outReceiverText.getText());
+            var editText = this.outReceiverText.getText();
+            this.mBackup = editText;
 
-            this.outReceiverText.setText(newjson);
-            this.mLastParsed = newjson;
+            String str = this.mFormat.removeEnter(editText);
+            String fmtStr = this.mFormat.format(str);
+            this.outReceiverText.setText(fmtStr);
         });
 
         this.removeFanxieBtn.setOnMouseClicked(event -> {
-            var origin = this.outReceiverText.getText();
-            origin = origin.replace("\\", "");
-            this.outReceiverText.setText(origin);
+            var editText = this.outReceiverText.getText();
+            this.mBackup = editText;
+
+            var str = this.mFormat.removeFanxieExtraQuote(editText);
+            this.outReceiverText.setText(str);
         });
 
         this.removePercentBtn.setOnMouseClicked(e -> {
-            String s = this.outReceiverText.getText();
-            this.outReceiverText.setText(URLDecoder.decode(s));
+            var editText = this.outReceiverText.getText();
+            this.mBackup = editText;
+
+            var s = URLDecoder.decode(editText);
+            this.outReceiverText.setText(s);
         });
         this.addPercentBtn.setOnMouseClicked(e -> {
-            String s = this.outReceiverText.getText();
-            this.outReceiverText.setText(URLEncoder.encode(s));
+            var editText = this.outReceiverText.getText();
+            this.mBackup = editText;
+
+            var s = URLEncoder.encode(editText);
+            this.outReceiverText.setText(s);
         });
 
-        this.douhaoBtn.setOnMouseClicked(e-> {
-            String s = this.outReceiverText.getText();
-            String[] lines = s.split("\n");
-            var singles = new ArrayList<String>();
-            for(var line : lines) {
-                if (!line.contains(",")) {
-                    singles.add(line);
-                } else {
-                    var temps = line.split(",");
-                    singles.addAll(Arrays.asList(temps));
-                }
-            }
-            var l = singles.stream().distinct().collect(Collectors.toList());
-            String r = String.join(",", l);
-            this.outReceiverText.setText(r);
+        this.restoreBackupButton.setOnMouseClicked(e-> {
+            String last = mBackup;
+            mBackup = this.outReceiverText.getText();
+            this.outReceiverText.setText(last);
         });
 
         assert UIContext.toolsController != null;
