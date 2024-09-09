@@ -192,14 +192,16 @@ final class MainSh {
                 var sets = findAllModuleInfoJava(new File(parentPath2));
                 assert sets.size() == 1;
                 var names = findAllModuleNames(sets);
-                var nameInter = names.iterator();
-                var name = nameInter.next();
-                System.out.println( "    模块: " + name + ", " + targetClasses);
+
+                for (var name : names) {
+                    System.out.println( "    模块: " + name + ", " + targetClasses);
                     var r= IO.run(Cfg.jar +
-                    " --create --file " + IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, name + ".jar") +
-                    " --module-version 1.0" +
-                    " -C " + targetClasses +
-                    " .");
+                            " --create --file " + IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, name + ".jar") +
+                            " --module-version 1.0" +
+                            " -C " + targetClasses +
+                            " .");
+                    break; //todo 目前由于扫描问题，把重复的搞了进来。只取第一个就是app的。
+                }
             }
             System.out.println(wordsCompleted(6, "打jar 成功\n"));
         } else {
