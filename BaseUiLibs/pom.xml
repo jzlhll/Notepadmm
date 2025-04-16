@@ -2,13 +2,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <packaging>pom</packaging>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>BaseUiLibs</artifactId>
+
     <parent>
         <artifactId>BaseParty</artifactId>
         <groupId>com.allan.atools</groupId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../BaseParty</relativePath>
     </parent>
-    <packaging>jar</packaging>
     <dependencies>
         <dependency>
             <groupId>com.allan.atools</groupId>
@@ -17,12 +21,9 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
-    <modelVersion>4.0.0</modelVersion>
-
-    <artifactId>BaseUiLibs</artifactId>
 
     <properties>
-        <maven.compiler.source>16</maven.compiler.source>
+        <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
     </properties>
 
