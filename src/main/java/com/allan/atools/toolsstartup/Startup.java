@@ -1,7 +1,7 @@
 package com.allan.atools.toolsstartup;
 
-import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.FileLog;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
@@ -19,6 +19,11 @@ public final class Startup {
     // java.base/jdk.internal.loader.BuiltinClassLoader.loadClass
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
+//        var exportAll = System.getProperty("A_EXPORT_ALL_TO_ALL");
+//        if ("true".equals(exportAll)) {
+//            org.burningwave.core.assembler.StaticComponentContainer.Modules.exportAllToAll();
+//        }
+
         if (!SettingPreferences.getBoolean(SettingPreferences.hdScreen2Key)) {
             System.setProperty("prism.lcdtext", "false");
             //System.setProperty("prism.subpixeltext", "false");

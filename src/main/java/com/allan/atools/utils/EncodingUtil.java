@@ -131,8 +131,9 @@ public final class EncodingUtil {
 
     /**
      * 判断文件的编码格式 只能判断带bom的文本，如果非bom文本,或者GBK等别的区分不了
-     * @deprecated 这个方法，还不如fileEncoding()牛皮。
+     * 这个方法，还不如fileEncoding()牛皮。
      */
+    @Deprecated
     private static void fileEncoding2(String path) throws IOException {
         FileInputStream in = new FileInputStream(path);
         BufferedInputStream bin = new BufferedInputStream(in);

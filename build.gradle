@@ -1,0 +1,81 @@
+plugins {
+  id 'java'
+  id 'application'
+  id 'org.javamodularity.moduleplugin' version '1.8.15'
+  id 'org.openjfx.javafxplugin' version '0.0.13'
+  id 'org.jetbrains.kotlin.jvm' version '2.1.20'
+//  id 'org.beryx.jlink' version '2.25.0'
+}
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+ext {
+  junitVersion = '5.10.2'
+}
+
+compileKotlin {
+  destinationDirectory = file("build/classes/java/main")
+}
+
+java {
+  sourceCompatibility = JavaVersion.VERSION_17 // 目标 Java 版本
+  targetCompatibility = JavaVersion.VERSION_17 // 编译后的字节码版本
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.encoding = 'UTF-8'
+}
+
+tasks.withType(JavaExec).configureEach {
+  systemProperty "A_MEM_WATCHER", "none"
+  systemProperty "A_DEBUG", "true"
+  systemProperty "A_WARN", "true"
+  systemProperty "A_EXPORT_ALL_TO_ALL", "true"
+}
+
+application {
+  mainModule = 'com.allan.atools'
+  mainClass = 'com.allan.atools.HelloApplication'
+}
+
+javafx {
+  version = '17.0.14'
+  //javafx-web
+  modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics', 'javafx.base']
+}
+
+dependencies {
+  implementation('com.jfoenix:jfoenix:9.0.10')
+  implementation('org.fxmisc.richtext:richtextfx:0.11.5')
+  implementation('com.google.code.gson:gson:2.13.0')
+  implementation('org.ow2.asm:asm:9.6')
+
+  //拯救unnamed
+//  implementation("org.burningwave:core:12.65.2")
+//
+//  testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
+//  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+
+  implementation('org.jetbrains:annotations:13.0') //不要更新。有其他库引用
+}
+
+//test {
+//  useJUnitPlatform()
+//}
+
+//jlink {
+//  imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
+//  options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+//  launcher {
+//    name = 'app'
+//  }
+//}
+//
+//jlinkZip {
+//  group = 'distribution'
+//}

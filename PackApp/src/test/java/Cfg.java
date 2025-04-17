@@ -1,8 +1,8 @@
 import java.io.IOException;
 
 public class Cfg {
-    //todo: 不能的电脑，配置修改这里。
-    private static final String CfgConfig = "./src/test/java/cfg_win.config";
+    //todo modify here
+    private static final String CfgConfig = "./PackApp/src/test/java/cfg_win.config";
     //运行入口
     static final String MAIN_CLASS;
     //主模块
@@ -12,8 +12,6 @@ public class Cfg {
 
     //JAVA_HOME
     static final String JAVA_HOME;
-    //maven的本地仓库 末尾的分隔符不得少
-    static final String M2_PATH;
 
     /**
      * 如果是传入bin，就是proguard.bat或者.sh
@@ -21,8 +19,7 @@ public class Cfg {
      */
     static final String[] proguardBinOrJar;
 
-
-    //如果本地没有.idea/library目录。则需要在类似如下目录的地方找到这个文件。 todo modify by you
+    //如果本地没有.idea/library目录。则需要在类似如下目录的地方找到这个文件。
     static final String IDEA_CACHE_libraries_xml_PATH;
 
     static String[] ALL_RES_PATHS = new String[] {
@@ -47,11 +44,10 @@ public class Cfg {
             JAVA_HOME = reader.get("JDK_HOME");
         }
 
-        M2_PATH = reader.get("M2_PATH");
         proguardBinOrJar = new String[]{null, null};
         proguardBinOrJar[0] = reader.get("proguardBin");
         var proguardJar = reader.get("proguardJar");
-        proguardBinOrJar[1] = (proguardJar == null || proguardJar.length() == 0) ? null : proguardJar;
+        proguardBinOrJar[1] = (proguardJar == null || proguardJar.isEmpty()) ? null : proguardJar;
         IDEA_CACHE_libraries_xml_PATH = reader.get("IDEA_CACHE_libraries_xml_PATH");
     }
 
@@ -83,9 +79,8 @@ public class Cfg {
     static final String java = IO.combinePath(JAVA_HOME, "bin", "java");
 
     static final String[] subTargetClasses = new String[] {
-            IO.combinePath("BaseParty", "target", "classes"),
-            IO.combinePath("BaseUiLibs", "target", "classes"),
-            //TODO 修改和追加其他子模块。不带最后一个/
+//            IO.combinePath("BaseParty", "target", "classes"),
+//            IO.combinePath("BaseUiLibs", "target", "classes"),
     };
 
 }

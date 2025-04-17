@@ -1,6 +1,5 @@
 module atools {
-    requires atools.baseparty;
-    requires atools.baseuilibs;
+//    requires org.burningwave.core;
 
     requires java.base;
     requires java.desktop;
@@ -18,15 +17,30 @@ module atools {
     requires com.google.gson;
     requires com.jfoenix;
     requires org.fxmisc.undo;
-    requires org.jetbrains.annotations;
+    requires annotations;
     requires kotlin.stdlib;
     requires org.objectweb.asm;
 
     exports com.allan.atools.bean;
+
     opens com.allan.atools.bean         to com.google.gson;
+
+    exports com.allan.uilibs.controls;
+    exports com.allan.uilibs.richtexts;
+    exports com.allan.uilibs.jfoenix;
+
+    exports com.allan.baseparty;
+    exports com.allan.baseparty.utils;
+    exports com.allan.baseparty.content;
+    exports com.allan.baseparty.handler;
+    exports com.allan.baseparty.memory;
+    exports com.allan.baseparty.exception;
+    exports com.allan.baseparty.collections;
 
     opens com.allan.atools.ui.controls  to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.toolsstartup to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.controller   to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.richtext     to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
+
+    exports com.allan.atools.toolsstartup;
 }

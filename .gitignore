@@ -4,9 +4,13 @@ out.map
 proguard_use.pro
 .DS_Store
 buildRoot
-target/
+build/
+gradle/*
+gradlew*
+.gradle/
+.kotlin/*
 *.iml
 .idea/
 miniJreDeps.txt
 codenet.git.zip
-build/
+

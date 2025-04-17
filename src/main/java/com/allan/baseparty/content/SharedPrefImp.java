@@ -51,8 +51,8 @@ public final class SharedPrefImp implements SharedPref {
 
     private long mStatSize;
 
-    private final WeakHashMap<SharedPref.OnSharedPreferenceChangeListener, Object> mListeners =
-            new WeakHashMap<SharedPref.OnSharedPreferenceChangeListener, Object>();
+    private final WeakHashMap<OnSharedPreferenceChangeListener, Object> mListeners =
+            new WeakHashMap<OnSharedPreferenceChangeListener, Object>();
 
     /** Current memory state (always increasing) */
     private long mCurrentMemoryStateGeneration;
@@ -181,14 +181,14 @@ public final class SharedPrefImp implements SharedPref {
     }
 
     @Override
-    public void registerOnSharedPreferenceChangeListener(SharedPref.OnSharedPreferenceChangeListener listener) {
+    public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
         synchronized(mLock) {
             mListeners.put(listener, CONTENT);
         }
     }
 
     @Override
-    public void unregisterOnSharedPreferenceChangeListener(SharedPref.OnSharedPreferenceChangeListener listener) {
+    public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
         synchronized(mLock) {
             mListeners.remove(listener);
         }
@@ -300,7 +300,7 @@ public final class SharedPrefImp implements SharedPref {
     private static class MemoryCommitResult {
         final long memoryStateGeneration;
         final List<String> keysModified;
-        final Set<SharedPref.OnSharedPreferenceChangeListener> listeners;
+        final Set<OnSharedPreferenceChangeListener> listeners;
         final Map<String, Object> mapToWriteToDisk;
         final CountDownLatch writtenToDiskLatch = new CountDownLatch(1);
 
@@ -308,7 +308,7 @@ public final class SharedPrefImp implements SharedPref {
         boolean wasWritten = false;
 
         private MemoryCommitResult(long memoryStateGeneration, List<String> keysModified,
-                                   Set<SharedPref.OnSharedPreferenceChangeListener> listeners,
+                                   Set<OnSharedPreferenceChangeListener> listeners,
                                    Map<String, Object> mapToWriteToDisk) {
             this.memoryStateGeneration = memoryStateGeneration;
             this.keysModified = keysModified;
@@ -437,7 +437,7 @@ public final class SharedPrefImp implements SharedPref {
         private MemoryCommitResult commitToMemory() {
             long memoryStateGeneration;
             List<String> keysModified = null;
-            Set<SharedPref.OnSharedPreferenceChangeListener> listeners = null;
+            Set<OnSharedPreferenceChangeListener> listeners = null;
             Map<String, Object> mapToWriteToDisk;
 
             synchronized (mLock) {
@@ -457,7 +457,7 @@ public final class SharedPrefImp implements SharedPref {
                 boolean hasListeners = mListeners.size() > 0;
                 if (hasListeners) {
                     keysModified = new ArrayList<String>();
-                    listeners = new HashSet<SharedPref.OnSharedPreferenceChangeListener>(mListeners.keySet());
+                    listeners = new HashSet<OnSharedPreferenceChangeListener>(mListeners.keySet());
                 }
 
                 synchronized (mEditorLock) {
@@ -546,7 +546,7 @@ public final class SharedPrefImp implements SharedPref {
 
             for (int i = mcr.keysModified.size() - 1; i >= 0; i--) {
                 final String key = mcr.keysModified.get(i);
-                for (SharedPref.OnSharedPreferenceChangeListener listener : mcr.listeners) {
+                for (OnSharedPreferenceChangeListener listener : mcr.listeners) {
                     if (listener != null) {
                         listener.onSharedPreferenceChanged(SharedPrefImp.this, key);
                     }

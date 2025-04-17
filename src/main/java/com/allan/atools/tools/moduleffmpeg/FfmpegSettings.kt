@@ -16,6 +16,8 @@ import javafx.geometry.Pos
 import javafx.scene.text.TextAlignment
 import javafx.stage.DirectoryChooser
 import java.io.File
+import java.util.*
+import kotlin.collections.ArrayList
 
 class FfmpegSettings(private val ctrl:FfmpegController) {
     var ffmpegBinDir:String
@@ -209,7 +211,7 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
             flowPane.children.clear()
 
             fileList.forEach {
-                val fileNm = it.name.toLowerCase()
+                val fileNm = it.name.lowercase(Locale.getDefault())
                 if (fileNm.endsWith("jpg") || fileNm.endsWith("jpeg")) {
                     val btn = createJFXButton("jpg", 18, it.name + " " + formatSize(it.length())).also { btn->
                         listBtnEx(btn)
@@ -236,7 +238,7 @@ class FfmpegSettings(private val ctrl:FfmpegController) {
             val myBtn = event.source as MyJFXButton
             val str = myBtn.ex.toString()
             onFileSelectedListenerArray.forEach {
-                it.invoke(str, str.toLowerCase().endsWith("mp4"))
+                it.invoke(str, str.lowercase(Locale.getDefault()).endsWith("mp4"))
             }
         }
     }

@@ -1,5 +1,3 @@
-import com.allan.baseparty.Action0;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.module.ModuleFinder;
@@ -10,121 +8,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 final class MainSh {
-    static void func1() {
-        if (Cfg.step1_compile) {
-            System.out.println(jumpWords(true, 1, "编译") + "目前采用自行编译的方式来解决问题。点击一下【锤子】（编译图标），并不影响太多节奏，这一步不做自动化。");
-        } else {
-            System.out.println(jumpWords(false, 1, "编译") );
-        }
-    }
-
-    static void func2() {
-        if (Cfg.step2_copyLibs) {
-            System.out.println(jumpWords(true, 2, "拷贝第三方库"));
-            var thirdDir = IO.combinePath(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR);
-            IO.deleteDir(thirdDir);
-            IO.createDir(thirdDir);
-
-            var _3jars = findAllThirdJars();
-            for (var jar : _3jars) {
-                IO.copyFile(jar, thirdDir);
-            }
-            System.out.println(wordsCompleted(2, "拷贝第三方库"));
-        } else {
-            System.out.println(jumpWords(false, 2, "拷贝第三方库"));
-        }
-    }
-
-    static void func3_res() {
-        if (Cfg.step3_copyRes) {
-            System.out.println(jumpWords(true, 3, "拷资源"));
-            //资源部分： 拷贝resources资源
-            var resDir = IO.combinePath(Cfg.BUILD_ROOT, "resources");
-            IO.deleteDir(resDir);
-            IO.createDir(resDir);
-
-            if (Cfg.ALL_RES_PATHS != null) {
-                for (var path : Cfg.ALL_RES_PATHS) {
-                    IO.copyDir(path, resDir);
-                }
-            } else {
-                System.out.println("    您确定没有资源文件哟。");
-            }
-
-            //TODO 子模块如果有就自行添加，直接拷贝进去就好了。
-            System.out.println("    如果还有其他的资源目录，自行添加。");
-            System.out.println(wordsCompleted(3, "拷资源"));
-        } else {
-            System.out.println(jumpWords(false, 3, "拷资源"));
-        }
-    }
-
-    static final String MULTI_RELEASE = " --multi-release 17 ";
-    static final String GREP_STR = IO.IS_WIN ? "findstr" : "grep";
-    static final String REQUIRES_MODULE_PATH_SPLIT = IO.IS_WIN ? ";" : ":";
-    static String requireCmd(String center) {
-        return Cfg.jdeps + MULTI_RELEASE + center + " | " + GREP_STR + " requires";
-    }
-
-    static List<String> subModuleDeps(StringBuilder modulePath) { //子模块的依赖统计
-        var depList = new ArrayList<String>();
-
-        for (var targetClasses : Cfg.subTargetClasses) {
-            var list = requiresCount(requireCmd(" --module-path " + modulePath + " " + targetClasses));
-            depList.addAll(list);
-        }
-        // 这部分需要手动调配依赖语句。涉及的部分为：你的所有子模块的jdeps命令
-        // 比如我这里只有一个BaseParty子模块需要处理，且不需要依赖于其他三方库等 则使用requireCmd("BaseParty/target/classes")统计；
-        // 如果有依赖参考 requiresCount(requireCmd(" --module-path " + modulePath + " " + "hasDepsModule/target/classes"))
-        // modulePath分号隔开。
-        return depList;
-    }
-
-    static List<String> thirdLibsDeps() { //三方模块的依赖统计
-        var thirdJars = IO.combinePathWithInclineEnd(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR) + "*.jar";
-        return requiresCount(requireCmd(thirdJars));
-    }
-
-    static List<String> func4_depsCounter() {
-        List<String> miniJreDeps = null;
-
-        if (Cfg.step4_deps) {
-            System.out.println(jumpWords(true, 4, "计算jdeps依赖，详细查看是否有报错可能需要调整命令"));
-            //下面的逻辑一般不用修改了。
-            var manTargetClasses = IO.combinePath("target", "classes");
-            //自身子模块的汇总
-            StringBuilder modulepath = new StringBuilder();
-            var thirdLibs = IO.combinePath(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR);
-            for (var s : Cfg.subTargetClasses) {
-                modulepath.append(s).append(REQUIRES_MODULE_PATH_SPLIT);
-            }
-            modulepath.append(thirdLibs);
-
-            var depList= requiresCount(requireCmd(" --module-path " + modulepath + " " + manTargetClasses));
-            System.out.println(wordsCompleted(4, "计算jdeps依赖"));
-
-            if (depList != null) {
-                //1. 三方模块的依赖情况
-                var list = thirdLibsDeps();
-                if (list != null) {
-                    depList.addAll(list);
-                }
-
-                //2. 子模块
-                depList.addAll(subModuleDeps(modulepath));
-
-                //3. 获取到自身的模块名，用于过滤掉。
-                depList.removeAll(findAllModuleNames());
-                //4. 获取到三方库的模块名，用于过滤掉。
-                depList.removeAll(fromJarFilesGetModuleNames());
-
-                miniJreDeps = (depList.stream().distinct().collect(Collectors.toList()));
-            }
-        } else {
-            System.out.println(jumpWords(false, 4, "计算jdeps依赖"));
-        }
-        return miniJreDeps;
-    }
 
     static void func4_packMiniJre(List<String> miniJreDeps) {
         if (Cfg.step4_deps && Cfg.step5_miniJre) {
@@ -500,82 +383,6 @@ final class MainSh {
         return String.format("第%d步[%s]: ", step, name) + "完成！";
     }
 
-    //找出所有依赖的第三方库
-    static Set<String> findAllThirdJars() {
-        //1. 最简单的，从本地的隐藏目录加载但是有可能这个目录不存在；
-        //可以通过刷新来解决File->Invalidate.caches->... 或者 git clean -dfx然后重新导入一次。
-        Set<String> allJars = new HashSet<>();
-
-        var libDir = new File(IO.combinePath(".idea", "libraries"));
-        if (libDir.exists()) {
-            var libfiles = libDir.listFiles();
-            assert libfiles != null;
-            for (var libfile : libfiles) {
-                try {
-                    var lines = Files.readAllLines(Paths.get(libfile.getAbsolutePath()));
-                    for (var line : lines) {
-                        //<root url="jar://$MAVEN_REPOSITORY$/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar!/" />
-                        if (line.contains(".jar!")
-                                && !line.contains("-javadoc.jar!")
-                                && !line.contains("-sources.jar!")) {
-                            var mr = "$MAVEN_REPOSITORY$";
-                            line = line.substring(line.indexOf(mr)  + mr.length() + 1, line.lastIndexOf(".jar!") + 4);
-                            line = Cfg.M2_PATH + line;
-                            if (IO.IS_WIN) {
-                                line = line.replace("/", "\\");
-                            }
-                            allJars.add(line);
-                        }
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        //2. pom.xml中解析。无法把依赖的弄出来。只能从cache中找工程文件。
-        if (allJars.size() == 0) {
-            if (new File(Cfg.IDEA_CACHE_libraries_xml_PATH).exists()) {
-                try {
-                    var allLines = Files.readAllLines(Path.of(Cfg.IDEA_CACHE_libraries_xml_PATH));
-                    allLines.forEach(line -> {
-                        if (line.contains(".jar!")
-                                && !line.contains("-javadoc.jar!")
-                                && !line.contains("-sources.jar!")) {
-                            var mr = "$MAVEN_REPOSITORY$";
-                            line = line.substring(line.indexOf(mr)  + mr.length() + 1, line.lastIndexOf(".jar!") + 4);
-                            line = Cfg.M2_PATH + line;
-                            if (IO.IS_WIN) {
-                                line = line.replace("/", "\\");
-                            }
-                            allJars.add(line);
-                        }
-                    });
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                System.out.println("》》打包程序检查依赖的libs出错：解决方案《《");
-                System.out.println("""
-                        1. 从本工程.idea/libraries/目录，取所有文件每个文件单独的指定了一个依赖包；
-                        脚本发现没有本目录，这是idea决定的没有办法，还有第二种方法；
-                        """.indent(4));
-                System.out.println("""
-                        2. 从cache目录，取类似如下文件路径
-                        /Users/allan/Library/Caches/JetBrains/IdeaIC202x.x/external_build_system/[currentProjectName].a23c3f67/project/libraries.xml
-                        请自行参考上述目录文件，修改代码 Cfg.IDEA_CACHE_libraries_xml_PATH为上述类似的工程文件。
-                        并且请注意Idea升级了或者工程导入了多次，可能存在多个目录。仔细核对。
-                        """.indent(4));
-            }
-        }
-
-        //3. 还不行？？再见。
-        if (allJars.size() == 0) {
-            throw new RuntimeException("无法工作了。依赖jar检测出现问题。请检查。");
-        }
-        return allJars;
-    }
-
     static Set<String> fromJarFilesGetModuleNames() {
         var thirdModuleNames = new HashSet<String>();
         var thirdJarsPath = new File(IO.combinePathWithInclineEnd(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR)).listFiles();
@@ -656,48 +463,7 @@ final class MainSh {
         return moduleInfoJavas;
     }
 
-    static List<String> requiresCount(String options) {
-        String r = IO.run(options);
-        assert r != null;
-        String err = null;
-        List<String> retList = null;
 
-        if (r.contains("Exception") || r.contains("not found") || r.contains("错误") || r.contains("Error") || r.contains("failed")) {
-            err = "    运行jdeps命令出错: " + options + "\n    " + r;
-        } else {
-            String[] lines = r.split("\n");
-            List<String> ret = new ArrayList<>();
-            int hasRequiresCount = 0;
-            for (String line : lines) {
-                if (!line.contains("requires")) {
-                    continue;
-                }
-                hasRequiresCount++;
-                String [] splits = line.split("\\s+");
-                String t;
-                if (splits[splits.length - 1].contains("@")) {
-                    t = splits[splits.length - 2];
-                } else {
-                    t = splits[splits.length - 1];
-                }
-                if (t.length() > 0) ret.add(t);
-            }
-
-            if (hasRequiresCount != ret.size()) {
-                err = ("    需要检查，为何requires的计算出现了错误，数量不对称。\n    " + r);
-            }
-
-            retList = ret.stream().distinct().collect(Collectors.toList());
-            System.out.println("    结果为：" + String.join(",", retList));
-        }
-
-        if (err == null) {
-            return retList;
-        }
-
-        System.out.println(err);
-        return null;
-    }
 
     static String getVMOptions() {
         String vmOption = null;
