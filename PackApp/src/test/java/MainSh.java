@@ -36,61 +36,61 @@ final class MainSh {
         }
     }
 
-    static void func6_jarPack() {
-        if (Cfg.step6_jar) {
-            System.out.println(jumpWords(true, 6, "打jar"));
-            //jar部分： 生成我自己的jar
-            IO.deleteDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR));
-            IO.createDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR));
-
-            //将所有的module-info.class计算出来；如果你是非模块化，自行修改。
-            Set<File> moduleInfoClassPaths = new HashSet<>();
-            var cur = new File(".");
-            IO.getAllFilesInDirWithFilter(moduleInfoClassPaths, cur,
-                    f-> "module-info.class".equals(f.getName()),
-                    d -> { //过滤目录名和编译结果
-                        var n = d.getName();
-                        if (".idea".equals(n)) {
-                            return false;
-                        }
-                        if (".git".equals(n)) {
-                            return false;
-                        }
-                        if ("resources".equals(n)) {
-                            return false;
-                        }
-                        if (Cfg.BUILD_ROOT.equals(n)) {
-                            return false;
-                        }
-//                        if (Objects.equals(d.getParent(), cur.getName()) && "build".equals(n)) {
+//    static void func6_jarPack() {
+//        if (Cfg.step6_jar) {
+//            System.out.println(jumpWords(true, 6, "打jar"));
+//            //jar部分： 生成我自己的jar
+//            IO.deleteDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR));
+//            IO.createDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR));
+//
+//            //将所有的module-info.class计算出来；如果你是非模块化，自行修改。
+//            Set<File> moduleInfoClassPaths = new HashSet<>();
+//            var cur = new File(".");
+//            IO.getAllFilesInDirWithFilter(moduleInfoClassPaths, cur,
+//                    f-> "module-info.class".equals(f.getName()),
+//                    d -> { //过滤目录名和编译结果
+//                        var n = d.getName();
+//                        if (".idea".equals(n)) {
 //                            return false;
 //                        }
-                        return true;
-                    });
-
-            for (var file : moduleInfoClassPaths) {
-                var targetClasses = file.getAbsolutePath().replace("module-info.class", "");
-                var parentPath2 = IO.getParentPath(IO.getParentPath(targetClasses, true), true);
-
-                var sets = findAllModuleInfoJava(new File(parentPath2));
-                assert sets.size() == 1;
-                var names = findAllModuleNames(sets);
-
-                for (var name : names) {
-                    System.out.println( "    模块: " + name + ", " + targetClasses);
-                    var r= IO.run(Cfg.jar +
-                            " --create --file " + IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, name + ".jar") +
-                            " --module-version 1.0" +
-                            " -C " + targetClasses +
-                            " .");
-                    break; //todo 目前由于扫描问题，把重复的搞了进来。只取第一个就是app的。
-                }
-            }
-            System.out.println(wordsCompleted(6, "打jar 成功\n"));
-        } else {
-            System.out.println(jumpWords(false, 6, "打jar 失败\n"));
-        }
-    }
+//                        if (".git".equals(n)) {
+//                            return false;
+//                        }
+//                        if ("resources".equals(n)) {
+//                            return false;
+//                        }
+//                        if (Cfg.BUILD_ROOT.equals(n)) {
+//                            return false;
+//                        }
+////                        if (Objects.equals(d.getParent(), cur.getName()) && "build".equals(n)) {
+////                            return false;
+////                        }
+//                        return true;
+//                    });
+//
+//            for (var file : moduleInfoClassPaths) {
+//                var targetClasses = file.getAbsolutePath().replace("module-info.class", "");
+//                var parentPath2 = IO.getParentPath(IO.getParentPath(targetClasses, true), true);
+//
+//                var sets = findAllModuleInfoJava(new File(parentPath2));
+//                assert sets.size() == 1;
+//                var names = findAllModuleNames(sets);
+//
+//                for (var name : names) {
+//                    System.out.println( "    模块: " + name + ", " + targetClasses);
+//                    var r= IO.run(Cfg.jar +
+//                            " --create --file " + IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR, name + ".jar") +
+//                            " --module-version 1.0" +
+//                            " -C " + targetClasses +
+//                            " .");
+//                    break; //todo 目前由于扫描问题，把重复的搞了进来。只取第一个就是app的。
+//                }
+//            }
+//            System.out.println(wordsCompleted(6, "打jar 成功\n"));
+//        } else {
+//            System.out.println(jumpWords(false, 6, "打jar 失败\n"));
+//        }
+//    }
 
     static int outDotMapCount = 0;
     static HashMap<String, String> getOutDotMap1(List<String> allLines) {
@@ -382,87 +382,6 @@ final class MainSh {
     static String wordsCompleted(int step, String name) {
         return String.format("第%d步[%s]: ", step, name) + "完成！";
     }
-
-    static Set<String> fromJarFilesGetModuleNames() {
-        var thirdModuleNames = new HashSet<String>();
-        var thirdJarsPath = new File(IO.combinePathWithInclineEnd(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR)).listFiles();
-        if (thirdJarsPath == null || thirdJarsPath.length == 0) {
-            System.out.println("你似乎没有第三方库？确实没有的话，忽略。否则检查错误。");
-        } else {
-            for (var thirdJar : thirdJarsPath) {
-                ModuleFinder finder = ModuleFinder.of(Paths.get(thirdJar.getAbsolutePath()));
-                Set<ModuleReference> moduleReferences = finder.findAll();
-                Set<String> oneModNm = //因为只放了一个。所以只会有一个。
-                        moduleReferences.stream().map(r -> r.descriptor().name()).collect(Collectors.toSet());
-                if (oneModNm.size() != 1) {
-                    System.out.println("检查这个模块是否有点问题： " + thirdJar);
-                }
-                thirdModuleNames.addAll(oneModNm);
-            }
-        }
-        return thirdModuleNames;
-    }
-
-    static Set<String> findAllModuleNames() {
-        return findAllModuleNames(findAllModuleInfoJavas());
-    }
-
-    static Set<String> findAllModuleNames(Set<File> moduleInfoFiles) {
-        var moduleNames = new HashSet<String>();
-        for (var file : moduleInfoFiles) {
-            try {
-                var lines = Files.readAllLines(Paths.get(file.getAbsolutePath()));
-                for (var line : lines) {
-                    if (line.contains("module ")) {
-                        String[] splits = line.split(" ");
-                        if (splits.length > 3) {//检查你的module-info.java的module那一行，怎么会分段多次
-                            throw new RuntimeException("自行处理你的module获取方式吧");
-                        }
-                        String target = splits[1];
-                        moduleNames.add(target);
-                        break;
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return moduleNames;
-    }
-
-    static Set<File> findAllModuleInfoJavas() {
-        return findAllModuleInfoJava(new File("."));
-    }
-
-    static Set<File> findAllModuleInfoJava(File dir) {
-        var moduleInfoJavas = new HashSet<File>();
-        IO.getAllFilesInDirWithFilter(moduleInfoJavas,
-                dir,
-                //过滤我要的文件名
-                f-> "module-info.java".equals(f.getName()),
-                d -> { //过滤目录名和编译结果
-                    var n = d.getName();
-                    if (".idea".equals(n)) {
-                        return false;
-                    }
-                    if (".git".equals(n)) {
-                        return false;
-                    }
-                    if ("resources".equals(n)) {
-                        return false;
-                    }
-                    if (Cfg.BUILD_ROOT.equals(n)) {
-                        return false;
-                    }
-                    var p = d.getAbsolutePath();
-                    if (p.contains("target") && p.contains("classes")) {
-                        return false;
-                    }
-                    return true;
-                });
-        return moduleInfoJavas;
-    }
-
 
 
     static String getVMOptions() {

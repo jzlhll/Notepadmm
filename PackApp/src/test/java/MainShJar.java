@@ -2,7 +2,6 @@ public class MainShJar {
     public static void main(String[] args) {
         Cfg.step6_proguard = true;
         Cfg.step6_jar = true;
-        MainSh.func6_jarPack();
         var param = new MainSh.ProguardParam();
         param.replaceOrigJar = false;
         param.saveToFileOrRead = false;

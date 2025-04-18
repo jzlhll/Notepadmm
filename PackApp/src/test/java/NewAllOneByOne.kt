@@ -9,5 +9,8 @@ fun main() {
     NewAllStepsFunctions.func3CopyRes()
 
     Cfg.step4_deps = true
-    NewAllStepsFunctions.func4DepsCounter()
+    val jdkDeps = NewAllStepsFunctions.func4MiniJdkDeps()
+    val jdkDepsStr = jdkDeps.joinToString(",")
+    println("[main]: jdk deps str: $jdkDepsStr")
+
 }

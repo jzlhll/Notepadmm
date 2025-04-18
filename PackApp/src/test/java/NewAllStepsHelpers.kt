@@ -1,54 +1,92 @@
 import java.io.File
 import java.io.IOException
+import java.lang.module.ModuleFinder
+import java.lang.module.ModuleReference
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.stream.Collectors
 import kotlin.math.abs
 
 const val MULTI_RELEASE = " --multi-release 17 "
 val GREP_STR = if (IO.IS_WIN) "findstr" else "grep"
 
-fun requireCmd(center: String): String {
-    return Cfg.jdeps + MULTI_RELEASE + center + " | " + GREP_STR + " requires"
+/**
+ * D:\\Jdks\\xxx\bin\jdeps --multi-release 17  .\buildRoot\thirdLibs\*.jar
+ * 就是要比加--list-deps要全
+ */
+fun requireCmdNoGrep(center: String): String {
+    return Cfg.jdeps + MULTI_RELEASE + center
 }
 
 fun requiresCount(options: String): List<String> {
-    val r = checkNotNull(IO.run(options))
+    val cmdLines = IO.runBig(options)
     var err: String? = null
-    var retList: List<String>? = null
+    val retList = mutableSetOf<String>()
 
-    if (r.contains("Exception") || r.contains("not found") || r.contains("错误") || r.contains("Error") || r.contains("failed")) {
-        err = "    运行jdeps命令出错: $options\n    $r"
-    } else {
-        val lines = r.split("\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-        val ret: MutableList<String> = ArrayList()
-        var hasRequiresCount = 0
-        for (line in lines) {
-            if (!line.contains("requires")) {
-                continue
+    cmdLines.let {
+        cmdLines.forEach { r->
+            if (r.contains("Exception") || r.contains("not found") || r.contains("错误") || r.contains("Error") || r.contains("failed")) {
+                err = "    运行jdeps命令出错: $options\n    $r"
+                return@let
             }
-            hasRequiresCount++
-            val splits = line.split("\\s+".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-            val t = if (splits[splits.size - 1].contains("(")) {
-                splits[splits.size - 2]
-            } else {
-                splits[splits.size - 1]
+            if (!r.contains("requires") || r.isEmpty()) {
+                return@forEach
             }
-            if (t.isNotEmpty()) ret.add(t)
+            val splits = r.split(" ")
+            var last = splits[splits.size - 1]
+            if (last.contains("(@")) {
+                last = splits[splits.size - 2]
+            }
+            retList.add(last)
         }
-
-        if (hasRequiresCount != ret.size) {
-            err = ("    需要检查，为何requires的计算出现了错误，数量不对称。\n    $r")
-        }
-
-        retList = ret.stream().distinct().collect(Collectors.toList())
     }
 
     if (err != null) {
         throw RuntimeException(err)
     }
 
-    return retList ?: listOf()
+    return retList.toList().sortedBy { it }
+}
+
+fun noRequiresCount(options: String): List<String> {
+    val lines = IO.runBig(options)
+    var err: String? = null
+    var retList: List<String>? = null
+
+    val r = lines.joinToString(",")
+    if (r.contains("Exception") || r.contains("not found") || r.contains("错误") || r.contains("Error") || r.contains("failed")) {
+        err = "    运行jdeps命令出错: $options\n"
+    } else {
+        val alreadyList = mutableSetOf<String>()
+        val detailsList = mutableSetOf<String>()
+
+        for (line in lines) {
+            val trimLine = line.trimStart()
+            val splits = trimLine.split(" ".toRegex())
+            val last = splits[splits.size - 1]
+            if (line.startsWith("classes ->")) {
+                alreadyList.add(last)
+            } else {
+                detailsList.add(last)
+            }
+        }
+        detailsList.remove("classes")
+        val alreadySortList = alreadyList.sortedBy { it }
+        val detailsSortList = detailsList.sortedBy { it }
+
+        if (!areListsEqual(alreadySortList, detailsSortList)) {
+            err = "    运行jdeps命令出错 两种解析结果不一致: $options\n"
+        } else {
+            retList = alreadySortList
+        }
+    }
+
+    if (err != null) {
+        throw RuntimeException(err)
+    }
+
+    return retList?.sortedBy { it } ?: listOf()
 }
 
 //找出所有依赖的第三方库
@@ -133,4 +171,81 @@ fun overTime(millis: Long): String {
         // 不足 1 分钟，显示 "秒"
         String.format("%02d 秒", seconds)
     }
+}
+
+fun <T> areListsEqual(list1: List<T>, list2: List<T>): Boolean {
+    if (list1.size != list2.size) return false
+    return list1.indices.all { index ->
+        list1[index] == list2[index]
+    }
+}
+
+fun findAllModuleNames(moduleInfoFiles: Set<File>): Set<String> {
+    val moduleNames = HashSet<String>()
+    for (file in moduleInfoFiles) {
+        try {
+            val lines = Files.readAllLines(Paths.get(file.absolutePath))
+            for (line in lines) {
+                if (line.contains("module ")) {
+                    val splits = line.split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                    if (splits.size > 3) { //检查你的module-info.java的module那一行，怎么会分段多次
+                        throw java.lang.RuntimeException("自行处理你的module获取方式吧")
+                    }
+                    val target = splits[1]
+                    moduleNames.add(target)
+                    break
+                }
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+    return moduleNames
+}
+
+fun findAllModuleInfoJava(dir: File): Set<File> {
+    val moduleInfoJavas = HashSet<File>()
+    IO.getAllFilesInDirWithFilter(
+        moduleInfoJavas,
+        dir,  //过滤我要的文件名
+        { f: File -> "module-info.java" == f.name },
+        { d: File ->  //过滤目录名和编译结果
+            val n = d.name
+            when (n) {
+                Cfg.BUILD_ROOT,
+                ".idea",
+                ".git",
+                "resources" -> false
+                else -> {
+                    val p = d.absolutePath
+                    !(p.contains("target") && p.contains("classes"))
+                }
+            }
+
+        })
+    return moduleInfoJavas
+}
+
+
+fun fromJarFilesGetModuleNames(): Set<String> {
+    val thirdModuleNames = java.util.HashSet<String>()
+    val thirdJarsPath = File(IO.combinePathWithInclineEnd(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR)).listFiles()
+    if (thirdJarsPath == null || thirdJarsPath.isEmpty()) {
+        println("你似乎没有第三方库？确实没有的话，忽略。否则检查错误。")
+    } else {
+        for (thirdJar in thirdJarsPath) {
+            val finder = ModuleFinder.of(Paths.get(thirdJar.absolutePath))
+            val moduleReferences = finder.findAll()
+            val oneModNm =  //因为只放了一个。所以只会有一个。
+                moduleReferences.stream().map { r: ModuleReference -> r.descriptor().name() }
+                    .collect(Collectors.toSet())
+            if (oneModNm.size != 1) {
+                println("检查这个模块是否有点问题： $thirdJar")
+            }
+
+            //println("         ${thirdJar.absolutePath}: $oneModNm")
+            thirdModuleNames.addAll(oneModNm)
+        }
+    }
+    return thirdModuleNames
 }

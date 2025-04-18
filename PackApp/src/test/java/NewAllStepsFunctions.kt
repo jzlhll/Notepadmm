@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.stream.Collectors
 
 object NewAllStepsFunctions {
     fun func1Compile() {
@@ -76,18 +77,22 @@ object NewAllStepsFunctions {
 
     var REQUIRES_MODULE_PATH_SPLIT: String = if (IO.IS_WIN) ";" else ":"
 
-    fun func4DepsCounter(): List<String>? {
+    fun func4MiniJdkDeps(): Set<String> {
         if (!Cfg.step4_deps) {
             println(jumpWords(false, 4, "计算jdeps依赖"))
-            return null
+            return emptySet()
         }
         println(jumpWords(true, 4, "计算jdeps依赖"))
         println("    如果有报错，就检查命令。")
 
+        val depList = mutableSetOf<String>()
+
         //1. 检查第三方库依赖
         val thirdJars = IO.combinePathWithInclineEnd(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR) + "*.jar"
-        val thirdDepList = requiresCount(requireCmd(thirdJars))
-        println("    third dep list $thirdDepList")
+        val thirdDepList = requiresCount(requireCmdNoGrep(thirdJars))
+        depList.addAll(thirdDepList)
+
+        println("    4.1 third deps:\n    $thirdDepList")
 
         //2. 检查我的工程依赖
         val modulePath = StringBuilder()
@@ -97,24 +102,27 @@ object NewAllStepsFunctions {
         }
         modulePath.append(thirdLibs)
 
-        println("    my project module path $modulePath")
-
         val classesDir = IO.combinePath("build", "classes")
-        val myDepList = requiresCount(requireCmd("--module-path $modulePath $classesDir"))
-        println("    myDepList $myDepList")
+        println("    4.2 myProject deps:\n       module path: $modulePath, classesDir: $classesDir")
+        val myDepList = noRequiresCount(requireCmdNoGrep("--module-path $modulePath $classesDir"))
+        println("       $myDepList")
+        depList.addAll(myDepList)
 
 //                //2. 子模块
 //                depList.addAll(subModuleDeps(modulepath))
 //
-//                //3. 获取到自身的模块名，用于过滤掉。
-//                depList.removeAll(findAllModuleNames())
-//                //4. 获取到三方库的模块名，用于过滤掉。
-//                depList.removeAll(fromJarFilesGetModuleNames())
 
-//                miniJreDeps = (depList.stream().distinct().collect(Collectors.toList()))
+        //3. 获取到自身的模块名，用于过滤掉。
+        depList.removeAll(findAllModuleNames(findAllModuleInfoJava(File("."))).also {
+            println("      remove my: $it")
+        })
+        //4. 获取到三方库的模块名，用于过滤掉。
+        depList.removeAll(fromJarFilesGetModuleNames().also{
+            println("      remove third: $it")
+        })
+
         println(wordsCompleted(4, "计算jdeps依赖"))
-
-        return listOf()
+        return depList
     }
 
 //    fun subModuleDeps(modulePath: java.lang.StringBuilder): List<String> { //子模块的依赖统计

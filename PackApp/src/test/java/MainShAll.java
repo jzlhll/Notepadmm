@@ -49,7 +49,7 @@ public class MainShAll {
         System.out.println();
 
         /////666
-        MainSh.func6_jarPack();
+//        MainSh.func6_jarPack();
         System.out.println("================================");
         System.out.println();
         var param = new MainSh.ProguardParam();
