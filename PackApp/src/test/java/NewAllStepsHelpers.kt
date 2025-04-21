@@ -93,6 +93,7 @@ fun noRequiresCount(options: String): List<String> {
 fun findAllThirdJars() : Set<String> {
     val allJars: MutableSet<String> = HashSet()
     //1. pom.xml中解析。无法把依赖的弄出来。只能从cache中找工程文件。
+    println("path ${Cfg.IDEA_CACHE_libraries_xml_PATH}")
     if (File(Cfg.IDEA_CACHE_libraries_xml_PATH).exists()) {
         try {
             val allLines = Files.readAllLines(Path.of(Cfg.IDEA_CACHE_libraries_xml_PATH))
@@ -108,6 +109,7 @@ fun findAllThirdJars() : Set<String> {
                     if (IO.IS_WIN) {
                         line = line.replace("/", "\\")
                     }
+                    println("line $line")
                     allJars.add(line)
                 }
             }
@@ -119,7 +121,7 @@ fun findAllThirdJars() : Set<String> {
     }
 
     //2. 找不到
-    if (allJars.size == 0) {
+    if (allJars.isEmpty()) {
         throw RuntimeException("无法工作了。依赖jar检测出现问题。请检查。")
     }
     return allJars

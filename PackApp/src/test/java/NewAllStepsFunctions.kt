@@ -1,5 +1,7 @@
+import MainSh.jumpWords
+import MainSh.wordsCompleted
 import java.io.File
-import java.util.stream.Collectors
+
 
 object NewAllStepsFunctions {
     fun func1Compile() {
@@ -138,4 +140,55 @@ object NewAllStepsFunctions {
 //        // modulePath分号隔开。
 //        return depList
 //    }
+
+    fun func5JarPack() {
+        if (Cfg.step6_jar) {
+            println(jumpWords(true, 6, "打jar"))
+            //jar部分： 生成我自己的jar
+            IO.deleteDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR))
+            IO.createDir(IO.combinePath(Cfg.BUILD_ROOT, Cfg.MY_LIBS_DIR))
+
+            //将所有的module-info.class计算出来；如果你是非模块化，自行修改。
+            val moduleInfoClassPaths: MutableSet<File> = HashSet<File>()
+            val cur = File(".")
+            IO.getAllFilesInDirWithFilter(
+                moduleInfoClassPaths, cur,
+                { f: File? -> "module-info.class" == f!!.getName() },
+                { d: File? ->  //过滤目录名和编译结果
+                    val n = d!!.getName()
+                    (".idea" == n||".git" == n||"resources" == n|| Cfg.BUILD_ROOT == n)
+                })
+
+            for (file in moduleInfoClassPaths) {
+                val targetClasses = file.getAbsolutePath().replace("module-info.class", "")
+                val parentPath2 = IO.getParentPath(IO.getParentPath(targetClasses, true), true)
+
+                val sets: Unit /* TODO: class org.jetbrains.kotlin.nj2k.types.JKJavaNullPrimitiveType */? =
+                    findAllModuleInfoJava(File(parentPath2))
+                assert(sets.size() === 1)
+                val names: Unit /* TODO: class org.jetbrains.kotlin.nj2k.types.JKJavaNullPrimitiveType */? =
+                    findAllModuleNames(sets)
+
+                for (name in names) {
+                    println("    模块: " + name + ", " + targetClasses)
+                    val r = IO.run(
+                        Cfg.jar +
+                                " --create --file " + IO.combinePath(
+                            Cfg.BUILD_ROOT,
+                            Cfg.MY_LIBS_DIR,
+                            name.toString() + ".jar"
+                        ) +
+                                " --module-version 1.0" +
+                                " -C " + targetClasses +
+                                " ."
+                    )
+                    break //todo 目前由于扫描问题，把重复的搞了进来。只取第一个就是app的。
+                }
+            }
+            println(wordsCompleted(6, "打jar 成功\n"))
+        } else {
+            println(jumpWords(false, 6, "打jar 失败\n"))
+        }
+    }
+
 }

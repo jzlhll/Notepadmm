@@ -2,7 +2,10 @@ import java.io.IOException;
 
 public class Cfg {
     //todo modify here
-    private static final String CfgConfig = "./PackApp/src/test/java/cfg_win.config";
+    private static final String CfgConfig =
+            System.getProperty("os.name").toLowerCase().contains("win") ?
+                    "./PackApp/src/test/java/cfg_win.config" :
+                    "./PackApp/src/test/java/cfg_mac.config";
     //运行入口
     static final String MAIN_CLASS;
     //主模块
@@ -56,7 +59,8 @@ public class Cfg {
     //前期： 调试脚本，尝试的过程，先逐步调试1~4；
     //后期： 在没有新的引入库，没有新的requires module，只有代码逻辑改动的时候： 第一排全部false，第二排的5~7为true即可。
     static boolean step1_compile = false, step2_copyLibs = false, step3_copyRes = false;
-    static boolean step4_deps = false, step5_miniJre = false;
+    static boolean step4_deps = false, step5_jar_myProject = false;
+    static boolean step5_miniJre = false;
     static boolean step6_jar = true, step6_proguard = true, step7_jpackage = true;
 
     static final String BUILD_ROOT = "buildRoot";
