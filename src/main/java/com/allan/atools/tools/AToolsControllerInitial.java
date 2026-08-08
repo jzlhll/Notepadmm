@@ -2,11 +2,9 @@ package com.allan.atools.tools;
 
 import com.allan.atools.AToolsViewsConfigure;
 import com.allan.atools.bases.AbstractController;
-import com.allan.atools.beans.SizeAndXy;
 import com.allan.atools.beans.SubWindowCreatorInfo;
 import com.allan.atools.controller.AToolsController;
 import com.allan.atools.utils.ResLocation;
-import com.allan.baseparty.Action;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -14,35 +12,10 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 
 public final class AToolsControllerInitial {
-    public interface IToolSizeChanged {
-        void onWindowSizeChange(float w, float h);
-    }
-
-    private float mToolWidth, mToolHeight;
-
-    public void setHeight(Number newNumber) {
-        mToolHeight = newNumber.floatValue();
-        notifyWindowSizeChange();
-    }
-
-    public void setWidth(Number newNumber) {
-        mToolWidth = newNumber.floatValue();
-        notifyWindowSizeChange();
-    }
-
-    private void notifyWindowSizeChange() {
-        for (var ctrl : mainViewManager.pageControls) {
-            if (ctrl instanceof IToolSizeChanged c) {
-                c.onWindowSizeChange(mToolWidth, mToolHeight);
-            }
-        }
-    }
-
     private static class Inner {
         final AbstractController[] pageControls;
 
@@ -59,12 +32,7 @@ public final class AToolsControllerInitial {
         Inner() {
             this.leftMenuList = FXCollections.observableArrayList();
             PAGES = new HashMap<>();
-            int index = 0;
-            try {
-                index = new AToolsViewsConfigure().load(PAGES, leftMenuList);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
+            int index = new AToolsViewsConfigure().load(PAGES, leftMenuList);
 
             this.CONTROLS_NUM = index;
             this.pageControls = new AbstractController[this.CONTROLS_NUM];

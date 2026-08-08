@@ -20,8 +20,6 @@ module atools {
     requires org.fxmisc.undo;
     requires org.jetbrains.annotations;
     requires kotlin.stdlib;
-    requires org.objectweb.asm;
-
     exports com.allan.atools.bean;
     opens com.allan.atools.bean         to com.google.gson;
 

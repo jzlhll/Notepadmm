@@ -119,8 +119,6 @@ proguard，2021.11月，需要proguard7.2.0-beta以上支持到17.
 
 只注意，基本上因为在工程使用的时候，基本上都是被系统反射调用很多类；我们就基本上全部keeppackagename，然后防止混淆bean，和防止混淆controller。
 
---add-exports javafx.web/com.sun.webkit.dom=atools
-
 ### 杂项
 
 IDEA运行：，注意添加：VMOptions：
