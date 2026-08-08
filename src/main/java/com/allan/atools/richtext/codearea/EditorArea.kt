@@ -38,6 +38,7 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
     }
 
     init {
+        styleClass.add("editor-area")
         editor = createEditorAreaMgr(this, sourceFile, tab, isFake)
         multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)

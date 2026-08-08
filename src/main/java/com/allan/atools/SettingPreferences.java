@@ -29,6 +29,7 @@ public final class SettingPreferences {
 
     public static final String searchResultAreaIsWrapKey = "searchResultAreaIsWrap"; //***** add一处新名字用于外部调用
     public static final String saveLastOpenedFileKey = "saveLastOpenedFile";
+    public static final String autoSaveOnExitKey = "autoSaveOnExit";
     public static final String resultAreaInNewWindowKey = "resultAreaInNewWindow";
     public static final String searchResultHasNumberKey = "searchResultHasNumber";
     public static final String editHasNumberKey = "editAreaHasNumber";
@@ -41,7 +42,6 @@ public final class SettingPreferences {
     public static final String TipsDoubleClickCtrlFKey = "TipsDoubleClickCtrlF1";
     public static final String TipsFakeRuleSupportKey = "TipsFakeRuleSupport1";
     public static final String TipsDoubleClickWordNextKey = "TipsDoubleClickWordNext1";
-    public static final String forceBigStylerKey = "forceBigStyler";
 
     public static final String[] REMOVE_KEYS = { "search1LineOnlyOnce","useFakeRegex",
             "TipsDoubleClickCtrlF","TipsFakeRuleSupport",
@@ -51,6 +51,7 @@ public final class SettingPreferences {
         SettingProfDef[] defs = new SettingProfDef[] { //***** add 这2处即可
                 new SettingProfDef("bool", searchResultAreaIsWrapKey, "false"),
                 new SettingProfDef("bool", saveLastOpenedFileKey, "true"),
+                new SettingProfDef("bool", autoSaveOnExitKey, "true"),
                 new SettingProfDef("bool", resultAreaInNewWindowKey, "false"),
                 //new SettingProfDef("bool", search1LineOnlyOnceKey, "true"),
                 new SettingProfDef("bool", searchResultHasNumberKey, "true"),
@@ -59,7 +60,6 @@ public final class SettingPreferences {
                 new SettingProfDef("bool", appVisionKey, "false"),
                 new SettingProfDef("bool", hdScreen2Key, "true"),
                 new SettingProfDef("bool", cycleNextKey, "true"),
-                new SettingProfDef("bool", forceBigStylerKey, "false"),
                 new SettingProfDef("int", fontThemeIdKey, "0"),
                 new SettingProfDef("int", editorFontSizeKey, "15"),
                 new SettingProfDef("int", TipsDoubleClickCtrlFKey, "0"),

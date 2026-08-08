@@ -179,12 +179,23 @@ public final class NotepadHeadButtons {
         }
     }
 
-    private static String newFileName() {
+    private static String newFileName(File dir) {
         Calendar c = Calendar.getInstance();
         int hour = c.get(Calendar.HOUR_OF_DAY);
         int minute = c.get(Calendar.MINUTE);
         int second = c.get(Calendar.SECOND);
-        return String.format("temp%02d_%02d_%02d.txt", hour, minute, second);
+        var baseName = String.format("temp%02d_%02d_%02d", hour, minute, second);
+        var index = 0;
+        while (true) {
+            var fileName = index == 0 ? baseName + ".txt" : baseName + "_" + index + ".txt";
+            var file = new File(dir, fileName);
+            var hiddenFile = new File(dir, "." + fileName);
+            if (!file.exists() && !hiddenFile.exists()
+                    && AllEditorsManager.Instance.getAreaByFilePath(file) == null) {
+                return fileName;
+            }
+            index++;
+        }
     }
 
     private static void createNewFile(File dir) {
@@ -194,7 +205,7 @@ public final class NotepadHeadButtons {
             file = file + File.separatorChar;
         }
 
-        String finalFile = file + newFileName();
+        String finalFile = file + newFileName(dir);
         ThreadUtils.globalHandler().postDelayedCheckClosed(()-> Platform.runLater(()-> {
             AllEditorsManager.Instance.newFakeFile(new File(finalFile));
         }), 200);

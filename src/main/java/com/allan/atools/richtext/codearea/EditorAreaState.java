@@ -1,8 +1,11 @@
 package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.text.IEditorAreaState;
+import javafx.css.PseudoClass;
 
 final class EditorAreaState implements IEditorAreaState {
+    private static final PseudoClass WRAPPED = PseudoClass.getPseudoClass("wrapped");
+
     private EditorArea area;
     public EditorAreaState(EditorArea area) {
         this.area = area;
@@ -37,6 +40,7 @@ final class EditorAreaState implements IEditorAreaState {
     @Override
     public void setWrap(boolean wrap) {
         isWrap = wrap;
+        area.pseudoClassStateChanged(WRAPPED, wrap);
         area.setWrapText(wrap);
     }
 

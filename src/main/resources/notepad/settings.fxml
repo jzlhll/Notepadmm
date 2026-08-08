@@ -80,6 +80,12 @@
             </VBox.margin>
         </JFXToggleButton>
 
+        <JFXToggleButton fx:id="autoSaveOnExitBtn" text="%setting.autoSaveOnExit" selected="true">
+            <VBox.margin>
+                <Insets left="4" top="-8"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
         <!--- 第2部分 -->
         <Separator prefHeight="2">
             <VBox.margin>
@@ -173,11 +179,6 @@
             </VBox.margin>
         </JFXToggleButton>
 
-        <JFXToggleButton fx:id="forceBigStylerBtn" text="强制使用部分Styler" selected="true">
-            <VBox.margin>
-                <Insets left="4" top="-10" />
-            </VBox.margin>
-        </JFXToggleButton>
     </VBox>
 
 </ScrollPane>

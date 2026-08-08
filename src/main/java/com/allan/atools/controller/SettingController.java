@@ -39,6 +39,7 @@ public final class SettingController extends AbstractController {
 
     public JFXToggleButton resultAreaWrapBtn;
     public JFXToggleButton openLastFileBtn;
+    public JFXToggleButton autoSaveOnExitBtn;
     public JFXToggleButton resultAreaInNewBtn;
     public JFXToggleButton resultIfHasNumBtn;
     public JFXToggleButton editIfHasNumBtn;
@@ -52,7 +53,6 @@ public final class SettingController extends AbstractController {
     public Hyperlink newFileDirLink;
 
     public JFXComboBox<Label> localesComboBox;
-    public JFXToggleButton forceBigStylerBtn;
 
     private void visibleFontSelectedMode(boolean v) {
         fontCustomLink.setVisible(v);
@@ -81,10 +81,6 @@ public final class SettingController extends AbstractController {
         localesComboBox.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
             UIContext.sharedPref.edit().putInt(Locales.LOCALES_KEY, newValue.intValue()).commit();
         });
-
-        forceBigStylerBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.forceBigStylerKey));
-        forceBigStylerBtn.selectedProperty().addListener((observable, oldValue, newValue) ->
-                SettingPreferences.updateBool(SettingPreferences.forceBigStylerKey, newValue));
 
         fontCustomLink.setOnMouseClicked(event -> {
             if (sFontChangedCount > 2) {
@@ -222,6 +218,11 @@ public final class SettingController extends AbstractController {
         openLastFileBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey));
         openLastFileBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
             SettingPreferences.updateBool(SettingPreferences.saveLastOpenedFileKey, newValue);
+        });
+
+        autoSaveOnExitBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.autoSaveOnExitKey));
+        autoSaveOnExitBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
+            SettingPreferences.updateBool(SettingPreferences.autoSaveOnExitKey, newValue);
         });
 
         resultAreaInNewBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.resultAreaInNewWindowKey));

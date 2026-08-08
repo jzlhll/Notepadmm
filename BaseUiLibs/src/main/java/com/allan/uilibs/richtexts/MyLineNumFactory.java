@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 public final class MyLineNumFactory<PS> implements IntFunction<Node> {
-    public static ActionR<Integer, String> offerFontFamily = (id) -> "styled-text-area";
+    public static ActionR<Integer, String> offerFontFamily = (id) -> "monospace";
 
     private static final Insets DEFAULT_INSETS = new Insets(0.0, 5.0, 0.0, 5.0);
     private static final Paint DEFAULT_TEXT_FILL = Color.web("#666");
@@ -82,7 +82,6 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         lineNo.setPadding(DEFAULT_INSETS);
         lineNo.setAlignment(Pos.TOP_RIGHT);
         lineNo.getStyleClass().add("lineno");
-
         // bind label's text to a Val that stops observing area's paragraphs
         // when lineNo is removed from scene
         lineNo.textProperty().bind(formatted.conditionOnShowing(lineNo));
@@ -91,7 +90,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
     }
 
     private String format(int x, int max) {
-        int digits = (int) Math.floor(Math.log10(max)) + 1;
+        int digits = Math.max(4, (int) Math.floor(Math.log10(max)) + 1);
         return String.format(format.apply(digits), x);
     }
 }

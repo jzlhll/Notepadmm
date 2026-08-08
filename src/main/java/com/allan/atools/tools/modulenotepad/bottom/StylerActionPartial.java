@@ -33,7 +33,7 @@ final class StylerActionPartial extends StylerAction implements StylerAction.INo
 
     private void setBigParaStylePartRunFunction() {
         Log.d("style when scrolled======>>>");
-        actionEndPart(out.editorArea, 0, out.getBottomCache().cacheResult,
+        actionEndPart(out.editorArea, out.lastChangeSearchFlag.get(), out.getBottomCache().cacheResult,
                 BottomHandler.ClickType.None, lastShowType);
     }
     private final Runnable setBigParaStylePartRunnable = this::setBigParaStylePartRunFunction;

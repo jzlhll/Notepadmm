@@ -6,11 +6,9 @@ import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.richtext.GenericStyledAreaBehaviorReflector;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
-import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.toolsstartup.IStartupInit;
 import com.allan.atools.toolsstartup.StartupEntro;
 import com.allan.atools.ui.JfoenixDialogUtils;
-import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.utils.*;
 import com.allan.atools.beans.WindowCreatorInfo;
 import com.allan.atools.controller.NotepadController;
@@ -130,25 +128,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
 
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> UIContext.focus.notifyMainStageFocusChanged(newValue));
 
-        stage.setOnCloseRequest(event -> {
-            var areas = AllEditorsManager.Instance.getAllAreas();
-            boolean hasCannotClose = false;
-            if (areas != null) {
-                for (var area : areas) {
-                    if (!area.getEditor().canClosed()) {
-                        hasCannotClose = true;
-                        break;
-                    }
-                }
-            }
-
-            if (hasCannotClose) {
-                event.consume();
-                SnackbarUtils.show(Locales.str("hasUnClosedFile"));
-            } else {
-                mainController.destroy();
-            }
-        });
+        stage.setOnCloseRequest(event -> mainController.destroy());
     }
 
     @Override

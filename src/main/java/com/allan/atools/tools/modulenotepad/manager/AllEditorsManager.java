@@ -26,6 +26,7 @@ import javafx.scene.control.Tab;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
+    private static final String HIDDEN_TEMP_FILE_REGEX = "^\\.temp\\d{2}_\\d{2}_\\d{2}(?:_\\d+)*\\.txt$";
 
     @Override
     public boolean isCurrentAreaOnFront(EditorArea area) {
@@ -212,8 +214,73 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     @Override
     public void saveUnSaved() {
         var areas = getAllAreas();
+        var autoSaveOnExit = SettingPreferences.getBoolean(SettingPreferences.autoSaveOnExitKey);
         for (var area : areas) {
-            area.getEditor().saveContent(null, false);
+            var editor = area.getEditor();
+            if (autoSaveOnExit) {
+                editor.saveContent(null, editor.getIsFake());
+            } else if (editor.getIsFake()) {
+                saveHiddenTempFile(area);
+            }
+        }
+    }
+
+    private void saveHiddenTempFile(EditorArea area) {
+        var sourceFile = area.getEditor().getSourceFile();
+        var newFileDir = new File(SettingPreferences.getStr(SettingPreferences.newFileDirKey));
+        var targetDir = newFileDir.isDirectory() ? newFileDir : sourceFile.getParentFile();
+        if (targetDir == null) {
+            return;
+        }
+
+        try {
+            Files.createDirectories(targetDir.toPath());
+            var hiddenTempFile = newHiddenTempFile(targetDir.toPath(), sourceFile.getName());
+            Files.writeString(hiddenTempFile, area.getText(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            Log.e("save hidden temp file failed: " + sourceFile, e);
+        }
+    }
+
+    private Path newHiddenTempFile(Path targetDir, String sourceFileName) {
+        var extensionIndex = sourceFileName.lastIndexOf('.');
+        var baseName = extensionIndex >= 0 ? sourceFileName.substring(0, extensionIndex) : sourceFileName;
+        var extension = extensionIndex >= 0 ? sourceFileName.substring(extensionIndex) : "";
+        var index = 0;
+        while (true) {
+            var fileName = index == 0
+                    ? "." + baseName + extension
+                    : "." + baseName + "_" + index + extension;
+            var hiddenTempFile = targetDir.resolve(fileName);
+            if (!Files.exists(hiddenTempFile)) {
+                return hiddenTempFile;
+            }
+            index++;
+        }
+    }
+
+    public static void restoreHiddenTempFiles() {
+        var newFileDir = new File(SettingPreferences.getStr(SettingPreferences.newFileDirKey));
+        if (!newFileDir.isDirectory()) {
+            return;
+        }
+
+        var hiddenTempFiles = newFileDir.listFiles(file ->
+                file.isFile() && file.getName().matches(HIDDEN_TEMP_FILE_REGEX));
+        if (hiddenTempFiles == null) {
+            return;
+        }
+
+        for (var hiddenTempFile : hiddenTempFiles) {
+            try {
+                var text = Files.readString(hiddenTempFile.toPath(), StandardCharsets.UTF_8);
+                var fakeFile = new File(newFileDir, hiddenTempFile.getName().substring(1));
+                if (((AllEditorsManager) Instance).newFakeFile(fakeFile, text)) {
+                    Files.deleteIfExists(hiddenTempFile.toPath());
+                }
+            } catch (IOException e) {
+                Log.e("restore hidden temp file failed: " + hiddenTempFile, e);
+            }
         }
     }
 
@@ -289,6 +356,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     @Override
     public void newFakeFile(File fakeFile) {
+        newFakeFile(fakeFile, "");
+    }
+
+    private boolean newFakeFile(File fakeFile, String text) {
         Tab newTab = new Tab();
 
         RefWatcher.watchs(newTab, "fakeFile " + fakeFile.getPath());
@@ -296,19 +367,20 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         newTab.setUserData(fakeFile);
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
 
-        final String str = "";
         Log.e(" : open fake file Tab open encode ");
         //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, str);
+            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, text);
             editorCodeArea.getEditor().getState().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
             editorCodeArea.getBottomSearchBtnsMgr().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
+            vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
             UIContext.context().tabPane.getSelectionModel().select(newTab);
             // position the caret at the beginning
             changeNotHasFileText(false);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             String warnMessage = "openTextIn Tab Can't Open File in Tab pane";
@@ -316,6 +388,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             Log.e("openTextIn Tab open failed: " + warnMessage, e);
             //UI warning
             JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
+            return false;
         }
     }
 
@@ -379,6 +452,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             editorCodeArea.getBottomSearchBtnsMgr().init();
             Log.d("change encoding " + backEncode[0]);
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
+            vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
             if (toFront) {

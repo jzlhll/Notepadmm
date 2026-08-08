@@ -218,6 +218,8 @@ public final class NotepadController extends AbstractMainController {
 
         initEncodingIndicateClick();
 
+        AllEditorsManager.restoreHiddenTempFiles();
+
         //delay打开之前的文件
         if (SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey)) {
             ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
@@ -371,7 +373,6 @@ public final class NotepadController extends AbstractMainController {
                 if (curArea != null) {
                     var w = !curArea.getEditor().getState().isWrap();
                     curArea.getEditor().getState().setWrap(w);
-                    curArea.setWrapText(w);
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, w);
                 }
             });
