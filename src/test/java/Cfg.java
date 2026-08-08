@@ -1,8 +1,7 @@
 import java.io.IOException;
 
 public class Cfg {
-    //todo: 不能的电脑，配置修改这里。
-    private static final String CfgConfig = "./src/test/java/cfg_win.config";
+    private static final String CfgConfig = getCfgConfig();
     //运行入口
     static final String MAIN_CLASS;
     //主模块
@@ -29,6 +28,20 @@ public class Cfg {
             //我的项目只有主工程有资源文件，故而资源目录放一个。你有多个就放多个
             IO.combinePath("src", "main", "resources")
     };
+
+    private static String getCfgConfig() {
+        if (IO.IS_WIN) {
+            return "./src/test/java/cfg_win.config";
+        }
+        if (IO.IS_OSX) {
+            var arch = System.getProperty("os.arch");
+            if ("aarch64".equalsIgnoreCase(arch) || "arm64".equalsIgnoreCase(arch)) {
+                return "./src/test/java/cfg_mac_arm.config";
+            }
+            return "./src/test/java/cfg_mac_intel.config";
+        }
+        throw new UnsupportedOperationException("Unsupported operating system: " + System.getProperty("os.name"));
+    }
 
     static {
         ConfigReader reader = new ConfigReader();

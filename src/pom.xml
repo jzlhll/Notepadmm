@@ -28,7 +28,6 @@
     </dependencies>
 
     <build>
-        <directory>${project.parent.basedir}/target</directory>
         <sourceDirectory>${project.basedir}/main/java</sourceDirectory>
         <testSourceDirectory>${project.basedir}/test/java</testSourceDirectory>
         <resources>

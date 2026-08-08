@@ -91,7 +91,7 @@ final class MainSh {
         if (Cfg.step4_deps) {
             System.out.println(jumpWords(true, 4, "计算jdeps依赖，详细查看是否有报错可能需要调整命令"));
             //下面的逻辑一般不用修改了。
-            var manTargetClasses = IO.combinePath("target", "classes");
+            var manTargetClasses = IO.combinePath("src", "target", "classes");
             //自身子模块的汇总
             StringBuilder modulepath = new StringBuilder();
             var thirdLibs = IO.combinePath(Cfg.BUILD_ROOT, Cfg.THIRD_LIBS_DIR);
