@@ -4,7 +4,6 @@ import com.allan.atools.utils.Log;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
-import com.google.gson.stream.MalformedJsonException;
 
 public class JsonFormatLog implements IJsonFormat {
     private static Gson beautifulGson;
@@ -24,13 +23,26 @@ public class JsonFormatLog implements IJsonFormat {
 
     @Override
     public String removeFanxieExtraQuote(String str) {
-        return removeEnter(str)
+        var compactJson = removeEnter(str);
+        var jsonElement = tryParse(compactJson);
+        if (jsonElement != null) {
+            if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+                var innerJsonElement = tryParse(jsonElement.getAsString());
+                if (innerJsonElement != null) {
+                    return innerJsonElement.toString();
+                }
+            }
+            return jsonElement.toString();
+        }
+
+        var removedExtraQuote = compactJson
                 .replace("\\", "")
                 .replace(": \"{", ": {")
                 .replace(":\"{", ":{")
                 .replace("}\"}", "}}")
-                .replace("}\",", "},")
-                ;
+                .replace("}\",", "},");
+        var removedExtraQuoteElement = tryParse(removedExtraQuote);
+        return removedExtraQuoteElement == null ? compactJson : removedExtraQuoteElement.toString();
     }
 
     @Override
@@ -39,18 +51,24 @@ public class JsonFormatLog implements IJsonFormat {
         Log.largeLog(realJson);
         System.out.println("==============");
 
-        Gson gson = new Gson();
-        JsonElement fe = null;
-        try {
-            fe = gson.fromJson(realJson, JsonElement.class);
-        } catch (Throwable e) {
-            e.printStackTrace();
+        var fe = tryParse(realJson);
+        if (fe == null) {
+            Log.e("json format failed");
+            return realJson;
         }
 
         Log.largeLog(fe.toString());
 
         System.out.println("-----------");
         return printAsJsonBeautifulGson(fe);
+    }
+
+    private static JsonElement tryParse(String json) {
+        try {
+            return new Gson().fromJson(json, JsonElement.class);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
 

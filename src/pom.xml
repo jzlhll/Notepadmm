@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>BaseUiLibs</artifactId>
+    <artifactId>Notepadmm</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -20,13 +20,34 @@
             <artifactId>BaseParty</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.allan.atools</groupId>
+            <artifactId>BaseUiLibs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
+        <directory>${project.parent.basedir}/target</directory>
+        <sourceDirectory>${project.basedir}/main/java</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/test/java</testSourceDirectory>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/main/resources</directory>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
