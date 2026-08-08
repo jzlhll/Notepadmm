@@ -8,7 +8,7 @@
 }
 
 .styled-text-area.editor-area {
-  -fx-padding: 0 20px 0 0;
+  -fx-padding: 0 45px 0 0;
 }
 
 .styled-text-area.editor-area .paragraph-box {
@@ -16,7 +16,7 @@
 }
 
 .styled-text-area.editor-area .paragraph-text {
-  -fx-padding: 0 0 0 20px;
+  -fx-padding: 0 0 0 45px;
 }
 
 .styled-text-area.editor-area:wrapped {

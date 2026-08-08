@@ -38,6 +38,7 @@ public final class FileExtersions {
         MajorExtensionList.add("txt");
         MajorExtensionList.add("list");
         MajorExtensionList.add("md");
+        MajorExtensionList.add("markdown");
 
         CodingExtensionList.add("java");
         CodingExtensionList.add("c");
@@ -56,6 +57,7 @@ public final class FileExtersions {
         CodingExtensionList.add("py");
         CodingExtensionList.add("pyc");
         CodingExtensionList.add("kt");
+        CodingExtensionList.add("kotlin");
         CodingExtensionList.add("go");
         CodingExtensionList.add("dart");
         CodingExtensionList.add("html");

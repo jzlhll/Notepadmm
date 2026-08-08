@@ -15,7 +15,7 @@ public final class EditorKeywordHelperImplCC extends EditorKeywordHelperImplJava
             "case",	"extern",	"protected",	"typename",
             "catch",	"false",	"public",	"union",
             "char",	"float",	"register",	"unsigned",
-            "char16_t",	"for",	"reinterpret_cast",	"using",
+            "char8_t", "char16_t",	"for",	"reinterpret_cast",	"using",
             "char32_t",	"friend",	"return",	"virtual",
             "class",	"goto",	"short",	"void",
             "compl",	"if",	"signed",	"volatile",
@@ -23,6 +23,9 @@ public final class EditorKeywordHelperImplCC extends EditorKeywordHelperImplJava
             "constexpr",	"int",	"static",	"while",
             "const_cast",	"long",	"static_assert",	"xor",
             "continue",	"mutable",	"static_cast",	"xor_eq",
+            "concept", "consteval", "constinit", "co_await", "co_return", "co_yield", "requires",
+            "restrict", "typeof", "typeof_unqual", "_Alignas", "_Alignof", "_Atomic", "_Bool", "_Complex",
+            "_Generic", "_Imaginary", "_Noreturn", "_Static_assert", "_Thread_local",
     };
     @Override
     protected String[] keyWords() {

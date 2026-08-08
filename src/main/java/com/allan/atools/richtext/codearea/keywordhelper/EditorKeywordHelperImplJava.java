@@ -4,6 +4,7 @@ import com.allan.atools.bean.SearchParams;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,20 +12,25 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
 
     private String keyWordPattern() {
-        return "\\b(" + String.join("|", keyWords()) + ")\\b";
+        var keywords = Arrays.stream(keyWords())
+                .map(Pattern::quote)
+                .collect(Collectors.joining("|"));
+        return "(?<![\\p{L}\\p{N}_$])(" + keywords + ")(?![\\p{L}\\p{N}_$])";
     }
 
     private static final String PAREN_PATTERN = "\\(|\\)";
     private static final String BRACE_PATTERN = "\\{|\\}";
     private static final String BRACKET_PATTERN = "\\[|\\]";
     private static final String SEMICOLON_PATTERN = "\\;";
-    private static final String STRING_PATTERN = "\"([^\"\\\\]|\\\\.)*\"";
-    private static final String COMMENT_PATTERN = "//[^\n]*" + "|" + "/\\*(.|\\R)*?\\*/"   // for whole text processing (text blocks)
-            + "|" + "/\\*[^\\v]*" + "|" + "^\\h*\\*([^\\v]*|/)";  // for visible paragraph processing (line by line)
+    private static final String STRING_PATTERN = "\"\"\"[\\s\\S]*?\"\"\""
+            + "|\"(?:[^\"\\\\]|\\\\.)*\""
+            + "|'(?:[^'\\\\]|\\\\.)*'";
+    private static final String COMMENT_PATTERN = "//[^\\r\\n]*|/\\*[\\s\\S]*?(?:\\*/|\\z)";
 
     private final String[] keywords = new String[] {
             "abstract", "assert", "boolean", "break", "byte",
@@ -36,7 +42,8 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             "return", "short", "static", "strictfp", "super",
             "switch", "synchronized", "this", "throw", "throws",
             "transient", "try", "void", "volatile", "while",
-            "record", "var" //追加
+            "record", "var", "yield", "sealed", "permits", "non-sealed",
+            "true", "false", "null", "_"
     };
 
     protected String[] keyWords() {

@@ -47,6 +47,63 @@
 	-rtfx-background-color: -au-editor-searched-bg-color;
 }
 
+.markdown-title-1 {
+    -fx-fill: #68206f;
+    -fx-font-family: monospace;
+    -fx-font-weight: bold;
+}
+
+.markdown-title-2 {
+    -fx-fill: #783080;
+    -fx-font-family: monospace;
+    -fx-font-weight: bold;
+}
+
+.markdown-title-3 {
+    -fx-fill: #884090;
+}
+
+.markdown-title-4 {
+    -fx-fill: #9850a0;
+}
+
+.markdown-title-5 {
+    -fx-fill: #a860ad;
+}
+
+.markdown-code,
+.markdown-inline-code {
+    -fx-fill: darkgreen;
+    -rtfx-background-color: #f3f4f4;
+}
+
+.markdown-table-mark {
+    -fx-fill: #d8dde3;
+}
+
+.markdown-quote {
+    -fx-fill: gray;
+}
+
+.markdown-list {
+    -fx-fill: teal;
+}
+
+.markdown-link {
+    -fx-fill: blue;
+    -fx-underline: true;
+}
+
+.markdown-bold {
+    -fx-font-family: monospace;
+    -fx-font-weight: bold;
+}
+
+.markdown-italic {
+    -fx-font-family: monospace;
+    -fx-font-style: italic;
+}
+
 .paragraph-box:has-caret {
     -fx-background-color: #f2f9fc;
 }

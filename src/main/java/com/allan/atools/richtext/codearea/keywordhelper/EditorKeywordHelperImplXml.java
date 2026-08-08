@@ -1,7 +1,6 @@
 package com.allan.atools.richtext.codearea.keywordhelper;
 
 import com.allan.atools.bean.SearchParams;
-import com.allan.atools.utils.Log;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
@@ -12,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class EditorKeywordHelperImplXml extends EditorKeywordHelperAbstract {
-    private static final Pattern ATTRIBUTES = Pattern.compile("(\\w+\\h*)(=)(\\h*\"[^\"]+\")");
+    private static final Pattern ATTRIBUTES = Pattern.compile("([-.:\\w]+\\h*)(=)(\\h*(?:\"[^\"]*\"|'[^']*'))");
 
     private static final int GROUP_OPEN_BRACKET = 2;
     private static final int GROUP_ELEMENT_NAME = 3;
@@ -30,30 +29,30 @@ public class EditorKeywordHelperImplXml extends EditorKeywordHelperAbstract {
 
         if (tempPattern == null && searchPattern == null) {
             return Pattern.compile(
-                    "(?<ELEMENT>(</?\\h*)([.0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
-                            + "|(?<COMMENT><!--[^<>]+-->)");
+                    "(?<ELEMENT>(</?\\h*)([-.:0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
+                            + "|(?<COMMENT><!--[\\s\\S]*?-->)");
         }
 
         if (tempPattern == null) { //tempPattern == null && searchPattern != null
             return Pattern.compile(
                     "(?<SEARCH>" + searchPattern + ")"
-                            + "|(?<ELEMENT>(</?\\h*)([.0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
-                            + "|(?<COMMENT><!--[^<>]+-->)");
+                            + "|(?<ELEMENT>(</?\\h*)([-.:0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
+                            + "|(?<COMMENT><!--[\\s\\S]*?-->)");
         }
 
         if (searchPattern == null) { //tempPattern != null && searchPattern == null
             return Pattern.compile(
                     "(?<TEMPORARY>" + tempPattern + ")"
-                            + "|(?<ELEMENT>(</?\\h*)([.0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
-                            + "|(?<COMMENT><!--[^<>]+-->)");
+                            + "|(?<ELEMENT>(</?\\h*)([-.:0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
+                            + "|(?<COMMENT><!--[\\s\\S]*?-->)");
         }
 
         //tempPattern != null && searchPattern != null
         return Pattern.compile(
                 "(?<TEMPORARY>" + tempPattern + ")"
                         + "|(?<SEARCH>" + searchPattern + ")"
-                        + "|(?<ELEMENT>(</?\\h*)([.0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
-                        + "|(?<COMMENT><!--[^<>]+-->)");
+                        + "|(?<ELEMENT>(</?\\h*)([-.:0-9a-zA-Z_]+)([^<>]*)(\\h*/?>))"
+                        + "|(?<COMMENT><!--[\\s\\S]*?-->)");
     }
 
     @Override
@@ -62,7 +61,6 @@ public class EditorKeywordHelperImplXml extends EditorKeywordHelperAbstract {
     }
 
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
-        Log.d("compute highlighting ");
         if (mLastMatcher == null) {
             synchronized (LOCK) {
                 if (mLastMatcher == null) {

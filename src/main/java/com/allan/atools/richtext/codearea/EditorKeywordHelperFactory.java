@@ -22,6 +22,8 @@ final class EditorKeywordHelperFactory {
     static EditorKeywordHelperAbstract create(File file) {
         return switch (sFilePathToExtension.invoke(file)) {
             case "java" -> new EditorKeywordHelperImplJava();
+            case "kotlin" -> new EditorKeywordHelperImplKotlin();
+            case "markdown" -> new EditorKeywordHelperImplMarkdown();
             case "cs" -> new EditorKeywordHelperImplCSharp();
             case "c", "cpp", "h" -> new EditorKeywordHelperImplCC();
             case "xml" -> new EditorKeywordHelperImplXml();
@@ -40,6 +42,12 @@ final class EditorKeywordHelperFactory {
         if (suffix.equalsIgnoreCase("java")) {
             return "java";
         }
+        if (suffix.equalsIgnoreCase("kotlin") || suffix.equalsIgnoreCase("kt")) {
+            return "kotlin";
+        }
+        if (suffix.equalsIgnoreCase("markdown") || suffix.equalsIgnoreCase("md")) {
+            return "markdown";
+        }
         if (suffix.equalsIgnoreCase("cs")) {
             return "cs";
         }
@@ -48,7 +56,7 @@ final class EditorKeywordHelperFactory {
                 || suffix.equalsIgnoreCase("c")) {
             return "cpp";
         }
-        if (suffix.toLowerCase().endsWith("xml")) {
+        if (suffix.equalsIgnoreCase("xml") || suffix.equalsIgnoreCase("fxml")) {
             return "xml";
         }
         return null;
