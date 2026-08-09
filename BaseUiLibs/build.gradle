@@ -13,3 +13,7 @@ dependencies {
     api 'com.jfoenix:jfoenix:9.0.10'
     api 'org.fxmisc.richtext:richtextfx:0.11.5'
 }
+
+tasks.named('jar', Jar) {
+    archiveFileName = 'atools.baseuilibs.jar'
+}

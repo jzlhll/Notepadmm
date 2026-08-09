@@ -30,6 +30,10 @@ sourceSets {
 application {
     mainModule = 'atools'
     mainClass = 'com.allan.atools.toolsstartup.Startup'
+    applicationDefaultJvmArgs = providers.gradleProperty('packageVmOptions')
+            .get()
+            .split(/\s+/)
+            .findAll { !it.isBlank() }
 }
 
 dependencies {
@@ -49,4 +53,29 @@ tasks.named('compileJava', JavaCompile) {
     options.compilerArgumentProviders.add({
         ['--patch-module', "atools=${sourceSets.main.output.asPath}"]
     } as CommandLineArgumentProvider)
+}
+
+tasks.named('jar', Jar) {
+    archiveFileName = 'atools.jar'
+}
+
+tasks.named('run', JavaExec) {
+    dependsOn tasks.named('jar'), ':BaseParty:jar', ':BaseUiLibs:jar'
+    workingDir = rootProject.projectDir
+    mainModule.set('atools')
+    mainClass.set('com.allan.atools.toolsstartup.Startup')
+    modularity.inferModulePath.set(true)
+    jvmArgs providers.gradleProperty('packageVmOptions')
+            .get()
+            .split(/\s+/)
+            .findAll { !it.isBlank() }
+
+    doFirst {
+        def modulePath = files(
+                tasks.named('jar', Jar).get().archiveFile.get().asFile,
+                configurations.runtimeClasspath.files
+        )
+        jvmArgs '--module-path', modulePath.asPath
+        classpath = files()
+    }
 }

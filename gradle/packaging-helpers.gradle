@@ -1,0 +1,60 @@
+ext.packagingJdkHome = {
+    def toolchains = project(':app').extensions.getByType(org.gradle.jvm.toolchain.JavaToolchainService)
+    def launcher = toolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }.get()
+    launcher.metadata.installationPath.asFile
+}
+
+ext.packagingJdkTool = { String name ->
+    def suffix = packagingConfig.isWindows ? '.exe' : ''
+    def tool = new File(packagingJdkHome(), "bin/${name}${suffix}")
+    if (!tool.isFile()) {
+        throw new GradleException("Required JDK tool is missing: ${tool}")
+    }
+    tool.absolutePath
+}
+
+ext.runPackagingCommand = { List<String> command, File workingDirectory = rootDir ->
+    def arguments = command.collect { it.toString() }
+    logger.lifecycle("[cmd] ${arguments.join(' ')}")
+    def process = new ProcessBuilder(arguments)
+            .directory(workingDirectory)
+            .redirectErrorStream(true)
+            .start()
+    def output = process.inputStream.getText('UTF-8')
+    def exitCode = process.waitFor()
+    if (!output.isBlank()) {
+        logger.lifecycle(output.trim())
+    }
+    if (exitCode != 0) {
+        throw new GradleException("Command failed with exit code ${exitCode}")
+    }
+    output
+}
+
+ext.proguardPath = { File file ->
+    '"' + file.absolutePath.replace('\\', '/') + '"'
+}
+
+ext.zipSingleFile = { File source, File target, String entryName ->
+    target.parentFile.mkdirs()
+    target.withOutputStream { output ->
+        def zip = new java.util.zip.ZipOutputStream(output)
+        try {
+            zip.putNextEntry(new java.util.zip.ZipEntry(entryName))
+            source.withInputStream { input -> input.transferTo(zip) }
+            zip.closeEntry()
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+ext.shellQuote = { String value ->
+    "'${value.replace("'", "'\"'\"'")}'"
+}
+
+ext.batchQuote = { String value ->
+    '"' + value.replace('"', '\\"') + '"'
+}

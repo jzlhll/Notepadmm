@@ -1,0 +1,23 @@
+def propertyValue = { String name ->
+    providers.gradleProperty(name).get()
+}
+
+ext.packagingConfig = [
+        appName       : propertyValue('packageAppName'),
+        appVersion    : propertyValue('packageAppVersion'),
+        mainModule    : propertyValue('packageMainModule'),
+        mainClass     : propertyValue('packageMainClass'),
+        vendor        : propertyValue('packageVendor'),
+        vmOptions     : propertyValue('packageVmOptions').split(/\s+/).findAll { !it.isBlank() },
+        buildRoot     : layout.projectDirectory.dir('buildRoot').asFile,
+        thirdLibsDir  : layout.projectDirectory.dir('buildRoot/thirdLibs').asFile,
+        projectLibsDir: layout.projectDirectory.dir('buildRoot/myLibs').asFile,
+        resourcesDir  : layout.projectDirectory.dir('buildRoot/resources/resources').asFile,
+        miniJreDir    : layout.projectDirectory.dir('buildRoot/minijre').asFile,
+        jreDepsFile   : layout.projectDirectory.file('buildRoot/miniJreDeps.txt').asFile,
+        proguardUse   : layout.projectDirectory.file('buildRoot/proguard_use.pro').asFile,
+        mappingFile   : layout.projectDirectory.file('buildRoot/out.map').asFile,
+        proguardMap   : layout.projectDirectory.file('buildRoot/resources/resources/pro.map').asFile,
+        isWindows     : System.getProperty('os.name').toLowerCase().contains('win'),
+        isMac         : System.getProperty('os.name').toLowerCase().contains('mac')
+]

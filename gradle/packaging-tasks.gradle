@@ -1,0 +1,233 @@
+configurations {
+    proguardRuntime
+}
+
+dependencies {
+    proguardRuntime 'com.guardsquare:proguard-base:7.8.1'
+}
+
+tasks.register('clean', Delete) {
+    delete layout.buildDirectory
+    delete packagingConfig.buildRoot
+    delete packagingConfig.mappingFile
+}
+
+tasks.register('preparePackageLayout') {
+    group = 'distribution'
+    description = '准备应用打包目录、模块 JAR、第三方依赖和资源。'
+    dependsOn ':BaseParty:jar', ':BaseUiLibs:jar', ':app:jar'
+    outputs.upToDateWhen { false }
+
+    doLast {
+        delete packagingConfig.buildRoot
+        packagingConfig.thirdLibsDir.mkdirs()
+        packagingConfig.projectLibsDir.mkdirs()
+        packagingConfig.resourcesDir.mkdirs()
+
+        def projectJars = [
+                project(':BaseParty').tasks.named('jar', Jar).get().archiveFile.get().asFile,
+                project(':BaseUiLibs').tasks.named('jar', Jar).get().archiveFile.get().asFile,
+                project(':app').tasks.named('jar', Jar).get().archiveFile.get().asFile
+        ]
+        def projectJarPaths = projectJars.collect { it.canonicalPath }.toSet()
+        def thirdPartyJars = project(':app').configurations.runtimeClasspath.files.findAll {
+            it.name.endsWith('.jar') && !projectJarPaths.contains(it.canonicalPath)
+        }
+
+        copy {
+            from projectJars
+            into packagingConfig.projectLibsDir
+        }
+        copy {
+            from thirdPartyJars
+            into packagingConfig.thirdLibsDir
+        }
+        copy {
+            from project(':app').file('main/resources')
+            into packagingConfig.resourcesDir
+        }
+        logger.lifecycle('Package layout prepared.')
+    }
+}
+
+tasks.register('analyzeJreModules') {
+    group = 'distribution'
+    description = '使用 jdeps 计算最小运行时所需的 JDK 模块。'
+    dependsOn 'preparePackageLayout'
+    outputs.file packagingConfig.jreDepsFile
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def projectJars = packagingConfig.projectLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') } ?: []
+        def modulePathFiles = []
+        modulePathFiles.addAll(packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') } ?: [])
+        modulePathFiles.addAll(projectJars)
+        if (modulePathFiles.isEmpty()) {
+            throw new GradleException('Packaging module path is empty.')
+        }
+
+        def command = [
+                packagingJdkTool('jdeps'),
+                '--multi-release', '17',
+                '--ignore-missing-deps',
+                '--list-deps',
+                '--recursive',
+                '--module-path', modulePathFiles*.absolutePath.join(File.pathSeparator)
+        ]
+        command.addAll(projectJars*.absolutePath)
+        def output = runPackagingCommand(command)
+        def jmodsDir = new File(packagingJdkHome(), 'jmods')
+        def modules = output.readLines()
+                .collect { it.trim() }
+                .findAll { !it.isBlank() && new File(jmodsDir, "${it}.jmod").isFile() }
+                .toSet()
+        projectJars.each { jarFile ->
+            java.lang.module.ModuleFinder.of(jarFile.toPath()).findAll().each { moduleReference ->
+                moduleReference.descriptor().requires().each { requirement ->
+                    if (new File(jmodsDir, "${requirement.name()}.jmod").isFile()) {
+                        modules.add(requirement.name())
+                    }
+                }
+            }
+        }
+        modules = modules.sort()
+        if (modules.isEmpty()) {
+            throw new GradleException('jdeps did not return any JDK modules.')
+        }
+        packagingConfig.jreDepsFile.parentFile.mkdirs()
+        packagingConfig.jreDepsFile.text = modules.join(System.lineSeparator()) + System.lineSeparator()
+        logger.lifecycle("JRE modules: ${modules.join(',')}")
+    }
+}
+
+tasks.register('createMiniJre') {
+    group = 'distribution'
+    description = '使用 jlink 创建最小 Java 运行时。'
+    dependsOn 'analyzeJreModules'
+    outputs.dir packagingConfig.miniJreDir
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def modules = packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }
+        delete packagingConfig.miniJreDir
+        runPackagingCommand([
+                packagingJdkTool('jlink'),
+                '--strip-debug',
+                '--compress=1',
+                '--no-header-files',
+                '--no-man-pages',
+                '--output', packagingConfig.miniJreDir.absolutePath,
+                '--module-path', new File(packagingJdkHome(), 'jmods').absolutePath,
+                '--add-modules', modules.join(',')
+        ])
+        delete new File(packagingConfig.miniJreDir, 'legal')
+        logger.lifecycle('Minimal JRE created.')
+    }
+}
+
+tasks.register('obfuscateAppJar') {
+    group = 'distribution'
+    description = '使用 ProGuard 混淆主应用 JAR 并归档 mapping。'
+    dependsOn 'createMiniJre'
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def appJar = new File(packagingConfig.projectLibsDir, 'atools.jar')
+        def convertedJar = new File(packagingConfig.projectLibsDir, 'atools_cvt.jar')
+        def configLines = file('proguard.pro').readLines()
+        configLines.add('')
+
+        def jmodsDir = new File(packagingJdkHome(), 'jmods')
+        packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }.each { moduleName ->
+            configLines.add("-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!.jar;!module-info.class)")
+        }
+        packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort()?.each {
+            configLines.add("-libraryjars ${proguardPath(it)}")
+        }
+        packagingConfig.projectLibsDir.listFiles()?.findAll {
+            it.name.endsWith('.jar') && it.name != appJar.name
+        }?.sort()?.each {
+            configLines.add("-libraryjars ${proguardPath(it)}")
+        }
+
+        packagingConfig.proguardUse.parentFile.mkdirs()
+        packagingConfig.proguardUse.text = configLines.join(System.lineSeparator()) + System.lineSeparator()
+        delete convertedJar
+        delete packagingConfig.mappingFile
+
+        runPackagingCommand([
+                packagingJdkTool('java'),
+                '-cp', configurations.proguardRuntime.asPath,
+                'proguard.ProGuard',
+                "@${packagingConfig.proguardUse.absolutePath}",
+                '-injars', appJar.absolutePath,
+                '-outjars', convertedJar.absolutePath
+        ])
+        if (!convertedJar.isFile() || !packagingConfig.mappingFile.isFile()) {
+            throw new GradleException('ProGuard output is incomplete.')
+        }
+
+        java.nio.file.Files.move(
+                convertedJar.toPath(),
+                appJar.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
+        zipSingleFile(packagingConfig.mappingFile, packagingConfig.proguardMap, 'out.map')
+        delete packagingConfig.mappingFile
+        delete packagingConfig.proguardUse
+        logger.lifecycle('Application JAR obfuscated.')
+    }
+}
+
+tasks.register('generateJpackageScripts') {
+    group = 'distribution'
+    description = '生成当前平台的 jpackage 命令脚本。'
+    dependsOn 'obfuscateAppJar'
+    outputs.upToDateWhen { false }
+
+    doLast {
+        if (!packagingConfig.isMac && !packagingConfig.isWindows) {
+            throw new GradleException('Packaging supports macOS and Windows only.')
+        }
+
+        def iconPath = packagingConfig.isWindows ? '../icons/windows.ico' : '../icons/mac.icns'
+        def baseCommand = [
+                packagingJdkTool('jpackage'),
+                '-n', packagingConfig.appName,
+                '--icon', iconPath,
+                '-i', 'resources',
+                '-p', "thirdLibs${File.pathSeparator}myLibs"
+        ]
+        packagingConfig.vmOptions.each { option ->
+            baseCommand.addAll(['--java-options', option])
+        }
+        baseCommand.addAll([
+                '--runtime-image', 'minijre',
+                '--app-version', packagingConfig.appVersion,
+                '-m', "${packagingConfig.mainModule}/${packagingConfig.mainClass}"
+        ])
+
+        if (packagingConfig.isMac) {
+            def script = new File(packagingConfig.buildRoot, 'jpackageCmd.sh')
+            script.text = '#!/bin/sh\nset -e\ncd "$(dirname "$0")"\n' +
+                    baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n'
+            script.setExecutable(true, false)
+        } else {
+            def exeScript = new File(packagingConfig.buildRoot, 'jpackageCmdExe.bat')
+            def imageScript = new File(packagingConfig.buildRoot, 'jpackageCmdGreenExe.bat')
+            def exeCommand = baseCommand + ['--type', 'exe', '--vendor', packagingConfig.vendor, '--win-dir-chooser', '--win-shortcut']
+            def imageCommand = baseCommand + ['--type', 'app-image', '--vendor', packagingConfig.vendor]
+            exeScript.text = '@echo off\r\ncd /d "%~dp0"\r\n' +
+                    exeCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n'
+            imageScript.text = '@echo off\r\ncd /d "%~dp0"\r\n' +
+                    imageCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n'
+        }
+        logger.lifecycle('jpackage scripts generated.')
+    }
+}
+
+tasks.register('mainShAll') {
+    group = 'distribution'
+    description = '执行完整构建、依赖分析、最小 JRE、混淆和 jpackage 脚本生成流程。'
+    dependsOn 'generateJpackageScripts'
+}

@@ -30,3 +30,7 @@ subprojects {
         }
     }
 }
+
+apply from: 'gradle/packaging-config.gradle'
+apply from: 'gradle/packaging-helpers.gradle'
+apply from: 'gradle/packaging-tasks.gradle'
