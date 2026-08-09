@@ -1,0 +1,15 @@
+plugins {
+    id 'java-library'
+    id 'org.openjfx.javafxplugin'
+}
+
+javafx {
+    version = '21.0.6'
+    modules = ['javafx.controls', 'javafx.graphics']
+}
+
+dependencies {
+    api project(':BaseParty')
+    api 'com.jfoenix:jfoenix:9.0.10'
+    api 'org.fxmisc.richtext:richtextfx:0.11.5'
+}

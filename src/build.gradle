@@ -1,0 +1,52 @@
+plugins {
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.openjfx.javafxplugin'
+}
+
+javafx {
+    version = '21.0.6'
+    modules = [
+            'javafx.base',
+            'javafx.controls',
+            'javafx.fxml',
+            'javafx.graphics',
+            'javafx.swing'
+    ]
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['main/java']
+        kotlin.srcDirs = ['main/java']
+        resources.srcDirs = ['main/resources']
+    }
+    test {
+        java.srcDirs = ['test/java']
+        resources.srcDirs = []
+    }
+}
+
+application {
+    mainModule = 'atools'
+    mainClass = 'com.allan.atools.toolsstartup.Startup'
+}
+
+dependencies {
+    implementation project(':BaseParty')
+    implementation project(':BaseUiLibs')
+
+    implementation 'com.google.code.gson:gson:2.13.0'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.21'
+    implementation 'com.jfoenix:jfoenix:9.0.10'
+    implementation 'org.fxmisc.richtext:richtextfx:0.11.5'
+    implementation 'org.jetbrains:annotations:26.0.2'
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.13.1'
+}
+
+tasks.named('compileJava', JavaCompile) {
+    dependsOn tasks.named('compileKotlin')
+    options.compilerArgumentProviders.add({
+        ['--patch-module', "atools=${sourceSets.main.output.asPath}"]
+    } as CommandLineArgumentProvider)
+}
