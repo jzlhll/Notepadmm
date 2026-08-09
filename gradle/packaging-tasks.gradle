@@ -68,13 +68,14 @@ tasks.register('analyzeJreModules') {
 
         def command = [
                 packagingJdkTool('jdeps'),
+                '-q',
                 '--multi-release', '17',
                 '--ignore-missing-deps',
                 '--list-deps',
                 '--recursive',
                 '--module-path', modulePathFiles*.absolutePath.join(File.pathSeparator)
         ]
-        command.addAll(projectJars*.absolutePath)
+        command.addAll(modulePathFiles*.absolutePath)
         def output = runPackagingCommand(command)
         def jmodsDir = new File(packagingJdkHome(), 'jmods')
         def modules = output.readLines()
