@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXComboBox?>
+<?import com.jfoenix.controls.JFXTextArea?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox fx:id="pageRoot" minWidth="620.0" prefWidth="850.0" spacing="10.0" styleClass="custom-main-bg"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.allan.atools.controller.DrawsController">
+    <padding>
+        <Insets bottom="24.0" left="24.0" right="24.0" top="12.0"/>
+    </padding>
+
+    <Label maxWidth="1.7976931348623157E308" styleClass="title-label-big-bold"
+           text="android vectorDrawable 与 jpg/png/webp 预览器"
+           textAlignment="CENTER" alignment="CENTER"/>
+
+    <HBox alignment="CENTER_LEFT" spacing="8.0">
+        <Label styleClass="normal-label" text="资源目录"/>
+        <JFXButton fx:id="loadButton" buttonType="RAISED" minWidth="56.0" prefHeight="28.0"
+                   style="-fx-font-size: 12px; -fx-padding: 4 10 4 10;"
+                   styleClass="custom-jfx-button-raised" text="加载"/>
+        <JFXButton fx:id="clearButton" minWidth="56.0" prefHeight="28.0"
+                   style="-fx-font-size: 12px; -fx-padding: 4 10 4 10;"
+                   styleClass="custom-jfx-button-nobg" text="清空"/>
+    </HBox>
+    <Label styleClass="small-desc-label"
+           text="每行一个目录，也可用逗号或分号分隔；仅扫描目录当前层。按 Ctrl/Cmd+Enter 可加载。"/>
+
+    <JFXTextArea fx:id="directoryInput" prefHeight="52.0"
+                 promptText="例如：~/Documents/project/src/main/res/drawable" wrapText="true"/>
+
+    <HBox alignment="CENTER_LEFT" spacing="10.0">
+        <Label styleClass="normal-label" text="尺寸"/>
+        <JFXComboBox fx:id="sizeMode" prefWidth="90.0"/>
+        <Label styleClass="normal-label" text="背景"/>
+        <JFXComboBox fx:id="backgroundMode" prefWidth="110.0"/>
+        <Label fx:id="loadingLabel" managed="false" styleClass="normal-desc-label" text="正在加载…" visible="false"/>
+    </HBox>
+
+    <Separator/>
+    <Label fx:id="countLabel" managed="false" styleClass="normal-desc-label" visible="false"/>
+
+    <VBox fx:id="emptyState" alignment="CENTER" minHeight="220.0" spacing="8.0">
+        <Label style="-fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -au-default-text-color;"
+               text="没有可预览文件"/>
+        <Label styleClass="normal-desc-label" text="输入资源目录并点击加载，即可预览 VectorDrawable 和图片。"/>
+    </VBox>
+
+    <VBox fx:id="contentArea" managed="false" spacing="18.0" visible="false">
+        <VBox fx:id="vectorSection" managed="false" spacing="8.0" visible="false">
+            <Label fx:id="vectorCountLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: -au-default-text-color;"/>
+            <FlowPane fx:id="vectorGrid" hgap="8.0" vgap="8.0"/>
+        </VBox>
+        <VBox fx:id="imageSection" managed="false" spacing="8.0" visible="false">
+            <Label fx:id="imageCountLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: -au-default-text-color;"/>
+            <FlowPane fx:id="imageGrid" hgap="8.0" vgap="8.0"/>
+        </VBox>
+    </VBox>
+
+    <VBox fx:id="unsupportedBox" managed="false" spacing="8.0" visible="false">
+        <Separator/>
+        <Label style="-fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -au-default-text-color;"
+               text="不支持或加载失败"/>
+        <VBox fx:id="unsupportedList" spacing="3.0"/>
+    </VBox>
+</VBox>

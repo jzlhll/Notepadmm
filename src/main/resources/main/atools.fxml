@@ -42,5 +42,5 @@
       fx:controller="com.allan.atools.controller.AToolsController">
     <JFXListView fx:id="leftMenuListView" styleClass="custom-jfx-list-view"/>
     <Separator fx:id="separator" prefWidth="3" orientation="VERTICAL"/>
-    <ScrollPane fx:id="pageHolderPanel" />
+    <ScrollPane fx:id="pageHolderPanel" fitToWidth="true" HBox.hgrow="ALWAYS" />
 </HBox>

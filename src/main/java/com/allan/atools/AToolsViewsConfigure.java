@@ -2,6 +2,7 @@ package com.allan.atools;
 
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.controller.ColorController;
+import com.allan.atools.controller.DrawsController;
 import com.allan.atools.controller.JsonFormatController;
 import javafx.collections.ObservableList;
 
@@ -14,6 +15,8 @@ public final class AToolsViewsConfigure {
         names.add("json");
         pages.put(indexCount++, ColorController.class);
         names.add("color");
+        pages.put(indexCount++, DrawsController.class);
+        names.add("draws");
 
         return indexCount;
     }

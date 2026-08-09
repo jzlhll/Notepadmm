@@ -10,7 +10,9 @@ module atools {
     requires javafx.fxml;
     requires javafx.controls;
     requires javafx.graphics;
+    requires javafx.swing;
 
+    requires com.twelvemonkeys.imageio.webp;
     requires org.fxmisc.richtext;
     requires org.fxmisc.flowless;
     requires wellbehavedfx;
