@@ -31,16 +31,13 @@ public class AllFilesSearchResults {
         int totalLines = 0;
         var hitFmt = Locales.str("result.hitTimes");
         for (OneFileSearchResults oneFileResults : allResults) {
-            fileLineIndexes[i++] = totalLines;
-            var head = new ResultItemWrap();
-            head.lineMode = ResultItemWrap.LineMode.FilePath;
+            if (fileLineIndexes != null) {
+                fileLineIndexes[i++] = totalLines;
+            }
             var line = "  " + oneFileResults.file.getName()
                     + "  (" +  String.format(hitFmt, oneFileResults.results.size()) + ")";
-            head.setLine(line);
-            oneFileResults.results.add(0, head);
-
+            sb.append(line).append(System.lineSeparator());
             for (ResultItemWrap item : oneFileResults.results) {
-                //item.searchPaneNumber = line++;
                 sb.append(item.getLine()).append(System.lineSeparator());
             }
             totalLines += 1 + oneFileResults.results.size();
@@ -61,28 +58,33 @@ public class AllFilesSearchResults {
     }
 
     public EditorBaseResultItemPair getByLineNum(int lineNum, int colIndex) {
-        if (allResults.size() > 0) {
-            var oneResults = allResults.get(0); //todo 多文件没有处理。这里直接拿到第一个来处理的
-
-            ResultItemWrap resultItemWrap = oneResults.results.get(lineNum);
-            colIndex = colIndex - resultItemWrap.resultOffset;
-
-            //计算得到item所在的index
-            int secondIndex = 0;
-            if (resultItemWrap.items != null && resultItemWrap.items.length > 0) {
-                for (var item : resultItemWrap.items) {
-                    if (item.range.end > colIndex) {
-                        break;
-                    }
-                    secondIndex++;
-                }
-                if (secondIndex == resultItemWrap.items.length) {
-                    secondIndex--;
-                }
+        int currentLine = 0;
+        for (var oneResults : allResults) {
+            if (lineNum == currentLine) {
+                return null;
             }
+            currentLine++;
+            int resultIndex = lineNum - currentLine;
+            if (resultIndex >= 0 && resultIndex < oneResults.results.size()) {
+                ResultItemWrap resultItemWrap = oneResults.results.get(resultIndex);
+                colIndex -= resultItemWrap.resultOffset;
 
-            return new EditorBaseResultItemPair(oneResults.area, resultItemWrap, secondIndex);
+                int secondIndex = 0;
+                if (resultItemWrap.items != null && resultItemWrap.items.length > 0) {
+                    for (var item : resultItemWrap.items) {
+                        if (item.range.end > colIndex) {
+                            break;
+                        }
+                        secondIndex++;
+                    }
+                    if (secondIndex == resultItemWrap.items.length) {
+                        secondIndex--;
+                    }
+                }
+                return new EditorBaseResultItemPair(oneResults.area, resultItemWrap, secondIndex);
+            }
+            currentLine += oneResults.results.size();
         }
-        throw new RuntimeException("不可能找不到 OneFileSearchResults");
+        return null;
     }
 }

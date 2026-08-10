@@ -63,6 +63,14 @@ public final class ThreadUtils {
         HolderGeneric.genericService.execute(action);
     }
 
+    public static void executeFileIo(Runnable action) {
+        HolderGeneric.fileIoService.execute(action);
+    }
+
+    public static Future<?> submitFileIo(Runnable action) {
+        return HolderGeneric.fileIoService.submit(action);
+    }
+
     /**
      * @param action
      * 		Task to start in new thread.

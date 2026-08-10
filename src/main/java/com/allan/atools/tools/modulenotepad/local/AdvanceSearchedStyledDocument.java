@@ -10,7 +10,6 @@ import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.Colors;
 import javafx.scene.paint.Color;
-import org.fxmisc.richtext.GenericStyledArea;
 import org.fxmisc.richtext.model.*;
 import org.reactfx.collection.MaterializedListModification;
 import org.reactfx.util.*;
@@ -73,35 +72,24 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
     private static final BiFunction<Summary, Integer, Either<Integer, Integer>> NAVIGATE =
             (s, i) -> i <= s.length() ? left(i) : right(i - (s.length() + 1));
 
-    private static final boolean FROM_OTHER_INFO = false;
-
     /**
      * 用于 result的一条一条自行创建的样式
      */
     public static AdvanceSearchedStyledDocument<ParStyle, String, TextStyle> from(
-            GenericStyledArea<ParStyle, String, TextStyle> resultArea, AllFilesSearchResults all,
-            int[] outTotalLines) {
-        //这个其实就是searchPaneNumber显示第0行
+            TextStyle initTextStyle, ParStyle initParaStyle,
+            SegmentOps<String, TextStyle> segmentOps, AllFilesSearchResults all) {
         HashMap<String, StylePair> combineColorAndStylePairMap = new HashMap<>();
-
-        var initTextStyle = resultArea.getInitialTextStyle();
-        var initParaStyle = resultArea.getInitialParagraphStyle();
-        var segmentOps = resultArea.getSegOps();
 
         var lineParaStyle = initParaStyle.updateBackgroundColor(Colors.DescLineBgColor.invoke());
         var lineTextStyle = initTextStyle.updateTextColor(Colors.DescLineTextColor.invoke());
 
         List<Paragraph<ParStyle, String, TextStyle>> retParas = new ArrayList<>();
         for (OneFileSearchResults oneFileResults : all.allResults) {
-            var head = new ResultItemWrap();
-            head.lineMode = ResultItemWrap.LineMode.FilePath;
-            String s = String.format(Locales.str("result.hitTimes"), oneFileResults.results.size());
-            head.setLine("  " + oneFileResults.file.getName() + "  (" + s + ")");
-            oneFileResults.results.add(0, head);
+            var hitText = String.format(Locales.str("result.hitTimes"), oneFileResults.results.size());
+            var headText = "  " + oneFileResults.file.getName() + "  (" + hitText + ")";
+            retParas.add(new Paragraph<>(lineParaStyle, segmentOps, segmentOps.create(headText), lineTextStyle));
 
             for (ResultItemWrap itemWrap : oneFileResults.results) {
-                if(FROM_OTHER_INFO && outTotalLines != null) outTotalLines[0]++;
-
                 if (itemWrap.lineMode == ResultItemWrap.LineMode.Real && itemWrap.items != null) {
                     //对于行模式来说，是可以直接每行都显示的 todo 给下特殊颜色
                     int itemsSize = itemWrap.items.length;
@@ -175,27 +163,10 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
                             }
                             lastEnd = item.range.end;
                         }
-//                        if (FROM_OTHER_INFO && outSsb != null) {
-//                            tmpLen = item.range.start;
-//                            if (tmpLen > 0) {
-//                                outSsb.add(initTextStyle, tmpLen);
-//                            }
-//
-//                            tmpLen = item.range.end - item.range.start;
-//                            outSsb.add(matchedTextStyle, tmpLen);
-//
-//                            tmpLen = itemWrap.line.length() + 1 - item.range.end;
-//                            outSsb.add(initTextStyle, tmpLen);
-//                        }
                     }
                     if (itemsSize > 1) { //如果是多个时候则
                         retParas.add(new Paragraph<>(firstParStyle, segmentOps, segmentOps.create(itemWrap.getLine()), ssb.create()));
                     }
-                } else if (itemWrap.lineMode == ResultItemWrap.LineMode.FilePath) {
-                    retParas.add(new Paragraph<>(lineParaStyle, segmentOps, segmentOps.create(itemWrap.getLine()), lineTextStyle));
-//                    if (FROM_OTHER_INFO && outSsb != null) {
-//                        outSsb.add(initTextStyle, itemWrap.line.length() + 1);
-//                    }
                 }
             }
         }
@@ -538,4 +509,3 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
 
 
 }
-

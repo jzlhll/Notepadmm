@@ -2,7 +2,6 @@ package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.UIContext;
 import com.allan.atools.threads.ThreadUtils;
-import com.allan.atools.utils.ManualGC;
 import javafx.application.Platform;
 import javafx.scene.control.Accordion;
 import javafx.scene.layout.AnchorPane;
@@ -33,18 +32,18 @@ final class ResultUpdaterSplitPaneImpl extends AbstractResultUpdater {
     void afterShown() {
         ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
             Platform.runLater(() -> {
-                mResultRoot.getPanes().get(0).setExpanded(true);
-                ManualGC.triplyGC();
+                if (mResultRoot != null && !mResultRoot.getPanes().isEmpty()) {
+                    mResultRoot.getPanes().get(0).setExpanded(true);
+                }
             });
         }, 100L);
     }
 
     @Override
     public void close() {
-        mResultRoot.getPanes().removeAll();
+        destroyResultRoot();
         mResultRoot = null;
 
         UIContext.context().removeResultLayout();
-        ManualGC.directlyGC();
     }
 }

@@ -5,7 +5,6 @@ import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.tools.modulenotepad.local.StyleCreator;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
-import com.allan.atools.utils.ManualGC;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import javafx.application.Platform;
 

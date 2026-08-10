@@ -69,6 +69,10 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
 
     @Override
     public void destroy() {
+        if (mIsDestroyed) {
+            return;
+        }
+        mIsDestroyed = true;
         Log.d(TAG,"DESTROY:...");
         dispose();
 
@@ -76,7 +80,12 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         fontChanged = null;
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged);
         fontThemeChanged = null;
-        mIsDestroyed = true;
+        ex1 = null;
+        clearSelf = null;
+        clearOthers = null;
+        clearAll = null;
+        outLineTrigger = null;
+        setContextMenu(null);
     }
 
     @Override
@@ -99,7 +108,9 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
                 Log.d("col " + col);
                 if (cur >= mLastDoubleTriggerTime + 300L) {
                     mLastDoubleTriggerTime = cur;
-                    outLineTrigger.invoke(startPar, col);
+                    if (outLineTrigger != null) {
+                        outLineTrigger.invoke(startPar, col);
+                    }
                 }
             }
 

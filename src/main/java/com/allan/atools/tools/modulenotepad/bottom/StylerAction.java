@@ -6,7 +6,6 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.threads.ClosedDroppedHandler;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
-import com.allan.atools.utils.ManualGC;
 import com.allan.baseparty.handler.HandlerThread;
 
 abstract class StylerAction {
@@ -51,9 +50,6 @@ abstract class StylerAction {
         if (clickType == BottomHandler.ClickType.Search) {
             if(Styler.DEBUG_STYLER) Log.w(">>>>>>jump To Next<<<<");
             out.jumpToNext(out.editorArea, false, true);
-        }
-        if (clickType != BottomHandler.ClickType.None) {
-            ManualGC.lessGC();
         }
     }
 }

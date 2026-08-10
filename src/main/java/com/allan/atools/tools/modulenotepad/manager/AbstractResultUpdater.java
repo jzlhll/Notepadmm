@@ -1,12 +1,10 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.richtext.TextStyle;
 import com.allan.atools.richtext.codearea.ResultAreaImpl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
-import com.allan.atools.utils.ManualGC;
 import com.allan.atools.utils.TimerCounter;
 import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.SettingPreferences;
@@ -15,9 +13,9 @@ import com.allan.uilibs.richtexts.MyVirtualScrollPane;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.input.MouseButton;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.TitledPane;
-import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 /**
  * 这里的泛型是为了传导给searchResults的泛型。所以是Editor的泛型
@@ -26,6 +24,7 @@ public abstract class AbstractResultUpdater {
     static final int MAX_RESULTS_COUNT = UIContext.DEBUG ? 5 : 10;
 
     static Accordion mResultRoot; //只需要一份
+    private ChangeListener<Boolean> searchResultWrapChanged;
 
     static AbstractResultUpdater createInstance() {
         return SettingPreferences.getBoolean(SettingPreferences.resultAreaInNewWindowKey) ? new ResultUpdaterNewWindowImpl() : new ResultUpdaterSplitPaneImpl();
@@ -36,20 +35,50 @@ public abstract class AbstractResultUpdater {
     public abstract boolean bringToFront();
 
     void initPropertiesListener() {
-        //设置监听
+        if (searchResultWrapChanged != null) {
+            return;
+        }
         var prop = SettingPreferences.getBoolProp(SettingPreferences.searchResultAreaIsWrapKey);
-        prop.addListener((observableValue, number, newValue) -> {
+        searchResultWrapChanged = (observableValue, oldValue, newValue) -> {
             if (mResultRoot != null) {
                 for (TitledPane tp : mResultRoot.getPanes()) {
                     if (tp.getContent() instanceof MyVirtualScrollPane<?> vpane) {
                         if (vpane.getContent() instanceof ResultAreaImpl area) {
                             area.setWrapText(newValue);
-                            break;
                         }
                     }
                 }
             }
-        });
+        };
+        prop.addListener(searchResultWrapChanged);
+    }
+
+    private void destroyPropertiesListener() {
+        if (searchResultWrapChanged == null) {
+            return;
+        }
+        SettingPreferences.getBoolProp(SettingPreferences.searchResultAreaIsWrapKey)
+                .removeListener(searchResultWrapChanged);
+        searchResultWrapChanged = null;
+    }
+
+    private void destroyArea(TitledPane titledPane) {
+        if (titledPane.getContent() instanceof MyVirtualScrollPane<?> pane
+                && pane.getContent() instanceof ResultAreaImpl area) {
+            area.destroy();
+            pane.removeContent();
+            titledPane.setContent(null);
+        }
+    }
+
+    void destroyResultRoot() {
+        if (mResultRoot != null) {
+            for (TitledPane titledPane : mResultRoot.getPanes()) {
+                destroyArea(titledPane);
+            }
+            mResultRoot.getPanes().clear();
+        }
+        destroyPropertiesListener();
     }
 
     ResultAreaImpl createArea(AllFilesSearchResults results) {
@@ -59,18 +88,24 @@ public abstract class AbstractResultUpdater {
         area.setDoubleClickListener((lineNum, col) -> ResultAreaManager.clickOnLine(lineNum, col, (AllFilesSearchResults) area.getObject1()));
 
         area.setObject1(results); //标记数据
+        var initialTextStyle = area.getInitialTextStyle();
+        var initialParagraphStyle = area.getInitialParagraphStyle();
+        var segmentOps = area.getSegOps();
 
         ThreadUtils.execute(()-> {
+            if (area.isDestroyed()) {
+                return;
+            }
             //统计成indexes；
             TimerCounter.start("cvt result maps");
-            int[] totalLines = {0};
-            StyleSpansBuilder<TextStyle> ssb = new StyleSpansBuilder<>();
-            var value = AdvanceSearchedStyledDocument.from(area,
-                            results,
-                            null);
+            var value = AdvanceSearchedStyledDocument.from(
+                    initialTextStyle, initialParagraphStyle, segmentOps, results);
 
             Log.d(TimerCounter.end("cvt result maps"));
             Platform.runLater(()-> {
+                if (area.isDestroyed()) {
+                    return;
+                }
                 TimerCounter.start("show area text");
                 area.replace(0, 0, value);
                 Log.d(TimerCounter.end("show area text"));
@@ -87,16 +122,10 @@ public abstract class AbstractResultUpdater {
 
     void setClears(ResultAreaImpl area) {
         area.setClearAll(() -> {
-            for (TitledPane tp : mResultRoot.getPanes()) {
-                if (tp.getContent() instanceof MyVirtualScrollPane<?> pane) {
-                    if (pane.getContent() instanceof ResultAreaImpl rai) {
-                        rai.destroy();
-                    }
-                }
+            for (TitledPane titledPane : mResultRoot.getPanes()) {
+                destroyArea(titledPane);
             }
             mResultRoot.getPanes().clear();
-            ManualGC.triplyGC();
-
             afterClearPane();
         });
 
@@ -106,8 +135,7 @@ public abstract class AbstractResultUpdater {
                 if (tp.getContent() instanceof MyVirtualScrollPane<?> pane) {
                     if (pane.getContent() instanceof ResultAreaImpl resultArea) {
                         if (resultArea != co) {
-                            resultArea.destroy();
-                            break;
+                            destroyArea(tp);
                         } else {
                             reserved = tp;
                         }
@@ -117,7 +145,6 @@ public abstract class AbstractResultUpdater {
 
             mResultRoot.getPanes().clear();
             if(reserved != null) mResultRoot.getPanes().add(reserved);
-            ManualGC.triplyGC();
         });
 
         area.setClearSelf((cs) -> {
@@ -133,8 +160,7 @@ public abstract class AbstractResultUpdater {
 
             if (target != null) {
                 mResultRoot.getPanes().remove(target);
-                cs.destroy();
-                ManualGC.triplyGC();
+                destroyArea(target);
             }
 
             afterClearPane();
@@ -180,12 +206,7 @@ public abstract class AbstractResultUpdater {
 
         if (mResultRoot.getPanes().size() >= MAX_RESULTS_COUNT) {
             var removed = mResultRoot.getPanes().remove(mResultRoot.getPanes().size() - 1);
-            if(removed.getContent() instanceof MyVirtualScrollPane vp){
-                if (vp.getContent() instanceof ResultAreaImpl ar) {
-                    ar.destroy();
-                    ManualGC.triplyGC();
-                }
-            }
+            destroyArea(removed);
         }
         mResultRoot.getPanes().add(0, tp);
 
@@ -198,4 +219,3 @@ public abstract class AbstractResultUpdater {
 
     void requestFocus() {}
 }
-

@@ -26,6 +26,7 @@ import javafx.scene.control.Tab;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,9 +107,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         UIContext.context().tabPane.getTabs().addListener((ListChangeListener<Tab>) c -> {
             int newSize = UIContext.context().tabPane.getTabs().size();
             Log.d("tab size changed new size: " + newSize);
-            if (newSize < tabSize) {
-                ManualGC.directlyGC();
-            }
             if (tabSize == 0 && newSize == 1) {
                 Log.d("to front");
                 UIContext.context().tabPane.setVisible(true);
@@ -122,23 +120,16 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         });
     }
 
-    private Tab isFilePathAlreadyInTabs(String absolutePath, int[] outIndex) {
+    private Tab isFilePathAlreadyInTabs(File file) {
+        var absolutePath = file.getAbsolutePath();
         var tabs = UIContext.context().tabPane.getTabs();
-        int i = 0;
         for (var tab : tabs) {
             File fileData = tab.getUserData() != null ? (File) tab.getUserData() : null;
             if (fileData != null && absolutePath.equals(fileData.getAbsolutePath())) {
-                outIndex[0] = i;
                 return tab;
             }
-            i++;
         }
         return null;
-    }
-
-    private Tab isFilePathAlreadyInTabs(File file, int[] outIndex) {
-        var absolutePath = file.getAbsolutePath();
-        return isFilePathAlreadyInTabs(absolutePath, outIndex);
     }
 
     @Override
@@ -392,43 +383,96 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
     }
 
-    private synchronized Tab openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert) {
-        if (textFile != null && textFile.length() > Util.MAX_ALERT_FILE_SIZE) {
+    private void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert) {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> openFile(textFile, checkAlreadyHasFile, toFront, forceEncoding, reOpenExistTab, ignoreAlert));
+            return;
+        }
+        if (textFile == null) {
+            return;
+        }
+        if (!ignoreAlert && textFile.length() > Util.MAX_ALERT_FILE_SIZE) {
             final var forceEncodingFinal = forceEncoding;
             JfoenixDialogUtils.confirm(Locales.str("notification"), Locales.str("itIsTooBig"), 18, 400,
                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("sure"), ()->{
                         openFile(textFile, checkAlreadyHasFile, toFront, forceEncodingFinal, reOpenExistTab, true);
                     }),
                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, Locales.str("cancle"), null));
-            return null;
+            return;
         }
 
         Log.d("open file start..... " + textFile);
-        String origForceEncoding = forceEncoding;
-        var backEncode = new String[1];
-        if (forceEncoding == null) {
-            forceEncoding = readLastFileEncoding(textFile.getAbsolutePath());
-        }
-
+        Tab targetTab = null;
         if (checkAlreadyHasFile || reOpenExistTab != null) {
             Log.d("check already ");
-            int[] index = {0};
-            var alreadyTab = reOpenExistTab != null ? reOpenExistTab : isFilePathAlreadyInTabs(textFile, index);
-            if (alreadyTab != null) {//已经存在就提示直接重新load即可
-                alreadyTab.setUserData(textFile); //第一时间更新
-                StringBuilder sb = FileUtils.readString(textFile.getAbsolutePath(), forceEncoding, backEncode);
-                var are = codeAreaExInTab(alreadyTab);
-                are.getEditor().getState().setFileEncoding(backEncode[0]);
-                are.getEditor().resetText(sb.toString());
-                //只有这种情况需要更新当前的编码文字
-                UIContext.fileEncodeIndicateProp.set(forceEncoding);
-                if (toFront) {
-                    setCurrentTab(alreadyTab);
-                    setCurrentArea(are);
-                    UIContext.context().tabPane.getSelectionModel().select(alreadyTab);
+            targetTab = reOpenExistTab != null ? reOpenExistTab : isFilePathAlreadyInTabs(textFile);
+        }
+
+        var targetTabFinal = targetTab;
+        var expectedContentVersion = targetTab == null
+                ? -1L
+                : codeAreaExInTab(targetTab).getEditor().getContentVersion();
+        ThreadUtils.executeFileIo(() -> {
+            try {
+                var encoding = forceEncoding != null
+                        ? forceEncoding
+                        : readLastFileEncoding(textFile.getAbsolutePath());
+                var encodingInfo = encoding == null
+                        ? EncodingUtil.ultimateEncodeDetect(textFile.getAbsolutePath())
+                        : EncodingUtil.forceEncoding(encoding);
+                var detectedEncoding = encodingInfo.encoding;
+                var text = Files.readString(textFile.toPath(), Charset.forName(detectedEncoding));
+                if (forceEncoding != null) {
+                    saveLastFileEncodingMapping(textFile.getAbsolutePath(), forceEncoding);
                 }
-                return alreadyTab;
+                if (!ThreadUtils.sBeClosing) {
+                    Platform.runLater(() -> applyOpenedFile(textFile, checkAlreadyHasFile, toFront,
+                            targetTabFinal, text, detectedEncoding, expectedContentVersion));
+                }
+            } catch (Exception e) {
+                Log.e("open file failed: " + textFile.getAbsolutePath(), e);
+                if (!ThreadUtils.sBeClosing) {
+                    Platform.runLater(() -> JfoenixDialogUtils.alert(Locales.ALERT(),
+                            "openTextIn Tab Can't Open File in Tab pane"));
+                }
             }
+        });
+    }
+
+    private void applyOpenedFile(File textFile, boolean checkAlreadyHasFile, boolean toFront,
+                                 Tab reOpenExistTab, String text, String detectedEncoding,
+                                 long expectedContentVersion) {
+        var tabs = UIContext.context().tabPane.getTabs();
+        Tab targetTab = reOpenExistTab;
+        if (targetTab != null && !tabs.contains(targetTab)) {
+            return;
+        }
+        if (targetTab == null && checkAlreadyHasFile) {
+            targetTab = isFilePathAlreadyInTabs(textFile);
+        }
+        if (targetTab != null) {
+            if (!(targetTab.getContent() instanceof MyVirtualScrollPane<?> pane)
+                    || !(pane.getContent() instanceof EditorArea area)) {
+                return;
+            }
+            if (expectedContentVersion < 0L) {
+                if (toFront) {
+                    UIContext.context().tabPane.getSelectionModel().select(targetTab);
+                }
+                return;
+            }
+            if (area.getEditor().getContentVersion() != expectedContentVersion) {
+                Log.d("ignore stale opened file: " + textFile.getAbsolutePath());
+                return;
+            }
+            targetTab.setUserData(textFile);
+            area.getEditor().getState().setFileEncoding(detectedEncoding);
+            area.getEditor().resetText(text);
+            UIContext.fileEncodeIndicateProp.set(detectedEncoding);
+            if (toFront) {
+                UIContext.context().tabPane.getSelectionModel().select(targetTab);
+            }
+            return;
         }
 
         Tab newTab = new Tab();
@@ -437,20 +481,15 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         newTab.setUserData(textFile);
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
 
-        final String str;
-        StringBuilder sb = FileUtils.readString(textFile.getAbsolutePath(), forceEncoding, backEncode);
-        Log.e(textFile.getAbsolutePath() + " : openTextIn Tab open encode " + backEncode[0] + " " + sb.length());
-        str = sb.toString();
-
+        Log.e(textFile.getAbsolutePath() + " : openTextIn Tab open encode " + detectedEncoding + " " + text.length());
         Log.d("open file: " + textFile);
 
-        //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
         try {
-            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, str);
+            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, text);
 
-            editorCodeArea.getEditor().getState().setFileEncoding(backEncode[0]);
+            editorCodeArea.getEditor().getState().setFileEncoding(detectedEncoding);
             editorCodeArea.getBottomSearchBtnsMgr().init();
-            Log.d("change encoding " + backEncode[0]);
+            Log.d("change encoding " + detectedEncoding);
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
@@ -462,11 +501,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             saveListFilePaths();
 
             delayToSaveRecentFile(textFile.getAbsolutePath());
-
-            if (origForceEncoding != null) {
-                saveLastFileEncodingMapping(textFile.getAbsolutePath(), origForceEncoding);
-            }
-
             changeNotHasFileText(false);
         } catch (Exception e) {
             e.printStackTrace();
@@ -476,8 +510,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             //UI warning
             JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
         }
-
-        return newTab;
     }
 
     private static final AtomicInteger mIndexesClosed = new AtomicInteger(0);
@@ -491,7 +523,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 vpane.removeContent();
                 tab.setContent(null);
             }
-            ManualGC.decupleGC();
         }
 
         Log.d("on tab closed!! " + tab);
@@ -623,19 +654,13 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
     }
 
-    public static void delayToSaveRecentFile(File sourceFile) {
-        ThreadUtils.globalHandler().postDelayed(()->{
-            saveOrReadRecentFiles(sourceFile.getAbsolutePath());
-        }, 200);
-    }
-
     public static void delayToSaveRecentFile(String sourceFilePath) {
         ThreadUtils.globalHandler().postDelayed(()->{
             saveOrReadRecentFiles(sourceFilePath);
         }, 200);
     }
 
-    static String readLastFileEncoding(String file) {
+    private static String readLastFileEncoding(String file) {
         List<String> ss;
         var path = Path.of(CacheLocation.getMapFileAndEncoding());
         try {
@@ -644,7 +669,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             //
             return null;
         }
-        for (int i = 0, count = ss.size(); i < count; i += 2) {
+        for (int i = 0, count = ss.size(); i + 1 < count; i += 2) {
             var f = ss.get(i);
             var e = ss.get(i + 1);
             if (file.equals(f)) {
@@ -655,7 +680,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         return null;
     }
 
-    public static void saveLastFileEncodingMapping(String file, String encoding) {
+    private static void saveLastFileEncodingMapping(String file, String encoding) {
         List<String> ss;
         var path = Path.of(CacheLocation.getMapFileAndEncoding());
         try {
@@ -667,7 +692,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         FileEncodingMaps maps = new FileEncodingMaps();
         maps.list = new ArrayList<>(4);
 
-        for (int i = 0, count = ss.size(); i < count; i += 2) {
+        for (int i = 0, count = ss.size(); i + 1 < count; i += 2) {
             var f = ss.get(i);
             var e = ss.get(i + 1);
             maps.list.add(new FileEncodingMap(f, e));
@@ -685,8 +710,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             maps.list.forEach(map -> {
                 saved.append(map.file()).append('\n').append(map.enc()).append('\n');
             });
-            var s = saved.substring(0, saved.length() - 1);
-            Files.writeString(path, s);
+            if (!saved.isEmpty()) {
+                saved.setLength(saved.length() - 1);
+            }
+            Files.writeString(path, saved);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -37,6 +37,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import org.fxmisc.richtext.GenericStyledArea;
+import org.reactfx.Subscription;
 
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
@@ -47,6 +48,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntFunction;
 
 import static com.allan.atools.SettingPreferences.editHasNumberKey;
@@ -71,7 +75,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     public class TextChanged extends BaseChanged<Action0> {
-        private final ChangeListener<String> _textChanged = (observableValue, s, t1) -> {
+        private Subscription textChangedSubscription;
+
+        private void onTextChanged() {
+            contentVersion.incrementAndGet();
             if(EditorArea.DEBUG_EDITOR) Log.v("text changed !!");
             if (mActions != null) {
                 for (var a : mActions) {
@@ -80,7 +87,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             }
 
             textHasChanged();
-        };
+        }
 
         @Override
         public void modifiedActions() {
@@ -89,14 +96,19 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
         @Override
         public void destroy() {
-            mActions.clear();
-            mActions = null;
-            area.textProperty().removeListener(_textChanged);
+            if (mActions != null) {
+                mActions.clear();
+                mActions = null;
+            }
+            if (textChangedSubscription != null) {
+                textChangedSubscription.unsubscribe();
+                textChangedSubscription = null;
+            }
         }
 
         @Override
         public void init() {
-            area.textProperty().addListener(_textChanged);
+            textChangedSubscription = area.plainTextChanges().subscribe(change -> onTextChanged());
         }
     }
 
@@ -269,6 +281,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private boolean mIsNotSaved = false;
     private Object mLastNextUndo;
+    private final AtomicLong saveVersion = new AtomicLong();
+    private final AtomicLong contentVersion = new AtomicLong();
+    private volatile Future<?> pendingSave;
+
+    public long getContentVersion() {
+        return contentVersion.get();
+    }
     /**
      * 反射找出本tab的title tabLabel
      */
@@ -383,18 +402,39 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         textSaved();
     }
 
-    private void saveContentInner(boolean forceSave, String sourceCode) {
-        try {
-            Log.d("Files writeString save content forceSave:" + forceSave);
-            Files.writeString(Path.of(sourceFile.getAbsolutePath()), sourceCode, Charset.forName(state.getFileEncoding()));
-            isFake = false;
-            markCurrentFileTs();
-            notifyWorkspaceRefreshDelayed();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void saveContentInner(String sourceCode, Object savedUndo,
+                                  File savedFile, String encoding, long requestVersion) {
+        pendingSave = ThreadUtils.submitFileIo(() -> {
+            if (requestVersion != saveVersion.get()) {
+                return;
+            }
+            try {
+                Log.d("Files writeString save content");
+                var path = Path.of(savedFile.getAbsolutePath());
+                var parent = path.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(path, sourceCode, Charset.forName(encoding));
+            } catch (IOException | RuntimeException e) {
+                Log.e("save content failed: " + savedFile.getAbsolutePath(), e);
+                return;
+            }
 
-        AllEditorsManager.delayToSaveRecentFile(sourceFile.getAbsolutePath());
+            AllEditorsManager.delayToSaveRecentFile(savedFile.getAbsolutePath());
+            notifyWorkspaceRefreshDelayed(savedFile);
+            if (!ThreadUtils.sBeClosing) {
+                Platform.runLater(() -> {
+                    if (isDestroyed() || !savedFile.getAbsolutePath().equals(sourceFile.getAbsolutePath())) {
+                        return;
+                    }
+                    isFake = false;
+                    editorFocus.mLastFileChangedTs = savedFile.lastModified();
+                    mLastNextUndo = savedUndo;
+                    textHasChanged();
+                });
+            }
+        });
     }
 
     public void saveContent(ActionEvent event, boolean forceSave) {
@@ -403,40 +443,29 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             return;
         }
 
-        if (isFake && !sourceFile.exists()) {
-            try {
-                Files.createFile(Path.of(sourceFile.getAbsolutePath()));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
         String sourceCode = area.getText();
-        if (sourceFile.canWrite()) {
-            saveContentInner(forceSave, sourceCode);
-        } else {
-            var parentDir = IO.getParentPath(sourceFile.getAbsolutePath(), true);
-            boolean isOkCreateDir = true;
-            try {
-                Files.createDirectories(Path.of(parentDir));
-            } catch (IOException e) {
-                e.printStackTrace();
-                isOkCreateDir = false;
-            }
-            if (isOkCreateDir) {
-                saveContentInner(forceSave, sourceCode);
-            } else {
-                //If File is deleted re create file then update com.base.content again
-                if (forceSave) {
-                    saveContentInner(forceSave, sourceCode);
-                } else {
-                    JfoenixDialogUtils.confirm(Locales.str("notification"), Locales.str("ifSaveThisTxtFile"),
-                            0, 0,
-                            new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, null, ()-> saveContentInner(forceSave, sourceCode)),
-                            new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, null, null));
-                }
-            }
+        var savedUndo = area.getUndoManager().getNextUndo();
+        var savedFile = sourceFile;
+        var encoding = state.getFileEncoding();
+        var requestVersion = saveVersion.incrementAndGet();
+        saveContentInner(sourceCode, savedUndo, savedFile, encoding, requestVersion);
+    }
+
+    private boolean awaitPendingSave() {
+        var save = pendingSave;
+        if (save == null) {
+            return true;
         }
+        try {
+            save.get();
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e("wait pending save interrupted", e);
+        } catch (ExecutionException e) {
+            Log.e("wait pending save failed", e);
+        }
+        return false;
     }
 
     private void initArea() {
@@ -560,6 +589,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     public void rename() {
         JfoenixDialogUtils.editInput(Locales.ALERT(), sourceFile.getName(), s -> {
             if (!TextUtils.isEmpty(s)) {
+                if (!awaitPendingSave()) {
+                    return;
+                }
                 var ans = Utils.rename(sourceFile, s);
                 if (ans == null) {
                     SnackbarUtils.show("maybe you do not save this file!");
@@ -567,6 +599,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("doUWantReplaceOldFile"),
                             0, 0,
                             new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, null, () -> {
+                                if (!awaitPendingSave()) {
+                                    return;
+                                }
                                 var newFullPa = ans.run().invoke();
                                 if (newFullPa != null) {
                                     afterRename(newFullPa);
@@ -628,13 +663,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         }
 
         ThreadUtils.globalHandler().postDelayed(editorFocus::addFocusChanged, 180);
-        notifyWorkspaceRefreshDelayed();
+        notifyWorkspaceRefreshDelayed(newf);
     }
 
-    private void notifyWorkspaceRefreshDelayed() {
+    private void notifyWorkspaceRefreshDelayed(File changedFile) {
         ThreadUtils.globalHandler().postDelayed(()->
                 Platform.runLater(()->
-                        UIContext.context().getWorkspaceManager().ifRefreshWorkspace(sourceFile)),
+                        UIContext.context().getWorkspaceManager().ifRefreshWorkspace(changedFile)),
                 200);
     }
 

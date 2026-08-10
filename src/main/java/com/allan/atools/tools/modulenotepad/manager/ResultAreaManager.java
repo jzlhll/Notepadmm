@@ -49,12 +49,11 @@ public final class ResultAreaManager implements INotepadResultManager {
     }
 
     static void clickOnLine(Integer lineNum, int colIndex, AllFilesSearchResults mResults) {
-        if (lineNum == 0) {
-            return;
-        }
-
         //Log.d("double click " + lineNum);
         var areaAndItem = mResults.getByLineNum(lineNum, colIndex);
+        if (areaAndItem == null) {
+            return;
+        }
         var editor = areaAndItem.areaEx.get();
         if (editor != null) {
             var item = areaAndItem.searchResultItem;

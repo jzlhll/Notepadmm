@@ -2,7 +2,6 @@ package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.controllerwindow.ResultNewWindow;
 import com.allan.atools.threads.ThreadUtils;
-import com.allan.atools.utils.ManualGC;
 import javafx.application.Platform;
 
 public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
@@ -27,11 +26,15 @@ public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
     @Override
     void afterShown() {
         Platform.runLater(() -> {
+            if (sNewWindow == null) {
+                return;
+            }
             sNewWindow.show();
             ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
                 Platform.runLater(()-> {
-                    mResultRoot.getPanes().get(0).setExpanded(true);
-                    ManualGC.triplyGC();
+                    if (mResultRoot != null && !mResultRoot.getPanes().isEmpty()) {
+                        mResultRoot.getPanes().get(0).setExpanded(true);
+                    }
                 });
             }, 100L);
         });
@@ -39,15 +42,13 @@ public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
 
     @Override
     public void close() {
-        mResultRoot.getPanes().removeAll();
+        destroyResultRoot();
         mResultRoot = null;
 
         if (sNewWindow != null) {
             sNewWindow.hide();
             sNewWindow = null;
         }
-
-        ManualGC.directlyGC();
     }
 
     @Override
