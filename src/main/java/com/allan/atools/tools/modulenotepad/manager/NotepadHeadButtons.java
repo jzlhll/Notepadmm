@@ -5,7 +5,6 @@ import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.controllerwindow.NotepadMultiSelectionWindow;
-import com.allan.atools.controllerwindow.SettingWindow;
 import com.allan.atools.pop.impl.FontSizeChooseCreatorImpl;
 import com.allan.atools.pop.impl.NotepadFileCreatorImpl;
 import com.allan.atools.threads.ThreadUtils;
@@ -85,7 +84,7 @@ public final class NotepadHeadButtons {
         mMain.notepadMainActionBarSettingBtn.setTooltip(new Tooltip(Locales.str("setting")));
         IconfontCreator.setText(mMain.notepadMainActionBarSettingBtn, "set", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarSettingBtn.setOnMouseClicked(e ->{
-            SettingWindow.show();
+            mMain.toggleSettingDrawer();
         });
 
         mMain.notepadMainActionBarSearchBtn.setTooltip(new Tooltip(Locales.str("searchAndFind")));
@@ -141,7 +140,7 @@ public final class NotepadHeadButtons {
                 }
             }
             JfoenixDialogUtils.alert(Locales.str("notification"), Locales.str("pleaseSetNewFileDir"),
-                    SettingWindow::show);
+                    () -> UIContext.context().openSettingDrawer());
         } while(false);
     }
 

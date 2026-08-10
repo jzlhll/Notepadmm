@@ -108,6 +108,8 @@ public final class ColorController extends AbstractController {
 
     public void init(Stage stage) {
         super.init(stage);
+        //规避 JFoenix 库 JFXGenericPickerSkin.removeParentFakeFocusListener 反射 helper 为空导致的 NPE 噪音
+        colorPicker.focusedProperty().addListener((obs, old, val) -> {});
         System.out.println("tiem: " + System.currentTimeMillis());
         this.circle.fillProperty().bind(this.circleColor);
         this.exampleLabel.textFillProperty().bind(this.circleColor);
