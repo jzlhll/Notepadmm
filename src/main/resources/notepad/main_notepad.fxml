@@ -133,7 +133,7 @@
         </SplitPane>
 
         <AnchorPane fx:id="snackContainer" StackPane.alignment="BOTTOM_CENTER" prefWidth="600" prefHeight="30" />
-        <VBox fx:id="notepadMainNotHasFileText" styleClass="empty-state-box" StackPane.alignment="CENTER" alignment="CENTER" spacing="14">
+        <VBox fx:id="notepadMainNotHasFileText" styleClass="empty-state-box" StackPane.alignment="CENTER" alignment="CENTER" spacing="14" mouseTransparent="true">
             <Label fx:id="notepadEmptyTitleLabel" styleClass="empty-state-title"/>
             <Label fx:id="notepadEmptyDescLabel" styleClass="empty-state-desc"/>
             <Label fx:id="notepadEmptyHintLabel" styleClass="empty-state-hint"/>
