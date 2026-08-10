@@ -1,19 +1,49 @@
 package com.allan.atools.toolsstartup;
 
+import com.allan.atools.UIContext;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.tools.FileOpenSupportsKt;
 import com.allan.atools.utils.FileLog;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.baseparty.memory.RefWatcher;
 import javafx.application.Application;
+import javafx.application.Platform;
 
 import java.awt.*;
+import java.io.File;
+import java.util.List;
 
 public final class Startup {
-    public static String[] sInitArgs;
+    public static volatile String[] sInitArgs;
     public static volatile boolean isArgsInit;
+
+    private static void onMacOpenFiles(List<File> files) {
+        if (files == null || files.isEmpty()) {
+            return;
+        }
+        var paths = files.stream()
+                .map(File::getAbsolutePath)
+                .toArray(String[]::new);
+        sInitArgs = paths;
+        try {
+            Platform.runLater(() -> {
+                if (UIContext.mainController == null) {
+                    return;
+                }
+                for (var path : paths) {
+                    FileOpenSupportsKt.open(path);
+                }
+                if (sInitArgs == paths) {
+                    sInitArgs = null;
+                }
+            });
+        } catch (IllegalStateException ignored) {
+            // JavaFX 尚未启动，主界面初始化后会读取 sInitArgs。
+        }
+    }
 
     //这个里面的所有执行代码必须能让如下去执行；因此需要exports他们
     // java.base/jdk.internal.loader.BuiltinClassLoader.loadClass
@@ -41,14 +71,8 @@ public final class Startup {
                 isArgsInit = true;
                 if (e != null) {
                     var files = e.getFiles();
-                    Log.e("open file handler!!! size: " + files.size());
-                    if (files != null) {
-                        String[] ss = new String[files.size()];
-                        for (int i = 0; i < ss.length; i++) {
-                            ss[i] = files.get(i).getAbsolutePath();
-                        }
-                        sInitArgs = ss;
-                    }
+                    Log.e("open file handler size: " + files.size());
+                    onMacOpenFiles(files);
                 }
             });
         } else {
@@ -61,4 +85,3 @@ public final class Startup {
         ThreadUtils.shutdown();
     }
 }
-
