@@ -59,6 +59,22 @@ public final class WorkspaceManager implements IWorkspace {
         }
     };
 
+    public static void refreshSize() {
+        var c = UIContext.context();
+        IconfontCreator.setText(c.workspaceSortBtn, "paixu",
+                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(c.workspaceCreateFileBtn, "add-select",
+                c.getMainWorkspaceIconSize(19), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(c.workspaceCreateDirBtn, "xinjianwenjianjia1",
+                c.getMainWorkspaceIconSize(16), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(c.workspaceGoUpBtn, "arrowup",
+                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(c.workspaceRefreshBtn, "exchangerate",
+                c.getMainWorkspaceIconSize(17), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(c.workspaceCloseBtn, "close",
+                c.getMainWorkspaceIconSize(19), "#ff0000");
+    }
+
     private boolean changeSortByFileOrTime() {
         isSortByFileOrTime = !isSortByFileOrTime;
         UIContext.sharedPref.edit().putBoolean(KEY_WORKSPACE_SORT_MODE, isSortByFileOrTime).commit();
@@ -139,6 +155,8 @@ public final class WorkspaceManager implements IWorkspace {
         }
         if(DEBUG) Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
 
+        refreshSize();
+
         c.workspaceVBox.widthProperty().addListener((observable, oldValue, newValue) -> {
             workspaceWidth = newValue.intValue();
             if(DEBUG) Log.d(TAG, "todo mWorkspace Width " + newValue.intValue() + " total notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
@@ -168,20 +186,17 @@ public final class WorkspaceManager implements IWorkspace {
             }
         });
 
-        IconfontCreator.setText(c.workspaceSortBtn, "paixu", 18, Colors.ColorHeadButton.invoke());
         c.workspaceSortBtn.setTooltip(new Tooltip(Locales.str("sortBtn")));
         c.workspaceSortBtn.setOnMouseClicked(event -> {
             changeSortByFileOrTime();
             openWorkspace(currentDir);
         });
 
-        IconfontCreator.setText(c.workspaceCreateFileBtn, "add-select", 19, Colors.ColorHeadButton.invoke());
         c.workspaceCreateFileBtn.setTooltip(new Tooltip(Locales.str("newFile")));
         c.workspaceCreateFileBtn.setOnMouseClicked(event -> {
             NotepadHeadButtons.newATempFile(currentDir.getAbsolutePath());
         });
 
-        IconfontCreator.setText(c.workspaceCreateDirBtn, "xinjianwenjianjia1", 16, Colors.ColorHeadButton.invoke());
         c.workspaceCreateDirBtn.setTooltip(new Tooltip(Locales.str("newDir")));
         c.workspaceCreateDirBtn.setOnMouseClicked(event ->
                 JfoenixDialogUtils.editInput(Locales.str("newDir"), "", s -> {
@@ -200,7 +215,6 @@ public final class WorkspaceManager implements IWorkspace {
             }
         }));
 
-        IconfontCreator.setText(c.workspaceGoUpBtn, "arrowup", 18, Colors.ColorHeadButton.invoke());
         c.workspaceGoUpBtn.setTooltip(new Tooltip(Locales.str("goUpDir")));
         c.workspaceGoUpBtn.setOnMouseClicked(event -> {
             File parentDir = null;
@@ -212,11 +226,9 @@ public final class WorkspaceManager implements IWorkspace {
             openWorkspace(parentDir);
         });
 
-        IconfontCreator.setText(c.workspaceRefreshBtn, "exchangerate", 17, Colors.ColorHeadButton.invoke());
         c.workspaceRefreshBtn.setTooltip(new Tooltip(Locales.str("refresh")));
         c.workspaceRefreshBtn.setOnMouseClicked(event -> openWorkspace(currentDir));
 
-        IconfontCreator.setText(c.workspaceCloseBtn, "close", 19, "#ff0000");
         c.workspaceCloseBtn.setTooltip(new Tooltip(Locales.str("close")));
         c.workspaceCloseBtn.setOnMouseClicked(event -> removeWorkspace(true));
 

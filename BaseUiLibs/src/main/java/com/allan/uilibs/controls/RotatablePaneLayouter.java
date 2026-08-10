@@ -16,7 +16,7 @@ public class RotatablePaneLayouter extends Region {
 
     @Override
     protected void layoutChildren() {
-        System.out.println("ratable: layoutChildren " + child.getRotate());
+//        System.out.println("ratable: layoutChildren " + child.getRotate());
         // set fit sizes:
         //resize child to fit into RotatablePane and correct movement caused by resizing if necessary
         if ((child.getRotate() == 90)||(child.getRotate() == 270)) {

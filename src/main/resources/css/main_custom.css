@@ -56,6 +56,33 @@
    -fx-font-size: 17;
 }
 
+.jfx-tree-view.main-ui-size-default .tree-cell-dir,
+.jfx-tree-view.main-ui-size-default .tree-cell-major,
+.jfx-tree-view.main-ui-size-default .tree-cell-media,
+.jfx-tree-view.main-ui-size-default .tree-cell-image,
+.jfx-tree-view.main-ui-size-default .tree-cell-coding,
+.jfx-tree-view.main-ui-size-default .tree-cell-other {
+   -fx-font-size: 15;
+}
+
+.jfx-tree-view.main-ui-size-large .tree-cell-dir,
+.jfx-tree-view.main-ui-size-large .tree-cell-major,
+.jfx-tree-view.main-ui-size-large .tree-cell-media,
+.jfx-tree-view.main-ui-size-large .tree-cell-image,
+.jfx-tree-view.main-ui-size-large .tree-cell-coding,
+.jfx-tree-view.main-ui-size-large .tree-cell-other {
+   -fx-font-size: 16;
+}
+
+.jfx-tree-view.main-ui-size-larger .tree-cell-dir,
+.jfx-tree-view.main-ui-size-larger .tree-cell-major,
+.jfx-tree-view.main-ui-size-larger .tree-cell-media,
+.jfx-tree-view.main-ui-size-larger .tree-cell-image,
+.jfx-tree-view.main-ui-size-larger .tree-cell-coding,
+.jfx-tree-view.main-ui-size-larger .tree-cell-other {
+   -fx-font-size: 17;
+}
+
 .notepad-bottom-bar.main-ui-size-large .small-desc-label,
 .notepad-bottom-bar.main-ui-size-large .small-colored-label {
    -fx-font-size: 13;

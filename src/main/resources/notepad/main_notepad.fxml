@@ -89,39 +89,39 @@
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceGoUpBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceGoUpBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
                         <JFXRippler styleClass="jfx-rippler-red-custom">
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceSortBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceSortBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
                         <Pane HBox.hgrow="ALWAYS"/>
                         <JFXRippler styleClass="jfx-rippler-red-custom">
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceCreateDirBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceCreateDirBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
                         <JFXRippler styleClass="jfx-rippler-red-custom">
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceCreateFileBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceCreateFileBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
 
                         <JFXRippler styleClass="jfx-rippler-red-custom">
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
                         <JFXRippler styleClass="jfx-rippler-red-custom">
                             <HBox.margin>
                                 <Insets left="0" right="1"/>
                             </HBox.margin>
-                            <Label maxHeight="1.8" fx:id="workspaceCloseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                            <Label fx:id="workspaceCloseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                         </JFXRippler>
                     </HBox>
                     <Label fx:id="workspaceText" styleClass="small-desc-label" textOverrun="CENTER_ELLIPSIS"/>

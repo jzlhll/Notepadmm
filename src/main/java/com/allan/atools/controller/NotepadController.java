@@ -123,13 +123,17 @@ public final class NotepadController extends AbstractMainController {
             return Math.round(defaultSize * 1.1f);
         }
         if (mode == 2) {
-            return Math.round(defaultSize * 1.2f);
+            return Math.round(defaultSize * 1.15f);
         }
         return defaultSize;
     }
 
     public int getMainBottomSize(int defaultSize) {
         return defaultSize + getMainUiSizeMode();
+    }
+
+    public int getMainWorkspaceIconSize(int defaultSize) {
+        return defaultSize + getMainUiSizeMode() * 2;
     }
 
     public void applyMainUiSizeMode() {
@@ -149,9 +153,12 @@ public final class NotepadController extends AbstractMainController {
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         tabPane.getStyleClass().removeAll(
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        workspaceTree.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         notepadMainHeadBox.getStyleClass().add(styleClass);
         notepadMainBottomBox.getStyleClass().add(styleClass);
         tabPane.getStyleClass().add(styleClass);
+        workspaceTree.getStyleClass().add(styleClass);
 
         double extra = mode;
         notepadMainHeadBox.setPadding(new Insets(3 + extra));
@@ -160,6 +167,7 @@ public final class NotepadController extends AbstractMainController {
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22 + mode * 2, 0));
 
         NotepadHeadButtons.refreshSize();
+        WorkspaceManager.refreshSize();
         BottomEntry.refreshSize();
         BottomSearchBtnsMgr.refreshSize();
     }
