@@ -273,7 +273,7 @@ public final class NotepadController extends AbstractMainController {
             List<File> currentDropped = event.getDragboard().getFiles();
             if (currentDropped != null && currentDropped.size() >= 1) {
                 for (var file : currentDropped) {
-                    AllEditorsManager.Instance.openFile(file, true, true);
+                    FileOpenSupportsKt.open(file);
                 }
             }
         };
