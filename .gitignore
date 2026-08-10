@@ -1,4 +1,5 @@
 pack_sh
+.gradle/
 proguardMap.zip
 out.map
 proguard_use.pro
