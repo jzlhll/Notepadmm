@@ -482,7 +482,7 @@ public final class NotepadController extends AbstractMainController {
                     if (action.equals(Locales.str("removeUnknownSymbols"))) {
                         var newText = fmt.removeFanxieExtraQuote(text);
                         UIContext.currentAreaProp.get().getEditor().resetText(newText);
-                    } else if (action.equals("Format")) {
+                    } else if (action.equals(Locales.str("jsonFormat"))) {
                         var newText = fmt.format(fmt.removeEnter(text));
                         UIContext.currentAreaProp.get().getEditor().resetText(newText);
                     }

@@ -18,7 +18,7 @@ class JSONChooseCreatorImpl : AbstractMenuCreator<String>() {
         val contextMenu = ContextMenu()
         contextMenu.items.addAll(
             createMenuItem(action, Locales.str("removeUnknownSymbols")),
-            createMenuItem(action, "Format"),
+            createMenuItem(action, Locales.str("jsonFormat")),
             //SeparatorMenuItem(),
         )
         return contextMenu
@@ -30,7 +30,7 @@ class JSONChooseCreatorImpl : AbstractMenuCreator<String>() {
         list.maxHeight = 470.0
 
         list.items.add(createLabel(Locales.str("removeUnknownSymbols")))
-        list.items.add(createLabel("Format"))
+        list.items.add(createLabel(Locales.str("jsonFormat")))
 
         list.selectionModel.selectedItemProperty()
             .addListener { observable: ObservableValue<out Label>?, oldValue: Label?, newValue: Label ->

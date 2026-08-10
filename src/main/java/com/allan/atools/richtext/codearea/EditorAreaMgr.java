@@ -11,6 +11,7 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.modulenotepad.Highlight;
+import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
@@ -683,6 +684,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         MenuItem openTerminal =     new MenuItem(Locales.str("editor.programTerminal"));
         MenuItem openTerminalHere = new MenuItem(Locales.str("editor.directoryTerminal"));
         MenuItem screenShot =       new MenuItem(Locales.str("editor.screenshot"));
+        MenuItem removeUnknownSymbols = new MenuItem(Locales.str("removeUnknownSymbols"));
+        MenuItem formatJson =        new MenuItem(Locales.str("jsonFormat"));
         //Add Event Handler
         //save.setOnAction(this::saveContent);
 
@@ -707,6 +710,15 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         openTerminal.setOnAction(this::openTerminal);
         openTerminalHere.setOnAction(this::openTerminalHere);
         screenShot.setOnAction(this::captureScreenShot);
+        removeUnknownSymbols.setOnAction(event -> {
+            var newText = new JsonFormatLog().removeFanxieExtraQuote(area.getSelectedText());
+            replaceSelectedTextWithPadding(newText);
+        });
+        formatJson.setOnAction(event -> {
+            var fmt = new JsonFormatLog();
+            var newText = fmt.format(fmt.removeEnter(area.getSelectedText()));
+            replaceSelectedTextWithPadding(newText);
+        });
 
         //Add Menu items in Context Menu
         ContextMenu contextMenu = new ContextMenu();
@@ -715,11 +727,67 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         contextMenu.getItems().add(copyLine);
         contextMenu.getItems().add(screenShot);
         contextMenu.getItems().add(copy);
+        contextMenu.getItems().add(removeUnknownSymbols);
+        contextMenu.getItems().add(formatJson);
         // contextMenu.getItems().add(openTerminal);
         contextMenu.getItems().add(openTerminalHere);
         contextMenu.getItems().add(openFolder);
 
+        contextMenu.setOnShowing(event -> {
+            boolean hasSelection = !area.getSelectedText().isEmpty();
+            copy.setVisible(hasSelection);
+            removeUnknownSymbols.setVisible(hasSelection);
+            formatJson.setVisible(hasSelection);
+            copyLine.setVisible(!hasSelection);
+            screenShot.setVisible(!hasSelection);
+            openTerminalHere.setVisible(!hasSelection);
+            openFolder.setVisible(!hasSelection);
+        });
+
         return contextMenu;
+    }
+
+    private void replaceSelectedTextWithPadding(String newText) {
+        var selection = area.getSelection();
+        if (selection.getLength() == 0) {
+            return;
+        }
+
+        var fullText = area.getText();
+        var before = fullText.substring(0, selection.getStart());
+        var after = fullText.substring(selection.getEnd());
+        var replacement = new StringBuilder();
+
+        if (!before.isBlank()) {
+            int lineBreaks = countBoundaryLineBreaks(before, before.length() - 1, -1);
+            if (lineBreaks < 4) {
+                replacement.append("\n".repeat(4 - lineBreaks));
+            }
+        }
+
+        replacement.append(newText);
+
+        if (!after.isBlank()) {
+            int lineBreaks = countBoundaryLineBreaks(after, 0, 1);
+            if (lineBreaks < 4) {
+                replacement.append("\n".repeat(4 - lineBreaks));
+            }
+        }
+
+        area.replaceText(selection.getStart(), selection.getEnd(), replacement.toString());
+    }
+
+    private int countBoundaryLineBreaks(String text, int index, int step) {
+        int lineBreaks = 0;
+        for (int i = index; i >= 0 && i < text.length(); i += step) {
+            char c = text.charAt(i);
+            if (c == '\n') {
+                lineBreaks++;
+            } else if (!Character.isWhitespace(c)) {
+                break;
+            }
+        }
+        return lineBreaks;
     }
 
     private void captureScreenShot(ActionEvent event) {
