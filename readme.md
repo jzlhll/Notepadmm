@@ -1,52 +1,77 @@
-## Notepadmm  
-[English ReadME](https://github.com/jzlhll/Notepadmm/blob/main/readme_en.md)
+# Notepadmm
 
-[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small) ![](https://img.shields.io/badge/platform-windows64%7Cmac%7CmacM1-orange) ![](https://img.shields.io/badge/version-v1.4.0-green)
+[English](readme_en.md)
 
-> 因在mac上缺乏notepad++的搜索多行功能的文本软件，一怒之下，使用javafx18 + JDK17 + richtextfx + jfoenix + kotlin等开源软件研发而成。取名为notepad--。支持大文本文件的打开。
+[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-orange)
+![Version](https://img.shields.io/badge/version-v1.6.0-green)
 
-安装包采用最新的jpackage打包。mac软件大小仅为38MB。理论支持所有常见系统。
+Notepadmm 是一款面向大文本和日志分析的桌面编辑器，起因是 macOS 上缺少像 Notepad++ 一样方便的多行搜索工具。项目使用 JDK 17、JavaFX 21、Java、Kotlin、RichTextFX 和 JFoenix 开发，可在 Windows 与 macOS 上运行。
 
-:smile: 支持windows；:smile: 支持mac；:smile:支持Mac M1；
+## 主要功能
 
-理论支持linux系统，目前需要征集Linux开发者，帮忙编译。
+- 多条件搜索着色：支持为不同关键字或正则表达式设置不同的背景色和文本色，便于快速分析日志。
+- 常规搜索：支持正则表达式、区分大小写、全词匹配和最近 10 条搜索记录，搜索结果可拆分到独立窗口。
+- 大文本浏览与编辑：支持自动换行、字体和字号调整、文本编码切换、插入空行等常用操作。
+- 工作区：支持从左侧目录树浏览文件。
+- 代码高亮和简单的图片预览。
 
-### :revolving_hearts:新一代的大文件着色日志查看分析文本软件。<img src="icons/icon.png" width="48">
+![多条件搜索着色](previews/advance_search.png)
 
-目前的功能状态属于可以使用的状态。欢迎下载体验。
+![常规编辑](previews/normal.png)
 
-### 最推荐功能
-:heart::heart::muscle:本软件最强大的功能是：多搜索着色功能，按照不同的关键字(可以是正则)，设置不同的背景色和文本色进行搜索，一目了然，分析日志：
+![常规搜索](previews/normal_search.png)
 
-![](previews/advance_search.png)
+![代码高亮](previews/colors.png)
 
+## Gradle 任务
 
-### 常规文本功能
-* 支持左侧文件夹工作区浏览；
+### 运行开发版
 
-* 底部搜索区域(支持正则，大小写，全词匹配)；选中匹配颜色，底部搜索文字颜色； 
+安装 JDK 17 后，在项目根目录执行：
 
-* 插入空行功能；
+```shell
+./gradlew :app:run
+```
 
-* 调整字体大小；自定义文本区域字体；自动换行切换；文本编码格式等常规功能。
-![](previews/normal.png)
+Windows 使用：
 
-* 支持普通搜索
+```bat
+gradlew.bat :app:run
+```
 
-  * 过往搜索保存10次；
-  * 底部搜搜记录可以拆分独立窗体；
-  * 支持大小写，全词匹配，正则表达式；
-  * 支持搜索文本和横幅颜色；
+`:app:run` 会编译 `BaseParty`、`BaseUiLibs` 和 `app`，组装模块路径与项目所需的 VM 参数，然后直接启动应用。它适合日常开发和调试，不会生成安装包。
 
-  ![](previews/normal_search.png)
+### 生成发行包
 
+首次打包前，将 `local.properties.example` 复制为 `local.properties`，并填写目标任务对应的 `packageJdk.*` JDK 路径。macOS 还需要准备代码签名证书，证书名称应与 `gradle.properties` 中的 `packageMacSigningKey` 一致。每次只能执行一个目标任务，且 macOS 任务只能在 macOS 上执行，Windows 任务只能在 Windows 上执行。
 
-* 代码高亮
+| Gradle 任务 | 作用 |
+| --- | --- |
+| `mainShAllMacArm64` | 准备 macOS Apple Silicon（ARM64）发行内容，并生成 `buildRoot/jpackageCmd.sh`。 |
+| `mainShAllMacX64` | 准备 macOS Intel（x64）发行内容，并生成 `buildRoot/jpackageCmd.sh`。 |
+| `mainShAllWindowsArm64` | 准备 Windows ARM64 发行内容，并生成安装版和绿色版 jpackage 脚本。目标 JDK 需要自带 Windows ARM64 JavaFX。 |
+| `mainShAllWindowsX64` | 准备 Windows x64 发行内容，并生成安装版和绿色版 jpackage 脚本。 |
 
-  ![](previews/colors.png)
+例如，在 Apple Silicon Mac 上执行：
 
-* 支持简易的图片文件浏览功能。
+```shell
+./gradlew mainShAllMacArm64
+./buildRoot/jpackageCmd.sh
+```
 
-### 已知问题：
-1. 文件关联不是特别好；
-2. windows打包工具有一些问题，暂不发布，并且windows推荐使用notepad++.
+在 Windows x64 上执行：
+
+```bat
+gradlew.bat mainShAllWindowsX64
+buildRoot\jpackageCmdExe.bat
+```
+
+Windows 的 `jpackageCmdExe.bat` 生成 `.exe` 安装包，`jpackageCmdGreenExe.bat` 生成免安装应用目录；macOS 的 `jpackageCmd.sh` 生成 `.dmg`。最终产物统一输出到 `dist`。四个 `mainShAll...` 任务本身负责整理模块 JAR、第三方依赖和资源，分析并创建最小 JRE，混淆主应用 JAR，最后生成对应平台的 jpackage 脚本，不会直接执行该脚本。
+
+项目已由 Gradle Wrapper 统一管理依赖、模块路径和运行参数，不需要手动配置旧版文档中的 Maven、module-path 或 VM 参数。新增三方库或项目模块时，参见 [编译注意事项](docs/编译注意事项.md)。
+
+## 已知问题
+
+- 文件关联仍有改进空间。
+- Windows 打包工具仍存在一些限制；仅需常规文本编辑时，更推荐使用 Notepad++。
