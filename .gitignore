@@ -4,6 +4,8 @@ out.map
 proguard_use.pro
 .DS_Store
 buildRoot
+dist/
+local.properties
 target/
 *.iml
 .idea/

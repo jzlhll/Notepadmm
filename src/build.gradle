@@ -6,6 +6,9 @@ plugins {
 
 javafx {
     version = '21.0.6'
+    if (rootProject.packagingConfig.javafxPlatform != null) {
+        platform = rootProject.packagingConfig.javafxPlatform
+    }
     modules = [
             'javafx.base',
             'javafx.controls',

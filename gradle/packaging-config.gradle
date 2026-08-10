@@ -2,22 +2,73 @@ def propertyValue = { String name ->
     providers.gradleProperty(name).get()
 }
 
+def packageTargets = [
+        mainShAllMacArm64    : [name: 'mac-arm64', os: 'mac', jdkProperty: 'packageJdk.mac-arm64', javafxPlatform: 'mac-aarch64', bundledJavafx: false],
+        mainShAllMacX64      : [name: 'mac-x64', os: 'mac', jdkProperty: 'packageJdk.mac-x64', javafxPlatform: 'mac', bundledJavafx: false],
+        mainShAllWindowsArm64: [name: 'windows-arm64', os: 'windows', jdkProperty: 'packageJdk.windows-arm64', javafxPlatform: 'win', bundledJavafx: true],
+        mainShAllWindowsX64  : [name: 'windows-x64', os: 'windows', jdkProperty: 'packageJdk.windows-x64', javafxPlatform: 'win', bundledJavafx: false]
+]
+def requestedPackageTasks = gradle.startParameter.taskNames
+        .collect { it.tokenize(':').last() }
+        .findAll { packageTargets.containsKey(it) }
+        .unique()
+if (requestedPackageTasks.size() > 1) {
+    throw new GradleException('一次只能执行一个 mainShAll 架构打包任务。')
+}
+
+def packageTarget = requestedPackageTasks.isEmpty() ? null : packageTargets[requestedPackageTasks.first()]
+def osName = System.getProperty('os.name').toLowerCase()
+def currentOs = osName.contains('mac') ? 'mac' : (osName.contains('win') ? 'windows' : 'unsupported')
+def packageJdkHome = null
+if (packageTarget != null) {
+    if (packageTarget.os != currentOs) {
+        throw new GradleException("当前系统不能执行 ${packageTarget.name} 打包任务。")
+    }
+
+    def localPropertiesFile = layout.projectDirectory.file('local.properties').asFile
+    if (!localPropertiesFile.isFile()) {
+        throw new GradleException("请创建 local.properties，并追加 ${packageTarget.jdkProperty}=JDK绝对路径。")
+    }
+
+    def localProperties = new Properties()
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+    def configuredJdkPath = localProperties.getProperty(packageTarget.jdkProperty)?.trim()
+    if (configuredJdkPath == null || configuredJdkPath.isBlank()) {
+        throw new GradleException("请在 local.properties 中追加 ${packageTarget.jdkProperty}=JDK绝对路径。")
+    }
+
+    packageJdkHome = file(configuredJdkPath).absoluteFile
+    if (!packageJdkHome.isDirectory()) {
+        throw new GradleException("JDK 目录不存在：${packageJdkHome}。请修改 local.properties 中的 ${packageTarget.jdkProperty}=JDK绝对路径。")
+    }
+}
+
+ext.packageTargetDefinitions = packageTargets
 ext.packagingConfig = [
-        appName       : propertyValue('packageAppName'),
-        appVersion    : propertyValue('packageAppVersion'),
-        mainModule    : propertyValue('packageMainModule'),
-        mainClass     : propertyValue('packageMainClass'),
-        vendor        : propertyValue('packageVendor'),
-        vmOptions     : propertyValue('packageVmOptions').split(/\s+/).findAll { !it.isBlank() },
-        buildRoot     : layout.projectDirectory.dir('buildRoot').asFile,
-        thirdLibsDir  : layout.projectDirectory.dir('buildRoot/thirdLibs').asFile,
-        projectLibsDir: layout.projectDirectory.dir('buildRoot/myLibs').asFile,
-        resourcesDir  : layout.projectDirectory.dir('buildRoot/resources/resources').asFile,
-        miniJreDir    : layout.projectDirectory.dir('buildRoot/minijre').asFile,
-        jreDepsFile   : layout.projectDirectory.file('buildRoot/miniJreDeps.txt').asFile,
-        proguardUse   : layout.projectDirectory.file('buildRoot/proguard_use.pro').asFile,
-        mappingFile   : layout.projectDirectory.file('buildRoot/out.map').asFile,
-        proguardMap   : layout.projectDirectory.file('buildRoot/resources/resources/pro.map').asFile,
-        isWindows     : System.getProperty('os.name').toLowerCase().contains('win'),
-        isMac         : System.getProperty('os.name').toLowerCase().contains('mac')
+        appName          : propertyValue('packageAppName'),
+        appVersion       : propertyValue('packageAppVersion'),
+        mainModule       : propertyValue('packageMainModule'),
+        mainClass        : propertyValue('packageMainClass'),
+        vendor           : propertyValue('packageVendor'),
+        macIdentifier    : propertyValue('packageMacIdentifier'),
+        macSigningKey    : propertyValue('packageMacSigningKey'),
+        vmOptions        : propertyValue('packageVmOptions').split(/\s+/).findAll { !it.isBlank() },
+        target           : packageTarget,
+        jdkHome          : packageJdkHome,
+        javafxPlatform   : packageTarget?.javafxPlatform,
+        useBundledJavafx : packageTarget?.bundledJavafx == true,
+        buildRoot        : layout.projectDirectory.dir('buildRoot').asFile,
+        distDir          : layout.projectDirectory.dir('dist').asFile,
+        thirdLibsDir     : layout.projectDirectory.dir('buildRoot/thirdLibs').asFile,
+        projectLibsDir   : layout.projectDirectory.dir('buildRoot/myLibs').asFile,
+        resourcesDir     : layout.projectDirectory.dir('buildRoot/resources/resources').asFile,
+        miniJreDir       : layout.projectDirectory.dir('buildRoot/minijre').asFile,
+        jreDepsFile      : layout.projectDirectory.file('buildRoot/miniJreDeps.txt').asFile,
+        proguardUse      : layout.projectDirectory.file('buildRoot/proguard_use.pro').asFile,
+        mappingFile      : layout.projectDirectory.file('buildRoot/out.map').asFile,
+        proguardMap      : layout.projectDirectory.file('buildRoot/resources/resources/pro.map').asFile,
+        isWindows        : packageTarget?.os == 'windows',
+        isMac            : packageTarget?.os == 'mac'
 ]

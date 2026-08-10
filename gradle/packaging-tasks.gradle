@@ -33,6 +33,9 @@ tasks.register('preparePackageLayout') {
         def thirdPartyJars = project(':app').configurations.runtimeClasspath.files.findAll {
             it.name.endsWith('.jar') && !projectJarPaths.contains(it.canonicalPath)
         }
+        if (packagingConfig.useBundledJavafx) {
+            thirdPartyJars = thirdPartyJars.findAll { !it.name.startsWith('javafx-') }
+        }
 
         copy {
             from projectJars
@@ -187,17 +190,21 @@ tasks.register('generateJpackageScripts') {
     outputs.upToDateWhen { false }
 
     doLast {
-        if (!packagingConfig.isMac && !packagingConfig.isWindows) {
-            throw new GradleException('Packaging supports macOS and Windows only.')
+        if (packagingConfig.target == null) {
+            throw new GradleException('请使用对应架构的 mainShAll 打包任务。')
         }
 
+        packagingConfig.distDir.mkdirs()
         def iconPath = packagingConfig.isWindows ? '../icons/windows.ico' : '../icons/mac.icns'
+        def originalOutputName = "${packagingConfig.appName}-${packagingConfig.appVersion}"
+        def architectureOutputName = "${originalOutputName}-${packagingConfig.target.name}"
         def baseCommand = [
                 packagingJdkTool('jpackage'),
                 '-n', packagingConfig.appName,
                 '--icon', iconPath,
                 '-i', 'resources',
-                '-p', "thirdLibs${File.pathSeparator}myLibs"
+                '-p', "thirdLibs${File.pathSeparator}myLibs",
+                '--dest', '../dist'
         ]
         packagingConfig.vmOptions.each { option ->
             baseCommand.addAll(['--java-options', option])
@@ -209,9 +216,17 @@ tasks.register('generateJpackageScripts') {
         ])
 
         if (packagingConfig.isMac) {
+            baseCommand.addAll([
+                    '--type', 'dmg',
+                    '--resource-dir', '../FileAssociations/macos',
+                    '--mac-package-identifier', packagingConfig.macIdentifier,
+                    '--mac-sign',
+                    '--mac-signing-key-user-name', packagingConfig.macSigningKey
+            ])
             def script = new File(packagingConfig.buildRoot, 'jpackageCmd.sh')
             script.text = '#!/bin/sh\nset -e\ncd "$(dirname "$0")"\n' +
-                    baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n'
+                    baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n' +
+                    "mv ${shellQuote("../dist/${originalOutputName}.dmg")} ${shellQuote("../dist/${architectureOutputName}.dmg")}\n"
             script.setExecutable(true, false)
         } else {
             def exeScript = new File(packagingConfig.buildRoot, 'jpackageCmdExe.bat')
@@ -219,16 +234,22 @@ tasks.register('generateJpackageScripts') {
             def exeCommand = baseCommand + ['--type', 'exe', '--vendor', packagingConfig.vendor, '--win-dir-chooser', '--win-shortcut']
             def imageCommand = baseCommand + ['--type', 'app-image', '--vendor', packagingConfig.vendor]
             exeScript.text = '@echo off\r\ncd /d "%~dp0"\r\n' +
-                    exeCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n'
+                    exeCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n' +
+                    'if errorlevel 1 exit /b %errorlevel%\r\n' +
+                    "move /Y ${batchQuote("../dist/${originalOutputName}.exe")} ${batchQuote("../dist/${architectureOutputName}.exe")}\r\n"
             imageScript.text = '@echo off\r\ncd /d "%~dp0"\r\n' +
-                    imageCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n'
+                    imageCommand.collect { batchQuote(it.toString()) }.join(' ') + '\r\n' +
+                    'if errorlevel 1 exit /b %errorlevel%\r\n' +
+                    "move /Y ${batchQuote("../dist/${packagingConfig.appName}")} ${batchQuote("../dist/${architectureOutputName}")}\r\n"
         }
         logger.lifecycle('jpackage scripts generated.')
     }
 }
 
-tasks.register('mainShAll') {
-    group = 'distribution'
-    description = '执行完整构建、依赖分析、最小 JRE、混淆和 jpackage 脚本生成流程。'
-    dependsOn 'generateJpackageScripts'
+packageTargetDefinitions.each { taskName, target ->
+    tasks.register(taskName) {
+        group = 'distribution'
+        description = "生成 ${target.name} 的完整打包内容和 jpackage 脚本。"
+        dependsOn 'generateJpackageScripts'
+    }
 }

@@ -1,0 +1,14 @@
+# 复制本文件为 local.properties 后填写本机绝对路径；local.properties 不提交到 Git。
+# Windows 路径推荐使用正斜杠，例如 C:/Java/jdk-17，避免反斜杠被 properties 转义。
+
+# macOS Apple Silicon JDK，用于生成名称带 mac-arm64 的安装包。
+packageJdk.mac-arm64=/Library/Java/JavaVirtualMachines/zulu-17-arm64.jdk/Contents/Home
+
+# macOS Intel JDK，用于生成名称带 mac-x64 的安装包；Apple Silicon 电脑需要 Rosetta 才能运行该 JDK。
+packageJdk.mac-x64=/Library/Java/JavaVirtualMachines/zulu-17-x64.jdk/Contents/Home
+
+# Windows ARM64 JDK，用于生成名称带 windows-arm64 的安装包；该 JDK 需要自带 Windows ARM64 JavaFX 模块。
+packageJdk.windows-arm64=C:/Java/zulu-21-fx-arm64
+
+# Windows x64 JDK，用于生成名称带 windows-x64 的安装包。
+packageJdk.windows-x64=C:/Java/zulu-17-x64

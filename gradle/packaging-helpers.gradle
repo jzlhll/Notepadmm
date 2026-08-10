@@ -1,9 +1,8 @@
 ext.packagingJdkHome = {
-    def toolchains = project(':app').extensions.getByType(org.gradle.jvm.toolchain.JavaToolchainService)
-    def launcher = toolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(17)
-    }.get()
-    launcher.metadata.installationPath.asFile
+    if (packagingConfig.jdkHome == null) {
+        throw new GradleException('请使用对应架构的 mainShAll 打包任务。')
+    }
+    packagingConfig.jdkHome
 }
 
 ext.packagingJdkTool = { String name ->
