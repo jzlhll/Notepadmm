@@ -18,6 +18,7 @@ import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
 import com.allan.atools.toolsstartup.Startup;
 import com.allan.atools.ui.SnackbarUtils;
+import com.allan.atools.ui.SettingDrawer;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
 import com.allan.atools.utils.*;
 import com.jfoenix.controls.JFXTabPane;
@@ -83,7 +84,10 @@ public final class NotepadController extends AbstractMainController {
     public Label notepadReadonlyCheckBtn;
     public HBox notepadMainBottomBox;
     public StackPane mainPane;
-    public Label notepadMainNotHasFileText;
+    public VBox notepadMainNotHasFileText;
+    public Label notepadEmptyTitleLabel;
+    public Label notepadEmptyDescLabel;
+    public Label notepadEmptyHintLabel;
 
     public Label wrapTextCheckBtn;
     public AnchorPane snackContainer;
@@ -101,6 +105,24 @@ public final class NotepadController extends AbstractMainController {
     public Label notepadMainInsertEmptyLineBtn;
     public Label jsonPopBtn;
     private AnchorPane notepadMainResultLayout;
+
+    private SettingDrawer settingDrawer;
+
+    /** 打开右侧设置抽屉 */
+    public void openSettingDrawer() {
+        if (settingDrawer == null) {
+            settingDrawer = new SettingDrawer(getStage());
+        }
+        settingDrawer.open();
+    }
+
+    /** 切换设置抽屉开关 */
+    public void toggleSettingDrawer() {
+        if (settingDrawer == null) {
+            settingDrawer = new SettingDrawer(getStage());
+        }
+        settingDrawer.toggle();
+    }
 
     public AnchorPane getNotepadMainResultLayout() {
         if (notepadMainResultLayout == null) {
@@ -298,6 +320,17 @@ public final class NotepadController extends AbstractMainController {
         super.init(stage);
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22, 0));
         mainPane.getChildren().remove(snackContainer);
+
+        //空状态三行文案
+        if (notepadEmptyTitleLabel != null) {
+            notepadEmptyTitleLabel.setText(Locales.str("appNameLine") + " (" + Utils.getAppVersion() + ")");
+        }
+        if (notepadEmptyDescLabel != null) {
+            notepadEmptyDescLabel.setText(Locales.str("appDescLine"));
+        }
+        if (notepadEmptyHintLabel != null) {
+            notepadEmptyHintLabel.setText(Locales.str("dragFileIntoAndOpen"));
+        }
         getWorkspaceManager().removeWorkspace(false);
 
         mHeightProp.set(stage.heightProperty().getValue() - 5);

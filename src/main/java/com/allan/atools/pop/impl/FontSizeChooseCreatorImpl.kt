@@ -52,7 +52,6 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         list.maxWidth = 80.0
         list.prefHeight = 366.0
         list.maxHeight = 370.0
-        list.items.add(createLabel("    12", 12))
         list.items.add(createLabel("   14", 14))
         list.items.add(createLabel("  15", 15))
         list.items.add(createLabel("  16", 16))
@@ -61,17 +60,19 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         list.items.add(createLabel("  19", 19))
         list.items.add(createLabel("  20", 20))
         list.items.add(createLabel("  22", 22))
+        list.items.add(createLabel("  24", 24))
 
         val curFont = UIContext.getFontSizeProperty().get()
         val index = when (curFont) {
-            14 -> 1
-            15 -> 2
-            16 -> 3
-            17 -> 4
-            18 -> 5
-            19 -> 6
-            20 -> 7
-            22 -> 8
+            14 -> 0
+            15 -> 1
+            16 -> 2
+            17 -> 3
+            18 -> 4
+            19 -> 5
+            20 -> 6
+            22 -> 7
+            24 -> 8
             else -> 0
         }
 

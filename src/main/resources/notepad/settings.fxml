@@ -16,8 +16,9 @@
             fx:id="vbox_id"
             styleClass="custom-main-bg"
             fx:controller="com.allan.atools.controller.SettingController"
+            fitToWidth="true"
             prefHeight="650" prefWidth="650">
-    <VBox>
+    <VBox minWidth="0">
         <!--- 第1部分 -->
         <HBox>
             <VBox.margin>
@@ -87,14 +88,9 @@
         </JFXToggleButton>
 
         <!--- 第2部分 -->
-        <Separator prefHeight="2">
+        <Separator styleClass="full-width-separator" prefHeight="1">
             <VBox.margin>
-                <Insets top="15"/>
-            </VBox.margin>
-        </Separator>
-        <Separator prefHeight="2">
-            <VBox.margin>
-                <Insets top="2"/>
+                <Insets top="15" left="0" right="0"/>
             </VBox.margin>
         </Separator>
 
@@ -150,14 +146,9 @@
         </VBox>
 
         <!--- 第3部分 -->
-        <Separator prefHeight="2">
+        <Separator styleClass="full-width-separator" prefHeight="1">
             <VBox.margin>
-                <Insets top="15"/>
-            </VBox.margin>
-        </Separator>
-        <Separator prefHeight="2">
-            <VBox.margin>
-                <Insets top="2"/>
+                <Insets top="15" left="0" right="0"/>
             </VBox.margin>
         </Separator>
 

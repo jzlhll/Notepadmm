@@ -14,6 +14,12 @@ import java.io.IOException;
 import java.util.Set;
 
 public final class Utils {
+    private static final String APP_VERSION = "1.5.1";
+
+    public static String getAppVersion() {
+        return APP_VERSION;
+    }
+
     public record StringAndActionR0Str(String newFullPath, ActionR0<String> run) {}
 
     public static StringAndActionR0Str rename(File sourceFile, String newFileName) {

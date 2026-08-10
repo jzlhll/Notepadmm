@@ -19,6 +19,56 @@
    -fx-background-color: -au-main-bg-color;
 }
 
+/* 设置抽屉 */
+.setting-drawer {
+   -fx-background-color: -au-main-bg-color;
+   -fx-border-color: -au-default-desc-color;
+   -fx-border-width: 0 0 0 1;
+   -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 12, 0.35, -4, 0);
+}
+
+.setting-drawer-mask {
+   -fx-background-color: rgba(0, 0, 0, 0.45);
+}
+
+.setting-drawer-header {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-border-color: derive(-au-default-desc-color, 75%);
+   -fx-border-width: 0 0 1 0;
+}
+
+.setting-drawer-title {
+   -fx-font-size: 15px;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-font-weight: bold;
+}
+
+.setting-drawer-close {
+   -fx-font-size: 20px;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-padding: 6 16 6 16;
+   -fx-background-radius: 4;
+}
+
+.setting-drawer-close:hover {
+   -fx-text-fill: #ff5555;
+   -fx-background-color: rgba(255, 85, 85, 0.1);
+}
+
+.setting-drawer-close:pressed {
+   -fx-background-color: rgba(255, 85, 85, 0.22);
+}
+
+/* settings.fxml 内分隔线：去默认 padding，充满宽度 */
+.full-width-separator {
+   -fx-padding: 0;
+}
+.full-width-separator .line {
+   -fx-border-width: 0 0 1 0;
+   -fx-border-color: derive(-au-default-desc-color, 72%);
+   -fx-padding: 0;
+}
+
 /* tab pane custom */
 .custom-jfx-tab-pane .headers-region .tab .tab-container .tab-label { /*allan 文字*/
     -fx-text-fill: -au-default-desc-color;
@@ -52,6 +102,27 @@
     -fx-padding: 14.0px;
     -fx-text-fill: -au-default-text-color;
     -fx-font-weight: bold;
+}
+
+/* 空状态三行提示 */
+.empty-state-box {
+    -fx-padding: 20 36;
+    -fx-alignment: CENTER;
+}
+.empty-state-title {
+    -fx-font-size: 30;
+    -fx-font-weight: bold;
+    -fx-text-fill: -au-default-text-color;
+    -fx-padding: 0 0 4 0;
+}
+.empty-state-desc {
+    -fx-font-size: 16;
+    -fx-text-fill: -au-default-desc-color;
+}
+.empty-state-hint {
+    -fx-font-size: 17;
+    -fx-text-fill: -au-default-desc-color;
+    -fx-padding: 16 0 0 0;
 }
 
 .normal-label {

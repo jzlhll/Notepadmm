@@ -133,7 +133,11 @@
         </SplitPane>
 
         <AnchorPane fx:id="snackContainer" StackPane.alignment="BOTTOM_CENTER" prefWidth="600" prefHeight="30" />
-        <Label fx:id="notepadMainNotHasFileText" styleClass="title-label-big" StackPane.alignment="CENTER" text="%dragFileIntoAndOpen"/>
+        <VBox fx:id="notepadMainNotHasFileText" styleClass="empty-state-box" StackPane.alignment="CENTER" alignment="CENTER" spacing="14">
+            <Label fx:id="notepadEmptyTitleLabel" styleClass="empty-state-title"/>
+            <Label fx:id="notepadEmptyDescLabel" styleClass="empty-state-desc"/>
+            <Label fx:id="notepadEmptyHintLabel" styleClass="empty-state-hint"/>
+        </VBox>
     </StackPane>
 
     <HBox fx:id="notepadMainBottomBox" styleClass="custom-main-bg" alignment="CENTER_LEFT" spacing="3.0" VBox.vgrow="NEVER">
