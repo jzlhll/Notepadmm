@@ -10,11 +10,11 @@
 }
 
 .jfx-tab-pane .tab-header-area .tab-down-button {
-    -fx-background-color: BLACK;
-    -fx-min-width: 0.8em;
-    -fx-max-width: 0.8em;
-    -fx-min-height: 1.1em;
-    -fx-max-height: 1.1em;
+    -fx-background-color: -au-default-desc-color;
+    -fx-min-width: 0.75em;
+    -fx-max-width: 0.75em;
+    -fx-min-height: 1em;
+    -fx-max-height: 1em;
 }
 
 .jfx-tab-pane .tab-header-area .control-buttons-tab .jfx-rippler {
@@ -22,11 +22,11 @@
 }
 
 .jfx-tab-pane .tab-header-area .tab-down-button:left {
-    -fx-shape: "M 742,-37 90,614 Q 53,651 53,704.5 53,758 90,795 l 652,651 q 37,37 90.5,37 53.5,0 90.5,-37 l 75,-75 q 37,-37 37,-90.5 0,-53.5 -37,-90.5 L 512,704 998,219 q 37,-38 37,-91 0,-53 -37,-90 L 923,-37 Q 886,-74 832.5,-74 779,-74 742,-37 z";
+    -fx-shape: "M 14.9 6.9 L 14 6 L 8 12 L 14 18 L 14.9 17.1 L 9.8 12 Z";
 }
 
 .jfx-tab-pane .tab-header-area .tab-down-button:right {
-    -fx-shape: "m 1099,704 q 0,-52 -37,-91 L 410,-38 q -37,-37 -90,-37 -53,0 -90,37 l -76,75 q -37,39 -37,91 0,53 37,90 l 486,486 -486,485 q -37,39 -37,91 0,53 37,90 l 76,75 q 36,38 90,38 54,0 90,-38 l 652,-651 q 37,-37 37,-90 z"
+    -fx-shape: "M 9.1 17.1 L 10 18 L 16 12 L 10 6 L 9.1 6.9 L 14.2 12 Z";
 }
 
 .jfx-tab-pane .headers-region > .tab-selected-line{
