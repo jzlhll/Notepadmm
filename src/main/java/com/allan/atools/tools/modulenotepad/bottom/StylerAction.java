@@ -52,6 +52,8 @@ abstract class StylerAction {
             if(Styler.DEBUG_STYLER) Log.w(">>>>>>jump To Next<<<<");
             out.jumpToNext(out.editorArea, false, true);
         }
-        ManualGC.lessGC();
+        if (clickType != BottomHandler.ClickType.None) {
+            ManualGC.lessGC();
+        }
     }
 }

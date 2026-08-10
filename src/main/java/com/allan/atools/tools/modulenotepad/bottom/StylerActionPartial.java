@@ -1,17 +1,17 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.richtext.codearea.EditorArea;
-import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.local.StyleCreator;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
-import com.allan.atools.utils.ManualGC;
 import com.allan.atools.utils.TimerCounter;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 
 final class StylerActionPartial extends StylerAction implements StylerAction.INormalAction {
+    private static final long SCROLL_STYLE_DELAY_MS = 80L;
+
     StylerActionPartial(BottomSearchBtnsMgr out) {
         super(out);
     }
@@ -38,10 +38,11 @@ final class StylerActionPartial extends StylerAction implements StylerAction.INo
     }
     private final Runnable setBigParaStylePartRunnable = this::setBigParaStylePartRunFunction;
 
-    //        //getHandler().removeCallbacksAndMessages(setBigParaStylePartRunnable);
-    //        //getHandler().postDelayed(setBigParaStylePartRunnable, 100);
-    //之前是移除滑动过程中的动作。现在是不移除；滑动过程中时时刻刻排队清理改变style
-    final Action0 visibleParaChanged = () -> getHandler().post(setBigParaStylePartRunnable);
+    // 滚动过程中只保留最后一次刷新，避免样式任务持续堆积影响滚动帧率。
+    final Action0 visibleParaChanged = () -> {
+        getHandler().removeCallback(setBigParaStylePartRunnable);
+        getHandler().postDelayed(setBigParaStylePartRunnable, SCROLL_STYLE_DELAY_MS);
+    };
 
     private boolean setVisibleParaChanged = false;
 
@@ -56,6 +57,7 @@ final class StylerActionPartial extends StylerAction implements StylerAction.INo
         if (setVisibleParaChanged) {
             setVisibleParaChanged = false;
             out.editorArea.getEditor().visibleParagraphChanged.removeAction(visibleParaChanged);
+            getHandler().removeCallback(setBigParaStylePartRunnable);
         }
     }
 
@@ -98,36 +100,27 @@ final class StylerActionPartial extends StylerAction implements StylerAction.INo
             var styleSpansEx = StyleCreator.createStylesRange(area, items, showType,
                     indexes.startNum, indexes.endNum);
             Log.d(TimerCounter.end("init createStyle"));
-            ThreadUtils.execute(() -> {
+            Platform.runLater(() -> {
                 if (styleSpansEx != null) {
-                    Platform.runLater(()-> {
-                        if (flag != out.lastChangeSearchFlag.get()) {
-                            if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed33 flag=" + flag);
-                            return;
-                        }
+                    if (flag != out.lastChangeSearchFlag.get()) {
+                        if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed33 flag=" + flag);
+                        return;
+                    }
 
-                        Log.d("start pos " + styleSpansEx.areaStartPos() + ", " + styleSpansEx.styleSpans().length());
-                        area.setStyleSpans(styleSpansEx.areaStartPos(), styleSpansEx.styleSpans());
+                    Log.d("start pos " + styleSpansEx.areaStartPos() + ", " + styleSpansEx.styleSpans().length());
+                    area.setStyleSpans(styleSpansEx.areaStartPos(), styleSpansEx.styleSpans());
+                } else {
+                    if (flag != out.lastChangeSearchFlag.get()) {
+                        if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed44 flag=" + flag);
+                        return;
+                    }
 
-                        onStyleOver(clickType);
-                    });
+                    int endPos = area.getAbsolutePosition(indexes.endNum, 0);
+                    int startPos = area.getAbsolutePosition(indexes.startNum, 0);
+                    //GlobalProfs.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
+                    area.setStyle(startPos, endPos, area.getInitialTextStyle());
                 }
-                else
-                {
-                    Platform.runLater(()->{
-                        if (flag != out.lastChangeSearchFlag.get()) {
-                            if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed44 flag=" + flag);
-                            return;
-                        }
-
-                        int endPos = area.getAbsolutePosition(indexes.endNum, 0);
-                        int startPos = area.getAbsolutePosition(indexes.startNum, 0);
-                        //GlobalProfs.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
-                        area.setStyle(startPos, endPos, area.getInitialTextStyle());
-
-                        onStyleOver(clickType);
-                    });
-                }
+                onStyleOver(clickType);
             });
         });
     }

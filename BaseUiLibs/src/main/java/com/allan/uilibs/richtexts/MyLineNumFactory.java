@@ -12,9 +12,9 @@ import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
 import org.fxmisc.richtext.GenericStyledArea;
-import org.reactfx.collection.LiveList;
-import org.reactfx.value.Val;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -24,7 +24,9 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
 
     private static final Insets DEFAULT_INSETS = new Insets(0.0, 5.0, 0.0, 5.0);
     private static final Paint DEFAULT_TEXT_FILL = Color.web("#666");
-    private static final ActionR<String, Font> FontSupply = (s) -> Font.font(s, FontPosture.ITALIC, 13);
+    private static final Map<String, Font> FONT_CACHE = new HashMap<>();
+    private static final ActionR<String, Font> FontSupply = (s) ->
+            FONT_CACHE.computeIfAbsent(s, family -> Font.font(family, FontPosture.ITALIC, 13));
     //private static final Font DEFAULT_FOLD_FONT = Font.font("monospace", FontWeight.BOLD, 13);
     private static final Background DEFAULT_BACKGROUND = new Background(new BackgroundFill(Color.web("#ddd"), null, null));
 
@@ -58,7 +60,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         return new MyLineNumFactory<>(area, format, isFolded, removeFoldStyle );
     }
 
-    private final Val<Integer> nParagraphs;
+    private final GenericStyledArea<PS, ?, ?> area;
     private final IntFunction<String> format;
 
     private MyLineNumFactory(
@@ -67,14 +69,12 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
             Predicate<PS> isFolded,
             UnaryOperator<PS> removeFoldStyle )
     {
-        nParagraphs = LiveList.sizeOf(area.getParagraphs());
+        this.area = area;
         this.format = format;
     }
 
     @Override
     public Node apply(int idx) {
-        Val<String> formatted = nParagraphs.map(n -> format(idx, n)); //idx + 1
-
         Label lineNo = new Label();
         lineNo.setFont(FontSupply.invoke(offerFontFamily.invoke(idx)));
         lineNo.setBackground(DEFAULT_BACKGROUND);
@@ -82,9 +82,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         lineNo.setPadding(DEFAULT_INSETS);
         lineNo.setAlignment(Pos.TOP_RIGHT);
         lineNo.getStyleClass().add("lineno");
-        // bind label's text to a Val that stops observing area's paragraphs
-        // when lineNo is removed from scene
-        lineNo.textProperty().bind(formatted.conditionOnShowing(lineNo));
+        lineNo.setText(format(idx, area.getParagraphs().size()));
 
         return lineNo;
     }

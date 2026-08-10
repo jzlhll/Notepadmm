@@ -101,11 +101,15 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     public class VisibleParagraphChanged extends BaseChanged<Action0>{
-        private double lastY = -124.0;
+        private int lastFirstVisibleParagraph = -1;
+        private int lastLastVisibleParagraph = -1;
         private final ChangeListener<Double> _yChanged = (observable, oldValue, newValue) -> {
-            if(EditorArea.DEBUG_EDITOR) Log.v("area: _y changed " + newValue);
-            if (lastY != newValue) {
-                lastY = newValue;
+            int firstVisibleParagraph = area.firstVisibleParToAllParIndex();
+            int lastVisibleParagraph = area.lastVisibleParToAllParIndex();
+            if (lastFirstVisibleParagraph != firstVisibleParagraph || lastLastVisibleParagraph != lastVisibleParagraph) {
+                if(EditorArea.DEBUG_EDITOR) Log.v("area: visible paragraphs changed " + firstVisibleParagraph + "-" + lastVisibleParagraph);
+                lastFirstVisibleParagraph = firstVisibleParagraph;
+                lastLastVisibleParagraph = lastVisibleParagraph;
                 if (mActions != null) {
                     for (var a : mActions) {
                         a.invoke();
@@ -125,6 +129,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 if (isSet) {
                     area.estimatedScrollYProperty().removeListener(_yChanged);
                     isSet = false;
+                    lastFirstVisibleParagraph = -1;
+                    lastLastVisibleParagraph = -1;
                 }
             }
         }

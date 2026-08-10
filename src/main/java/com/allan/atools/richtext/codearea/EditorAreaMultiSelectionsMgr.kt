@@ -5,7 +5,10 @@ import com.allan.atools.UIContext
 import com.allan.atools.bean.MultiSelection
 import com.allan.atools.controller.NotepadController
 import com.allan.atools.utils.Log
+import com.allan.baseparty.Action
+import com.allan.baseparty.Action0
 import com.allan.baseparty.Action5
+import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.event.EventHandler
 import javafx.scene.input.KeyCode
@@ -81,24 +84,22 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
         }
     }
 
+    private val textChangedAction = Action0 { multiSelectionChangedAction(null) }
+    private val caretPosChangedAction = Action5<Int, Int, Int, Int, Int> { _, _, _, _, _ ->
+        multiSelectionChangedAction(null)
+    }
+    private val selectionChangedAction = Action<String> { multiSelectionChangedAction(null) }
+    private val visibleParagraphChangedAction = Action0 { multiSelectionChangedAction("scrolled") }
+
     private fun listeners() {
         Log.d("area: listener----")
-       val editor = area.editor
+        val editor = area.editor
         if (!mIsListenersInit) {
             mIsListenersInit = true
-            editor.textChanged.addAction {
-                multiSelectionChangedAction(null)
-            }
-            editor.caretPosChanged.addAction(Action5 {
-                    _, _,_,_,_ ->
-                multiSelectionChangedAction(null)
-            })
-            editor.selectionChanged.addAction {
-                multiSelectionChangedAction(null)
-            }
-            editor.visibleParagraphChanged.addAction {
-                multiSelectionChangedAction("scrolled")
-            }
+            editor.textChanged.addAction(textChangedAction)
+            editor.caretPosChanged.addAction(caretPosChangedAction)
+            editor.selectionChanged.addAction(selectionChangedAction)
+            editor.visibleParagraphChanged.addAction(visibleParagraphChangedAction)
         }
 
         if (sizeXyListener == null) {
@@ -116,10 +117,17 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
 
     private fun removeListeners() {
         Log.d("area: removeListeners----")
-        if (sizeXyListener == null) return
         if (isSizeXyListenerSet) {
             NotepadController.sizeXyChangedProp.removeListener(sizeXyListener)
             isSizeXyListenerSet = false
+        }
+        if (mIsListenersInit) {
+            val editor = area.editor
+            editor.textChanged.removeAction(textChangedAction)
+            editor.caretPosChanged.removeAction(caretPosChangedAction)
+            editor.selectionChanged.removeAction(selectionChangedAction)
+            editor.visibleParagraphChanged.removeAction(visibleParagraphChangedAction)
+            mIsListenersInit = false
         }
     }
 
@@ -146,7 +154,11 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
         }
 
         removeEventFilter()
-        removeListeners()
+        Platform.runLater {
+            if (!isMultiSelected) {
+                removeListeners()
+            }
+        }
     }
 
     private fun selectInner(multiSelection: MultiSelection, removeCached:Boolean) {
