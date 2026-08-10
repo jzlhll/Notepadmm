@@ -7,7 +7,6 @@ import javafx.beans.property.DoubleProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.geometry.Insets
 import javafx.scene.image.Image
-import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.*
 import javafx.scene.paint.Paint
 import java.io.File
@@ -20,6 +19,7 @@ class PictureControllerImageMgr(val host: PictureController) {
         @JvmField val WIN_MIN_WIDTH = 750.0
         @JvmField val WIN_MIN_HEIGHT = 520.0
         @JvmField val DELTA_SIZE = 3
+        @JvmField val CONTENT_PADDING = 30.0
 
         @JvmField val MAX_ZOOM = 2.5
         @JvmField val MIN_ZOOM = 0.05
@@ -37,15 +37,6 @@ class PictureControllerImageMgr(val host: PictureController) {
     fun initZoom() {
         zoomProperty.addListener { _ ->
             zoomPropChanged(zoomProperty.get())
-        }
-
-        host.outAnchorPane.addEventFilter(ScrollEvent.ANY
-        ) { event: ScrollEvent ->
-            if (event.deltaY > 0) {
-                zoomBig()
-            } else if (event.deltaY < 0) {
-                zoomSmall()
-            }
         }
 
         host.currentSizeLabel.setText(
@@ -138,28 +129,30 @@ class PictureControllerImageMgr(val host: PictureController) {
             val localImage = Image(localUrl, false)
             val w = localImage.width
             val h = localImage.height
+            val contentWidth = w + CONTENT_PADDING * 2
+            val contentHeight = h + CONTENT_PADDING * 2
             val bigW = Math.max(w, h)
             Log.d(TAG, "loadImage size: $w * $h, bigImgWidth $bigW")
 
             val prepareW:Int
             val prepareH:Int
-            if (w > WIN_MAX_WIDTH - DELTA_SIZE) {
+            if (contentWidth > WIN_MAX_WIDTH - DELTA_SIZE) {
                 prepareW = WIN_MAX_WIDTH.toInt()
             } else {
-                if (w < WIN_MIN_WIDTH) {
+                if (contentWidth < WIN_MIN_WIDTH) {
                     prepareW = WIN_MIN_WIDTH.toInt() + DELTA_SIZE
                 } else {
-                    prepareW = w.toInt() + DELTA_SIZE
+                    prepareW = contentWidth.toInt() + DELTA_SIZE
                 }
             }
 
-            if (h > WIN_MAX_HEIGHT - DELTA_SIZE) {
+            if (contentHeight > WIN_MAX_HEIGHT - DELTA_SIZE) {
                 prepareH = WIN_MAX_HEIGHT.toInt()
             } else {
-                if (h < WIN_MIN_HEIGHT) {
+                if (contentHeight < WIN_MIN_HEIGHT) {
                     prepareH = WIN_MIN_HEIGHT.toInt() + DELTA_SIZE
                 } else {
-                    prepareH = h.toInt() + DELTA_SIZE
+                    prepareH = contentHeight.toInt() + DELTA_SIZE
                 }
             }
 
@@ -173,17 +166,41 @@ class PictureControllerImageMgr(val host: PictureController) {
     var currentColorHexAndroid:String? = null
 
     fun attachColorCloth(x:Double, y:Double) {
-        val scaleY = y / zoomProperty.get()
-        val scaleX = x / zoomProperty.get()
+        val image = host.imageView.image ?: return
+        val imageBounds = host.imageView.boundsInLocal
+        if (imageBounds.width <= 0 || imageBounds.height <= 0
+            || x < imageBounds.minX || x >= imageBounds.maxX
+            || y < imageBounds.minY || y >= imageBounds.maxY) {
+            return
+        }
+
+        val imageWidth = image.width.toInt()
+        val imageHeight = image.height.toInt()
+        if (imageWidth <= 0 || imageHeight <= 0) {
+            return
+        }
+
+        var pixelX = ((x - imageBounds.minX) * image.width / imageBounds.width).toInt()
+        var pixelY = ((y - imageBounds.minY) * image.height / imageBounds.height).toInt()
+        if (pixelX < 0) {
+            pixelX = 0
+        } else if (pixelX >= imageWidth) {
+            pixelX = imageWidth - 1
+        }
+        if (pixelY < 0) {
+            pixelY = 0
+        } else if (pixelY >= imageHeight) {
+            pixelY = imageHeight - 1
+        }
 
         host.fixWholeWidthLabel.isVisible = true
-        val color = host.imageView.image.pixelReader.getColor(scaleX.toInt(), scaleY.toInt())
+        val color = image.pixelReader.getColor(pixelX, pixelY)
         val hex = color.toString()
         val backgroundFill = BackgroundFill(Paint.valueOf(hex), CornerRadii(2.0), Insets.EMPTY)
         val background = Background(backgroundFill)
         host.fixWholeWidthLabel.background = background
 
-        host.colorInfoLabel.text = hexColor2Str(hex)
+        host.colorInfoLabel.text = "${hexColor2Str(hex)} (copy)"
     }
 
     private fun hexColor2Str(hex:String):String {

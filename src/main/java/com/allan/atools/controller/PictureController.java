@@ -14,16 +14,24 @@ import com.allan.uilibs.jfoenix.MyJFXDecorator;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundImage;
+import javafx.scene.layout.BackgroundPosition;
+import javafx.scene.layout.BackgroundRepeat;
+import javafx.scene.layout.BackgroundSize;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
-import java.awt.*;
+import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 
 @XmlPaths(paths = {"notepad", "picture_show.fxml"})
@@ -44,6 +52,7 @@ public final class PictureController extends AbstractController {
     public Label pickupColorBtn;
     public Label fixWholeWidthLabel;
     public Label colorInfoLabel;
+    public StackPane imageContentPane;
 
     public StackPane imageViewBoxStackPane;
     public ImageView imageView;
@@ -109,6 +118,10 @@ public final class PictureController extends AbstractController {
     public void init(Stage stage) {
         super.init(stage);
 
+        applyCheckerboardBackground();
+        imageContentPane.setPadding(new Insets(PictureControllerImageMgr.CONTENT_PADDING));
+        draggerScrollPane.setStyle("-fx-background-color: transparent;");
+
         zoomBigBtn.setTooltip(new Tooltip(Locales.str("zoomBig")));
         IconfontCreator.setText(zoomBigBtn, "fangda", 24, Colors.ColorHeadButton.invoke());
         zoomBigBtn.setOnMouseClicked(e -> imageMgr.zoomBig());
@@ -137,13 +150,16 @@ public final class PictureController extends AbstractController {
             var cur = imageMgr.getEnableColorPickMode();
             imageMgr.setEnableColorPickMode(!cur);
             if (!cur) {
-                rotateReset();
+                if (mRotate != 0) {
+                    rotateReset();
+                }
                 enableRotateBtn = false;
                 draggerScrollPane.clickAction = event -> {
                     if (event instanceof MouseEvent me) {
                         Log.d("click: scene[" + me.getSceneX() + ", " + me.getSceneY()
                         + "] xy: " + me.getX() + ", " + me.getY() + ", click: current: " + draggerScrollPane.getLayoutY() + ", " + draggerScrollPane.getHvalue() + ", " + draggerScrollPane.getVvalue());
-                        imageMgr.attachColorCloth(me.getX(), me.getY());
+                        var imagePoint = imageView.sceneToLocal(me.getSceneX(), me.getSceneY());
+                        imageMgr.attachColorCloth(imagePoint.getX(), imagePoint.getY());
                     }
                 };
 
@@ -185,5 +201,23 @@ public final class PictureController extends AbstractController {
         outAnchorPane.requestFocus();
 
         imageView.setImage(imageMgr.getImageWindowSize().getImage());
+    }
+
+    private void applyCheckerboardBackground() {
+        int cellSize = 12;
+        int imageSize = cellSize * 2;
+        var image = new WritableImage(imageSize, imageSize);
+        var pixelWriter = image.getPixelWriter();
+        var lightColor = Colors.isDark() ? Color.rgb(58, 58, 58) : Color.rgb(238, 238, 238);
+        var darkColor = Colors.isDark() ? Color.rgb(48, 48, 48) : Color.rgb(207, 207, 207);
+        for (int y = 0; y < imageSize; y++) {
+            for (int x = 0; x < imageSize; x++) {
+                boolean isLight = (x / cellSize + y / cellSize) % 2 == 0;
+                pixelWriter.setColor(x, y, isLight ? lightColor : darkColor);
+            }
+        }
+        var backgroundImage = new BackgroundImage(image, BackgroundRepeat.REPEAT, BackgroundRepeat.REPEAT,
+                BackgroundPosition.DEFAULT, BackgroundSize.DEFAULT);
+        outAnchorPane.setBackground(new Background(backgroundImage));
     }
 }
