@@ -21,7 +21,7 @@ public final class Startup {
     public static volatile boolean isArgsInit;
 
     private static void onMacOpenFiles(List<File> files) {
-        if (files == null || files.isEmpty()) {
+        if (ThreadUtils.sBeClosing || files == null || files.isEmpty()) {
             return;
         }
         var paths = files.stream()
@@ -30,7 +30,7 @@ public final class Startup {
         sInitArgs = paths;
         try {
             Platform.runLater(() -> {
-                if (UIContext.mainController == null) {
+                if (ThreadUtils.sBeClosing || UIContext.mainController == null) {
                     return;
                 }
                 for (var path : paths) {
@@ -43,6 +43,19 @@ public final class Startup {
         } catch (IllegalStateException ignored) {
             // JavaFX 尚未启动，主界面初始化后会读取 sInitArgs。
         }
+    }
+
+    public static void shutdownAfterMainWindowClosed() {
+        if (ResLocation.isOsx) {
+            try {
+                Desktop.getDesktop().setOpenFileHandler(null);
+            } catch (RuntimeException e) {
+                Log.e("clear mac open file handler failed", e);
+            }
+            ThreadUtils.shutdownAndExitProcess();
+            return;
+        }
+        ThreadUtils.shutdown();
     }
 
     //这个里面的所有执行代码必须能让如下去执行；因此需要exports他们

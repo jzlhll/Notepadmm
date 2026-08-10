@@ -43,6 +43,7 @@ class ExDefaultThreadFactory implements ThreadFactory {
 public final class ThreadUtils {
     public volatile static boolean sBeClosing = false;
     public static final SimpleStringProperty sClosingProper = new SimpleStringProperty();
+    private static final AtomicInteger sShutdownStarted = new AtomicInteger(0);
 
     public static ClosedDroppedHandler globalHandler() {
         return HolderHandler.mBackgroundHandler;
@@ -127,6 +128,13 @@ public final class ThreadUtils {
      * Shutdowns executors.
      */
     public static void shutdown() {
+        shutdown(null);
+    }
+
+    public static void shutdown(Runnable completedAction) {
+        if (!sShutdownStarted.compareAndSet(0, 1)) {
+            return;
+        }
         sBeClosing = true;
         sClosingProper.set("close");
 
@@ -140,8 +148,12 @@ public final class ThreadUtils {
             HolderGeneric.shutdown();
             HolderHandler.mBackgroundThread.safelyQuit();
 
-            HandlerThread.quitAllDelay(600);
+            HandlerThread.quitAllDelay(600, completedAction);
         }).start();
+    }
+
+    public static void shutdownAndExitProcess() {
+        shutdown(() -> System.exit(0));
     }
 
     public static void main(String[] args) {

@@ -66,9 +66,16 @@ public class HandlerThread extends Thread {
     }
 
     public static void quitAllDelay(long delayMs) {
+        quitAllDelay(delayMs, null);
+    }
+
+    public static void quitAllDelay(long delayMs, Runnable completedAction) {
         synchronized (mAllThreads) {
             if (mAllThreads.size() == 0) {
                 if(DEBUG) System.out.println("no more mAllThreads");
+                if (completedAction != null) {
+                    completedAction.run();
+                }
                 return;
             }
         }
@@ -96,6 +103,10 @@ public class HandlerThread extends Thread {
                     if(DEBUG) System.out.println(delta + "ms后" + mAllThreads.size() + "个handlerThread, 开始逐个关闭：" + t.name);
                     t.safelyQuit(false);
                 }
+            }
+
+            if (completedAction != null) {
+                completedAction.run();
             }
 
         }).start();

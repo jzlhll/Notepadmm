@@ -7,6 +7,7 @@ import com.allan.atools.richtext.GenericStyledAreaBehaviorReflector;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.toolsstartup.IStartupInit;
+import com.allan.atools.toolsstartup.Startup;
 import com.allan.atools.toolsstartup.StartupEntro;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.utils.*;
@@ -128,7 +129,10 @@ public final class StartupNotepadInitImp implements IStartupInit {
 
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> UIContext.focus.notifyMainStageFocusChanged(newValue));
 
-        stage.setOnCloseRequest(event -> mainController.destroy());
+        stage.setOnCloseRequest(event -> {
+            mainController.destroy();
+            Startup.shutdownAfterMainWindowClosed();
+        });
     }
 
     @Override
