@@ -87,7 +87,7 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
         for (OneFileSearchResults oneFileResults : all.allResults) {
             var hitText = String.format(Locales.str("result.hitTimes"), oneFileResults.results.size());
             var headText = "  " + oneFileResults.file.getName() + "  (" + hitText + ")";
-            retParas.add(new Paragraph<>(lineParaStyle, segmentOps, segmentOps.create(headText), lineTextStyle));
+            retParas.add(new Paragraph<>(lineParaStyle, segmentOps, headText, lineTextStyle));
 
             for (ResultItemWrap itemWrap : oneFileResults.results) {
                 if (itemWrap.lineMode == ResultItemWrap.LineMode.Real && itemWrap.items != null) {
@@ -141,9 +141,9 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
                                     ssb.add(pair.textStyle, tmpLen - item.range.end - itemWrap.resultOffset);
                                 }
 
-                                retParas.add(new Paragraph<>(firstParStyle, segmentOps, segmentOps.create(itemWrap.getLine()), ssb.create()));
+                                retParas.add(new Paragraph<>(firstParStyle, segmentOps, itemWrap.getLine(), ssb.create()));
                             } else {
-                                retParas.add(new Paragraph<>(firstParStyle, segmentOps, segmentOps.create(itemWrap.getLine()), pair.textStyle));
+                                retParas.add(new Paragraph<>(firstParStyle, segmentOps, itemWrap.getLine(), pair.textStyle));
                             }
                         } else {
                             //1. 左边的文字
@@ -165,7 +165,7 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
                         }
                     }
                     if (itemsSize > 1) { //如果是多个时候则
-                        retParas.add(new Paragraph<>(firstParStyle, segmentOps, segmentOps.create(itemWrap.getLine()), ssb.create()));
+                        retParas.add(new Paragraph<>(firstParStyle, segmentOps, itemWrap.getLine(), ssb.create()));
                     }
                 }
             }
