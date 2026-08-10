@@ -2,11 +2,11 @@
     jfx-tab-pane  @@@@@@@@@@@@@@
 */
 .jfx-tab-pane .tab-header-background { /*allan 整条tabpane的橫向颜色*/
-    -fx-background-color: -au-tab-header-background-color;
-    -fx-min-width: 0.8em;
-    -fx-max-width: 0.8em;
-    -fx-min-height: 1.1em;
-    -fx-max-height: 1.1em;
+    -fx-background-color: transparent;
+}
+
+.jfx-tab-pane > .depth-container {
+    -fx-effect: null;
 }
 
 .jfx-tab-pane .tab-header-area .tab-down-button {
@@ -18,7 +18,7 @@
 }
 
 .jfx-tab-pane .tab-header-area .control-buttons-tab .jfx-rippler {
-    -jfx-rippler-fill: #ff00ff;
+    -jfx-rippler-fill: transparent;
 }
 
 .jfx-tab-pane .tab-header-area .tab-down-button:left {
@@ -30,28 +30,34 @@
 }
 
 .jfx-tab-pane .headers-region > .tab-selected-line{
-    -fx-pref-width: 1px !important;
-    -fx-pref-height: 2px;
+    -fx-opacity: 0;
 }
 
 .jfx-tab-pane .headers-region > .tab > .jfx-rippler {/*allan 按下的整体颜色*/
-    -jfx-rippler-fill: -au-main-color;
+    -jfx-rippler-fill: transparent;
 }
 
 .jfx-tab-pane .headers-region .tab-selected-line { /*allan 选中的底下的横线颜色*/
-    -fx-background-color: #212121;
+    -fx-background-color: transparent;
 }
 
-.jfx-tab-pane .headers-region .tab:closable { /*allan 每一个tab右边的四个点*/
-    -fx-border-color: #666667;
-    -fx-border-width: 0 2 0 0;
-    -fx-border-style: dotted;
-    -fx-border-insets: 4 0 4 0;
-    -fx-padding: 2 6 0 6;
+.jfx-tab-pane .headers-region .tab {
+    -fx-background-color: rgba(128, 128, 128, 0.06);
+    -fx-background-insets: 0 2 0 0;
+    -fx-background-radius: 0;
+    -fx-effect: null;
+}
+
+.jfx-tab-pane .headers-region .tab:closable {
+    -fx-border-width: 0;
+    -fx-padding: 4 8 3 8;
 }
 
 .jfx-tab-pane .headers-region .tab .tab-container .tab-label { /*allan 文字*/
-    -fx-text-fill: #888888;
+    -fx-text-fill: -au-default-desc-color;
+    -fx-font-weight: normal;
+    -fx-effect: null;
+    -fx-opacity: 1;
     -fx-padding: 2 3 2 3;
     -fx-font-size: 14;
 }
@@ -62,10 +68,12 @@
 
 .jfx-tab-pane .headers-region .tab:selected .tab-container .tab-label { /*allan 当前选中的文件名颜色*/
     -fx-text-fill: -au-default-text-color;
+    -fx-font-weight: bold;
+    -fx-effect: null;
 }
 
 .jfx-tab-pane .headers-region .tab:selected { /*allan 当前选中的文件名颜色*/
-    -fx-background-color: -au-tab-select-region-color;
+    -fx-background-color: rgba(66, 133, 244, 0.2);
 }
 
 .jfx-tab-pane:top .depth-container .tab-header-area .headers-region .tab-selected-line {
@@ -74,16 +82,28 @@
 
 
 .jfx-tab-pane .headers-region .tab .tab-container .tab-close-button .jfx-rippler{ /*allan close按钮的*/
-    -jfx-rippler-fill: -au-red-light-color;
+    -jfx-rippler-fill: transparent;
     -fx-background-color: transparent;
 }
 
 .jfx-tab-pane .headers-region .tab .tab-container .tab-close-button > .jfx-svg-glyph {
-    -fx-background-color: -au-red-light-color;
+    -fx-background-color: -au-default-desc-color;
+    -fx-opacity: 0;
+    -fx-effect: null;
+}
+
+.jfx-tab-pane .headers-region .tab:hover .tab-container .tab-close-button > .jfx-svg-glyph {
+    -fx-opacity: 0.35;
 }
 
 .jfx-tab-pane .headers-region .tab:selected .tab-container .tab-close-button > .jfx-svg-glyph {
+    -fx-background-color: -au-default-desc-color;
+    -fx-opacity: 0.45;
+}
+
+.jfx-tab-pane .headers-region .tab .tab-container .tab-close-button:hover > .jfx-svg-glyph {
     -fx-background-color: -au-red-color;
+    -fx-opacity: 1;
 }
 
 /*
@@ -122,4 +142,3 @@ split-pane @@@@@@@@@@@@@@
     -fx-padding: 0 0.15em 0 0.15em;
     -fx-background-color: -au-split-pane-divider-color;
 }
-

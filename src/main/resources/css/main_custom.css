@@ -19,6 +19,69 @@
    -fx-background-color: -au-main-bg-color;
 }
 
+.notepad-main-head {
+   -fx-background-color: -au-main-bg-color;
+}
+
+.notepad-bottom-bar {
+   -fx-background-color: -au-main-bg-color2;
+}
+
+.notepad-bottom-bar #bottomSearchTextField > .input-line,
+.notepad-bottom-bar #bottomSearchTextField > .input-focused-line {
+   -fx-background-color: transparent;
+}
+
+.jfx-tab-pane.main-ui-size-default .headers-region .tab:closable {
+   -fx-padding: 4 8 3 8;
+}
+
+.jfx-tab-pane.main-ui-size-default .headers-region .tab .tab-container .tab-label {
+   -fx-font-size: 15;
+}
+
+.jfx-tab-pane.main-ui-size-large .headers-region .tab:closable {
+   -fx-padding: 5 8 4 8;
+}
+
+.jfx-tab-pane.main-ui-size-large .headers-region .tab .tab-container .tab-label {
+   -fx-font-size: 16;
+}
+
+.jfx-tab-pane.main-ui-size-larger .headers-region .tab:closable {
+   -fx-padding: 6 8 5 8;
+}
+
+.jfx-tab-pane.main-ui-size-larger .headers-region .tab .tab-container .tab-label {
+   -fx-font-size: 17;
+}
+
+.notepad-bottom-bar.main-ui-size-large .small-desc-label,
+.notepad-bottom-bar.main-ui-size-large .small-colored-label {
+   -fx-font-size: 13;
+}
+
+.notepad-bottom-bar.main-ui-size-large .small-normal-label {
+   -fx-font-size: 14;
+}
+
+.notepad-bottom-bar.main-ui-size-large #bottomSearchTextField {
+   -fx-font-size: 15;
+}
+
+.notepad-bottom-bar.main-ui-size-larger .small-desc-label,
+.notepad-bottom-bar.main-ui-size-larger .small-colored-label {
+   -fx-font-size: 14;
+}
+
+.notepad-bottom-bar.main-ui-size-larger .small-normal-label {
+   -fx-font-size: 15;
+}
+
+.notepad-bottom-bar.main-ui-size-larger #bottomSearchTextField {
+   -fx-font-size: 16;
+}
+
 /* 设置抽屉 */
 .setting-drawer {
    -fx-background-color: -au-main-bg-color;

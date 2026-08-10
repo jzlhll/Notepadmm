@@ -12,6 +12,7 @@ import com.allan.atools.tools.FileOpenSupportsKt;
 import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
+import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.pop.GlobalPopupManager;
@@ -107,6 +108,61 @@ public final class NotepadController extends AbstractMainController {
     private AnchorPane notepadMainResultLayout;
 
     private SettingDrawer settingDrawer;
+
+    private int getMainUiSizeMode() {
+        int mode = SettingPreferences.getInt(SettingPreferences.mainUiSizeModeKey);
+        if (mode == 1 || mode == 2) {
+            return mode;
+        }
+        return 0;
+    }
+
+    public int getMainTopIconSize(int defaultSize) {
+        int mode = getMainUiSizeMode();
+        if (mode == 1) {
+            return Math.round(defaultSize * 1.1f);
+        }
+        if (mode == 2) {
+            return Math.round(defaultSize * 1.2f);
+        }
+        return defaultSize;
+    }
+
+    public int getMainBottomSize(int defaultSize) {
+        return defaultSize + getMainUiSizeMode();
+    }
+
+    public void applyMainUiSizeMode() {
+        int mode = getMainUiSizeMode();
+        String styleClass;
+        if (mode == 1) {
+            styleClass = "main-ui-size-large";
+        } else if (mode == 2) {
+            styleClass = "main-ui-size-larger";
+        } else {
+            styleClass = "main-ui-size-default";
+        }
+
+        notepadMainHeadBox.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        notepadMainBottomBox.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        tabPane.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        notepadMainHeadBox.getStyleClass().add(styleClass);
+        notepadMainBottomBox.getStyleClass().add(styleClass);
+        tabPane.getStyleClass().add(styleClass);
+
+        double extra = mode;
+        notepadMainHeadBox.setPadding(new Insets(3 + extra));
+        notepadMainBottomBox.setPadding(new Insets(3 + extra, 2, 1 + extra, 2));
+        bottomSearchTextField.setPrefHeight(20 + mode * 2);
+        StackPane.setMargin(snackContainer, new Insets(0, 0, 22 + mode * 2, 0));
+
+        NotepadHeadButtons.refreshSize();
+        BottomEntry.refreshSize();
+        BottomSearchBtnsMgr.refreshSize();
+    }
 
     /** 打开右侧设置抽屉 */
     public void openSettingDrawer() {
@@ -239,6 +295,7 @@ public final class NotepadController extends AbstractMainController {
         BottomEntry.initAfterBottomCreated();
 
         initEncodingIndicateClick();
+        applyMainUiSizeMode();
 
         AllEditorsManager.restoreHiddenTempFiles();
 

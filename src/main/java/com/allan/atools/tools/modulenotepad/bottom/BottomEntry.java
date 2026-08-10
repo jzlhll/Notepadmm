@@ -13,6 +13,14 @@ public final class BottomEntry {
 
     private static boolean isBottomSearchTextListenerSendIt = true;
 
+    public static void refreshSize() {
+        var main = UIContext.context();
+        IconfontCreator.setText(main.bottomSearchTextUpperBtn, "arrowup",
+                main.getMainBottomSize(17), Colors.ColorBottomBtnNormal.invoke());
+        IconfontCreator.setText(main.bottomSearchTextDownBtn, "falling",
+                main.getMainBottomSize(20), Colors.ColorBottomBtnNormal.invoke());
+    }
+
     public static void initAfterBottomCreated() {
         UIContext.context().bottomSearchTextField.textProperty().addListener((observable, oldValue, newValue) -> {
             var curArea = UIContext.currentAreaProp.get();
@@ -35,8 +43,7 @@ public final class BottomEntry {
             }
         });
 
-        IconfontCreator.setText(UIContext.context().bottomSearchTextUpperBtn, "arrowup", 17, Colors.ColorBottomBtnNormal.invoke());
-        IconfontCreator.setText(UIContext.context().bottomSearchTextDownBtn, "falling", 20, Colors.ColorBottomBtnNormal.invoke());
+        refreshSize();
 
         //tab发生变化。可能是切换，可能是删除。
         UIContext.currentAreaProp.addListener((observable, oldValue, newValue) -> {

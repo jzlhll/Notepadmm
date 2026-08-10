@@ -49,6 +49,9 @@ public final class SettingController extends AbstractController {
 
     public JFXRadioButton fontThemeDefaultBtn; //jb mono
     public JFXRadioButton fontThemeCustomBtn;
+    public JFXRadioButton mainUiSizeDefaultBtn;
+    public JFXRadioButton mainUiSizeLargeBtn;
+    public JFXRadioButton mainUiSizeLargerBtn;
     public Hyperlink fontCustomLink;
     public Hyperlink newFileDirLink;
 
@@ -61,9 +64,43 @@ public final class SettingController extends AbstractController {
 
     private long sFontChangedCount;
 
+    private void initMainUiSizeMode() {
+        ToggleGroup group = new ToggleGroup();
+        mainUiSizeDefaultBtn.setToggleGroup(group);
+        mainUiSizeLargeBtn.setToggleGroup(group);
+        mainUiSizeLargerBtn.setToggleGroup(group);
+
+        int mode = SettingPreferences.getInt(SettingPreferences.mainUiSizeModeKey);
+        if (mode == 1) {
+            group.selectToggle(mainUiSizeLargeBtn);
+        } else if (mode == 2) {
+            group.selectToggle(mainUiSizeLargerBtn);
+        } else {
+            group.selectToggle(mainUiSizeDefaultBtn);
+        }
+
+        group.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null) {
+                return;
+            }
+            int newMode;
+            if (mainUiSizeLargeBtn.isSelected()) {
+                newMode = 1;
+            } else if (mainUiSizeLargerBtn.isSelected()) {
+                newMode = 2;
+            } else {
+                newMode = 0;
+            }
+            SettingPreferences.updateInt(SettingPreferences.mainUiSizeModeKey, newMode);
+            UIContext.context().applyMainUiSizeMode();
+        });
+    }
+
     @Override
     public void init(Stage stage) {
         super.init(stage);
+
+        initMainUiSizeMode();
 
         try {
            var names = Files.readAllLines(Path.of(ResLocation.getRealPath("locales", "locales.list")));

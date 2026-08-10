@@ -27,10 +27,31 @@ import java.util.Calendar;
 import java.util.Optional;
 
 public final class NotepadHeadButtons {
+    public static void refreshSize() {
+        var main = UIContext.context();
+        IconfontCreator.setText(main.notepadMainActionBarAToolsBtn, "smile",
+                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setTextBold(main.notepadMainAltMultiSelectBtn, "align-vertical-top",
+                main.getMainTopIconSize(21), Colors.ColorBottomBtnHighLight.invoke());
+        IconfontCreator.setText(main.notepadMainActionBarFontBtn, "font-size",
+                main.getMainTopIconSize(22), Colors.ColorHeadButton.invoke());
+        main.notepadMainInsertEmptyLineBtn.setStyle(
+                "-fx-font-size:" + main.getMainTopIconSize(21) + "px;");
+        IconfontCreator.setText(main.notepadMainActionBarSettingBtn, "set",
+                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(main.notepadMainActionBarSearchBtn, "sousuo",
+                main.getMainTopIconSize(21), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(main.notepadMainActionBarFileOpenBtn, "file",
+                main.getMainTopIconSize(22), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(main.notepadMainActionBarSaveBtn, "save",
+                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(main.notepadMainActionBarNewBtn, "add-select",
+                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+    }
+
     void bottomBtns() {
         var mMain = UIContext.context();
         mMain.notepadMainActionBarAToolsBtn.setTooltip(new Tooltip(Locales.str("head.myOtherTools")));
-        IconfontCreator.setText(mMain.notepadMainActionBarAToolsBtn, "smile", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarAToolsBtn.setOnMouseClicked(e ->{
             if (UIContext.toolsController == null || UIContext.toolsController.getStage() == null) {
                 UIContext.toolsController = new AToolsControllerInitial().createAToolsWindow();
@@ -43,28 +64,27 @@ public final class NotepadHeadButtons {
 
     public void init() {
         var mMain = UIContext.context();
+        refreshSize();
 
         mMain.notepadMainAltMultiSelectBtn.setTooltip(new Tooltip(Locales.str("altMultiSelection")));
-        IconfontCreator.setTextBold(mMain.notepadMainAltMultiSelectBtn, "align-vertical-top", 21, Colors.ColorBottomBtnHighLight.invoke());
         mMain.notepadMainAltMultiSelectBtn.visibleProperty().bind(UIContext.isMultiSelectedProp);
         mMain.notepadMainAltMultiSelectBtn.setOnMouseClicked(e-> {
             NotepadMultiSelectionWindow.show();
         });
 
         mMain.notepadMainActionBarFontBtn.setTooltip(new Tooltip(Locales.str("head.adjustFontSize")));
-        IconfontCreator.setText(mMain.notepadMainActionBarFontBtn, "font-size", 22, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarFontBtn.setOnMouseClicked(e-> {
             if (UIContext.DEBUG && false) {
                 SnackbarUtils.show("aadfadf哈哈哈");
             } else {
                 var region = new FontSizeChooseCreatorImpl().createPop(null);
                 GlobalPopupManager.instance().setContent(region)
-                        .setHeight(260)
-                        .show(mMain.notepadMainActionBarFontBtn, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT, 0, 27);
+                        .setHeight(410)
+                        .show(mMain.notepadMainActionBarFontBtn, JFXPopup.PopupVPosition.TOP,
+                                JFXPopup.PopupHPosition.LEFT, 0, mMain.getMainTopIconSize(27));
             }
         });
 
-        mMain.notepadMainInsertEmptyLineBtn.setStyle("-fx-font-size:21px;");
         mMain.notepadMainInsertEmptyLineBtn.setTooltip(new Tooltip(Locales.str("setting.insertEmptyLine")));
         mMain.notepadMainInsertEmptyLineBtn.setOnMouseClicked(e-> {
             var cur = UIContext.currentAreaProp.get();
@@ -82,13 +102,11 @@ public final class NotepadHeadButtons {
         });
 
         mMain.notepadMainActionBarSettingBtn.setTooltip(new Tooltip(Locales.str("setting")));
-        IconfontCreator.setText(mMain.notepadMainActionBarSettingBtn, "set", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarSettingBtn.setOnMouseClicked(e ->{
             mMain.toggleSettingDrawer();
         });
 
         mMain.notepadMainActionBarSearchBtn.setTooltip(new Tooltip(Locales.str("searchAndFind")));
-        IconfontCreator.setText(mMain.notepadMainActionBarSearchBtn, "sousuo", 21, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarSearchBtn.setOnMouseClicked(e ->{
             if (UIContext.currentTabProp.get() == null) {
                 JfoenixDialogUtils.alert(Locales.str("notification"), Locales.str("noFile"));
@@ -98,18 +116,15 @@ public final class NotepadHeadButtons {
         });
 
         //mMain.notepadMainActionBarFileOpenBtn.setTooltip(new Tooltip(Locales.str("openFile")));
-        IconfontCreator.setText(mMain.notepadMainActionBarFileOpenBtn, "file", 22, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarFileOpenBtn.setOnMouseClicked(e -> fileOpenClick(e));
 
         mMain.notepadMainActionBarSaveBtn.setTooltip(new Tooltip(Locales.str("save")));
-        IconfontCreator.setText(mMain.notepadMainActionBarSaveBtn, "save", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarSaveBtn.setOnMouseClicked(e ->{
             Optional.ofNullable(UIContext.currentAreaProp.get())
                     .ifPresent(curArea -> curArea.getEditor().saveContent(null, false));
         });
 
         mMain.notepadMainActionBarNewBtn.setTooltip(new Tooltip(Locales.str("new")));
-        IconfontCreator.setText(mMain.notepadMainActionBarNewBtn, "add-select", 25, Colors.ColorHeadButton.invoke());
         mMain.notepadMainActionBarNewBtn.setOnMouseClicked(e -> newATempFile());
 
         bottomBtns();

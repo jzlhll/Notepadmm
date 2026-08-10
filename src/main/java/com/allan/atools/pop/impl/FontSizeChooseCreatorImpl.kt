@@ -49,9 +49,12 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         val vBox = VBox()
         //vBox.getChildren().add(createLabel("当前" + GlobalProfs.getFontSizeProperty().get(), 14));
         val list = JFXListView<Label>()
-        list.maxWidth = 80.0
-        list.prefHeight = 366.0
-        list.maxHeight = 370.0
+        list.minWidth = 110.0
+        list.prefWidth = 110.0
+        list.maxWidth = 110.0
+        list.minHeight = 410.0
+        list.prefHeight = 410.0
+        list.maxHeight = 410.0
         list.items.add(createLabel("   14", 14))
         list.items.add(createLabel("  15", 15))
         list.items.add(createLabel("  16", 16))
@@ -60,7 +63,8 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         list.items.add(createLabel("  19", 19))
         list.items.add(createLabel("  20", 20))
         list.items.add(createLabel("  22", 22))
-        list.items.add(createLabel("  24", 24))
+        list.items.add(createLabel("  25", 22))
+        list.items.add(createLabel("  28", 22))
 
         val curFont = UIContext.getFontSizeProperty().get()
         val index = when (curFont) {
@@ -72,7 +76,8 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
             19 -> 5
             20 -> 6
             22 -> 7
-            24 -> 8
+            25 -> 8
+            28 -> 9
             else -> 0
         }
 

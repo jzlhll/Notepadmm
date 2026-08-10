@@ -116,27 +116,47 @@ public final class BottomSearchBtnsMgr {
     }
 
     static void changeSearchTextCaseBtn(boolean val) {
+        var main = UIContext.context();
         if (val) {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextCaseBtn, "ziti", 18, Colors.ColorBottomBtnHighLight.invoke());
+            IconfontCreator.setText(main.bottomSearchTextCaseBtn, "ziti",
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
         } else {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextCaseBtn, "ziti", 16, Colors.ColorBottomBtnGray.invoke());
+            IconfontCreator.setText(main.bottomSearchTextCaseBtn, "ziti",
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
         }
     }
 
     static void changeWholeWordBtn(boolean val) {
+        var main = UIContext.context();
         if (val) {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextWholeWordsBtn, "centerjustified", 18, Colors.ColorBottomBtnHighLight.invoke());
+            IconfontCreator.setText(main.bottomSearchTextWholeWordsBtn, "centerjustified",
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
         } else {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextWholeWordsBtn, "centerjustified", 16, Colors.ColorBottomBtnGray.invoke());
+            IconfontCreator.setText(main.bottomSearchTextWholeWordsBtn, "centerjustified",
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
         }
     }
 
     static void changeRuleBtn(SearchParams.Type type) {
+        var main = UIContext.context();
         if (type == SearchParams.Type.Normal) {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextRuleBtn, "zhengzeshi", 16, Colors.ColorBottomBtnGray.invoke());
+            IconfontCreator.setText(main.bottomSearchTextRuleBtn, "zhengzeshi",
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
         } else {
-            IconfontCreator.setText(UIContext.context().bottomSearchTextRuleBtn, "zhengzeshi", 18, Colors.ColorBottomBtnHighLight.invoke());
+            IconfontCreator.setText(main.bottomSearchTextRuleBtn, "zhengzeshi",
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
         }
+    }
+
+    public static void refreshSize() {
+        var area = UIContext.currentAreaProp.get();
+        if (area == null) {
+            return;
+        }
+        var params = area.getBottomSearchBtnsMgr().mSearchParamAndIndicatorParam.searchParams;
+        changeSearchTextCaseBtn(params.useCaseMatch);
+        changeWholeWordBtn(params.useWholeWords);
+        changeRuleBtn(params.type);
     }
 
     public Cache getBottomCache() {

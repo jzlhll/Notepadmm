@@ -7,7 +7,7 @@
 <VBox prefHeight="650.0" prefWidth="1000" minHeight="400" minWidth="600" xmlns="http://javafx.com/javafx/15.0.1"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.allan.atools.controller.NotepadController" styleClass="custom-main-bg">
-    <HBox fx:id="notepadMainHeadBox" styleClass="custom-main-bg" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER" prefWidth="20">
+    <HBox fx:id="notepadMainHeadBox" styleClass="notepad-main-head" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER" prefWidth="20">
         <padding>
             <Insets bottom="3.0" left="3.0" right="3.0" top="3.0"/>
         </padding>
@@ -16,42 +16,42 @@
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarFileOpenBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarFileOpenBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarSaveBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarSaveBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarNewBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarNewBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarFontBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarFontBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
+            <Label fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainAltMultiSelectBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainAltMultiSelectBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
         <!-- 左边 -->
         <Pane prefHeight="-1.0" prefWidth="-1.0" HBox.hgrow="ALWAYS"/>
@@ -61,21 +61,21 @@
             <HBox.margin>
                 <Insets right="8"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets right="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets right="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainActionBarSettingBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            <Label fx:id="notepadMainActionBarSettingBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
         </JFXRippler>
 
     </HBox>
@@ -140,7 +140,7 @@
         </VBox>
     </StackPane>
 
-    <HBox fx:id="notepadMainBottomBox" styleClass="custom-main-bg" alignment="CENTER_LEFT" spacing="3.0" VBox.vgrow="NEVER">
+    <HBox fx:id="notepadMainBottomBox" styleClass="notepad-bottom-bar" alignment="CENTER_LEFT" spacing="3.0" VBox.vgrow="NEVER">
         <padding>
             <Insets bottom="1.0" left="2.0" right="2.0" top="3.0"/>
         </padding>
@@ -149,35 +149,35 @@
             <HBox.margin>
                 <Insets left="-74"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="bottomSearchTextRuleBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
+            <Label fx:id="bottomSearchTextRuleBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="bottomSearchTextWholeWordsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"  visible="false"/>
+            <Label fx:id="bottomSearchTextWholeWordsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"  visible="false"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="bottomSearchTextCaseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"  visible="false"/>
+            <Label fx:id="bottomSearchTextCaseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"  visible="false"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="bottomSearchTextUpperBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
+            <Label fx:id="bottomSearchTextUpperBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets left="5"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="bottomSearchTextDownBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
+            <Label fx:id="bottomSearchTextDownBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" visible="false"/>
         </JFXRippler>
         <Label fx:id="searchedIndicateLabel" HBox.hgrow="NEVER" styleClass="small-normal-label">
             <HBox.margin>
@@ -195,26 +195,26 @@
             <HBox.margin>
                 <Insets right="2"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="jsonPopBtn" text="JSON" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+            <Label fx:id="jsonPopBtn" text="JSON" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
         </JFXRippler>
 
         <JFXRippler styleClass="jfx-rippler">
             <HBox.margin>
                 <Insets right="2"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="wrapTextCheckBtn" text="%setting.autoEnter" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+            <Label fx:id="wrapTextCheckBtn" text="%setting.autoEnter" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
         </JFXRippler>
         <JFXRippler styleClass="jfx-rippler" >
             <HBox.margin>
                 <Insets right="2"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadReadonlyCheckBtn" text="%setting.readonly" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+            <Label fx:id="notepadReadonlyCheckBtn" text="%setting.readonly" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
         </JFXRippler>
         <JFXRippler styleClass="jfx-rippler" maxWidth="80" minWidth="40">
             <HBox.margin>
-                <Insets right="0"/>
+                <Insets right="6"/>
             </HBox.margin>
-            <Label maxHeight="1.8" fx:id="notepadMainEncodeLabel" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-colored-label"/>
+            <Label fx:id="notepadMainEncodeLabel" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-colored-label"/>
         </JFXRippler>
     </HBox>
 </VBox>

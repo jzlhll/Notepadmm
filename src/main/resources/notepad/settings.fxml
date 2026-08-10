@@ -75,6 +75,29 @@
             </Hyperlink>
         </HBox>
 
+        <Label text="%setting.mainUiSize" styleClass="normal-label">
+            <VBox.margin>
+                <Insets left="3" top="12"/>
+            </VBox.margin>
+        </Label>
+        <HBox>
+            <JFXRadioButton fx:id="mainUiSizeDefaultBtn" text="%setting.mainUiSizeDefault">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="mainUiSizeLargeBtn" text="%setting.mainUiSizeLarge">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="mainUiSizeLargerBtn" text="%setting.mainUiSizeLarger">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+        </HBox>
+
         <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
             <VBox.margin>
                 <Insets left="4" top="5"/>
