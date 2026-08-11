@@ -4,28 +4,6 @@
 -dontshrink
 -dontwarn
 
-#kotlin
--dontwarn kotlin.**
--assumenosideeffects class kotlin.jvm.internal.Intrinsics {
-    static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
-}
-
--keep class kotlin.** { *; }
--keep interface kotlin.** { *; }
--keepclassmembers class kotlin.Metadata {
-    public <methods>;
-}
--keepclasseswithmembers @kotlin.Metadata class * { *; }
--keepclassmembers class **.WhenMappings {
-    <fields>;
-}
-
--keep class kotlinx.** { *; }
--keep interface kotlinx.** { *; }
--dontwarn kotlinx.**
--dontnote kotlinx.serialization.SerializationKt
-# kotlin end
-
 #Java 9+
 #-libraryjars /Users/allan/Documents/jdk-16.jdk/Contents/Home/jmods/java.base.jmod(!.jar;!module-info.class)
 #-libraryjars thirdLibs/*.jar
@@ -41,7 +19,7 @@
 #-adaptclassstrings
 
 # Keep all annotations and meta-data
--keepattributes *Annotation*,Signature,EnclosingMethod
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
 # 指定一个文本文件用来生成混淆后的名字。默认情况下，混淆后的名字一般为 a、b、c 这种。
 # 通过使用配置的字典文件，可以使用一些非英文字符做为类名。成员变量名、方法名。字典文件中的空格，标点符号，重复的词，还有以'#'开头的行都会被忽略。
@@ -59,19 +37,9 @@
 #  public static void main(java.lang.String[]);
 #}
 
-# Keep names of fields marked with @FXML, @Inject and @PostConstruct attributes
+# Keep names of fields marked with @FXML attributes
 -keepclassmembers class * {
   @javafx.fxml.FXML *;
-  @javax.inject.Inject *;
-  @javax.annotation.PostConstruct *;
-}
-
--keepclassmembers class * {
-    private static synthetic java.lang.Object $deserializeLambda$(java.lang.invoke.SerializedLambda);
-}
-
--keepclassmembernames class * {
-    private static synthetic *** lambda$*(...);
 }
 
 # mine app
@@ -124,6 +92,4 @@
 
 #-keep class com.allan.richtext.codearea.** { *; }
 #-dontnote com.allan.richtext.codearea.**
-
-
 

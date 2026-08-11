@@ -143,15 +143,15 @@ tasks.register('obfuscateAppJar') {
 
         def jmodsDir = new File(packagingJdkHome(), 'jmods')
         packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }.each { moduleName ->
-            configLines.add("-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!.jar;!module-info.class)")
+            configLines.add("-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!**.jar;!module-info.class)")
         }
         packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort()?.each {
-            configLines.add("-libraryjars ${proguardPath(it)}")
+            configLines.add("-libraryjars ${proguardPath(it)}(!module-info.class)")
         }
         packagingConfig.projectLibsDir.listFiles()?.findAll {
             it.name.endsWith('.jar') && it.name != appJar.name
         }?.sort()?.each {
-            configLines.add("-libraryjars ${proguardPath(it)}")
+            configLines.add("-libraryjars ${proguardPath(it)}(!module-info.class)")
         }
 
         packagingConfig.proguardUse.parentFile.mkdirs()
