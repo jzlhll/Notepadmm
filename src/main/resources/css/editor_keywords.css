@@ -50,25 +50,29 @@
 .markdown-title-1 {
     -fx-fill: #68206f;
     -fx-font-family: monospace;
+    -fx-font-size: 1.4em;
     -fx-font-weight: bold;
 }
 
 .markdown-title-2 {
     -fx-fill: #783080;
     -fx-font-family: monospace;
-    -fx-font-weight: bold;
+    -fx-font-size: 1.4em;
 }
 
 .markdown-title-3 {
     -fx-fill: #884090;
+    -fx-font-size: 1.3em;
 }
 
 .markdown-title-4 {
     -fx-fill: #9850a0;
+    -fx-font-size: 1.2em;
 }
 
 .markdown-title-5 {
     -fx-fill: #a860ad;
+    -fx-font-size: 1.1em;
 }
 
 .markdown-code,

@@ -572,6 +572,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                     AllEditorsManager.Instance.removeAllOtherTabs(tab);
                                 } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
                                     openCurrentFolder(null);
+                                } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
+                                    var path = isFake || sourceFile == null ? "" : sourceFile.getAbsolutePath();
+                                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
                                 }
                                 GlobalPopupManager.instance().hide();
                             });

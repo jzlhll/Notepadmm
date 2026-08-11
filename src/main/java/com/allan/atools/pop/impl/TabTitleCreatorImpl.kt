@@ -19,7 +19,7 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
         list = JFXListView()
         list.style = "-fx-background-color:" + Colors.SearchBgColor.invoke() + ";"
         list.maxWidth = 280.0
-        list.prefHeight = 110.0
+        list.prefHeight = 145.0
 
         var label: Label = createLabel(Locales.str("modifyName"))
         list.items.add(label)
@@ -30,6 +30,9 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
         label = createLabel(Locales.str("editor.openHereDir"))
         list.items.add(label)
 
+        label = createLabel(Locales.str("editor.copyFullPath"))
+        list.items.add(label)
+
         list.selectionModel.selectedIndexProperty()
             .addListener { observable: ObservableValue<out Number>?, oldValue: Number?, newValue: Number ->
                 if (newValue.toInt() == 0) {
@@ -38,6 +41,8 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
                     action?.invoke(EVENT_CLOSE_OTHERS)
                 } else if (newValue.toInt() == 2) {
                     action?.invoke(EVENT_OPEN_TO_EXPLORE)
+                } else if (newValue.toInt() == 3) {
+                    action?.invoke(EVENT_COPY_FULL_PATH)
                 }
             }
 
@@ -66,7 +71,13 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
                 EVENT_OPEN_TO_EXPLORE
             )
         }
-        contextMenu.items.addAll(menu0, menu1, menu2)
+        val menu3 = MenuItem(Locales.str("editor.copyFullPath"))
+        menu3.onAction = EventHandler {
+            action.invoke(
+                EVENT_COPY_FULL_PATH
+            )
+        }
+        contextMenu.items.addAll(menu0, menu1, menu2, menu3)
         return contextMenu
     }
 
@@ -79,6 +90,9 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
 
         @kotlin.jvm.JvmField
         var EVENT_OPEN_TO_EXPLORE: String = "openFileToExplore"
+
+        @kotlin.jvm.JvmField
+        var EVENT_COPY_FULL_PATH: String = "copyFullPath"
     }
 
 }
