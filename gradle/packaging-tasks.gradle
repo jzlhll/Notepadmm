@@ -231,13 +231,42 @@ tasks.register('generateJpackageScripts') {
 
             def copyScript = new File(packagingConfig.buildRoot, 'copyToApplications.sh')
             def installedApp = "/Applications/${packagingConfig.appName}.app"
-            copyScript.text = '#!/bin/sh\nset -e\ncd "$(dirname "$0")"\n' +
-                    "APP_PATH=${shellQuote(installedApp)}\n" +
-                    'cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"\n' +
-                    'rsync -a --delete resources/resources/ "$APP_PATH/Contents/app/resources/"\n' +
-                    "/usr/bin/codesign --force --timestamp " +
-                    "--preserve-metadata=identifier,entitlements,requirements,flags " +
-                    "--sign ${shellQuote(packagingConfig.macSigningKey)} \"\$APP_PATH\"\n"
+            def signingKeyQuoted = shellQuote(packagingConfig.macSigningKey)
+            copyScript.text = '''#!/bin/sh
+set -e
+cd "$(dirname "$0")"
+APP_PATH=''' + shellQuote(installedApp) + '''
+
+echo "========== copyToApplications 开始 =========="
+echo "目标路径: $APP_PATH"
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "错误: 目标应用不存在: $APP_PATH"
+    exit 1
+fi
+
+echo "[1/3] 复制 myLibs JAR 到 mods 目录..."
+jar_count=$(ls -1 myLibs/*.jar 2>/dev/null | wc -l | tr -d ' ')
+echo "  待复制 JAR 文件数: $jar_count"
+for jar in myLibs/*.jar; do
+    echo "    -> $jar"
+done
+cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"
+echo "  JAR 复制完成"
+
+echo "[2/3] 同步 resources 资源目录..."
+rsync -a --delete resources/resources/ "$APP_PATH/Contents/app/resources/"
+echo "  resources 同步完成"
+
+echo "[3/3] 对应用进行 codesign 签名..."
+echo "  签名证书: ''' + packagingConfig.macSigningKey + '''"
+/usr/bin/codesign --force --timestamp \\
+    --preserve-metadata=identifier,entitlements,requirements,flags \\
+    --sign ''' + signingKeyQuoted + ''' "$APP_PATH"
+echo "  codesign 签名完成"
+
+echo "========== copyToApplications 全部完成 =========="
+'''
             copyScript.setExecutable(true, false)
         } else {
             def exeScript = new File(packagingConfig.buildRoot, 'jpackageCmdExe.bat')

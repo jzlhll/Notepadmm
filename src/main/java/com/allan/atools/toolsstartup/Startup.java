@@ -62,6 +62,11 @@ public final class Startup {
     // java.base/jdk.internal.loader.BuiltinClassLoader.loadClass
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
+        if (!InstanceLock.tryLock()) {
+            Log.e("another instance is running, exit");
+            System.exit(0);
+        }
+
         if (!SettingPreferences.getBoolean(SettingPreferences.hdScreen2Key)) {
             System.setProperty("prism.lcdtext", "false");
             //System.setProperty("prism.subpixeltext", "false");
