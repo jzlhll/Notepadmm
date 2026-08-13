@@ -8,7 +8,7 @@
 }
 
 .styled-text-area.editor-area {
-  -fx-padding: 0 45px 0 0;
+  -fx-padding: 0 65px 0 0;
 }
 
 .styled-text-area.editor-area .paragraph-box {
@@ -16,15 +16,15 @@
 }
 
 .styled-text-area.editor-area .paragraph-text {
-  -fx-padding: 0 0 0 45px;
+  -fx-padding: 0 0 0 65px;
 }
 
 .styled-text-area.editor-area:wrapped {
-  -fx-padding: 0 85px 0 0;
+  -fx-padding: 0 105px 0 0;
 }
 
 .styled-text-area.editor-area:wrapped .paragraph-text {
-  -fx-padding: 0 0 0 85px;
+  -fx-padding: 0 0 0 105px;
 }
 
 .editor-virtualized-scroll-pane > .scroll-bar:vertical {

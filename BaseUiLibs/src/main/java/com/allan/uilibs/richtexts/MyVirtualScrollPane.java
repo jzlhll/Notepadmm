@@ -7,6 +7,7 @@ import javafx.beans.binding.DoubleBinding;
 import javafx.beans.value.ChangeListener;
 import javafx.css.PseudoClass;
 import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.control.ScrollBar;
@@ -103,9 +104,16 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         vbar.blockIncrementProperty().bind(vbar.visibleAmountProperty());
 
         // scrollbar positions
+        // 水平滚动可视宽需扣除 CodeArea 自身的左右 padding（.editor-area 的 -fx-padding），
+        // 与 totalWidthEstimate（cell 宽，不含 area padding）保持口径一致，否则横滑到底会差一段显示不全
+        Region contentRegion = (Region) content;
+        Val<Double> contentViewportWidth = Val.combine(
+                Val.map(content.layoutBoundsProperty(), Bounds::getWidth),
+                contentRegion.paddingProperty(),
+                (w, pad) -> w - pad.getLeft() - pad.getRight());
         hPosEstimate = Val.combine(
                         content.estimatedScrollXProperty(),
-                        Val.map(content.layoutBoundsProperty(), Bounds::getWidth),
+                        contentViewportWidth,
                         content.totalWidthEstimateProperty(),
                         MyVirtualScrollPane::offsetToScrollbarPositionH)
                 .asVar(this::setHPosition);
@@ -349,10 +357,17 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
     private void setHPosition(double pos) {
         double offset = scrollbarPositionToOffset(
                 pos,
-                content.getLayoutBounds().getWidth(),
+                getContentViewportWidth(),
                 content.totalWidthEstimateProperty().getValue());
         if(DEBUG) System.out.println("set HPosition " + offset);
         content.estimatedScrollXProperty().setValue(offset);
+    }
+
+    // CodeArea 内容区的净可视宽：总宽扣除自身左右 padding，与 totalWidthEstimate 口径一致
+    private double getContentViewportWidth() {
+        Region r = (Region) content;
+        Insets ins = r.getInsets();
+        return r.getLayoutBounds().getWidth() - ins.getLeft() - ins.getRight();
     }
 
     private void setVPosition(double pos) {
