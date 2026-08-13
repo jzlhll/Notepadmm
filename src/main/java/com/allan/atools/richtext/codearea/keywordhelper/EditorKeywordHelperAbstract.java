@@ -9,6 +9,7 @@ import org.fxmisc.richtext.model.StyleSpans;
 
 import java.util.Collection;
 import java.util.function.Function;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
 
 public abstract class EditorKeywordHelperAbstract {
@@ -51,11 +52,14 @@ public abstract class EditorKeywordHelperAbstract {
      *
      */
     public final void triggerAllText(GenericStyledArea<Collection<String>, String, Collection<String>> area,
-                                     SearchParams temporaryTextParam, SearchParams searchTextParam, Action0 endOfSetStyle) {
+                                     SearchParams temporaryTextParam, SearchParams searchTextParam,
+                                     Action0 endOfSetStyle, BooleanSupplier canApply) {
         mLastMatcher = getPattern(temporaryTextParam, searchTextParam);
         var spans = getComputeHighlightFun().apply(area.getText());
         Platform.runLater(()-> {
-            area.setStyleSpans(0, spans);
+            if (canApply.getAsBoolean()) {
+                area.setStyleSpans(0, spans);
+            }
             if(endOfSetStyle != null) endOfSetStyle.invoke();
         });
     }

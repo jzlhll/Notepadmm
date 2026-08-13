@@ -46,7 +46,11 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
         Log.d(getSourceFile() + " trigger");
-        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText, endSetStyleCallback);
+        if (disableStylerIfNeeded(endSetStyleCallback)) {
+            return;
+        }
+        long contentVersion = getContentVersion();
+        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText, endSetStyleCallback,
+                () -> contentVersion == getContentVersion() && !isRealtimeProcessingLimitReached());
     }
 }
-

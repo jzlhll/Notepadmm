@@ -11,6 +11,7 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.modulenotepad.Highlight;
+import com.allan.atools.tools.modulenotepad.StaticsProf;
 import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace;
@@ -51,6 +52,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntFunction;
 
@@ -62,6 +64,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     static final String TAG = "Editor";
 
     private static final String TEMP_MASK_FILE = " *";
+    private static final int MAX_LINE_COUNT_FOR_STYLE = 10000;
 
     private final EditorAreaState state;
 
@@ -80,6 +83,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
         private void onTextChanged() {
             contentVersion.incrementAndGet();
+            mContentSizeReachedStyleLimit = area.getLength() >= StaticsProf.getMaxFileSizeForStyle();
+            mLineCountReachedStyleLimit = area.getParagraphs().size() >= MAX_LINE_COUNT_FOR_STYLE;
+            disableStylerIfNeeded(null);
             if(EditorArea.DEBUG_EDITOR) Log.v("text changed !!");
             if (mActions != null) {
                 for (var a : mActions) {
@@ -285,9 +291,44 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private final AtomicLong saveVersion = new AtomicLong();
     private final AtomicLong contentVersion = new AtomicLong();
     private volatile Future<?> pendingSave;
+    private volatile boolean mSourceFileSizeReachedStyleLimit;
+    private volatile boolean mContentSizeReachedStyleLimit;
+    private volatile boolean mLineCountReachedStyleLimit;
+    private final AtomicBoolean mStylerWasAllowed = new AtomicBoolean();
 
     public long getContentVersion() {
         return contentVersion.get();
+    }
+
+    public boolean isRealtimeProcessingLimitReached() {
+        return mSourceFileSizeReachedStyleLimit
+                || mContentSizeReachedStyleLimit
+                || mLineCountReachedStyleLimit;
+    }
+
+    /** 统一限制语法高亮和 Markdown 目录等全文实时处理。 */
+    public boolean disableStylerIfNeeded(Action0 endAction) {
+        if (!isRealtimeProcessingLimitReached()) {
+            mStylerWasAllowed.set(true);
+            return false;
+        }
+
+        boolean shouldClearStyle = mStylerWasAllowed.getAndSet(false);
+        Runnable disableAction = () -> {
+            if (shouldClearStyle && isRealtimeProcessingLimitReached()
+                    && area != null && area.getLength() > 0) {
+                area.setStyle(0, area.getLength(), area.getInitialTextStyle());
+            }
+            if (endAction != null) {
+                endAction.invoke();
+            }
+        };
+        if (Platform.isFxApplicationThread()) {
+            disableAction.run();
+        } else if (shouldClearStyle || endAction != null) {
+            Platform.runLater(disableAction);
+        }
+        return true;
     }
     /**
      * 反射找出本tab的title tabLabel
@@ -338,6 +379,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     EditorAreaMgr(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         this.sourceFile = sourceFile;
+        int maxRealtimeProcessingSize = StaticsProf.getMaxFileSizeForStyle();
+        mSourceFileSizeReachedStyleLimit = !isFake
+                && sourceFile.length() >= maxRealtimeProcessingSize;
+        mContentSizeReachedStyleLimit = area.getLength() >= maxRealtimeProcessingSize;
+        mLineCountReachedStyleLimit = area.getParagraphs().size() >= MAX_LINE_COUNT_FOR_STYLE;
         state = new EditorAreaState(area);
         UIContext.allOpenedFileList.add(sourceFile);
         Log.w("new EditorBase:: " + sourceFile.lastModified());
@@ -417,6 +463,16 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     Files.createDirectories(parent);
                 }
                 Files.writeString(path, sourceCode, Charset.forName(encoding));
+                boolean sourceFileLimitReached = savedFile.length() >= StaticsProf.getMaxFileSizeForStyle();
+                boolean sourceFileLimitChanged = mSourceFileSizeReachedStyleLimit != sourceFileLimitReached;
+                mSourceFileSizeReachedStyleLimit = sourceFileLimitReached;
+                if (sourceFileLimitChanged && !ThreadUtils.sBeClosing) {
+                    Platform.runLater(() -> {
+                        if (area != null && UIContext.currentAreaProp.get() == area) {
+                            UIContext.context().refreshCurrentDocumentInfo();
+                        }
+                    });
+                }
             } catch (IOException | RuntimeException e) {
                 Log.e("save content failed: " + savedFile.getAbsolutePath(), e);
                 return;
@@ -574,7 +630,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                     openCurrentFolder(null);
                                 } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
                                     var path = isFake || sourceFile == null ? "" : sourceFile.getAbsolutePath();
-                                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
+                                    if (!path.isEmpty()) {
+                                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
+                                        SnackbarUtils.show(Locales.str("fullPathCopied"));
+                                    }
                                 }
                                 GlobalPopupManager.instance().hide();
                             });
@@ -622,6 +681,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void resetText(String text) {
+        mSourceFileSizeReachedStyleLimit = !isFake && sourceFile != null
+                && sourceFile.length() >= StaticsProf.getMaxFileSizeForStyle();
         area.replaceText(text);
         markCurrentFileTs();
     }
@@ -657,6 +718,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         UIContext.allOpenedFileList.add(newf);
 
         isFake = false;
+        mSourceFileSizeReachedStyleLimit = newf.length() >= StaticsProf.getMaxFileSizeForStyle();
+        UIContext.context().refreshCurrentDocumentInfo();
         AllEditorsManager.delayToSaveRecentFile(newFile);
 
         markCurrentFileTs();

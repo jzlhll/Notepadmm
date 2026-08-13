@@ -8,7 +8,7 @@ import java.nio.file.Path;
 
 public final class StaticsProf {
     private static volatile boolean mIsInit = false;
-    private static final int MAX_FILE_SIZE_FOR_STYLE = 10*1024*1024;//10M的文件就不做setStyle了。TODO 改成可以做。
+    private static final int MAX_FILE_SIZE_FOR_STYLE = 2 * 1024 * 1024;
     private static final int MAX_FILE_SIZE = 150000000; //150 MB
     private static final int MAX_CFG_SIZE = 12; //高级搜索的个数
     private static final long JUMP_LINES_DELTA_TIME = 48; //跳转代码行的内部间隔时间段
