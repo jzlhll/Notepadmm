@@ -228,6 +228,17 @@ tasks.register('generateJpackageScripts') {
                     baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n' +
                     "mv ${shellQuote("../dist/${originalOutputName}.dmg")} ${shellQuote("../dist/${architectureOutputName}.dmg")}\n"
             script.setExecutable(true, false)
+
+            def copyScript = new File(packagingConfig.buildRoot, 'copyToApplications.sh')
+            def installedApp = "/Applications/${packagingConfig.appName}.app"
+            copyScript.text = '#!/bin/sh\nset -e\ncd "$(dirname "$0")"\n' +
+                    "APP_PATH=${shellQuote(installedApp)}\n" +
+                    'cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"\n' +
+                    'rsync -a --delete resources/resources/ "$APP_PATH/Contents/app/resources/"\n' +
+                    "/usr/bin/codesign --force --timestamp " +
+                    "--preserve-metadata=identifier,entitlements,requirements,flags " +
+                    "--sign ${shellQuote(packagingConfig.macSigningKey)} \"\$APP_PATH\"\n"
+            copyScript.setExecutable(true, false)
         } else {
             def exeScript = new File(packagingConfig.buildRoot, 'jpackageCmdExe.bat')
             def imageScript = new File(packagingConfig.buildRoot, 'jpackageCmdGreenExe.bat')
