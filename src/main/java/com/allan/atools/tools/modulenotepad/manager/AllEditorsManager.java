@@ -37,6 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
     private static final String HIDDEN_TEMP_FILE_REGEX = "^\\.temp\\d{2}_\\d{2}_\\d{2}(?:_\\d+)*\\.txt$";
+    /** 最近打开文件列表的最大保存数量 */
+    private static final int MAX_RECENT_FILES = 12;
 
     @Override
     public boolean isCurrentAreaOnFront(EditorArea area) {
@@ -637,7 +639,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             var newss = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
             try {
                 StringBuilder saved = new StringBuilder();
-                for (int i = 0; i < 10 && i < newss.size(); i++) { //*******暂时设置为10*****
+                for (int i = 0; i < MAX_RECENT_FILES && i < newss.size(); i++) {
                     saved.append(newss.get(i)).append('\n');
                 }
                 Files.writeString(path, saved.substring(0, saved.length() - 1));

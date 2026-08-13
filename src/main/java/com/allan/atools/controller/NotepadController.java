@@ -6,6 +6,7 @@ import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.pop.impl.EncodingChooseCreatorImpl;
 import com.allan.atools.pop.impl.JSONChooseCreatorImpl;
+import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.FileOpenSupportsKt;
@@ -14,6 +15,7 @@ import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
@@ -27,12 +29,18 @@ import com.jfoenix.controls.JFXTextField;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleLongProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TabPane;
 import javafx.scene.input.DragEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -40,6 +48,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -95,7 +105,10 @@ public final class NotepadController extends AbstractMainController {
     public SplitPane notepadSubSplitPane;
 
     public DirAndFileJFXTreeView<String> workspaceTree;
+    public JFXTabPane workspaceTabPane;
     public Label workspaceText;
+    public Label currentDocumentPathText;
+    public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
     public Label workspaceCloseBtn;
     public VBox workspaceVBox;
     public Label workspaceRefreshBtn;
@@ -108,6 +121,9 @@ public final class NotepadController extends AbstractMainController {
     private AnchorPane notepadMainResultLayout;
 
     private SettingDrawer settingDrawer;
+    private MarkdownOutlineManager markdownOutlineManager;
+    private final ChangeListener<EditorArea> currentDocumentAreaChanged =
+            (observable, oldValue, newValue) -> refreshCurrentDocumentPath();
 
     private int getMainUiSizeMode() {
         int mode = SettingPreferences.getInt(SettingPreferences.mainUiSizeModeKey);
@@ -132,8 +148,13 @@ public final class NotepadController extends AbstractMainController {
         return defaultSize + getMainUiSizeMode();
     }
 
+    /** 打开文件弹出菜单的基础字号，每个尺寸级别 +1 */
+    public int getMainMenuFontSize() {
+        return 15 + getMainUiSizeMode();
+    }
+
     public int getMainWorkspaceIconSize(int defaultSize) {
-        return defaultSize + getMainUiSizeMode() * 2;
+        return defaultSize + getMainUiSizeMode();
     }
 
     public void applyMainUiSizeMode() {
@@ -155,10 +176,13 @@ public final class NotepadController extends AbstractMainController {
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         workspaceTree.getStyleClass().removeAll(
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        workspaceTabPane.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         notepadMainHeadBox.getStyleClass().add(styleClass);
         notepadMainBottomBox.getStyleClass().add(styleClass);
         tabPane.getStyleClass().add(styleClass);
         workspaceTree.getStyleClass().add(styleClass);
+        workspaceTabPane.getStyleClass().add(styleClass);
 
         double extra = mode;
         notepadMainHeadBox.setPadding(new Insets(3 + extra));
@@ -215,6 +239,11 @@ public final class NotepadController extends AbstractMainController {
     @Override
     public void destroy() {
         Log.d("DESTROY: notepad controller");
+        if (markdownOutlineManager != null) {
+            markdownOutlineManager.destroy();
+            markdownOutlineManager = null;
+        }
+        UIContext.currentAreaProp.removeListener(currentDocumentAreaChanged);
         AllEditorsManager.Instance.saveUnSaved();
         AllEditorsManager.Instance.saveListFilePaths();
         AllEditorsManager.Instance.removeKeyListener();
@@ -262,6 +291,16 @@ public final class NotepadController extends AbstractMainController {
         AllEditorsManager.Instance.init();
 
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+
+        //点击 tab 头空白区域（非 tab 本身）时新建文件；仅响应单击，避免双击时第二次点击重复触发
+        tabPane.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY
+                    && event.getClickCount() == 1
+                    && event.getTarget() instanceof Node node
+                    && node.getStyleClass().contains("tab-header-background")) {
+                NotepadHeadButtons.newATempFile();
+            }
+        });
 
         EventHandler<DragEvent> dragOver = event-> {
             if (event.getDragboard() != null && event.getDragboard().hasFiles()) {
@@ -396,6 +435,19 @@ public final class NotepadController extends AbstractMainController {
         if (notepadEmptyHintLabel != null) {
             notepadEmptyHintLabel.setText(Locales.str("dragFileIntoAndOpen"));
         }
+        UIContext.currentAreaProp.addListener(currentDocumentAreaChanged);
+        currentDocumentPathText.setCursor(Cursor.HAND);
+        currentDocumentPathText.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                var path = currentDocumentPathText.getText();
+                if (!path.isEmpty()) {
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
+                    SnackbarUtils.show(Locales.str("fullPathCopied"));
+                }
+            }
+        });
+        refreshCurrentDocumentPath();
+        markdownOutlineManager = new MarkdownOutlineManager(this);
         getWorkspaceManager().removeWorkspace(false);
 
         mHeightProp.set(stage.heightProperty().getValue() - 5);
@@ -417,6 +469,22 @@ public final class NotepadController extends AbstractMainController {
             //继续delay的延迟子线程任务
             ThreadUtils.globalHandler().postDelayed(this::initAfterShownDelayInThread, 20 * 1000L);
         });
+    }
+
+    public void refreshCurrentDocumentInfo() {
+        refreshCurrentDocumentPath();
+        if (markdownOutlineManager != null) {
+            markdownOutlineManager.refreshCurrentFile();
+        }
+    }
+
+    private void refreshCurrentDocumentPath() {
+        var currentArea = UIContext.currentAreaProp.get();
+        if (currentArea != null && currentArea.getEditor().getSourceFile() != null) {
+            currentDocumentPathText.setText(currentArea.getEditor().getSourceFile().getAbsolutePath());
+        } else {
+            currentDocumentPathText.setText("");
+        }
     }
 
     private void initEncodingIndicateClick() {

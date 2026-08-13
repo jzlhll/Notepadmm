@@ -72,6 +72,10 @@
     -fx-effect: null;
 }
 
+.jfx-tab-pane.editor-tab-pane .headers-region .tab:selected .tab-container .tab-label {
+    -fx-font-weight: normal;
+}
+
 .jfx-tab-pane .headers-region .tab:selected { /*allan 当前选中的文件名颜色*/
     -fx-background-color: rgba(66, 133, 244, 0.2);
 }

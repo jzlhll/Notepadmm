@@ -1,7 +1,9 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.UIContext
 import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
+import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
 import com.jfoenix.controls.JFXListView
@@ -30,20 +32,6 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
             )
         }
 
-        val menu2 = MenuItem(Locales.str("openDirAsWorkspace"))
-        menu2.onAction = EventHandler {
-            action.invoke(
-                2
-            )
-        }
-
-        val menu3 = MenuItem(Locales.str("openLastWorkspace"))
-        menu3.onAction = EventHandler {
-            action.invoke(
-                3
-            )
-        }
-
         val recentFilesMenu = Menu(Locales.str("allRecentFiles"))
         val list = AllEditorsManager.saveOrReadRecentFiles(null)
         if (list != null && list.size > 0) {
@@ -59,8 +47,43 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
                 recentFilesMenu.items.add(item)
             }
         }
-        contextMenu.items.addAll(menu0, menu1, SeparatorMenuItem(), menu2, menu3, SeparatorMenuItem(), recentFilesMenu)
+
+        val menu2 = MenuItem(Locales.str("openDirAsWorkspace"))
+        menu2.onAction = EventHandler {
+            action.invoke(
+                2
+            )
+        }
+
+        val recentWorkspacesMenu = Menu(Locales.str("recentWorkspaces"))
+        val workspaces = WorkspaceManager.saveOrReadRecentWorkspaces(null)
+        if (workspaces != null && workspaces.size > 0) {
+            for (w in workspaces) {
+                val item = MenuItem(w)
+                item.onAction = EventHandler {
+                    UIContext.context().workspaceManager.openRecentWorkspace(w)
+                }
+                recentWorkspacesMenu.items.add(item)
+            }
+        }
+
+        contextMenu.items.addAll(menu0, menu1, recentFilesMenu, SeparatorMenuItem(), menu2, recentWorkspacesMenu)
+
+        val fontSize = UIContext.context().getMainMenuFontSize()
+        applyFontSize(contextMenu.items, fontSize)
+
         return contextMenu
+    }
+
+    /** 递归给菜单项设置字号，覆盖默认 15px，使一级和二级菜单都跟随尺寸级别 */
+    private fun applyFontSize(items: List<MenuItem>, size: Int) {
+        for (item in items) {
+            if (item is SeparatorMenuItem) continue
+            item.style = "-fx-font-size: ${size}px;"
+            if (item is Menu) {
+                applyFontSize(item.items, size)
+            }
+        }
     }
 
     override fun createPop(action: Action<Int>?): Region {

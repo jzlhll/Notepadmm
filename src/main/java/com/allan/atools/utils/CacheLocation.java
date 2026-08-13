@@ -122,6 +122,10 @@ public final class CacheLocation {
         return get("recentFiles.cfg");
     }
 
+    public static String getRecentWorkspaces() {
+        return get("recentWorkspaces.cfg");
+    }
+
     public static String getMapFileAndEncoding() {
         return get("fileEncodingMappings.cfg");
     }

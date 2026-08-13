@@ -5,7 +5,7 @@ import java.io.File;
 public interface IWorkspace {
     void initWhenAppStart();
     void removeWorkspace(boolean savedCfg);
-    void openLastWorkspace();
+    void openRecentWorkspace(String path);
     void refreshWorkspace();
 
     /**

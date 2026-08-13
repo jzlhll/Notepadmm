@@ -1180,15 +1180,14 @@ link文字
 }*/
 .context-menu {
   -fx-background-color: -au-main-bg-color2;
+  -fx-font-size: 15;
 }
 
 .menu-item:focused {
   -fx-background-color: -au-editor-selection-words-color;
   -fx-text-fill: -au-input-text-color;
-  -fx-font-size: 15;
 }
 
 .menu-item .label {
   -fx-text-fill: -au-input-text-color;
-  -fx-font-size: 15;
 }

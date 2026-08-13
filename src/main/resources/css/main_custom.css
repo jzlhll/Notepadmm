@@ -63,6 +63,7 @@
 .jfx-tree-view.main-ui-size-default .tree-cell-coding,
 .jfx-tree-view.main-ui-size-default .tree-cell-other {
    -fx-font-size: 15;
+   -fx-padding: 1 0 1 0;
 }
 
 .jfx-tree-view.main-ui-size-large .tree-cell-dir,
@@ -72,6 +73,7 @@
 .jfx-tree-view.main-ui-size-large .tree-cell-coding,
 .jfx-tree-view.main-ui-size-large .tree-cell-other {
    -fx-font-size: 16;
+   -fx-padding: 1 0 1 0;
 }
 
 .jfx-tree-view.main-ui-size-larger .tree-cell-dir,
@@ -81,6 +83,56 @@
 .jfx-tree-view.main-ui-size-larger .tree-cell-coding,
 .jfx-tree-view.main-ui-size-larger .tree-cell-other {
    -fx-font-size: 17;
+   -fx-padding: 1 0 1 0;
+}
+
+.workspace-tab-pane.main-ui-size-default .workspace-path-label {
+   -fx-font-size: 12;
+}
+
+.workspace-tab-pane.main-ui-size-large .workspace-path-label {
+   -fx-font-size: 13;
+}
+
+.workspace-tab-pane.main-ui-size-larger .workspace-path-label {
+   -fx-font-size: 14;
+}
+
+.workspace-tab-pane.main-ui-size-default .current-document-path-label {
+   -fx-font-size: 14;
+}
+
+.workspace-tab-pane.main-ui-size-large .current-document-path-label {
+   -fx-font-size: 15;
+}
+
+.workspace-tab-pane.main-ui-size-larger .current-document-path-label {
+   -fx-font-size: 16;
+}
+
+.markdown-outline-list,
+.markdown-outline-list .list-cell {
+   -fx-background-color: -au-main-bg-color;
+}
+
+.markdown-outline-list .list-cell {
+   -fx-text-fill: -au-default-text-color;
+}
+
+.markdown-outline-list .list-cell:selected {
+   -fx-background-color: rgba(66, 133, 244, 0.2);
+}
+
+.workspace-tab-pane.main-ui-size-default .markdown-outline-cell {
+   -fx-font-size: 14;
+}
+
+.workspace-tab-pane.main-ui-size-large .markdown-outline-cell {
+   -fx-font-size: 15;
+}
+
+.workspace-tab-pane.main-ui-size-larger .markdown-outline-cell {
+   -fx-font-size: 16;
 }
 
 .notepad-bottom-bar.main-ui-size-large .small-desc-label,

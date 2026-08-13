@@ -137,7 +137,6 @@ public final class NotepadHeadButtons {
             switch (index) {
                 case 1 -> newATempFile();
                 case 2 -> UIContext.context().getWorkspaceManager().selectDirAsWorkspaceDialog();
-                case 3 -> UIContext.context().getWorkspaceManager().openLastWorkspace();
                 default -> loadDocument();
             }
         });

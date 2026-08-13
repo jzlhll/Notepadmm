@@ -84,50 +84,65 @@
         <SplitPane fx:id="notepadMainSplitPane" styleClass="custom-main-bg" orientation="VERTICAL">
             <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg">
                 <VBox fx:id="workspaceVBox" minWidth="9" maxWidth="400" styleClass="custom-main-bg">
-                    <HBox prefWidth="160">
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceGoUpBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceSortBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
-                        <Pane HBox.hgrow="ALWAYS"/>
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceCreateDirBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceCreateFileBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
+                    <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane">
+                        <Tab closable="false" text="%workspaceTab">
+                            <VBox styleClass="custom-main-bg">
+                                <HBox prefWidth="160">
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceGoUpBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceSortBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
+                                    <Pane HBox.hgrow="ALWAYS"/>
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceCreateDirBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceCreateFileBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
 
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
-                        <JFXRippler styleClass="jfx-rippler-red-custom">
-                            <HBox.margin>
-                                <Insets left="0" right="1"/>
-                            </HBox.margin>
-                            <Label fx:id="workspaceCloseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                        </JFXRippler>
-                    </HBox>
-                    <Label fx:id="workspaceText" styleClass="small-desc-label" textOverrun="CENTER_ELLIPSIS"/>
-                    <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS" styleClass="jfx-tree-view"/>
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
+                                    <JFXRippler styleClass="jfx-rippler-red-custom">
+                                        <HBox.margin>
+                                            <Insets left="0" right="1"/>
+                                        </HBox.margin>
+                                        <Label fx:id="workspaceCloseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                                    </JFXRippler>
+                                </HBox>
+                                <Label fx:id="workspaceText" styleClass="small-desc-label,workspace-path-label" textOverrun="CENTER_ELLIPSIS"/>
+                                <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS" styleClass="jfx-tree-view"/>
+                            </VBox>
+                        </Tab>
+                        <Tab closable="false" text="%currentDocumentTab">
+                            <VBox styleClass="custom-main-bg">
+                                <padding>
+                                    <Insets bottom="8" left="8" right="8" top="8"/>
+                                </padding>
+                                <Label fx:id="currentDocumentPathText" maxWidth="Infinity" styleClass="small-normal-label,current-document-path-label" wrapText="true"/>
+                                <ListView fx:id="currentDocumentOutlineList" VBox.vgrow="ALWAYS" styleClass="markdown-outline-list"/>
+                            </VBox>
+                        </Tab>
+                    </JFXTabPane>
                 </VBox>
-                <JFXTabPane fx:id="tabPane"/>
+                <JFXTabPane fx:id="tabPane" styleClass="editor-tab-pane"/>
             </SplitPane>
             <!-- notepadMainResultLayout 这里通过代码填写 -->
         </SplitPane>

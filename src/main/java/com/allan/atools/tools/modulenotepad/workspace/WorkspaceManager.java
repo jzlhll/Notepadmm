@@ -6,6 +6,7 @@ import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeCell;
+import com.allan.atools.utils.CacheLocation;
 import com.allan.atools.utils.IO;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
@@ -27,6 +28,10 @@ import javafx.scene.input.MouseButton;
 import javafx.stage.DirectoryChooser;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,6 +45,8 @@ public final class WorkspaceManager implements IWorkspace {
     private static final String KEY_WORKSPACE_WIDTH = "workspace_width";
 
     private static final int WIDTH_OF_WORKSPACE_MIN = 49;
+    /** 最近打开工作区列表的最大保存数量 */
+    private static final int MAX_RECENT_WORKSPACES = 8;
 
 
     private volatile boolean isWorkspaceShown = true;
@@ -364,10 +371,38 @@ public final class WorkspaceManager implements IWorkspace {
     }
 
     @Override
-    public void openLastWorkspace() {
-        var initDir = UIContext.sharedPref.getString(KEY_WORKSPACE_FILE, "");
-        if (!TextUtils.isEmpty(initDir)) {
-            openWorkspace(new File(initDir));
+    public void openRecentWorkspace(String path) {
+        if (!TextUtils.isEmpty(path)) {
+            ThreadUtils.globalHandler().post(() -> saveOrReadRecentWorkspaces(path));
+            openWorkspace(new File(path));
+        }
+    }
+
+    /**
+     * @param dir 传入的参数为null，则是读取
+     */
+    public static List<String> saveOrReadRecentWorkspaces(String dir) {
+        List<String> ss;
+        var path = Path.of(CacheLocation.getRecentWorkspaces());
+        try {
+            ss = Files.readAllLines(path);
+        } catch (IOException e) {
+            ss = new ArrayList<>();
+        }
+
+        if (dir != null) {
+            ss.add(0, dir); //追加新的到最前面
+            var newss = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
+            try {
+                int savedCount = Math.min(MAX_RECENT_WORKSPACES, newss.size());
+                Files.writeString(path, String.join("\n", newss.subList(0, savedCount)));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        } else {
+            var r = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
+            return r;
         }
     }
 
@@ -398,6 +433,8 @@ public final class WorkspaceManager implements IWorkspace {
         File file = directoryChooser.showDialog(UIContext.context().getStage());
         if (file != null) {
             if (file.exists() && file.isDirectory()) {
+                String path = file.getAbsolutePath();
+                ThreadUtils.globalHandler().post(() -> saveOrReadRecentWorkspaces(path));
                 openWorkspace(file);
             } else {
                 JfoenixDialogUtils.alert(Locales.str("error"), Locales.str("setting.dirIsWrong"));
