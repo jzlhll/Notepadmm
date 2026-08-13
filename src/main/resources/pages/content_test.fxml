@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXButton?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.Insets?>
+<VBox styleClass="custom-main-bg"
+      xmlns="http://javafx.com/javafx/15.0.1"
+      xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.TestController">
+   <HBox>
+      <Label text="Test" styleClass="title-label-big"/>
+   </HBox>
+
+   <HBox>
+      <VBox.margin>
+         <Insets top="10" left="10"/>
+      </VBox.margin>
+      <JFXButton fx:id="group1Btn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="第一组 全量连续">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="group2Btn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="第二组 随机丢约1%">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="group3Btn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="第三组 隔一个丢一个">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="group4Btn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="第四组 随机丢约5%">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+      <JFXButton fx:id="group5Btn" buttonType="RAISED" styleClass="custom-jfx-button-raised" text="第五组 随机丢约10%">
+         <HBox.margin>
+            <Insets left="10"/>
+         </HBox.margin>
+      </JFXButton>
+   </HBox>
+</VBox>
