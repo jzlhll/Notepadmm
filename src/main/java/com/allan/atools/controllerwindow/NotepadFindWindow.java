@@ -35,8 +35,8 @@ public final class NotepadFindWindow {
         if (findStage == null) {
             SubWindowCreatorInfo info = new SubWindowCreatorInfo();
             info.title = Locales.str("search");
-            info.width = 550;
-            info.height = 650;
+            info.width = 660;
+            info.height = 550;
             info.iconPath = ResLocation.getURLStr("pictures", "search.png");
             info.resizable = false;
             info.sizeAndLocateCachePrefixName = "notepad_findWindow_";

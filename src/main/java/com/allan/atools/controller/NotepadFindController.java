@@ -122,26 +122,19 @@ public final class NotepadFindController extends AbstractController {
         if (id == 0) {
             advanceSearchBox.setVisible(false);
             normalViewVBox.setVisible(true);
-            AnchorPane.setTopAnchor(normalViewVBox, 60.0d);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
             replaceComboBox.setVisible(false);
             replaceTextField.setVisible(false);
             startBtn.setText(Locales.str("search"));
             startAllBtn.setText(Locales.str("allSearch"));
-            getStage().setWidth(550.0);
-            getStage().setHeight(400.0);
         } else if (id == 1) {
             advanceSearchBox.setVisible(true);
             normalViewVBox.setVisible(false);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(18, 0, 0, 12));
-            AnchorPane.setTopAnchor(normalViewVBox, 50.0d);
             replaceComboBox.setVisible(false);
             replaceTextField.setVisible(false);
             startBtn.setText(Locales.str("search"));
             startAllBtn.setText(Locales.str("allSearch"));
-
-            getStage().setWidth(660.0);
-            getStage().setHeight(550.0);
 
             if (mListViewMgr == null) {
                 mListViewMgr = new FindAdvanceListViewManager(this);
@@ -150,14 +143,11 @@ public final class NotepadFindController extends AbstractController {
         } else if (id == 2) {
             advanceSearchBox.setVisible(false);
             normalViewVBox.setVisible(true);
-            AnchorPane.setTopAnchor(normalViewVBox, 60.0d);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
             replaceComboBox.setVisible(true);
             replaceTextField.setVisible(true);
             startBtn.setText(Locales.str("replace"));
             startAllBtn.setText(Locales.str("allReplace"));
-            getStage().setWidth(550.0);
-            getStage().setHeight(400.0);
         }
         return id;
     }
@@ -165,6 +155,8 @@ public final class NotepadFindController extends AbstractController {
     @Override
     public void init(Stage stage) {
         super.init(stage);
+        stage.setWidth(660.0);
+        stage.setHeight(550.0);
 
         //规避 JFoenix 库 JFXGenericPickerSkin.removeParentFakeFocusListener 反射 helper 为空导致的 NPE 噪音
         textColorPicker.focusedProperty().addListener((obs, old, val) -> {});
