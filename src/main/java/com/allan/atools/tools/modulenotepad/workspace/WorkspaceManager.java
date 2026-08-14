@@ -451,7 +451,7 @@ public final class WorkspaceManager implements IWorkspace {
         openToDir.setOnAction(event -> {
             WorkspaceManager workspaceManager = (WorkspaceManager) UIContext.context().getWorkspaceManager();
             File file = (File) workspaceManager.currentItem.ex;
-            Utils.openFolderExplore(file.getParentFile());
+            Utils.openFolderExplore(file);
         });
 
         MenuItem usingHexMenu = new MenuItem(Locales.str("usingHexShown"));

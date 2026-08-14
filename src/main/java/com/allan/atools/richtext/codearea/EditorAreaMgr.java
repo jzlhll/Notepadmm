@@ -863,7 +863,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private void openCurrentFolder(ActionEvent event) {
         if (sourceFile != null) {
             if (sourceFile.getParentFile() != null) {
-                Utils.openFolderExplore(sourceFile.getParentFile());
+                Utils.openFolderExplore(sourceFile);
             }
         }
     }

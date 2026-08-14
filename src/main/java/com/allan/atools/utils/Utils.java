@@ -158,14 +158,25 @@ public final class Utils {
         }
     }
 
-    /**
-     * @param directory : The Path To Open it in new window
-     */
-    public static void openFolderExplore(File directory){
-        Desktop desktop = Desktop.getDesktop();
+    /** 在系统文件管理器中定位目标文件。 */
+    public static void openFolderExplore(File file) {
         try {
+            Desktop desktop = Desktop.getDesktop();
+            if (desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR)) {
+                try {
+                    desktop.browseFileDirectory(file);
+                    return;
+                } catch (IllegalArgumentException | UnsupportedOperationException | SecurityException ignored) {
+                    // 定位失败时回退为打开目标所在目录。
+                }
+            }
+
+            File directory = file.isDirectory() ? file : file.getParentFile();
+            if (directory == null) {
+                throw new IllegalArgumentException();
+            }
             desktop.open(directory);
-        } catch (IllegalArgumentException | IOException e) {
+        } catch (IllegalArgumentException | IOException | UnsupportedOperationException | SecurityException e) {
             String errorMessage = "File Not Found";
             SnackbarUtils.show(errorMessage);
         }

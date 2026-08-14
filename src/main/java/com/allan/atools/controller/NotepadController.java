@@ -292,10 +292,10 @@ public final class NotepadController extends AbstractMainController {
 
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
 
-        //点击 tab 头空白区域（非 tab 本身）时新建文件；仅响应单击，避免双击时第二次点击重复触发
+        //双击 tab 头空白区域（非 tab 本身）时新建文件
         tabPane.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
             if (event.getButton() == MouseButton.PRIMARY
-                    && event.getClickCount() == 1
+                    && event.getClickCount() == 2
                     && event.getTarget() instanceof Node node
                     && node.getStyleClass().contains("tab-header-background")) {
                 NotepadHeadButtons.newATempFile();
