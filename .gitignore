@@ -1,5 +1,6 @@
 pack_sh
 proguardMap.zip
+.trae/
 out.map
 proguard_use.pro
 .DS_Store

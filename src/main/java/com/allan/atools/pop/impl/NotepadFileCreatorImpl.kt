@@ -55,8 +55,19 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
             )
         }
 
-        val recentWorkspacesMenu = Menu(Locales.str("recentWorkspaces"))
         val workspaces = WorkspaceManager.saveOrReadRecentWorkspaces(null)
+
+        //打开最近一次的工作区；没有任何历史工作区时退化为目录选择
+        val menuOpenWorkspace = MenuItem(Locales.str("openWorkspace"))
+        menuOpenWorkspace.onAction = EventHandler {
+            if (workspaces.isNotEmpty()) {
+                UIContext.context().workspaceManager.openRecentWorkspace(workspaces[0])
+            } else {
+                UIContext.context().workspaceManager.selectDirAsWorkspaceDialog()
+            }
+        }
+
+        val recentWorkspacesMenu = Menu(Locales.str("recentWorkspaces"))
         if (workspaces != null && workspaces.size > 0) {
             for (w in workspaces) {
                 val item = MenuItem(w)
@@ -67,7 +78,14 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
             }
         }
 
-        contextMenu.items.addAll(menu0, menu1, recentFilesMenu, SeparatorMenuItem(), menu2, recentWorkspacesMenu)
+        contextMenu.items.addAll(menu0, menu1)
+        if (!list.isNullOrEmpty()) {
+            contextMenu.items.add(recentFilesMenu)
+        }
+        contextMenu.items.addAll(SeparatorMenuItem(), menu2, menuOpenWorkspace)
+        if (!workspaces.isNullOrEmpty()) {
+            contextMenu.items.add(recentWorkspacesMenu)
+        }
 
         val fontSize = UIContext.context().getMainMenuFontSize()
         applyFontSize(contextMenu.items, fontSize)

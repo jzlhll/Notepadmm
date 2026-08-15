@@ -83,11 +83,25 @@
     <StackPane fx:id="mainPane" styleClass="custom-main-bg">
         <SplitPane fx:id="notepadMainSplitPane" styleClass="custom-main-bg" orientation="VERTICAL">
             <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg">
-                <VBox fx:id="workspaceVBox" minWidth="9" maxWidth="400" styleClass="custom-main-bg">
-                    <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane">
+                <VBox fx:id="workspaceVBox" minWidth="80" maxWidth="400" styleClass="custom-main-bg">
+                    <GridPane fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" hgap="3">
+                        <VBox.margin>
+                            <Insets top="6"/>
+                        </VBox.margin>
+                        <columnConstraints>
+                            <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
+                            <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
+                        </columnConstraints>
+                        <ToggleButton fx:id="workspaceFilesTabBtn" text="%workspaceTab" maxWidth="Infinity"
+                                      styleClass="workspace-tab-switch-btn" GridPane.columnIndex="0"/>
+                        <ToggleButton fx:id="workspaceDocTabBtn" text="%currentDocumentTab" maxWidth="Infinity"
+                                      styleClass="workspace-tab-switch-btn" GridPane.columnIndex="1"/>
+                    </GridPane>
+                    <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane"
+                                tabMinHeight="0" tabMaxHeight="0">
                         <Tab closable="false" text="%workspaceTab">
                             <VBox styleClass="custom-main-bg">
-                                <HBox prefWidth="160">
+                                <HBox fx:id="workspaceToolbarBox" prefWidth="160">
                                     <JFXRippler styleClass="jfx-rippler-red-custom">
                                         <HBox.margin>
                                             <Insets left="0" right="1"/>
@@ -128,6 +142,16 @@
                                     </JFXRippler>
                                 </HBox>
                                 <Label fx:id="workspaceText" styleClass="small-desc-label,workspace-path-label" textOverrun="CENTER_ELLIPSIS"/>
+                                <VBox fx:id="workspaceEmptyBox" styleClass="custom-main-bg" visible="false" managed="false"
+                                      spacing="12" VBox.vgrow="ALWAYS">
+                                    <padding>
+                                        <Insets bottom="8" left="10" right="10" top="28"/>
+                                    </padding>
+                                    <Label fx:id="workspaceEmptyHintLabel" styleClass="small-desc-label,workspace-empty-hint"
+                                           maxWidth="Infinity" wrapText="true" textAlignment="CENTER"/>
+                                    <JFXButton fx:id="workspaceOpenBtn" text="+" maxWidth="Infinity"
+                                               styleClass="workspace-open-btn"/>
+                                </VBox>
                                 <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS" styleClass="jfx-tree-view"/>
                             </VBox>
                         </Tab>
@@ -137,6 +161,12 @@
                                     <Insets bottom="8" left="8" right="8" top="8"/>
                                 </padding>
                                 <Label fx:id="currentDocumentPathText" maxWidth="Infinity" styleClass="small-normal-label,current-document-path-label" wrapText="true"/>
+                                <Label fx:id="currentDocumentEmptyHintLabel" styleClass="small-desc-label,workspace-empty-hint"
+                                       maxWidth="Infinity" wrapText="true" textAlignment="CENTER" visible="false" managed="false">
+                                    <VBox.margin>
+                                        <Insets top="12"/>
+                                    </VBox.margin>
+                                </Label>
                                 <ListView fx:id="currentDocumentOutlineList" VBox.vgrow="ALWAYS" styleClass="markdown-outline-list"/>
                             </VBox>
                         </Tab>

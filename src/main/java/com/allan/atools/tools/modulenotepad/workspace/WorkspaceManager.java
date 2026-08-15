@@ -44,7 +44,7 @@ public final class WorkspaceManager implements IWorkspace {
     private static final String KEY_WORKSPACE_SORT_MODE = "workspace_sort";
     private static final String KEY_WORKSPACE_WIDTH = "workspace_width";
 
-    private static final int WIDTH_OF_WORKSPACE_MIN = 49;
+    private static final int WIDTH_OF_WORKSPACE_MIN = 80;
     /** 最近打开工作区列表的最大保存数量 */
     private static final int MAX_RECENT_WORKSPACES = 8;
 
@@ -116,7 +116,51 @@ public final class WorkspaceManager implements IWorkspace {
     public void initWhenAppStart() {
         if (UIContext.sharedPref.getBoolean(KEY_WORKSPACE_IS_OPENED, false)) {
            openWorkspace(new File(UIContext.sharedPref.getString(KEY_WORKSPACE_FILE, "")));
+        } else {
+            var recents = saveOrReadRecentWorkspaces(null);
+            if (recents.isEmpty()) {
+                showEmptyWorkspaceState();
+            }
         }
+    }
+
+    /**
+     * 没有任何历史工作区时：隐藏路径与按钮行，展示提示与"打开工作区"长条按钮
+     */
+    private void showEmptyWorkspaceState() {
+        var c = UIContext.context();
+        initOnce();
+        if (!isWorkspaceVBoxAdded) {
+            isWorkspaceVBoxAdded = true;
+            c.notepadSubSplitPane.getItems().add(0, c.workspaceVBox);
+            setSplitPanePosition();
+
+            //面板首次加入时初始化tree root，否则openWorkspace走else分支时getRoot()为null
+            TreeItem<String> base = new TreeItem<>();
+            base.setExpanded(false);
+            c.workspaceTree.setRoot(base);
+            c.workspaceTree.setShowRoot(false);
+        }
+        c.workspaceToolbarBox.setVisible(false);
+        c.workspaceToolbarBox.setManaged(false);
+        c.workspaceText.setVisible(false);
+        c.workspaceText.setManaged(false);
+        c.workspaceTree.setVisible(false);
+        c.workspaceTree.setManaged(false);
+        c.workspaceEmptyBox.setVisible(true);
+        c.workspaceEmptyBox.setManaged(true);
+    }
+
+    private void restoreWorkspaceViews() {
+        var c = UIContext.context();
+        c.workspaceToolbarBox.setVisible(true);
+        c.workspaceToolbarBox.setManaged(true);
+        c.workspaceText.setVisible(true);
+        c.workspaceText.setManaged(true);
+        c.workspaceTree.setVisible(true);
+        c.workspaceTree.setManaged(true);
+        c.workspaceEmptyBox.setVisible(false);
+        c.workspaceEmptyBox.setManaged(false);
     }
 
     @Override
@@ -239,6 +283,10 @@ public final class WorkspaceManager implements IWorkspace {
         c.workspaceCloseBtn.setTooltip(new Tooltip(Locales.str("close")));
         c.workspaceCloseBtn.setOnMouseClicked(event -> removeWorkspace(true));
 
+        c.workspaceEmptyHintLabel.setText(Locales.str("workspaceEmptyHint"));
+        c.workspaceOpenBtn.setTooltip(new Tooltip(Locales.str("openWorkspace")));
+        c.workspaceOpenBtn.setOnMouseClicked(event -> selectDirAsWorkspaceDialog());
+
         c.workspaceTree.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
                 if(c.workspaceTree.getSelectionModel().getSelectedItem() instanceof TreeItemEx<?> treeItemEx) {
@@ -316,6 +364,7 @@ public final class WorkspaceManager implements IWorkspace {
 
             currentDir = dir;
             var path = dir.getAbsolutePath();
+            restoreWorkspaceViews();
 
             if(DEBUG) Log.d(TAG, "treeItems: real doing.....");
             var ctrl = UIContext.context();

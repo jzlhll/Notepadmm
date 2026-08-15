@@ -86,6 +86,60 @@
    -fx-padding: 1 0 1 0;
 }
 
+/* 工作区侧栏：隐藏原生tab头（配合tabMinHeight/tabMaxHeight=0），顶部用分段控件切换 */
+.workspace-tab-pane > .tab-header-area {
+   -fx-min-height: 0;
+   -fx-pref-height: 0;
+   -fx-max-height: 0;
+   -fx-padding: 0;
+   visibility: hidden;
+}
+
+.workspace-tab-pane .headers-region > .tab {
+   -fx-min-height: 0;
+   -fx-pref-height: 0;
+   -fx-max-height: 0;
+   -fx-padding: 0;
+}
+
+.workspace-tab-switch-box {
+   -fx-background-color: rgba(128, 128, 128, 0.12);
+   -fx-background-radius: 10;
+   -fx-padding: 3;
+}
+
+.workspace-tab-switch-box .workspace-tab-switch-btn {
+   -fx-max-width: Infinity;
+   -fx-min-height: 24;
+   -fx-pref-height: 24;
+   -fx-max-height: 24;
+   -fx-padding: 0 2 0 2;
+   -fx-background-radius: 8;
+   -fx-background-color: transparent;
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.workspace-tab-switch-box .workspace-tab-switch-btn:hover {
+   -fx-background-color: rgba(128, 128, 128, 0.18);
+}
+
+.workspace-tab-switch-box .workspace-tab-switch-btn:selected {
+   -fx-background-color: rgba(66, 133, 244, 0.2);
+   -fx-text-fill: -au-default-text-color;
+}
+
+.workspace-tab-switch-box.main-ui-size-default .workspace-tab-switch-btn {
+   -fx-font-size: 12;
+}
+
+.workspace-tab-switch-box.main-ui-size-large .workspace-tab-switch-btn {
+   -fx-font-size: 13;
+}
+
+.workspace-tab-switch-box.main-ui-size-larger .workspace-tab-switch-btn {
+   -fx-font-size: 14;
+}
+
 .workspace-tab-pane.main-ui-size-default .workspace-path-label {
    -fx-font-size: 12;
 }
@@ -96,6 +150,44 @@
 
 .workspace-tab-pane.main-ui-size-larger .workspace-path-label {
    -fx-font-size: 14;
+}
+
+.workspace-tab-pane .workspace-open-btn {
+   -fx-min-height: 24;
+   -fx-pref-height: 24;
+   -fx-max-height: 24;
+   -fx-padding: 0;
+   -fx-background-radius: 12;
+   -fx-background-color: #CCE8FF;
+   -fx-text-fill: black;
+}
+
+.workspace-tab-pane .workspace-open-btn:hover {
+   -fx-background-color: #B3DFFF;
+}
+
+.workspace-tab-pane.main-ui-size-default .workspace-empty-hint {
+   -fx-font-size: 12;
+}
+
+.workspace-tab-pane.main-ui-size-large .workspace-empty-hint {
+   -fx-font-size: 13;
+}
+
+.workspace-tab-pane.main-ui-size-larger .workspace-empty-hint {
+   -fx-font-size: 14;
+}
+
+.workspace-tab-pane.main-ui-size-default .workspace-open-btn {
+   -fx-font-size: 14;
+}
+
+.workspace-tab-pane.main-ui-size-large .workspace-open-btn {
+   -fx-font-size: 15;
+}
+
+.workspace-tab-pane.main-ui-size-larger .workspace-open-btn {
+   -fx-font-size: 16;
 }
 
 .workspace-tab-pane.main-ui-size-default .current-document-path-label {

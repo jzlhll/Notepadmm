@@ -24,6 +24,7 @@ import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.ui.SettingDrawer;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
 import com.allan.atools.utils.*;
+import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXTabPane;
 import com.jfoenix.controls.JFXTextField;
 import javafx.application.Platform;
@@ -36,6 +37,8 @@ import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TabPane;
 import javafx.scene.input.DragEvent;
@@ -43,6 +46,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -106,8 +110,16 @@ public final class NotepadController extends AbstractMainController {
 
     public DirAndFileJFXTreeView<String> workspaceTree;
     public JFXTabPane workspaceTabPane;
+    public GridPane workspaceTabSwitchBox;
+    public ToggleButton workspaceFilesTabBtn;
+    public ToggleButton workspaceDocTabBtn;
     public Label workspaceText;
+    public HBox workspaceToolbarBox;
+    public VBox workspaceEmptyBox;
+    public Label workspaceEmptyHintLabel;
+    public JFXButton workspaceOpenBtn;
     public Label currentDocumentPathText;
+    public Label currentDocumentEmptyHintLabel;
     public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
     public Label workspaceCloseBtn;
     public VBox workspaceVBox;
@@ -178,11 +190,14 @@ public final class NotepadController extends AbstractMainController {
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         workspaceTabPane.getStyleClass().removeAll(
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        workspaceTabSwitchBox.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         notepadMainHeadBox.getStyleClass().add(styleClass);
         notepadMainBottomBox.getStyleClass().add(styleClass);
         tabPane.getStyleClass().add(styleClass);
         workspaceTree.getStyleClass().add(styleClass);
         workspaceTabPane.getStyleClass().add(styleClass);
+        workspaceTabSwitchBox.getStyleClass().add(styleClass);
 
         double extra = mode;
         notepadMainHeadBox.setPadding(new Insets(3 + extra));
@@ -435,6 +450,20 @@ public final class NotepadController extends AbstractMainController {
         if (notepadEmptyHintLabel != null) {
             notepadEmptyHintLabel.setText(Locales.str("dragFileIntoAndOpen"));
         }
+        currentDocumentEmptyHintLabel.setText(Locales.str("currentDocumentEmptyHint"));
+
+        //工作区侧栏顶部分段切换，驱动隐藏头部的tab pane
+        var workspaceTabSwitchGroup = new ToggleGroup();
+        workspaceFilesTabBtn.setToggleGroup(workspaceTabSwitchGroup);
+        workspaceDocTabBtn.setToggleGroup(workspaceTabSwitchGroup);
+        workspaceFilesTabBtn.setSelected(true);
+        workspaceTabSwitchGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == workspaceFilesTabBtn) {
+                workspaceTabPane.getSelectionModel().select(0);
+            } else if (newValue == workspaceDocTabBtn) {
+                workspaceTabPane.getSelectionModel().select(1);
+            }
+        });
         UIContext.currentAreaProp.addListener(currentDocumentAreaChanged);
         currentDocumentPathText.setCursor(Cursor.HAND);
         currentDocumentPathText.setOnMouseClicked(event -> {
@@ -480,11 +509,14 @@ public final class NotepadController extends AbstractMainController {
 
     private void refreshCurrentDocumentPath() {
         var currentArea = UIContext.currentAreaProp.get();
-        if (currentArea != null && currentArea.getEditor().getSourceFile() != null) {
+        boolean hasDoc = currentArea != null && currentArea.getEditor().getSourceFile() != null;
+        if (hasDoc) {
             currentDocumentPathText.setText(currentArea.getEditor().getSourceFile().getAbsolutePath());
         } else {
             currentDocumentPathText.setText("");
         }
+        currentDocumentEmptyHintLabel.setVisible(!hasDoc);
+        currentDocumentEmptyHintLabel.setManaged(!hasDoc);
     }
 
     private void initEncodingIndicateClick() {
