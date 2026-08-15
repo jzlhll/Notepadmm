@@ -394,6 +394,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             var text = tab.getText();
             if (mConfirmStat == ConfirmStat.Normal) {
                 if (text.endsWith(TEMP_MASK_FILE)) {
+                    if (isFake && area.getText().isEmpty()) {
+                        return;
+                    }
                     event.consume();
                     mConfirmStat = ConfirmStat.DialogOpened;
                     JfoenixDialogUtils.confirm(Locales.ALERT(),
