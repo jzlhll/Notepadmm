@@ -2,6 +2,7 @@ package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bean.FileEncodingMap;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.beans.FileEncodingMaps;
@@ -33,12 +34,18 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.google.gson.reflect.TypeToken;
 
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
     private static final String HIDDEN_TEMP_FILE_REGEX = "^\\.temp\\d{2}_\\d{2}_\\d{2}(?:_\\d+)*\\.txt$";
     /** 最近打开文件列表的最大保存数量 */
     private static final int MAX_RECENT_FILES = 12;
+    /** 最近文件列表在 recent.json 中的顶层 key */
+    private static final String KEY_RECENT_FILES = "files";
+    /** 文件编码映射在 recent.json 中的顶层 key */
+    private static final String KEY_FILE_ENCODINGS = "fileEncodings";
+    private static final TypeToken<List<FileEncodingMap>> TYPE_FILE_ENCODINGS = new TypeToken<>() {};
 
     @Override
     public boolean isCurrentAreaOnFront(EditorArea area) {
@@ -312,11 +319,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     @Override
     public void saveListFilePaths() {
         if (SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey)) {
-            StringBuilder sb = new StringBuilder();
-            for (var filePath : getAllTabsFilePaths()) {
-                sb.append(filePath).append(";");
-            }
-            ThreadUtils.globalHandler().post(()-> UIContext.sharedPref.edit().putString("lastFile", sb.toString()).commit());
+            var paths = getAllTabsFilePaths();
+            GlobalCfgStores.user().setStringList("lastFile", List.of(paths));
         }
     }
 
@@ -626,33 +630,19 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
      * @param file 传入的参数为null，则是读取
      */
     public static List<String> saveOrReadRecentFiles(String file) {
-        List<String> ss;
-        var path = Path.of(CacheLocation.getRecentFiles());
-        try {
-            ss = Files.readAllLines(path);
-        } catch (IOException e) {
-            ss = new ArrayList<>();
-        }
+        var ss = new ArrayList<>(GlobalCfgStores.recent().getStringList(KEY_RECENT_FILES, List.of()));
 
         if (file != null) {
             ss.add(0, file); //追加新的到最前面
             var newss = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
-            try {
-                StringBuilder saved = new StringBuilder();
-                for (int i = 0; i < MAX_RECENT_FILES && i < newss.size(); i++) {
-                    saved.append(newss.get(i)).append('\n');
-                }
-                Files.writeString(path, saved.substring(0, saved.length() - 1));
-                //保存的时候，最上面的文件就是最新的
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            int savedCount = Math.min(MAX_RECENT_FILES, newss.size());
+            GlobalCfgStores.recent().setStringList(KEY_RECENT_FILES, newss.subList(0, savedCount));
+            //保存的时候，最上面的文件就是最新的
             return null;
         }
         else
         {
-            var r = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
-            return r;
+            return ss.stream().distinct().filter(s -> new File(s).exists()).toList();
         }
     }
 
@@ -663,42 +653,19 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     private static String readLastFileEncoding(String file) {
-        List<String> ss;
-        var path = Path.of(CacheLocation.getMapFileAndEncoding());
-        try {
-            ss = Files.readAllLines(path);
-        } catch (IOException e) {
-            //
-            return null;
-        }
-        for (int i = 0, count = ss.size(); i + 1 < count; i += 2) {
-            var f = ss.get(i);
-            var e = ss.get(i + 1);
-            if (file.equals(f)) {
-                return e;
+        var maps = GlobalCfgStores.recent().getObject(KEY_FILE_ENCODINGS, TYPE_FILE_ENCODINGS, List.of());
+        for (var m : maps) {
+            if (file.equals(m.file())) {
+                return m.enc();
             }
         }
-
         return null;
     }
 
     private static void saveLastFileEncodingMapping(String file, String encoding) {
-        List<String> ss;
-        var path = Path.of(CacheLocation.getMapFileAndEncoding());
-        try {
-            ss = Files.readAllLines(path);
-        } catch (IOException e) {
-            //
-            ss = new ArrayList<>();
-        }
         FileEncodingMaps maps = new FileEncodingMaps();
-        maps.list = new ArrayList<>(4);
-
-        for (int i = 0, count = ss.size(); i + 1 < count; i += 2) {
-            var f = ss.get(i);
-            var e = ss.get(i + 1);
-            maps.list.add(new FileEncodingMap(f, e));
-        }
+        maps.list = new ArrayList<>(GlobalCfgStores.recent()
+                .getObject(KEY_FILE_ENCODINGS, TYPE_FILE_ENCODINGS, List.of()));
 
         var m = new FileEncodingMap(file, encoding);
         maps.list.add(0, m);
@@ -707,17 +674,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         maps.removeNotExist();
         maps.removeDuplicate();
 
-        try {
-            StringBuilder saved = new StringBuilder();
-            maps.list.forEach(map -> {
-                saved.append(map.file()).append('\n').append(map.enc()).append('\n');
-            });
-            if (!saved.isEmpty()) {
-                saved.setLength(saved.length() - 1);
-            }
-            Files.writeString(path, saved);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        GlobalCfgStores.recent().set(KEY_FILE_ENCODINGS, maps.list);
     }
 }

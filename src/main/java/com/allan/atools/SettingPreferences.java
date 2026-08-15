@@ -70,8 +70,7 @@ public final class SettingPreferences {
         };
 
         map = new HashMap<>(8);
-        var sp = UIContext.sharedPref;
-        assert sp != null;
+        var sp = GlobalCfgStores.user();
 
         for (var config : defs) {
             if (sp.contains(config.keyName)) {
@@ -137,27 +136,22 @@ public final class SettingPreferences {
     public static void updateInt(String key, int value) {
         SimpleIntegerProperty prop = (SimpleIntegerProperty) getMap().get(key);
         prop.set(value);
-        assert UIContext.sharedPref != null;
-        UIContext.sharedPref.edit().putInt(key, value).commit();
+        GlobalCfgStores.user().setInt(key, value);
     }
 
     public static void updateBool(String key, boolean value) {
         SimpleBooleanProperty prop = (SimpleBooleanProperty) getMap().get(key);
         prop.set(value);
-
-        assert UIContext.sharedPref != null;
-        UIContext.sharedPref.edit().putBoolean(key, value).commit();
+        GlobalCfgStores.user().setBoolean(key, value);
     }
 
     public static void updateStr(String key, String value) {
         SimpleStringProperty prop = (SimpleStringProperty) getMap().get(key);
         prop.set(value);
-        assert UIContext.sharedPref != null;
-        UIContext.sharedPref.edit().putString(key, value).commit();
+        GlobalCfgStores.user().setString(key, value);
     }
 
     private static void removeKey(String key) {
-        assert UIContext.sharedPref != null;
-        UIContext.sharedPref.edit().remove(key);
+        GlobalCfgStores.user().remove(key);
     }
 }

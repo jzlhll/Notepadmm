@@ -1,6 +1,6 @@
 package com.allan.atools.utils;
 
-import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 
 import java.io.File;
 import java.io.FileReader;
@@ -28,7 +28,7 @@ public final class Locales {
     }
 
     private static File getLocaleFile() {
-        var index = UIContext.sharedPref.getInt(LOCALES_KEY, INDEX_NONE);
+        var index = GlobalCfgStores.user().getInt(LOCALES_KEY, INDEX_NONE);
 
         String locale;
         switch (index) {

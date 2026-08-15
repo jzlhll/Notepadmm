@@ -1,6 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.ui.JfoenixDialogUtils;
@@ -110,13 +111,13 @@ public final class SettingController extends AbstractController {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        var language = UIContext.sharedPref.getInt(Locales.LOCALES_KEY, -1);
+        var language = GlobalCfgStores.user().getInt(Locales.LOCALES_KEY, -1);
         if (language == -1) {
             language = Locales.getLocalesIndex();
         }
         localesComboBox.getSelectionModel().select(language);
         localesComboBox.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
-            UIContext.sharedPref.edit().putInt(Locales.LOCALES_KEY, newValue.intValue()).commit();
+            GlobalCfgStores.user().setInt(Locales.LOCALES_KEY, newValue.intValue());
         });
 
         fontCustomLink.setOnMouseClicked(event -> {
@@ -125,7 +126,7 @@ public final class SettingController extends AbstractController {
                 return;
             }
 
-            var lastDir = UIContext.sharedPref.getString("lastOpenDirs", null);
+            var lastDir = GlobalCfgStores.user().getString("lastOpenDirs", null);
             File initialFile;
             do {
                 if (lastDir != null && lastDir.length() >= 1) {
@@ -187,7 +188,7 @@ public final class SettingController extends AbstractController {
                             break;
                         }
 
-                        UIContext.sharedPref.edit().putString("custom_font_path", selectedFile.getAbsolutePath()).commit();
+                        GlobalCfgStores.user().setString("custom_font_path", selectedFile.getAbsolutePath());
                         ThreadUtils.globalHandler().postDelayed(()-> {
                             Log.d("load custom font path... " + str);
                             Platform.runLater(()->{
@@ -229,12 +230,12 @@ public final class SettingController extends AbstractController {
                 visibleFontSelectedMode(true);
             }
 
-            UIContext.sharedPref.edit().putInt(SettingPreferences.fontThemeIdKey, id).commit();
+            GlobalCfgStores.user().setInt(SettingPreferences.fontThemeIdKey, id);
             AllStagesManager.getInstance().replaceCustom(CacheLocation.CustomFontFamily, CacheLocation.fontFamilyFile(id));
             UIContext.updateFontThemeId(id);
         });
 
-        String customFilePath = UIContext.sharedPref.getString("custom_font_path", Locales.str("setting.newFileDirectoryHint"));
+        String customFilePath = GlobalCfgStores.user().getString("custom_font_path", Locales.str("setting.newFileDirectoryHint"));
         fontCustomLink.setText(customFilePath);
 
         cycleNextBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.cycleNextKey));

@@ -1,6 +1,7 @@
 package com.allan.atools.richtext;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.FontTheme;
 import javafx.scene.Node;
 import javafx.scene.paint.Color;
@@ -32,10 +33,10 @@ public final class FoldableStyledArea extends GenericStyledArea<ParStyle, Either
                 ParStyle.EMPTY,                                                 // default paragraph style
                 (paragraph, style) -> paragraph.setStyle(style.toCss()),        // paragraph style setter
                 TextStyle.EMPTY
-                        .updateFontSize(
-                                name == null ? 12 :
-                                (UIContext.sharedPref.getInt(name + "FoldableStyledAreaFontSize", 16) - 4)
-                        )
+                                .updateFontSize(
+                                        name == null ? 12 :
+                                        (GlobalCfgStores.user().getInt(name + "FoldableStyledAreaFontSize", 16) - 4)
+                                )
                         .updateFontFamily(FontTheme.fontFamily())
                         .updateTextColor(Color.BLACK),  // default segment style
                 styledTextOps._or(linkedImageOps, (s1, s2) -> Optional.empty()),                            // segment operations

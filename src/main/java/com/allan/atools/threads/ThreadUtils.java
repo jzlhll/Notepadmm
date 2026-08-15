@@ -1,5 +1,6 @@
 package com.allan.atools.threads;
 
+import com.allan.atools.GlobalCfgStores;
 import com.allan.baseparty.handler.HandlerThread;
 import com.allan.atools.utils.Log;
 import javafx.application.Platform;
@@ -153,6 +154,7 @@ public final class ThreadUtils {
                 e.printStackTrace();
             }
 
+            GlobalCfgStores.flushAll();
             HolderGeneric.shutdown();
             HolderHandler.mBackgroundThread.safelyQuit();
 

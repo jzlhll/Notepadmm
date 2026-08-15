@@ -1,10 +1,10 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controller.NotepadFindController;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.JfoenixDialogUtils;
-import com.allan.atools.utils.CacheLocation;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.uilibs.controls.MyHBox;
@@ -12,7 +12,7 @@ import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.bean.SearchParams;
 import com.allan.baseparty.Action0;
 import com.allan.baseparty.ActionR;
-import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.jfoenix.controls.JFXComboBox;
 import com.jfoenix.controls.JFXListView;
 import javafx.application.Platform;
@@ -20,8 +20,6 @@ import javafx.beans.value.ChangeListener;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
 public final class FindAdvanceSearchParamsManager {
@@ -38,11 +36,13 @@ public final class FindAdvanceSearchParamsManager {
         this.createItemFunc = createItemFunc;
     }
 
-    public static final int SAVE_DELAY_TS = UIContext.DEBUG ? 2 * 1000 : 5 * 1000;
-
     private final LinkedHashMap<String, List<SearchParams>> nameAndListParamsMap = new LinkedHashMap<>();
 
     private final Object LOCK = new Object();
+
+    /** 当前配置名在 advance.json 中的私有顶层 key */
+    private static final String KEY_CURRENT_NAME = "_currentName";
+    private static final TypeToken<List<SearchParams>> TYPE_LIST_PARAMS = new TypeToken<>() {};
 
     public int getAdvCfgsSize() {
         synchronized (LOCK) {
@@ -64,28 +64,18 @@ public final class FindAdvanceSearchParamsManager {
         return currentAdvanceCfgIndex == 0;
     }
 
-    private final Gson gson = new Gson();
     private final Runnable mSaveSearchParams = () -> {
         Log.d("save the new find combo box data!");
-        StringBuilder sb = new StringBuilder();
         synchronized (LOCK) {
-            try {
-                var keySet = nameAndListParamsMap.keySet();
-                for (var key : keySet) {
-                    var v = nameAndListParamsMap.get(key);
-                    sb.append("#name#").append(key).append("\n");
-                    for (var p : v) {
-                        sb.append(gson.toJson(p)).append("\n");
-                    }
+            var advance = GlobalCfgStores.advance();
+            for (var key : advance.keys()) {
+                //_currentName 是私有 key，不在配置 map 中，删除清理时须跳过
+                if (!KEY_CURRENT_NAME.equals(key) && !nameAndListParamsMap.containsKey(key)) {
+                    advance.remove(key); //已被删除的配置名
                 }
-
-                if (sb.length() > 0) {
-                    Files.writeString(Path.of(CacheLocation.getAdvanceSearchesFile()), sb.substring(0, sb.length() - 1));
-                } else {
-                    Files.delete(Path.of(CacheLocation.getAdvanceSearchesFile()));
-                }
-            } catch (Exception e) {
-                //e.printStackTrace();
+            }
+            for (var entry : nameAndListParamsMap.entrySet()) {
+                advance.set(entry.getKey(), entry.getValue());
             }
         }
     };
@@ -169,7 +159,7 @@ public final class FindAdvanceSearchParamsManager {
                 reConfigComboBoxAndDataUnlock();
 
                 final String cur = currentAdvanceCfgName;
-                ThreadUtils.globalHandler().post(()-> UIContext.sharedPref.edit().putString("advance_cfgs_name", cur).commit());
+                GlobalCfgStores.advance().setString(KEY_CURRENT_NAME, cur);
                 isSave = true;
             } else {
                 searchParamList.remove(hbox.getEx());
@@ -188,41 +178,14 @@ public final class FindAdvanceSearchParamsManager {
      */
     private void loadDataAsyncLocked(final Action0 after) {
         ThreadUtils.globalHandler().post(()->{
-            //加载数据
+            //加载数据（GsonCfgStore 首次访问会同步读盘，保持在后台线程）
             synchronized (LOCK) {
-                try {
-                    var fileStr = Files.readString(Path.of(CacheLocation.getAdvanceSearchesFile()));
-                    var lines = fileStr.split("\n");
-                    Gson gson = new Gson();
-
-                    for (int i = 0, count = lines.length; i < count; i++) {
-                        var line = lines[i];
-                        if (TextUtils.isEmpty(line)) {
-                            continue;
-                        }
-                        if (line.startsWith("#name#")) {
-                            String key = line.substring(6);
-                            if (i == 0) {
-                                key = DEFAULT_CFG_NAME;
-                            }
-                            List<SearchParams> params = new ArrayList<>();
-                            i++;
-                            for (; i < count; i++) {
-                                line = lines[i];
-                                if (line.startsWith("#name#")) {
-                                    i--; //退回来；让外层循环加到name行去
-                                    break;
-                                }
-                                var pa = gson.fromJson(line, SearchParams.class);
-                                params.add(pa);
-                            }
-                            nameAndListParamsMap.put(key, params);
-                        }
+                var advance = GlobalCfgStores.advance();
+                for (var key : advance.keys()) {
+                    if (KEY_CURRENT_NAME.equals(key)) {
+                        continue;
                     }
-                } catch (Exception e) {
-                    Log.d("不做处理 " + e.getMessage());
-                    //e.printStackTrace();
-                    nameAndListParamsMap.clear();
+                    nameAndListParamsMap.put(key, new ArrayList<>(advance.getObject(key, TYPE_LIST_PARAMS, List.of())));
                 }
 
                 if (nameAndListParamsMap.size() == 0) {
@@ -231,7 +194,7 @@ public final class FindAdvanceSearchParamsManager {
                     nameAndListParamsMap.put(DEFAULT_CFG_NAME, list);
                 }
 
-                currentAdvanceCfgName = UIContext.sharedPref.getString("advance_cfgs_name", DEFAULT_CFG_NAME);
+                currentAdvanceCfgName = advance.getString(KEY_CURRENT_NAME, DEFAULT_CFG_NAME);
                 currentAdvanceCfgIndex = getIndexInMapUnlock();
 
                 Platform.runLater(after::invoke);
@@ -255,8 +218,7 @@ public final class FindAdvanceSearchParamsManager {
             currentAdvanceCfgName = newValue.getText();
             currentAdvanceCfgIndex = getIndexInMapUnlock();
             reConfigComboBoxAndDataUnlock();
-            final String cur = currentAdvanceCfgName;
-            ThreadUtils.globalHandler().post(()-> UIContext.sharedPref.edit().putString("advance_cfgs_name", cur).commit());
+            GlobalCfgStores.advance().setString(KEY_CURRENT_NAME, currentAdvanceCfgName);
         }
     };
 
@@ -268,8 +230,7 @@ public final class FindAdvanceSearchParamsManager {
             currentAdvanceCfgName = nameAndListParamsMap.keySet().iterator().next();
             currentAdvanceCfgIndex = getIndexInMapUnlock();
             reConfigComboBoxAndDataUnlock();
-            final String cur = currentAdvanceCfgName;
-            ThreadUtils.globalHandler().post(()-> UIContext.sharedPref.edit().putString("advance_cfgs_name", cur).commit());
+            GlobalCfgStores.advance().setString(KEY_CURRENT_NAME, currentAdvanceCfgName);
         }
 
         saveParam();
@@ -287,8 +248,7 @@ public final class FindAdvanceSearchParamsManager {
 
             reConfigComboBoxAndDataUnlock();
 
-            final String cur = currentAdvanceCfgName;
-            ThreadUtils.globalHandler().post(()-> UIContext.sharedPref.edit().putString("advance_cfgs_name", cur).commit());
+            GlobalCfgStores.advance().setString(KEY_CURRENT_NAME, currentAdvanceCfgName);
         }
 
         saveParam();
@@ -334,7 +294,6 @@ public final class FindAdvanceSearchParamsManager {
     }
 
     public void saveParam() {
-        ThreadUtils.globalHandler().removeCallback(mSaveSearchParams);
-        ThreadUtils.globalHandler().postDelayed(mSaveSearchParams, SAVE_DELAY_TS);
+        mSaveSearchParams.run();
     }
 }

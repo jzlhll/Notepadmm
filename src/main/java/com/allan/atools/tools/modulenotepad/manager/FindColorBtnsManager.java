@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
-import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controller.NotepadFindController;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
@@ -127,10 +127,10 @@ public final class FindColorBtnsManager {
     private static String[] getSavedColors() {
         boolean isDark = SettingPreferences.getBoolean(SettingPreferences.appVisionKey);
         if (!isDark) {
-            String s = UIContext.sharedPref.getString("findNormalColorsLight", "#f9f9f9;#000000"); //backgoud;text
+            String s = GlobalCfgStores.user().getString("findNormalColorsLight", "#f9f9f9;#000000"); //backgoud;text
             return s.split(";");
         } else {
-            String s = UIContext.sharedPref.getString("findNormalColorsDark", "#101010;#ffffff"); //backgoud;text
+            String s = GlobalCfgStores.user().getString("findNormalColorsDark", "#101010;#ffffff"); //backgoud;text
             return s.split(";");
         }
     }
@@ -138,9 +138,9 @@ public final class FindColorBtnsManager {
     private static void saveNormalColors(String[] colors) {
         boolean isDark = SettingPreferences.getBoolean(SettingPreferences.appVisionKey);
         if (!isDark) {
-            UIContext.sharedPref.edit().putString("findNormalColorsLight", colors[0] + ";" + colors[1]).commit(); //backgoud;text
+            GlobalCfgStores.user().setString("findNormalColorsLight", colors[0] + ";" + colors[1]); //backgoud;text
         } else {
-            UIContext.sharedPref.edit().putString("findNormalColorsDark", colors[0] + ";" + colors[1]).commit(); //backgoud;text
+            GlobalCfgStores.user().setString("findNormalColorsDark", colors[0] + ";" + colors[1]); //backgoud;text
         }
     }
 }

@@ -6,16 +6,13 @@ import com.allan.atools.controller.NotepadController
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.AToolsControllerInitial
-import com.allan.atools.utils.CacheLocation
 import com.allan.atools.utils.Log
 import com.allan.atools.utils.ResLocation
-import com.allan.baseparty.content.SharedPref
-import com.allan.baseparty.content.SharedPrefImp
+import java.io.File
 import javafx.beans.property.*
 import javafx.collections.FXCollections
 import javafx.scene.control.Tab
 import javafx.stage.Window
-import java.io.File
 
 object UIContext {
     @JvmField
@@ -26,9 +23,6 @@ object UIContext {
 
     @JvmField
     val CAN_DECORATOR:Boolean = !ResLocation.isOsx
-
-    @JvmField
-    val sharedPref: SharedPref = SharedPrefImp(File(CacheLocation.getUserConfigFile()))
 
     @JvmField
     var mainController: AbstractMainController? = null
@@ -99,7 +93,7 @@ object UIContext {
     @JvmStatic
     fun updateFontSize(fontSize: Int) {
         fontSizeProperty!!.set(fontSize)
-        sharedPref.edit().putInt(SettingPreferences.editorFontSizeKey, fontSize).commit()
+        GlobalCfgStores.user().setInt(SettingPreferences.editorFontSizeKey, fontSize)
     }
     @JvmStatic
     fun getFontThemeProperty(): SimpleIntegerProperty {

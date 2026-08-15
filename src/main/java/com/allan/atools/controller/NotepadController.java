@@ -1,6 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractMainController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
@@ -365,10 +366,9 @@ public final class NotepadController extends AbstractMainController {
         if (SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey)) {
             ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
                 Platform.runLater(() -> {
-                    String lastFiles = UIContext.sharedPref.getString("lastFile", "");
-                    String[] lastFilePair = lastFiles.split(";");
+                    var lastFiles = GlobalCfgStores.user().getStringList("lastFile", List.of());
                     Log.d("load old files start...");
-                    for (var lastFile : lastFilePair) {
+                    for (var lastFile : lastFiles) {
                         if (lastFile != null && lastFile.length() > 0 && new File(lastFile).exists()) {
                             AllEditorsManager.Instance.openFile(new File(lastFile), false, false);
                         }

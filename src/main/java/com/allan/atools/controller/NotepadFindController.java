@@ -1,6 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
@@ -77,6 +78,9 @@ public final class NotepadFindController extends AbstractController {
     public JFXButton findMode2HelpBtn;
 
     private GenericStyledArea<ParStyle, String, TextStyle> findColorsDemoArea;
+
+    //查找/替换下拉记录防抖保存时长
+    private static final long SAVE_DELAY_TS = UIContext.DEBUG ? 2 * 1000 : 5 * 1000;
 
     private final OthersHelper mOthers = new OthersHelper();
 
@@ -175,11 +179,11 @@ public final class NotepadFindController extends AbstractController {
             }
         });
 
-        String tabIndex = UIContext.sharedPref.getString("findWindowTabIndex", null);
+        String tabIndex = GlobalCfgStores.user().getString("findWindowTabIndex", null);
         var tabIndexInt = initTab(tabIndex);
         tabPane.getSelectionModel().select(tabIndexInt);
         tabPane.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
-            UIContext.sharedPref.edit().putString("findWindowTabIndex", newValue.toString()).commit();
+            GlobalCfgStores.user().setString("findWindowTabIndex", newValue.toString());
             initTab(newValue.toString());
         });
         mOthers.init();
@@ -246,7 +250,7 @@ public final class NotepadFindController extends AbstractController {
             }
         }
         findComboBox.getSelectionModel().select(0);
-        mOthers.saveFindComboxData(FindAdvanceSearchParamsManager.SAVE_DELAY_TS);
+        mOthers.saveFindComboxData(SAVE_DELAY_TS);
     }
 
     @Override
@@ -294,7 +298,7 @@ public final class NotepadFindController extends AbstractController {
         }
 
         private void saveFindMode(int mode) {
-            UIContext.sharedPref.edit().putInt("findWindowFindMode", mode).commit();
+            GlobalCfgStores.user().setInt("findWindowFindMode", mode);
         }
 
         public void destroy() {
@@ -302,7 +306,7 @@ public final class NotepadFindController extends AbstractController {
         }
 
         private void initFindComboxData() {
-            var saveBase64 = UIContext.sharedPref.getString("findComboBox", null);
+            var saveBase64 = GlobalCfgStores.user().getString("findComboBox", null);
             if (saveBase64 == null) {
                 return;
             }
@@ -316,7 +320,7 @@ public final class NotepadFindController extends AbstractController {
 
         private String mFindComboBoxBase64Str;
         private final Runnable mSaveFindComboxDataRunnable = () -> {
-            UIContext.sharedPref.edit().putString("findComboBox", mFindComboBoxBase64Str).commit();
+            GlobalCfgStores.user().setString("findComboBox", mFindComboBoxBase64Str);
         };
 
         private void saveFindComboxData(long ms) {
@@ -342,7 +346,7 @@ public final class NotepadFindController extends AbstractController {
                 for (var b : radioGroups) {
                     b.setToggleGroup(toggleGroup);
                 }
-                int mod = UIContext.sharedPref.getInt("findWindowFindMode", FIND_MODE_NORMAL);
+                int mod = GlobalCfgStores.user().getInt("findWindowFindMode", FIND_MODE_NORMAL);
                 toggleGroup.selectToggle(radioGroups[mod >= 3 ? 0 : mod]); //先设置后监听
 
                 toggleGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
@@ -362,26 +366,26 @@ public final class NotepadFindController extends AbstractController {
             allWordsCheckBox.selectedProperty().bindBidirectional(mAllWordsProp);
             hightlightCheckBox.selectedProperty().bindBidirectional(mHighlightProp);
 
-            boolean mod = UIContext.sharedPref.getBoolean("findWindowCaseMatchCheck", false);
+            boolean mod = GlobalCfgStores.user().getBoolean("findWindowCaseMatchCheck", false);
             mCaseMatchProp.set(!mod);
-            mod = UIContext.sharedPref.getBoolean("findWindowAllWordsCheck", false);
+            mod = GlobalCfgStores.user().getBoolean("findWindowAllWordsCheck", false);
             mAllWordsProp.set(mod);
-            mod = UIContext.sharedPref.getBoolean("findWindowHighlightCheck", false);
+            mod = GlobalCfgStores.user().getBoolean("findWindowHighlightCheck", false);
             mHighlightProp.set(mod);
 
             mCaseMatchProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("save case match " + newValue);
-                UIContext.sharedPref.edit().putBoolean("findWindowCaseMatchCheck", !newValue).commit();
+                GlobalCfgStores.user().setBoolean("findWindowCaseMatchCheck", !newValue);
             });
 
             mAllWordsProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("save all words " + newValue);
-                UIContext.sharedPref.edit().putBoolean("findWindowAllWordsCheck", newValue).commit();
+                GlobalCfgStores.user().setBoolean("findWindowAllWordsCheck", newValue);
             });
 
             mHighlightProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("save highlight " + newValue);
-                UIContext.sharedPref.edit().putBoolean("findWindowHighlightCheck", newValue).commit();
+                GlobalCfgStores.user().setBoolean("findWindowHighlightCheck", newValue);
             });
 
             findMode2HelpBtn.setOnMouseClicked(mouseEvent -> {

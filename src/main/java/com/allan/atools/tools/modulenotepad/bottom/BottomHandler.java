@@ -1,6 +1,6 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
@@ -114,7 +114,7 @@ final class BottomHandler extends Handler {
             String s = new Gson().toJson(template);
 
             savedTemplateParams = template;
-            UIContext.sharedPref.edit().putString(SEARCH_PARAMS_KEY, Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8))).commit();
+            GlobalCfgStores.user().setString(SEARCH_PARAMS_KEY, Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             //e.printStackTrace();
         }
@@ -124,7 +124,7 @@ final class BottomHandler extends Handler {
 
     static SearchParams getTemplateParams() {
         if (savedTemplateParams == null) {
-            var s = UIContext.sharedPref.getString(SEARCH_PARAMS_KEY, null);
+            var s = GlobalCfgStores.user().getString(SEARCH_PARAMS_KEY, null);
             try {
                 var bs = Base64.getDecoder().decode(s);
                 String json = new String(bs, StandardCharsets.UTF_8);

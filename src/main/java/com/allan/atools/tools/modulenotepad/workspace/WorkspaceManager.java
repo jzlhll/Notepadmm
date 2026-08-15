@@ -1,6 +1,7 @@
 package com.allan.atools.tools.modulenotepad.workspace;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controllerwindow.PictureWindow;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.IconfontCreator;
@@ -47,6 +48,8 @@ public final class WorkspaceManager implements IWorkspace {
     private static final int WIDTH_OF_WORKSPACE_MIN = 80;
     /** 最近打开工作区列表的最大保存数量 */
     private static final int MAX_RECENT_WORKSPACES = 8;
+    /** 最近工作区列表在 recent.json 中的顶层 key */
+    private static final String KEY_RECENT_WORKSPACES = "workspaces";
 
 
     private volatile boolean isWorkspaceShown = true;
@@ -84,12 +87,12 @@ public final class WorkspaceManager implements IWorkspace {
 
     private boolean changeSortByFileOrTime() {
         isSortByFileOrTime = !isSortByFileOrTime;
-        UIContext.sharedPref.edit().putBoolean(KEY_WORKSPACE_SORT_MODE, isSortByFileOrTime).commit();
+        GlobalCfgStores.user().setBoolean(KEY_WORKSPACE_SORT_MODE, isSortByFileOrTime);
         return isSortByFileOrTime;
     }
 
     public WorkspaceManager() {
-        isSortByFileOrTime = UIContext.sharedPref.getBoolean(KEY_WORKSPACE_SORT_MODE, true);
+        isSortByFileOrTime = GlobalCfgStores.user().getBoolean(KEY_WORKSPACE_SORT_MODE, true);
     }
 
     @Override
@@ -106,7 +109,7 @@ public final class WorkspaceManager implements IWorkspace {
 
         if (savedCfg) {
             ThreadUtils.globalHandler().post(()-> {
-                UIContext.sharedPref.edit().putBoolean(KEY_WORKSPACE_IS_OPENED, false).commit();
+                GlobalCfgStores.user().setBoolean(KEY_WORKSPACE_IS_OPENED, false);
                 Platform.runLater(()-> UIContext.context().requestFocus4Jfoenix());
             });
         }
@@ -114,8 +117,8 @@ public final class WorkspaceManager implements IWorkspace {
 
     @Override
     public void initWhenAppStart() {
-        if (UIContext.sharedPref.getBoolean(KEY_WORKSPACE_IS_OPENED, false)) {
-           openWorkspace(new File(UIContext.sharedPref.getString(KEY_WORKSPACE_FILE, "")));
+        if (GlobalCfgStores.user().getBoolean(KEY_WORKSPACE_IS_OPENED, false)) {
+           openWorkspace(new File(GlobalCfgStores.user().getString(KEY_WORKSPACE_FILE, "")));
         } else {
             var recents = saveOrReadRecentWorkspaces(null);
             if (recents.isEmpty()) {
@@ -182,7 +185,7 @@ public final class WorkspaceManager implements IWorkspace {
     private int workspaceWidth;
     private final Runnable saveWorkspaceVBoxWidthRunnable = () -> {
         //多偏移2个像素
-        UIContext.sharedPref.edit().putInt(KEY_WORKSPACE_WIDTH, workspaceWidth + 2).commit();
+        GlobalCfgStores.user().setInt(KEY_WORKSPACE_WIDTH, workspaceWidth + 2);
         if(DEBUG) Log.d("save workspace box width " + workspaceWidth);
     };
 
@@ -202,7 +205,7 @@ public final class WorkspaceManager implements IWorkspace {
 
 
         if (workspaceWidth == 0) {
-            workspaceWidth = UIContext.sharedPref.getInt(KEY_WORKSPACE_WIDTH, 175);
+            workspaceWidth = GlobalCfgStores.user().getInt(KEY_WORKSPACE_WIDTH, 175);
         }
         if(DEBUG) Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
 
@@ -412,10 +415,11 @@ public final class WorkspaceManager implements IWorkspace {
 
             isWorkspaceShown = true;
             if(DEBUG) Log.d(TAG, "treeItems: real done!");
-            ThreadUtils.globalHandler().post(()->
-                    UIContext.sharedPref.edit()
-                            .putString(KEY_WORKSPACE_FILE, path)
-                            .putBoolean(KEY_WORKSPACE_IS_OPENED, true).commit());
+            ThreadUtils.globalHandler().post(()-> {
+                var user = GlobalCfgStores.user();
+                user.setString(KEY_WORKSPACE_FILE, path);
+                user.setBoolean(KEY_WORKSPACE_IS_OPENED, true);
+            });
         }
     }
 
@@ -431,27 +435,16 @@ public final class WorkspaceManager implements IWorkspace {
      * @param dir 传入的参数为null，则是读取
      */
     public static List<String> saveOrReadRecentWorkspaces(String dir) {
-        List<String> ss;
-        var path = Path.of(CacheLocation.getRecentWorkspaces());
-        try {
-            ss = Files.readAllLines(path);
-        } catch (IOException e) {
-            ss = new ArrayList<>();
-        }
+        var ss = new ArrayList<>(GlobalCfgStores.recent().getStringList(KEY_RECENT_WORKSPACES, List.of()));
 
         if (dir != null) {
             ss.add(0, dir); //追加新的到最前面
             var newss = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
-            try {
-                int savedCount = Math.min(MAX_RECENT_WORKSPACES, newss.size());
-                Files.writeString(path, String.join("\n", newss.subList(0, savedCount)));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            int savedCount = Math.min(MAX_RECENT_WORKSPACES, newss.size());
+            GlobalCfgStores.recent().setStringList(KEY_RECENT_WORKSPACES, newss.subList(0, savedCount));
             return null;
         } else {
-            var r = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
-            return r;
+            return ss.stream().distinct().filter(s -> new File(s).exists()).toList();
         }
     }
 
@@ -465,7 +458,7 @@ public final class WorkspaceManager implements IWorkspace {
     @Override
     public void selectDirAsWorkspaceDialog() {
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        var initDir = UIContext.sharedPref.getString(KEY_WORKSPACE_FILE, "");
+        var initDir = GlobalCfgStores.user().getString(KEY_WORKSPACE_FILE, "");
         boolean isOk = false;
         if (!TextUtils.isEmpty(initDir)) {
             var dir = new File(initDir);

@@ -1,6 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.threads.ThreadUtils;
@@ -150,7 +151,7 @@ public final class DrawsController extends AbstractController {
     }
 
     private void restoreDirectories() {
-        String saved = UIContext.sharedPref.getString(CONFIG_KEY, null);
+        String saved = GlobalCfgStores.user().getString(CONFIG_KEY, null);
         if (saved == null || saved.isBlank()) {
             renderResult(ScanResult.empty());
             return;
@@ -165,7 +166,7 @@ public final class DrawsController extends AbstractController {
             directoryInput.setText(String.join(System.lineSeparator(), paths));
             loadFromInput(false);
         } catch (RuntimeException ignored) {
-            UIContext.sharedPref.edit().remove(CONFIG_KEY).commit();
+            GlobalCfgStores.user().remove(CONFIG_KEY);
             renderResult(ScanResult.empty());
         }
     }
@@ -174,7 +175,7 @@ public final class DrawsController extends AbstractController {
         List<String> directories = parseDirectories(directoryInput.getText());
         directoryInput.setText(String.join(System.lineSeparator(), directories));
         if (saveConfig) {
-            UIContext.sharedPref.edit().putString(CONFIG_KEY, GSON.toJson(directories)).commit();
+            GlobalCfgStores.user().setString(CONFIG_KEY, GSON.toJson(directories));
         }
 
         cancelCurrentTask();
@@ -458,7 +459,7 @@ public final class DrawsController extends AbstractController {
     private void clearAll() {
         cancelCurrentTask();
         directoryInput.clear();
-        UIContext.sharedPref.edit().remove(CONFIG_KEY).commit();
+        GlobalCfgStores.user().remove(CONFIG_KEY);
         renderResult(ScanResult.empty());
     }
 

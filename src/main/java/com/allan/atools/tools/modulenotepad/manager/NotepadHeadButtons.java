@@ -3,6 +3,7 @@ package com.allan.atools.tools.modulenotepad.manager;
 import com.allan.atools.Colors;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.controllerwindow.NotepadMultiSelectionWindow;
 import com.allan.atools.pop.impl.FontSizeChooseCreatorImpl;
@@ -163,7 +164,7 @@ public final class NotepadHeadButtons {
     }
 
     private void loadDocument() {
-        var lastDir = UIContext.sharedPref.getString(LAST_OPEN_DIRS_KEY, null);
+        var lastDir = GlobalCfgStores.user().getString(LAST_OPEN_DIRS_KEY, null);
         File initialFile;
         do {
             if (lastDir != null && lastDir.length() >= 1) {
@@ -172,7 +173,7 @@ public final class NotepadHeadButtons {
                 if (initialFile.exists() && initialFile.isDirectory()) {
                     break;
                 } else {
-                    UIContext.sharedPref.edit().putString(LAST_OPEN_DIRS_KEY, null).commit();
+                    GlobalCfgStores.user().remove(LAST_OPEN_DIRS_KEY);
                 }
             }
             var initialDir = System.getProperty("user.dir");
@@ -187,7 +188,7 @@ public final class NotepadHeadButtons {
         File selectedFile = fileChooser.showOpenDialog(AllStagesManager.getInstance().getMainStage());
         if (selectedFile != null) {
             String dir = selectedFile.getParent();
-            UIContext.sharedPref.edit().putString(LAST_OPEN_DIRS_KEY, dir).commit();
+            GlobalCfgStores.user().setString(LAST_OPEN_DIRS_KEY, dir);
             AllEditorsManager.Instance.openFile(selectedFile, true, true);
         }
     }

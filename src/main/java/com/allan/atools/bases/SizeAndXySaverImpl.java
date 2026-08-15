@@ -1,6 +1,6 @@
 package com.allan.atools.bases;
 
-import com.allan.atools.UIContext;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.baseparty.Action;
 import com.allan.atools.beans.SizeAndXy;
 import com.allan.atools.threads.ThreadUtils;
@@ -46,20 +46,21 @@ public final class SizeAndXySaverImpl extends ISizeAndXySaver implements Runnabl
         if (DEBUG) {
             Log.d("size changed confirm!!");
         }
-        UIContext.sharedPref.edit()
-                .putFloat(prefix + "width", mWindowInfo.width)
-                .putFloat(prefix + "height", mWindowInfo.height)
-                .putFloat(prefix + "x", mWindowInfo.x)
-                .putFloat(prefix + "y", mWindowInfo.y).commit();
+        var user = GlobalCfgStores.user();
+        user.setFloat(prefix + "width", mWindowInfo.width);
+        user.setFloat(prefix + "height", mWindowInfo.height);
+        user.setFloat(prefix + "x", mWindowInfo.x);
+        user.setFloat(prefix + "y", mWindowInfo.y);
     }
 
     @Override
     public void loadCached() {
-        if(UIContext.sharedPref.contains(prefix + "width")) {
-            mWindowInfo.width = UIContext.sharedPref.getFloat(prefix + "width", 0);
-            mWindowInfo.height = UIContext.sharedPref.getFloat(prefix + "height", 0);
-            mWindowInfo.x = UIContext.sharedPref.getFloat(prefix + "x", 0);
-            mWindowInfo.y = UIContext.sharedPref.getFloat(prefix + "y", 0);
+        var user = GlobalCfgStores.user();
+        if (user.contains(prefix + "width")) {
+            mWindowInfo.width = user.getFloat(prefix + "width", 0);
+            mWindowInfo.height = user.getFloat(prefix + "height", 0);
+            mWindowInfo.x = user.getFloat(prefix + "x", 0);
+            mWindowInfo.y = user.getFloat(prefix + "y", 0);
         }
     }
 

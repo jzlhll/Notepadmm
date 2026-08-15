@@ -102,32 +102,12 @@ public final class CacheLocation {
         return getCachePath(s);
     }
 
-    public static String getUserConfigFile() {
-        return get("user.cfg");
-    }
-
     public static String get_editor_font_cust_dot_css() {
         return get("editor_font_cust.css");
     }
 
     public static String get_font_size_cust_dot_css() {
         return get("font_size_cust.css");
-    }
-
-    public static String getAdvanceSearchesFile() {
-        return get("advanceSearches.cfg");
-    }
-
-    public static String getRecentFiles() {
-        return get("recentFiles.cfg");
-    }
-
-    public static String getRecentWorkspaces() {
-        return get("recentWorkspaces.cfg");
-    }
-
-    public static String getMapFileAndEncoding() {
-        return get("fileEncodingMappings.cfg");
     }
 
     public static String getLogRoot() {
