@@ -99,16 +99,10 @@
 }
 
 .markdown-bold {
-    -fx-font-family: monospace;
     -fx-font-weight: bold;
 }
 
-.markdown-italic {
-    -fx-font-family: monospace;
-}
-
 .markdown-strikethrough {
-    -fx-font-family: monospace;
     -fx-strikethrough: true;
 }
 

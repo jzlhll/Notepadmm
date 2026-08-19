@@ -17,6 +17,7 @@ import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownTableOptimizeManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
@@ -135,8 +136,12 @@ public final class NotepadController extends AbstractMainController {
 
     private SettingDrawer settingDrawer;
     private MarkdownOutlineManager markdownOutlineManager;
+    private MarkdownTableOptimizeManager markdownTableOptimizeManager;
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
-            (observable, oldValue, newValue) -> refreshCurrentDocumentPath();
+            (observable, oldValue, newValue) -> {
+                refreshCurrentDocumentPath();
+                updateMarkdownTableOptimizeManager(newValue);
+            };
 
     private int getMainUiSizeMode() {
         int mode = SettingPreferences.getInt(SettingPreferences.mainUiSizeModeKey);
@@ -258,6 +263,10 @@ public final class NotepadController extends AbstractMainController {
         if (markdownOutlineManager != null) {
             markdownOutlineManager.destroy();
             markdownOutlineManager = null;
+        }
+        if (markdownTableOptimizeManager != null) {
+            markdownTableOptimizeManager.destroy();
+            markdownTableOptimizeManager = null;
         }
         UIContext.currentAreaProp.removeListener(currentDocumentAreaChanged);
         AllEditorsManager.Instance.saveUnSaved();
@@ -477,6 +486,7 @@ public final class NotepadController extends AbstractMainController {
         });
         refreshCurrentDocumentPath();
         markdownOutlineManager = new MarkdownOutlineManager(this);
+        updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
         getWorkspaceManager().removeWorkspace(false);
 
         mHeightProp.set(stage.heightProperty().getValue() - 5);
@@ -504,6 +514,22 @@ public final class NotepadController extends AbstractMainController {
         refreshCurrentDocumentPath();
         if (markdownOutlineManager != null) {
             markdownOutlineManager.refreshCurrentFile();
+        }
+        updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
+    }
+
+    private void updateMarkdownTableOptimizeManager(EditorArea area) {
+        if (!MarkdownTableOptimizeManager.supports(area)) {
+            if (markdownTableOptimizeManager != null) {
+                markdownTableOptimizeManager.destroy();
+                markdownTableOptimizeManager = null;
+            }
+            return;
+        }
+        if (markdownTableOptimizeManager == null) {
+            markdownTableOptimizeManager = new MarkdownTableOptimizeManager(area);
+        } else {
+            markdownTableOptimizeManager.refreshCurrentFile(area);
         }
     }
 

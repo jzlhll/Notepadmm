@@ -14,7 +14,10 @@ import javafx.scene.control.Tab
 import java.io.File
 
 class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
-    CodeArea(text) {
+    CodeArea(
+        text,
+        sourceFile != null && EditorKeywordHelperFactory.sFilePathToExtension.invoke(sourceFile) == "markdown"
+    ) {
 
     val editor: EditorAreaMgr
     val bottomSearchBtnsMgr: BottomSearchBtnsMgr

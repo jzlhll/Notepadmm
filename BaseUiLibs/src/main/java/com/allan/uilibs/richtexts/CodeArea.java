@@ -24,11 +24,12 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
 
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
-                     @NamedArg("preserveStyle") boolean preserveStyle) {
+                     @NamedArg("preserveStyle") boolean preserveStyle,
+                     boolean markdownStyleEnabled) {
         super(Collections.<String>emptyList(),
                 (paragraph, styleClasses) -> paragraph.getStyleClass().addAll(styleClasses),
                 new ArrayList<String>(1),
-                CodeArea::applyTextStyle,
+                markdownStyleEnabled ? CodeArea::applyMarkdownTextStyle : CodeArea::applyTextStyle,
                 document,
                 preserveStyle
         );
@@ -45,6 +46,10 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
     private static void applyTextStyle(TextExt text, Collection<String> styleClasses) {
         text.getStyleClass().addAll(styleClasses);
+    }
+
+    private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {
+        applyTextStyle(text, styleClasses);
         if (styleClasses.contains(MARKDOWN_ITALIC_STYLE)) {
             text.getTransforms().add(new Shear(-0.18, 0));
         }
@@ -72,10 +77,11 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
      *
      * @param text Initial text com.base.content.
      */
-    private CodeArea(@NamedArg("text") String text, Action<CodeArea> beforeInitAction) {
+    private CodeArea(@NamedArg("text") String text, Action<CodeArea> beforeInitAction,
+                     boolean markdownStyleEnabled) {
         this(new SimpleEditableStyledDocument<>(
                 Collections.<String>emptyList(), Collections.<String>emptyList()
-        ), false);
+        ), false, markdownStyleEnabled);
         if (beforeInitAction != null) {
             beforeInitAction.invoke(this);
         }
@@ -89,7 +95,11 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     }
 
     public CodeArea(@NamedArg("text") String text) {
-        this(text, null);
+        this(text, null, false);
+    }
+
+    protected CodeArea(@NamedArg("text") String text, boolean markdownStyleEnabled) {
+        this(text, null, markdownStyleEnabled);
     }
 
     @Override // to select words containing underscores
