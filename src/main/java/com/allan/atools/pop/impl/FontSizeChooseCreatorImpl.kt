@@ -1,6 +1,7 @@
 package com.allan.atools.pop.impl
 
 import com.allan.atools.UIContext
+import com.allan.atools.Colors
 import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.AllStagesManager
@@ -13,6 +14,7 @@ import javafx.application.Platform
 import javafx.beans.value.ObservableValue
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
+import javafx.geometry.Pos
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import java.io.IOException
@@ -20,6 +22,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
+    private val fontSizes = (16..24).toList() + listOf(26, 28, 32)
     private var mRunnable: Runnable? = null
     private var mSize = 0
 
@@ -49,37 +52,22 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         val vBox = VBox()
         //vBox.getChildren().add(createLabel("当前" + GlobalProfs.getFontSizeProperty().get(), 14));
         val list = JFXListView<Label>()
-        list.minWidth = 110.0
-        list.prefWidth = 110.0
-        list.maxWidth = 110.0
-        list.minHeight = 410.0
-        list.prefHeight = 410.0
-        list.maxHeight = 410.0
-        list.items.add(createLabel("   14", 14))
-        list.items.add(createLabel("  15", 15))
-        list.items.add(createLabel("  16", 16))
-        list.items.add(createLabel("  17", 17))
-        list.items.add(createLabel("  18", 18))
-        list.items.add(createLabel("  19", 19))
-        list.items.add(createLabel("  20", 20))
-        list.items.add(createLabel("  22", 22))
-        list.items.add(createLabel("  25", 22))
-        list.items.add(createLabel("  28", 22))
+        list.minWidth = 73.3
+        list.prefWidth = 73.3
+        list.maxWidth = 73.3
+        list.minHeight = 510.0
+        list.prefHeight = 510.0
+        list.maxHeight = 510.0
+        fontSizes.forEach { fontSize ->
+            val previewFontSize = if (fontSize < 22) fontSize else 22
+            val label = createLabel(fontSize.toString(), previewFontSize)
+            label.alignment = Pos.CENTER_LEFT
+            label.style = "-fx-font-size:$previewFontSize;-fx-text-alignment:left;-fx-text-fill: ${Colors.TextColor.invoke()};"
+            list.items.add(label)
+        }
 
         val curFont = UIContext.getFontSizeProperty().get()
-        val index = when (curFont) {
-            14 -> 0
-            15 -> 1
-            16 -> 2
-            17 -> 3
-            18 -> 4
-            19 -> 5
-            20 -> 6
-            22 -> 7
-            25 -> 8
-            28 -> 9
-            else -> 0
-        }
+        val index = fontSizes.indexOf(curFont).let { if (it >= 0) it else 0 }
 
         list.selectionModel.select(index)
         list.selectionModel.selectedItemProperty()
