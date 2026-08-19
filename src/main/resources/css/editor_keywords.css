@@ -105,7 +105,11 @@
 
 .markdown-italic {
     -fx-font-family: monospace;
-    -fx-font-style: italic;
+}
+
+.markdown-strikethrough {
+    -fx-font-family: monospace;
+    -fx-strikethrough: true;
 }
 
 .paragraph-box:has-caret {

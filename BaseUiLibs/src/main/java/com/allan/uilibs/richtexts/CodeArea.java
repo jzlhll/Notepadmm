@@ -3,8 +3,10 @@ package com.allan.uilibs.richtexts;
 import com.allan.baseparty.Action;
 import com.allan.baseparty.utils.ReflectionUtils;
 import javafx.beans.NamedArg;
+import javafx.scene.transform.Shear;
 import org.fxmisc.richtext.CaretSelectionBind;
 import org.fxmisc.richtext.StyledTextArea;
+import org.fxmisc.richtext.TextExt;
 import org.fxmisc.richtext.model.Codec;
 import org.fxmisc.richtext.model.EditableStyledDocument;
 import org.fxmisc.richtext.model.SimpleEditableStyledDocument;
@@ -19,12 +21,14 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 public abstract class CodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
+    private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
+
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
                      @NamedArg("preserveStyle") boolean preserveStyle) {
         super(Collections.<String>emptyList(),
                 (paragraph, styleClasses) -> paragraph.getStyleClass().addAll(styleClasses),
                 new ArrayList<String>(1),
-                (text, styleClasses) -> text.getStyleClass().addAll(styleClasses),
+                CodeArea::applyTextStyle,
                 document,
                 preserveStyle
         );
@@ -37,6 +41,13 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         );
 
         setUseInitialStyleForInsertion(true);
+    }
+
+    private static void applyTextStyle(TextExt text, Collection<String> styleClasses) {
+        text.getStyleClass().addAll(styleClasses);
+        if (styleClasses.contains(MARKDOWN_ITALIC_STYLE)) {
+            text.getTransforms().add(new Shear(-0.18, 0));
+        }
     }
 
     private Method suspendVisibleParsWhile;

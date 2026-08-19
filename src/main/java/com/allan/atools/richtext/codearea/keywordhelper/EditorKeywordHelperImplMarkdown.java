@@ -40,12 +40,17 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             + "[^*\\r\\n]+?(?<![\\\\\\s])\\*(?!\\*)"
             + "|(?<![\\w\\\\_])_(?!_)(?=\\S)"
             + "[^_\\r\\n]+?(?<![\\\\\\s])_(?![\\w_])";
+    private static final String STRIKETHROUGH_PATTERN = "(?<![\\\\~])~{2}(?!~)(?=\\S)"
+            + "(?:(?!~{2})[^\\r\\n])+?(?<![\\\\\\s])~{2}(?!~)"
+            + "|(?<![\\\\~])~(?!~)(?=\\S)"
+            + "[^~\\r\\n]+?(?<![\\\\\\s])~(?!~)";
     private static final Pattern TABLE_CONTENT_PATTERN = Pattern.compile(
             "(?<TABLEMARK>\\||:?-{3,}:?)"
                     + "|(?<INLINECODE>" + INLINE_CODE_PATTERN + ")"
                     + "|(?<LINK>" + LINK_PATTERN + ")"
                     + "|(?<BOLD>" + BOLD_PATTERN + ")"
-                    + "|(?<ITALIC>" + ITALIC_PATTERN + ")");
+                    + "|(?<ITALIC>" + ITALIC_PATTERN + ")"
+                    + "|(?<STRIKETHROUGH>" + STRIKETHROUGH_PATTERN + ")");
 
     private final HashMap<String, Set<String>> styleClassAndSetMap = new HashMap<>();
 
@@ -73,6 +78,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             patternParts.add("(?<LINK>" + LINK_PATTERN + ")");
             patternParts.add("(?<BOLD>" + BOLD_PATTERN + ")");
             patternParts.add("(?<ITALIC>" + ITALIC_PATTERN + ")");
+            patternParts.add("(?<STRIKETHROUGH>" + STRIKETHROUGH_PATTERN + ")");
             return Pattern.compile(String.join("|", patternParts), Pattern.MULTILINE);
         }
     }
@@ -114,7 +120,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                                                                                             matcher.group("LIST") != null ? "markdown-list" :
                                                                                                     matcher.group("LINK") != null ? "markdown-link" :
                                                                                                             matcher.group("BOLD") != null ? "markdown-bold" :
-                                                                                                                    "markdown-italic";
+                                                                                                                    matcher.group("ITALIC") != null ? "markdown-italic" :
+                                                                                                                            "markdown-strikethrough";
             var styleSet = styleClassAndSetMap.computeIfAbsent(styleClass, Collections::singleton);
             spansBuilder.add(styleSet, matcher.end() - matcher.start());
             lastMatchEnd = matcher.end();
@@ -131,7 +138,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             String styleClass = matcher.group("TABLEMARK") != null ? "markdown-table-mark" :
                     matcher.group("INLINECODE") != null ? "markdown-inline-code" :
                             matcher.group("LINK") != null ? "markdown-link" :
-                                    matcher.group("BOLD") != null ? "markdown-bold" : "markdown-italic";
+                                    matcher.group("BOLD") != null ? "markdown-bold" :
+                                            matcher.group("ITALIC") != null ? "markdown-italic" :
+                                                    "markdown-strikethrough";
             var styleSet = styleClassAndSetMap.computeIfAbsent(styleClass, Collections::singleton);
             spansBuilder.add(styleSet, matcher.end() - matcher.start());
             lastMatchEnd = matcher.end();
