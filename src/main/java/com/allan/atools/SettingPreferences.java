@@ -32,7 +32,7 @@ public final class SettingPreferences {
     public static final String autoSaveOnExitKey = "autoSaveOnExit";
     public static final String resultAreaInNewWindowKey = "resultAreaInNewWindow";
     public static final String searchResultHasNumberKey = "searchResultHasNumber";
-    public static final String editHasNumberKey = "editAreaHasNumber";
+    public static final String editorLineNumberVisibleKey = "editorLineNumberVisible";
     public static final String newFileDirKey = "newFileDir";
     public static final String appVisionKey = "appVision";
     public static final String hdScreen2Key = "hdScreen2";
@@ -56,7 +56,7 @@ public final class SettingPreferences {
                 new SettingProfDef("bool", resultAreaInNewWindowKey, "false"),
                 //new SettingProfDef("bool", search1LineOnlyOnceKey, "true"),
                 new SettingProfDef("bool", searchResultHasNumberKey, "true"),
-                new SettingProfDef("bool", editHasNumberKey, "true"),
+                new SettingProfDef("bool", editorLineNumberVisibleKey, "true"),
                 new SettingProfDef("str", newFileDirKey, ""),
                 new SettingProfDef("bool", appVisionKey, "false"),
                 new SettingProfDef("bool", hdScreen2Key, "true"),

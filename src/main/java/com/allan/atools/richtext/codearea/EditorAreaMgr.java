@@ -22,7 +22,6 @@ import com.allan.atools.utils.*;
 import com.allan.baseparty.*;
 import com.allan.baseparty.utils.ReflectionUtils;
 import com.allan.uilibs.richtexts.MyLineNumFactory;
-import com.allan.uilibs.richtexts.MyNoneLineNumFactory;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.baseparty.memory.RefWatcher;
 import com.jfoenix.controls.JFXPopup;
@@ -54,9 +53,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.IntFunction;
 
-import static com.allan.atools.SettingPreferences.editHasNumberKey;
+import static com.allan.atools.SettingPreferences.editorLineNumberVisibleKey;
 import static org.fxmisc.richtext.model.TwoDimensional.Bias.Backward;
 import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 
@@ -339,8 +337,18 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private boolean isFake;
     public boolean getIsFake() {return isFake;}
 
+    private final ChangeListener<Boolean> lineNumberChanged = (observable, oldValue, newValue) ->
+            updateLineNumberVisible(newValue);
+
+    private void updateLineNumberVisible(boolean visible) {
+        if (area != null) {
+            area.setParagraphGraphicFactory(visible ? MyLineNumFactory.get(area) : null);
+        }
+    }
+
     @Override
     public void destroy() {
+        SettingPreferences.getBoolProp(editorLineNumberVisibleKey).removeListener(lineNumberChanged);
         if (tabLabel != null) {
             tabLabel.setOnMouseClicked(null);
             tabLabel.setTooltip(null);
@@ -529,8 +537,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void initArea() {
-        IntFunction<Node> lineNumberFactory = SettingPreferences.getBoolean(editHasNumberKey) ? MyLineNumFactory.get(area) : MyNoneLineNumFactory.get();
-        area.setParagraphGraphicFactory(lineNumberFactory);
+        var lineNumberVisibleProperty = SettingPreferences.getBoolProp(editorLineNumberVisibleKey);
+        updateLineNumberVisible(lineNumberVisibleProperty.get());
+        lineNumberVisibleProperty.addListener(lineNumberChanged);
 
         mLastNextUndo = area.getUndoManager().getNextUndo();
 

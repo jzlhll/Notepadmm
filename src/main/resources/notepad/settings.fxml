@@ -117,58 +117,56 @@
             </VBox.margin>
         </Separator>
 
+        <Label text="%setting.editorAreaTitle" styleClass="title-label-big">
+            <VBox.margin>
+                <Insets top="3" left="3"/>
+            </VBox.margin>
+        </Label>
+
+        <JFXToggleButton fx:id="cycleNextBtn" text="%setting.cycleNext" selected="true">
+            <VBox.margin>
+                <Insets left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="editorLineNumberVisibleBtn" text="%setting.showEditorLineNum" selected="true">
+            <VBox.margin>
+                <Insets top="-12" left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <!--- 第3部分 -->
+        <Separator styleClass="full-width-separator" prefHeight="1">
+            <VBox.margin>
+                <Insets top="15" left="0" right="0"/>
+            </VBox.margin>
+        </Separator>
+
         <Label text="%search" styleClass="title-label-big">
             <VBox.margin>
                 <Insets top="3" left="3"/>
             </VBox.margin>
         </Label>
 
-        <Label text="%setting.resultArea" styleClass="normal-label">
+        <JFXToggleButton fx:id="resultAreaWrapBtn" text="%setting.resultAutoEnter">
             <VBox.margin>
-                <Insets top="15" left="3"/>
+                <Insets left="4"/>
             </VBox.margin>
-        </Label>
-        <VBox>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="resultIfHasNumBtn" text="%setting.showLineNum" selected="true">
             <VBox.margin>
-                <Insets left="10" top="-3"/>
+                <Insets top="-12" left="4"/>
             </VBox.margin>
-            <JFXToggleButton fx:id="resultAreaWrapBtn" text="%setting.resultAutoEnter" />
+        </JFXToggleButton>
 
-            <JFXToggleButton fx:id="resultIfHasNumBtn" text="%setting.showLineNum" selected="true">
-                <VBox.margin>
-                    <Insets top="-12"/>
-                </VBox.margin>
-            </JFXToggleButton>
-
-            <JFXToggleButton fx:id="resultAreaInNewBtn" text="%setting.showInNewWindow">
-                <VBox.margin>
-                    <Insets top="-12"/>
-                </VBox.margin>
-            </JFXToggleButton>
-        </VBox>
-
-        <Label text="%setting.editArea" styleClass="normal-label">
+        <JFXToggleButton fx:id="resultAreaInNewBtn" text="%setting.showInNewWindow">
             <VBox.margin>
-                <Insets top="15" left="3"/>
+                <Insets top="-12" left="4"/>
             </VBox.margin>
-        </Label>
-        <VBox>
-            <VBox.margin>
-                <Insets left="10" top="6"/>
-            </VBox.margin>
-            <JFXToggleButton fx:id="cycleNextBtn" text="%setting.cycleNext" selected="true">
-                <VBox.margin>
-                    <Insets top="-12"/>
-                </VBox.margin>
-            </JFXToggleButton>
-            <JFXToggleButton fx:id="editIfHasNumBtn" text="%setting.showLineNum" selected="true">
-                <VBox.margin>
-                    <Insets top="-12"/>
-                </VBox.margin>
-            </JFXToggleButton>
-        </VBox>
+        </JFXToggleButton>
 
-        <!--- 第3部分 -->
+        <!--- 第4部分 -->
         <Separator styleClass="full-width-separator" prefHeight="1">
             <VBox.margin>
                 <Insets top="15" left="0" right="0"/>

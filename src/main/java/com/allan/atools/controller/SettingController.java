@@ -43,7 +43,7 @@ public final class SettingController extends AbstractController {
     public JFXToggleButton autoSaveOnExitBtn;
     public JFXToggleButton resultAreaInNewBtn;
     public JFXToggleButton resultIfHasNumBtn;
-    public JFXToggleButton editIfHasNumBtn;
+    public JFXToggleButton editorLineNumberVisibleBtn;
     public JFXToggleButton visionBtn;
     public JFXToggleButton hdScreenBtn2;
     public JFXToggleButton cycleNextBtn;
@@ -274,9 +274,9 @@ public final class SettingController extends AbstractController {
             SettingPreferences.updateBool(SettingPreferences.searchResultHasNumberKey, t1);
         });
 
-        editIfHasNumBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.editHasNumberKey));
-        editIfHasNumBtn.selectedProperty().addListener((observableValue, aBoolean, t1) -> {
-            SettingPreferences.updateBool(SettingPreferences.editHasNumberKey, t1);
+        editorLineNumberVisibleBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.editorLineNumberVisibleKey));
+        editorLineNumberVisibleBtn.selectedProperty().addListener((observableValue, oldValue, newValue) -> {
+            SettingPreferences.updateBool(SettingPreferences.editorLineNumberVisibleKey, newValue);
         });
 
         var newFileDirLinkText = SettingPreferences.getStr(SettingPreferences.newFileDirKey);

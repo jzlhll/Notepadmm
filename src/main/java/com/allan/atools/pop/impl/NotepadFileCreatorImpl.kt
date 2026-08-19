@@ -57,16 +57,6 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
 
         val workspaces = WorkspaceManager.saveOrReadRecentWorkspaces(null)
 
-        //打开最近一次的工作区；没有任何历史工作区时退化为目录选择
-        val menuOpenWorkspace = MenuItem(Locales.str("openWorkspace"))
-        menuOpenWorkspace.onAction = EventHandler {
-            if (workspaces.isNotEmpty()) {
-                UIContext.context().workspaceManager.openRecentWorkspace(workspaces[0])
-            } else {
-                UIContext.context().workspaceManager.selectDirAsWorkspaceDialog()
-            }
-        }
-
         val recentWorkspacesMenu = Menu(Locales.str("recentWorkspaces"))
         if (workspaces != null && workspaces.size > 0) {
             for (w in workspaces) {
@@ -82,7 +72,7 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
         if (!list.isNullOrEmpty()) {
             contextMenu.items.add(recentFilesMenu)
         }
-        contextMenu.items.addAll(SeparatorMenuItem(), menu2, menuOpenWorkspace)
+        contextMenu.items.addAll(SeparatorMenuItem(), menu2)
         if (!workspaces.isNullOrEmpty()) {
             contextMenu.items.add(recentWorkspacesMenu)
         }
