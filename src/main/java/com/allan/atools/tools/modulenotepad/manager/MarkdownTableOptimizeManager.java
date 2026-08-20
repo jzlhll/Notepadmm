@@ -204,7 +204,12 @@ public final class MarkdownTableOptimizeManager {
             return;
         }
 
-        int lineIndex = area.offsetToPosition(area.getCaretPosition(), Forward).getMajor();
+        int caretPosition = area.getCaretPosition();
+        if (caretPosition < 0 || caretPosition > area.getLength()) {
+            hidePopup();
+            return;
+        }
+        int lineIndex = area.offsetToPosition(caretPosition, Forward).getMajor();
         var table = findTable(lineIndex);
         if (table == null) {
             hidePopup();
