@@ -24,6 +24,25 @@ Notepadmm 是一款面向大文本和日志分析的桌面编辑器，起因是 
 
 ![代码高亮](previews/colors.png)
 
+## 命令行打开文件
+
+macOS 支持在终端中直接打开文件：
+
+```shell
+# 通过 Launch Services 打开（应用未启动时会自动启动）
+open -a ATools file.txt
+
+# 直接执行应用内二进制，可一次打开多个文件
+/Applications/ATools.app/Contents/MacOS/ATools file1.txt file2.md
+```
+
+若应用已在运行，后一次调用会把文件转发给运行中的实例打开，然后自动退出。也可以创建软链简化命令：
+
+```shell
+sudo ln -s /Applications/ATools.app/Contents/MacOS/ATools /usr/local/bin/atools
+atools file.txt
+```
+
 ## Gradle 任务
 
 ### 运行开发版

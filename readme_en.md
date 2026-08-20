@@ -24,6 +24,25 @@ Notepadmm is a desktop editor for large text files and log analysis. It was crea
 
 ![Syntax highlighting](previews/colors.png)
 
+## Open files from the command line
+
+On macOS, files can be opened directly from the terminal:
+
+```shell
+# Open via Launch Services (launches the app if it is not running)
+open -a ATools file.txt
+
+# Run the bundled binary directly; multiple files are supported
+/Applications/ATools.app/Contents/MacOS/ATools file1.txt file2.md
+```
+
+If the application is already running, the new invocation forwards the files to the running instance and then exits. You can also create a symlink to shorten the command:
+
+```shell
+sudo ln -s /Applications/ATools.app/Contents/MacOS/ATools /usr/local/bin/atools
+atools file.txt
+```
+
 ## Gradle tasks
 
 ### Run the development build
