@@ -13,6 +13,9 @@ module atools {
     requires javafx.swing;
 
     requires com.twelvemonkeys.imageio.webp;
+    requires org.commonmark;
+    requires org.commonmark.ext.gfm.tables;
+    requires org.commonmark.ext.gfm.strikethrough;
     requires org.fxmisc.richtext;
     requires org.fxmisc.flowless;
     requires wellbehavedfx;

@@ -3,6 +3,8 @@ package com.allan.uilibs.richtexts;
 import com.allan.baseparty.Action;
 import com.allan.baseparty.utils.ReflectionUtils;
 import javafx.beans.NamedArg;
+import javafx.beans.binding.Bindings;
+import javafx.scene.shape.StrokeType;
 import javafx.scene.transform.Shear;
 import org.fxmisc.richtext.CaretSelectionBind;
 import org.fxmisc.richtext.StyledTextArea;
@@ -22,6 +24,7 @@ import java.util.function.UnaryOperator;
 
 public abstract class CodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
+    private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
 
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
                      @NamedArg("preserveStyle") boolean preserveStyle,
@@ -52,6 +55,17 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         applyTextStyle(text, styleClasses);
         if (styleClasses.contains(MARKDOWN_ITALIC_STYLE)) {
             text.getTransforms().add(new Shear(-0.18, 0));
+        }
+        if (styleClasses.contains(MARKDOWN_BOLD_STYLE)) {
+            //自加载字体无 bold 变体，CSS -fx-font-weight 不生效，用描边模拟粗体
+            text.setStrokeType(StrokeType.CENTERED);
+            text.strokeProperty().bind(text.fillProperty());
+            text.strokeWidthProperty().bind(Bindings.createDoubleBinding(
+                    () -> {
+                        var font = text.getFont();
+                        return (font == null ? 13.0 : font.getSize()) * 0.04;
+                    },
+                    text.fontProperty()));
         }
     }
 

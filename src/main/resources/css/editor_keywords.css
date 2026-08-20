@@ -98,6 +98,11 @@
     -fx-underline: true;
 }
 
+.markdown-image {
+    -fx-fill: darkorchid;
+    -fx-underline: true;
+}
+
 .markdown-bold {
     -fx-font-weight: bold;
 }
