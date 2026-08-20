@@ -14,6 +14,7 @@ import javafx.application.Platform;
 
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class Startup {
@@ -45,6 +46,34 @@ public final class Startup {
         }
     }
 
+    //已有实例在运行时，把命令行传入的文件通过 Launch Services 转发给运行中的实例（触发其 openFileHandler 打开文件）
+    private static void forwardFilesToRunningInstance(String[] files) {
+        try {
+            var command = ProcessHandle.current().info().command();
+            if (command.isEmpty()) {
+                return;
+            }
+            // /path/App.app/Contents/MacOS/exe -> /path/App.app
+            var exe = new File(command.get());
+            var macOSDir = exe.getParentFile();
+            var contentsDir = macOSDir == null ? null : macOSDir.getParentFile();
+            var appBundle = contentsDir == null ? null : contentsDir.getParentFile();
+            if (appBundle == null || !appBundle.getName().endsWith(".app")) {
+                return;
+            }
+            var cmd = new ArrayList<String>(files.length + 3);
+            cmd.add("open");
+            cmd.add("-a");
+            cmd.add(appBundle.getAbsolutePath());
+            for (var f : files) {
+                cmd.add(f);
+            }
+            new ProcessBuilder(cmd).inheritIO().start();
+        } catch (Throwable t) {
+            Log.e("forward files to running instance failed", t);
+        }
+    }
+
     public static void shutdownAfterMainWindowClosed() {
         if (ResLocation.isOsx) {
             try {
@@ -63,7 +92,12 @@ public final class Startup {
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
         if (!InstanceLock.tryLock()) {
-            Log.e("another instance is running, exit");
+            if (ResLocation.isOsx && args.length > 0) {
+                //命令行带文件转发给已有实例时静默退出，不打扰终端
+                forwardFilesToRunningInstance(args);
+            } else {
+                Log.e("another instance is running, exit");
+            }
             System.exit(0);
         }
 
@@ -93,6 +127,12 @@ public final class Startup {
                     onMacOpenFiles(files);
                 }
             });
+            //终端直接执行二进制（如 ATools file.txt）冷启动时，文件只会出现在命令行参数里；
+            //Launch Services 启动（open -a / 双击文件）不会传命令行参数，不会与 openFileHandler 重复打开
+            if (args.length > 0) {
+                isArgsInit = true;
+                sInitArgs = args;
+            }
         } else {
             FileLog.write("open file handler!!! not support: ", false);
             isArgsInit = true;
