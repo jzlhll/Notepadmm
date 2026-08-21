@@ -48,17 +48,16 @@
 # 关键的。java9以上保留module-info
 -keep class module-info
 ######
-########## 关键的。javafx研究了很久基本上要求package目录不被混淆改变保留目录结构
+########## JPMS 模块化下，只有 module-info.java 中被 opens/exports 的包，其包名必须保持
+##########（FXMLLoader 反射 setAccessible、Gson 反射都要按 opens 条目的包名命中，包名一变则 InaccessibleObjectException）。
+########## 其余包无字符串/反射引用，包名可正常混淆，无需整体保留。
 ######
--keeppackagenames com.allan.atools.**
-#-keeppackagenames com.allan.atools.bean.**
-#-keeppackagenames com.allan.atools.controller.**
-#-keeppackagenames com.allan.atools.customui.**
-#-keeppackagenames com.allan.atools.entro.**
-#-keeppackagenames com.allan.atools.exception.**
-#-keeppackagenames com.allan.atools.toolsstartup.**
-#-keeppackagenames com.allan.atools.richtext**
-#-keeppackagenames com.allan.atools.richtext.codearea**
+-keeppackagenames com.allan.atools.controller.**
+-keeppackagenames com.allan.atools.tools.**
+-keeppackagenames com.allan.atools.toolsstartup.**
+-keeppackagenames com.allan.atools.richtext.**
+-keeppackagenames com.allan.atools.ui.controls.**
+-keeppackagenames com.allan.atools.bean.**
 
 -keepattributes StartupEntro
 
