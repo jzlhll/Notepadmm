@@ -50,14 +50,14 @@
 ######
 ########## JPMS 模块化下，只有 module-info.java 中被 opens/exports 的包，其包名必须保持
 ##########（FXMLLoader 反射 setAccessible、Gson 反射都要按 opens 条目的包名命中，包名一变则 InaccessibleObjectException）。
-########## 其余包无字符串/反射引用，包名可正常混淆，无需整体保留。
+########## 注意按字面包名保留（不带 .**），使各包的子包名也能参与混淆。
 ######
--keeppackagenames com.allan.atools.controller.**
--keeppackagenames com.allan.atools.tools.**
--keeppackagenames com.allan.atools.toolsstartup.**
--keeppackagenames com.allan.atools.richtext.**
--keeppackagenames com.allan.atools.ui.controls.**
--keeppackagenames com.allan.atools.bean.**
+-keeppackagenames com.allan.atools.controller
+-keeppackagenames com.allan.atools.tools
+-keeppackagenames com.allan.atools.toolsstartup
+-keeppackagenames com.allan.atools.richtext
+-keeppackagenames com.allan.atools.ui.controls
+-keeppackagenames com.allan.atools.bean
 
 -keepattributes StartupEntro
 
