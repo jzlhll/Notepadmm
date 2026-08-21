@@ -136,50 +136,120 @@ tasks.register('obfuscateAppJar') {
     outputs.upToDateWhen { false }
 
     doLast {
-        def appJar = new File(packagingConfig.projectLibsDir, 'atools.jar')
-        def convertedJar = new File(packagingConfig.projectLibsDir, 'atools_cvt.jar')
-        def configLines = file('proguard.pro').readLines()
-        configLines.add('')
-
+        def projectLibs = packagingConfig.projectLibsDir
         def jmodsDir = new File(packagingJdkHome(), 'jmods')
-        packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }.each { moduleName ->
-            configLines.add("-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!**.jar;!module-info.class)")
+        def jmodArgs = packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }.collect { moduleName ->
+            "-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!**.jar;!module-info.class)"
         }
-        packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort()?.each {
-            configLines.add("-libraryjars ${proguardPath(it)}(!module-info.class)")
+        def thirdPartyJars = packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort()
+        def thirdPartyArgs = thirdPartyJars.collect {
+            "-libraryjars ${proguardPath(it)}(!module-info.class)"
         }
-        packagingConfig.projectLibsDir.listFiles()?.findAll {
-            it.name.endsWith('.jar') && it.name != appJar.name
-        }?.sort()?.each {
-            configLines.add("-libraryjars ${proguardPath(it)}(!module-info.class)")
+        def baseConfig = file('proguard.pro').readLines()
+        baseConfig.add('')
+        baseConfig.addAll(jmodArgs)
+        baseConfig.addAll(thirdPartyArgs)
+
+        // 三个模块必须同一次 ProGuard 运行统一改名，否则跨模块引用（编译期仍是原名）无法改写一致。
+        // 但 ProGuard 单次运行会污染多份 module-info（把 opens 串到其它模块）。因全部包名均已 keep，
+        // module-info 中的 exports/requires 引用全为原名，故混淆后用原始 module-info.class 覆盖回即可。
+        def projectJarNames = [
+                'atools.jar',
+                'atools.baseparty.jar',
+                'atools.baseuilibs.jar'
+        ]
+        def backupModuleInfo = { File orig, String tag ->
+            def zf = new java.util.zip.ZipFile(orig)
+            try {
+                def e = zf.getEntry('module-info.class')
+                if (e != null) {
+                    def dir = new File(packagingConfig.buildRoot, "moinfo_${tag}")
+                    dir.mkdirs()
+                    new File(dir, 'module-info.class').bytes = zf.getInputStream(e).bytes
+                }
+            } finally {
+                zf.close()
+            }
+        }
+        def restoreModuleInfo = { File obf, String tag ->
+            def dir = new File(packagingConfig.buildRoot, "moinfo_${tag}")
+            def src = new File(dir, 'module-info.class')
+            if (!src.isFile()) return
+            def tmp = new File(packagingConfig.buildRoot, "moinfo_tmp_${tag}.jar")
+            def zis = new java.util.zip.ZipFile(obf)
+            try {
+                def fos = new java.io.FileOutputStream(tmp)
+                def zos = new java.util.zip.ZipOutputStream(fos)
+                try {
+                    def entries = zis.entries()
+                    while (entries.hasMoreElements()) {
+                        def inEntry = entries.nextElement()
+                        if (inEntry.name == 'module-info.class') continue
+                        zos.putNextEntry(new java.util.zip.ZipEntry(inEntry.name))
+                        if (!inEntry.isDirectory()) {
+                            zis.getInputStream(inEntry).transferTo(zos)
+                        }
+                        zos.closeEntry()
+                    }
+                    zos.putNextEntry(new java.util.zip.ZipEntry('module-info.class'))
+                    new java.io.FileInputStream(src).transferTo(zos)
+                    zos.closeEntry()
+                } finally {
+                    zos.close(); fos.close()
+                }
+            } finally {
+                zis.close()
+            }
+            obf.delete()
+            if (!tmp.renameTo(obf)) {
+                throw new GradleException("restore module-info failed: ${obf.name}")
+            }
         }
 
+        // 备份原始 module-info
+        projectJarNames.each { name ->
+            backupModuleInfo(new File(projectLibs, name), name.replaceAll(/\./, '_'))
+        }
+
+        def configLines = baseConfig
         packagingConfig.proguardUse.parentFile.mkdirs()
         packagingConfig.proguardUse.text = configLines.join(System.lineSeparator()) + System.lineSeparator()
-        delete convertedJar
         delete packagingConfig.mappingFile
 
-        runPackagingCommand([
+        def command = [
                 packagingJdkTool('java'),
                 '-cp', configurations.proguardRuntime.asPath,
                 'proguard.ProGuard',
-                "@${packagingConfig.proguardUse.absolutePath}",
-                '-injars', appJar.absolutePath,
-                '-outjars', convertedJar.absolutePath
-        ])
-        if (!convertedJar.isFile() || !packagingConfig.mappingFile.isFile()) {
+                "@${packagingConfig.proguardUse.absolutePath}"
+        ]
+        projectJarNames.each { name ->
+            delete new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar')
+            command.addAll([
+                    '-injars', new File(projectLibs, name).absolutePath,
+                    '-outjars', new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar').absolutePath
+            ])
+        }
+        runPackagingCommand(command)
+        if (projectJarNames.any { !new File(projectLibs, it.replaceAll(/\.jar$/, '') + '_cvt.jar').isFile() }
+                || !packagingConfig.mappingFile.isFile()) {
             throw new GradleException('ProGuard output is incomplete.')
         }
 
-        java.nio.file.Files.move(
-                convertedJar.toPath(),
-                appJar.toPath(),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING
-        )
+        // 覆盖回各模块原始 module-info，并回写混淆产物
+        projectJarNames.each { name ->
+            def orig = new File(projectLibs, name)
+            def cvt = new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar')
+            restoreModuleInfo(cvt, name.replaceAll(/\./, '_'))
+            cvt.renameTo(orig)
+            delete new File(packagingConfig.buildRoot, "moinfo_${name.replaceAll(/\./, '_')}")
+        }
+        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools.jar')
+        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseparty.jar')
+        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseuilibs.jar')
         zipSingleFile(packagingConfig.mappingFile, packagingConfig.proguardMap, 'out.map')
         delete packagingConfig.mappingFile
         delete packagingConfig.proguardUse
-        logger.lifecycle('Application JAR obfuscated.')
+        logger.lifecycle('Application & module JARs obfuscated.')
     }
 }
 

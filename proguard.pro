@@ -103,3 +103,25 @@
 #-keep class com.allan.richtext.codearea.** { *; }
 #-dontnote com.allan.richtext.codearea.**
 
+######
+########## 子模块（BaseParty/BaseUiLibs）同为 JPMS 命名模块。
+########## 其 exports 的包名必须保留（module-info exports 按字面包名，app 按这些包名调用）；
+########## FXML 按全限定类名引用的子模块控件必须 keep 类名。
+######
+-keeppackagenames com.allan.baseparty
+-keeppackagenames com.allan.baseparty.utils
+-keeppackagenames com.allan.baseparty.content
+-keeppackagenames com.allan.baseparty.handler
+-keeppackagenames com.allan.baseparty.memory
+-keeppackagenames com.allan.baseparty.exception
+-keeppackagenames com.allan.baseparty.collections
+-keeppackagenames com.allan.uilibs
+-keeppackagenames com.allan.uilibs.controls
+-keeppackagenames com.allan.uilibs.richtexts
+-keeppackagenames com.allan.uilibs.jfoenix
+-dontnote com.allan.baseparty.**
+-dontnote com.allan.uilibs.**
+
+# FXML（picture_show.fxml）按全限定类名引用的子模块控件，类名必须 keep
+-keep class com.allan.uilibs.controls.Drag2ScrollPane { *; }
+-keep class com.allan.uilibs.controls.RotatablePaneLayouter { *; }
