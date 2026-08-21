@@ -76,6 +76,7 @@ public final class MarkdownImageManager {
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
 
+    private boolean composingFactory;
     private final Action0 textChangedAction = this::onTextChanged;
     /** 外部（行号开关等）更换 graphic 工厂时重新包一层，保证图片与行号共存 */
     private final ChangeListener<IntFunction<? extends Node>> factoryListener = (obs, old, now) -> {
@@ -101,7 +102,6 @@ public final class MarkdownImageManager {
     /** 每张图（按地址）记忆的缩放比例 */
     private final HashMap<String, Double> zoomByDestination = new HashMap<>();
     private boolean runtimeActive;
-    private boolean composingFactory;
     private boolean destroyed;
     private long requestId;
     private long shownContentVersion = -1;
@@ -573,7 +573,7 @@ public final class MarkdownImageManager {
 
     private static List<MarkdownImage> parseImages(String text, File mdFile) {
         var collector = new ImageCollector();
-        collector.visit(PARSER.parse(text));
+        PARSER.parse(text).accept(collector);
         if (collector.found.isEmpty()) {
             return List.of();
         }
