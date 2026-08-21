@@ -16,6 +16,8 @@ import org.commonmark.node.CustomNode;
 import org.commonmark.node.Emphasis;
 import org.commonmark.node.FencedCodeBlock;
 import org.commonmark.node.Heading;
+import org.commonmark.node.HtmlBlock;
+import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Image;
 import org.commonmark.node.IndentedCodeBlock;
 import org.commonmark.node.Link;
@@ -36,6 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -50,6 +53,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
+    /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
+    private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
+            "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
 
     private static final int STYLE_CODE = 5;
     private static final int STYLE_INLINE_CODE = 6;
@@ -233,6 +239,39 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(Image image) {
             addNodeRegions(image, STYLE_IMAGE);
+        }
+
+        @Override
+        public void visit(HtmlBlock block) {
+            addHtmlImgRegions(block);
+        }
+
+        @Override
+        public void visit(HtmlInline inline) {
+            addHtmlImgRegions(inline);
+        }
+
+        /** 高亮 HTML {@code <img>} 标签本体（markdown-image 类），与 ![alt](path) 图片语法一致 */
+        private void addHtmlImgRegions(Node node) {
+            var spans = node.getSourceSpans();
+            if (spans.isEmpty()) {
+                return;
+            }
+            String literal = node instanceof HtmlBlock block ? block.getLiteral()
+                    : node instanceof HtmlInline inline ? inline.getLiteral() : null;
+            if (literal == null) {
+                return;
+            }
+            // HtmlBlock 可能跨多行，literal 首字符对应 spans[0].inputIndex，标签偏移在此基准上叠加
+            int baseOffset = spans.get(0).getInputIndex();
+            Matcher matcher = HTML_IMG_TAG_PATTERN.matcher(literal);
+            while (matcher.find()) {
+                int start = baseOffset + matcher.start();
+                int end = baseOffset + matcher.end();
+                if (end > start) {
+                    events.addRegion(start, end, STYLE_IMAGE);
+                }
+            }
         }
 
         @Override

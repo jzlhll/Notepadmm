@@ -8,6 +8,7 @@ import com.allan.baseparty.Action0;
 import com.allan.uilibs.richtexts.CodeArea;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.embed.swing.SwingFXUtils;
@@ -15,8 +16,6 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -26,6 +25,8 @@ import javafx.util.Duration;
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.AbstractVisitor;
+import org.commonmark.node.HtmlBlock;
+import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Paragraph;
 import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
@@ -37,37 +38,43 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.function.IntFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Markdown 行内图片显示管理器：
- * 独立成段的图片标签 ![alt](src) 通过段落样式 {@link CodeArea#PARAGRAPH_PREF_HEIGHT_PREFIX}
+ * 独立成段的图片标签 ![alt](src) 或 HTML {@code <img src alt style=zoom:xx%>}（独立成行的 HtmlBlock，
+ * 或段落内唯一节点的 HtmlInline）通过段落样式 {@link CodeArea#PARAGRAPH_PREF_HEIGHT_PREFIX}
  * 撑高行高（richtextfx ParagraphBox.computePrefHeight 只算文本高度，graphic 不撑高行），
- * 图片本体放在 paragraph graphic 的零宽左沟槽容器中，经子节点溢出绘制在标签行下方，不会推移文本。
- * 交互：图片上滚轮缩放、双击复位。段落样式变更不进 undo（plainText undo 只订阅文本变更）。
+ * 图片本体放在 paragraph graphic 的容器中（水平位置 = 文本左内边距 + 行号补偿宽度，
+ * 不动态测量行号宽度），经子节点溢出绘制在标签行下方，不会推移文本。
+ * 相对路径基于 md 文件目录解析，兼容 Windows 反斜杠写法；
+ * 图片按原图尺寸显示，style=zoom:xx% 按原图尺寸百分比缩放（Typora 语义，不支持手势/鼠标缩放），
+ * 宽度超出编辑器可视宽时等比收缩。
+ * 段落样式变更不进 undo（plainText undo 只订阅文本变更）。
  */
 public final class MarkdownImageManager {
     private static final long REFRESH_DELAY_MS = 600;
-    /** 默认显示高度（逻辑像素） */
-    private static final double DEFAULT_IMAGE_HEIGHT = 180;
-    private static final double MIN_IMAGE_HEIGHT = 60;
-    private static final double MAX_IMAGE_HEIGHT = 1400;
+    /** 原图尺寸未知时（后台加载完成前）的占位显示高度（逻辑像素） */
+    private static final double PLACEHOLDER_IMAGE_HEIGHT = 180;
     private static final double GAP_TOP = 4;
     private static final double GAP_BOTTOM = 8;
-    private static final double IMAGE_LEFT_GAP = 2;
     /** 图片框 CSS 边框宽度（与 editor_markdown.css 中 .markdown-image-frame 保持一致） */
     private static final double FRAME_BORDER = 1;
     private static final double PLACEHOLDER_WIDTH = 320;
     private static final double PLACEHOLDER_HEIGHT = 48;
     private static final int IMAGE_CACHE_LIMIT = 48;
-    private static final double ZOOM_MIN = MIN_IMAGE_HEIGHT / DEFAULT_IMAGE_HEIGHT;
-    private static final double ZOOM_MAX = MAX_IMAGE_HEIGHT / DEFAULT_IMAGE_HEIGHT;
+    /** 与 editor.css 中 .paragraph-text 左内边距一致（未换行 / 换行），图片水平位置据此与文本对齐 */
+    private static final double TEXT_LEFT_PADDING = 65;
+    private static final double TEXT_LEFT_PADDING_WRAPPED = 105;
+    /** 行号区域补偿宽度：不动态测量行号宽度，图片在文本左内边距基础上再右移该值，避免压到行号 */
+    private static final double LINE_NO_COMPENSATE = 100;
     private static final String IMAGE_PARA_CLASS = "markdown-image-para";
     private static final String PREF_HEIGHT_PREFIX = CodeArea.PARAGRAPH_PREF_HEIGHT_PREFIX;
 
@@ -76,6 +83,15 @@ public final class MarkdownImageManager {
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
 
+    /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
+    private static final Pattern HTML_IMG_TAG = Pattern.compile(
+            "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
+    /** 标签属性 key="val" / key='val' / key=val */
+    private static final Pattern HTML_IMG_ATTR = Pattern.compile(
+            "(?i)([a-z_:][-a-z0-9_:.]*)\\s*=\\s*(\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))");
+    /** Typora 风格 style="zoom:40%" */
+    private static final Pattern STYLE_ZOOM_PATTERN = Pattern.compile(
+            "(?i)zoom\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*%");
     private boolean composingFactory;
     private final Action0 textChangedAction = this::onTextChanged;
     /** 外部（行号开关等）更换 graphic 工厂时重新包一层，保证图片与行号共存 */
@@ -99,8 +115,6 @@ public final class MarkdownImageManager {
     /** 行号等基础 graphic 工厂（可能为 null） */
     private IntFunction<? extends Node> baseGraphicFactory;
     private Map<Integer, MarkdownImage> imageByLine = Map.of();
-    /** 每张图（按地址）记忆的缩放比例 */
-    private final HashMap<String, Double> zoomByDestination = new HashMap<>();
     private boolean runtimeActive;
     private boolean destroyed;
     private long requestId;
@@ -260,22 +274,37 @@ public final class MarkdownImageManager {
             return base;
         }
 
+        double baseWidth = base != null ? base.prefWidth(-1) : 0;
         var box = new Pane();
-        double baseWidth = 0;
-        if (base != null) {
-            box.getChildren().add(base);
-            baseWidth = base.prefWidth(-1);
-        }
         box.setMinWidth(baseWidth);
         box.setPrefWidth(baseWidth);
         box.setMaxWidth(baseWidth);
 
+        // 图片放底层、行号放顶层：水平滚动时图片会滚过行号区域，图片背景横条不能盖住行号
         Node imageNode = createImageNode(area, index, info);
         double nodeHeight = imageNode.prefHeight(-1);
         double reserved = totalParagraphHeight(area, info);
-        imageNode.relocate(baseWidth + IMAGE_LEFT_GAP,
+        // 行号背景撑满图片段落整个高度：ParagraphBox 只把 graphic（本容器）拉伸到段落高，
+        // 容器内的行号 Label 仍保持单行高度，行号列会透出编辑器背景形成"白条"；
+        // 撑高后不透明行号背景铺满行号列，水平滚动时也能遮住滑入行号列的图片
+        if (base instanceof Region region) {
+            region.setMinHeight(reserved);
+            region.setPrefHeight(reserved);
+            region.setMaxHeight(reserved);
+        }
+        double textLeft = area.isWrapText() ? TEXT_LEFT_PADDING_WRAPPED : TEXT_LEFT_PADDING;
+        double baseX = textLeft + LINE_NO_COMPENSATE;
+        imageNode.relocate(baseX,
                 Math.max(lineHeight(area) + GAP_TOP, reserved - nodeHeight - GAP_BOTTOM));
+        // 行号 graphic 固定在左侧（ParagraphBox.graphicOffset 绑定 scrollX），文本随水平滚动平移；
+        // 图片在 graphic 内须反向减去 scrollX 才能与文本保持同步，否则左滑（水平滚动）时图片悬浮不动
+        imageNode.layoutXProperty().bind(Bindings.createDoubleBinding(
+                () -> baseX - area.estimatedScrollXProperty().getValue(),
+                area.estimatedScrollXProperty()));
         box.getChildren().add(imageNode);
+        if (base != null) {
+            box.getChildren().add(base);
+        }
         return box;
     }
 
@@ -305,16 +334,6 @@ public final class MarkdownImageManager {
         frame.getStyleClass().add("markdown-image-frame");
         frame.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         frame.setPrefSize(size[1] + FRAME_BORDER * 2, size[0] + FRAME_BORDER * 2);
-        frame.addEventHandler(ScrollEvent.SCROLL, event -> {
-            if (zoomImage(area, index, info, event.getDeltaY() > 0)) {
-                event.consume();
-            }
-        });
-        frame.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
-            if (event.getClickCount() >= 2 && resetZoom(area, index, info)) {
-                event.consume();
-            }
-        });
         return frame;
     }
 
@@ -328,49 +347,23 @@ public final class MarkdownImageManager {
         return frame;
     }
 
-    private boolean zoomImage(EditorArea area, int index, MarkdownImage info, boolean zoomIn) {
-        double current = zoomOf(info);
-        double next = current * (zoomIn ? 1.2 : 1 / 1.2);
-        next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
-        if (Math.abs(next - current) < 0.01) {
-            return false;
-        }
-        zoomByDestination.put(info.key, next);
-        applyImageParagraphStyle(area, index, info);
-        return true;
-    }
-
-    private boolean resetZoom(EditorArea area, int index, MarkdownImage info) {
-        Double current = zoomByDestination.get(info.key);
-        if (current == null || Math.abs(current - 1.0) < 0.01) {
-            return false;
-        }
-        zoomByDestination.remove(info.key);
-        applyImageParagraphStyle(area, index, info);
-        return true;
-    }
-
-    private double zoomOf(MarkdownImage info) {
-        Double zoom = zoomByDestination.get(info.key);
-        return zoom == null ? 1.0 : zoom;
-    }
-
-    /** [0]=显示高度 [1]=显示宽度 */
+    /** [0]=显示高度 [1]=显示宽度；zoom 按原图尺寸百分比缩放（Typora 语义），原图未加载时退回占位高度，宽度超限时等比收缩 */
     private double[] displaySize(EditorArea area, MarkdownImage info) {
-        double aspect = info.imageWidth > 0 && info.imageHeight > 0
-                ? info.imageWidth / info.imageHeight : 4.0 / 3.0;
         Image image = cachedImage(info.key);
         if (image != null && image.getWidth() > 0 && image.getHeight() > 0) {
-            aspect = image.getWidth() / image.getHeight();
             info.imageWidth = image.getWidth();
             info.imageHeight = image.getHeight();
         }
-        double height = DEFAULT_IMAGE_HEIGHT * zoomOf(info);
+        double aspect = info.imageWidth > 0 && info.imageHeight > 0
+                ? info.imageWidth / info.imageHeight : 4.0 / 3.0;
+        // zoom 相对原图尺寸（Typora 语义）：无 zoom 按原图显示；原图未加载完成前用占位高度，
+        // 加载完成后 onImageLoaded 会重算段落高度并刷新 graphic
+        double height = info.imageHeight > 0
+                ? info.imageHeight * info.styleZoom : PLACEHOLDER_IMAGE_HEIGHT;
         double maxWidth = Math.max(160.0, area.getWidth() - 48);
         if (height * aspect > maxWidth) {
             height = maxWidth / aspect;
         }
-        height = Math.max(MIN_IMAGE_HEIGHT, Math.min(MAX_IMAGE_HEIGHT, height));
         return new double[]{height, height * aspect};
     }
 
@@ -583,26 +576,67 @@ public final class MarkdownImageManager {
             if (resolved == null) {
                 continue;
             }
-            images.add(new MarkdownImage(found.lineIndex(), found.alt(), resolved));
+            images.add(new MarkdownImage(found.lineIndex(), found.alt(), resolved, found.styleZoom()));
         }
         return List.copyOf(images);
     }
 
-    /** 收集"整段只有一个图片节点"的段落（含列表项、引用块中的独立图片行） */
+    /**
+     * 收集"整段只有一个图片"的段落与 HTML {@code <img>} 标签：
+     * 独立成行的 {@code <img>} 由 commonmark 解析为 HtmlBlock（含列表项、引用块内），
+     * 段落内唯一节点的 HtmlInline 也按独立图片行处理。
+     */
     private static final class ImageCollector extends AbstractVisitor {
         final List<FoundImage> found = new ArrayList<>();
 
         @Override
         public void visit(Paragraph paragraph) {
-            if (paragraph.getFirstChild() instanceof org.commonmark.node.Image image
-                    && image.getNext() == null) {
+            org.commonmark.node.Node first = paragraph.getFirstChild();
+            if (first instanceof org.commonmark.node.Image image && image.getNext() == null) {
                 var spans = image.getSourceSpans();
                 if (!spans.isEmpty()) {
                     found.add(new FoundImage(spans.get(0).getLineIndex(),
-                            image.getDestination(), altOf(image)));
+                            image.getDestination(), altOf(image), 1.0));
                 }
+            } else if (first instanceof HtmlInline inline && inline.getNext() == null) {
+                addHtmlImgs(inline.getLiteral(), firstLine(inline), found);
             }
             visitChildren(paragraph);
+        }
+
+        @Override
+        public void visit(HtmlBlock block) {
+            addHtmlImgs(block.getLiteral(), firstLine(block), found);
+        }
+
+        private static int firstLine(org.commonmark.node.Node node) {
+            var spans = node.getSourceSpans();
+            return spans.isEmpty() ? 0 : spans.get(0).getLineIndex();
+        }
+
+        /** 从原始 HTML 中扫描 <img> 标签，行号按标签在块内跨过的换行数叠加 */
+        private static void addHtmlImgs(String literal, int startLine, List<FoundImage> found) {
+            if (literal == null) {
+                return;
+            }
+            Matcher matcher = HTML_IMG_TAG.matcher(literal);
+            while (matcher.find()) {
+                var parsed = parseImgTag(matcher.group(1));
+                if (parsed != null) {
+                    found.add(new FoundImage(startLine + countNewlines(literal, 0, matcher.start()),
+                            parsed.src(), parsed.alt(), parsed.zoom()));
+                }
+            }
+        }
+
+        private static int countNewlines(String s, int from, int to) {
+            int count = 0;
+            for (int i = from; i < to; i++) {
+                if (s.charAt(i) == '\n') {
+                    count++;
+                }
+            }
+            return count;
         }
 
         private static String altOf(org.commonmark.node.Image image) {
@@ -614,6 +648,40 @@ public final class MarkdownImageManager {
             }
             return builder.toString();
         }
+    }
+
+    /** 解析 <img> 标签属性，缺 src 或非图片标签时返回 null */
+    private static ImgAttr parseImgTag(String attributes) {
+        String src = null;
+        String alt = null;
+        double zoom = 1.0;
+        Matcher matcher = HTML_IMG_ATTR.matcher(attributes);
+        while (matcher.find()) {
+            String name = matcher.group(1).toLowerCase(Locale.ROOT);
+            String value = matcher.group(3) != null ? matcher.group(3)
+                    : matcher.group(4) != null ? matcher.group(4) : matcher.group(5);
+            if (value == null) {
+                continue;
+            }
+            switch (name) {
+                case "src" -> src = value;
+                case "alt" -> alt = value;
+                case "style" -> {
+                    Matcher zoomMatcher = STYLE_ZOOM_PATTERN.matcher(value);
+                    if (zoomMatcher.find()) {
+                        zoom = Double.parseDouble(zoomMatcher.group(1)) / 100.0;
+                    }
+                }
+                default -> { }
+            }
+        }
+        if (src == null || src.isBlank()) {
+            return null;
+        }
+        return new ImgAttr(src.trim(), alt, zoom);
+    }
+
+    private record ImgAttr(String src, String alt, double zoom) {
     }
 
     private static Resolved resolve(File mdFile, String destination) {
@@ -635,15 +703,17 @@ public final class MarkdownImageManager {
                 return null;
             }
         }
-        File direct = new File(dest);
+        // 兼容 Windows 反斜杠路径（如 ..\pictures\x.png）
+        String path = dest.replace('\\', '/');
+        File direct = new File(path);
         if (direct.isAbsolute()) {
             return new Resolved(direct.toURI().toString(), direct, false);
         }
         if (mdFile != null && mdFile.getParentFile() != null) {
-            File relative = new File(mdFile.getParentFile(), dest);
+            File relative = new File(mdFile.getParentFile(), path);
             if (!relative.isFile()) {
                 File decoded = new File(mdFile.getParentFile(),
-                        URLDecoder.decode(dest, StandardCharsets.UTF_8));
+                        URLDecoder.decode(path, StandardCharsets.UTF_8));
                 if (decoded.isFile()) {
                     relative = decoded;
                 }
@@ -653,7 +723,7 @@ public final class MarkdownImageManager {
         return null;
     }
 
-    private record FoundImage(int lineIndex, String destination, String alt) {
+    private record FoundImage(int lineIndex, String destination, String alt, double styleZoom) {
     }
 
     private record Resolved(String url, File file, boolean remote) {
@@ -664,15 +734,18 @@ public final class MarkdownImageManager {
         final String alt;
         final String key;
         final Resolved resolved;
+        /** {@code <img style="zoom:xx%">} 的显示缩放系数（1.0 = 不缩放） */
+        final double styleZoom;
         double imageWidth = -1;
         double imageHeight = -1;
         boolean loading;
 
-        MarkdownImage(int lineIndex, String alt, Resolved resolved) {
+        MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom) {
             this.lineIndex = lineIndex;
             this.alt = alt;
             this.key = resolved.url();
             this.resolved = resolved;
+            this.styleZoom = styleZoom;
         }
     }
 }

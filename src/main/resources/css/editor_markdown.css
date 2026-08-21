@@ -31,7 +31,6 @@
     -au-md-image: #9932cc;
 
     /* ---- 行内图片显示（图片框 / 占位提示，见 MarkdownImageManager） ---- */
-    -au-md-image-frame-bg: #f6f7f9;
     -au-md-image-frame-border: #d8dde3;
     -au-md-image-placeholder-fill: #808080;
 }
@@ -112,9 +111,10 @@
 }
 
 /* ===== 行内图片显示 ===== */
-/* 图片框：边框宽度固定 1px，与 MarkdownImageManager.FRAME_BORDER 保持一致（框尺寸 = 图片 + 2 边框，不加 padding） */
+/* 图片框：背景与编辑器背景一致（透明会导致下方文本透出），只保留细边框区分；边框宽度固定 1px，
+   与 MarkdownImageManager.FRAME_BORDER 保持一致（框尺寸 = 图片 + 2 边框，不加 padding） */
 .markdown-image-frame {
-    -fx-background-color: -au-md-image-frame-bg;
+    -fx-background-color: -au-editor-bg-color;
     -fx-background-radius: 4;
     -fx-border-width: 1;
     -fx-border-color: -au-md-image-frame-border;
