@@ -5,7 +5,7 @@
  */
 .root {
     /* ---- editor 整体（会被 colors*.css 主题文件覆盖，此处为默认值） ---- */
-    -au-editor-bg-color: #fffefe; /*编辑器整体背景色*/
+    -au-editor-bg-color: #fffef6; /*编辑器整体背景色*/
     -au-editor-text-color: #010101; /*编辑器默认文字颜色*/
 
     /* ---- 标题 h1 ~ h5 ---- */
@@ -15,9 +15,9 @@
     -au-md-title-4: #9850a0;
     -au-md-title-5: #a860ad;
 
-    /* ---- 代码块：终端科技风（深空底 + 霓虹青） ---- */
-    -au-md-code-bg: #2a3542;
-    -au-md-code-fill: #6fdbe2;
+    /* ---- 代码块：浅色底 + 深色文字（亮色皮肤，自然融入） ---- */
+    -au-md-code-bg: #eef2f5;
+    -au-md-code-fill: #1d4d55;
     -au-md-inline-code-bg: #def2f4;
     -au-md-inline-code-fill: #0e7490;
 
