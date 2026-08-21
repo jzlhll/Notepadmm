@@ -6,6 +6,9 @@ import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
+import org.fxmisc.richtext.model.StyleSpans;
+
+import java.util.Collection;
 
 /**
  * Styler是BottomSearchBtnsMgr的一个对象。则每一个Editor有一个它。
@@ -40,6 +43,13 @@ final class Styler {
 
     void stylingCode(BottomHandler.ClickType clickType, SearchParams curTempParams, SearchParams curParams) {
         mCodeAction.action(clickType, curTempParams, curParams);
+    }
+
+    void stylingMarkdown(BottomHandler.ClickType clickType, SearchParams curTempParams,
+                         SearchParams curParams, String text, long contentVersion,
+                         StyleSpans<Collection<String>> currentSpans) {
+        mCodeAction.actionMarkdown(clickType, curTempParams, curParams,
+                text, contentVersion, currentSpans);
     }
 
     void destroy() {

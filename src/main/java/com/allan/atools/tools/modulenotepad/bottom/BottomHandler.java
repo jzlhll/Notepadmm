@@ -2,6 +2,7 @@ package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
 import com.allan.atools.bean.SearchParams;
@@ -9,9 +10,12 @@ import com.allan.atools.text.FinderFactory;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.baseparty.handler.*;
 import com.google.gson.Gson;
+import javafx.application.Platform;
+import org.fxmisc.richtext.model.StyleSpans;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collection;
 
 /**
  * BottomHandler是BottomSearchBtnsMgr的对象，即每一个Editor有一个Handler。
@@ -22,6 +26,7 @@ final class BottomHandler extends Handler {
 
     private final BottomSearchBtnsMgr out;
     private final Styler styler;
+    private volatile boolean destroyed;
 
     final Cache cache = new Cache();
 
@@ -42,6 +47,7 @@ final class BottomHandler extends Handler {
     }
 
     public void destroy() {
+        destroyed = true;
         styler.destroy();
         removeAllCallbacksAndMessages();
     }
@@ -99,7 +105,8 @@ final class BottomHandler extends Handler {
         try {
             switch (msg.what) {
                 case MSG_SAVE_PARAM -> saveParams();
-                case MSG_TRIGGER_SEARCH, MSG_TRIGGER_SEARCH_TEXT_CHANGE -> searchInThread(msg.what, toClickType(msg.arg1), (Long) msg.obj);
+                case MSG_TRIGGER_SEARCH, MSG_TRIGGER_SEARCH_TEXT_CHANGE ->
+                        prepareSearch(toClickType(msg.arg1), (Long) msg.obj);
             }
         } catch (Exception e) {
             Log.e("BottomHandler Error", e);
@@ -164,12 +171,41 @@ final class BottomHandler extends Handler {
             Log.d("Styler: trigger When TextChanged flag " + flag);
         }
         removeMessages(MSG_TRIGGER_SEARCH_TEXT_CHANGE);
-        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE, from(ClickType.Search), 0, flag), DELAY_TRIGGER_SEARCH_TS * 4);
+        long delay = out.editorArea.getEditor().isMarkdownStyler()
+                ? DELAY_TRIGGER_SEARCH_TS : DELAY_TRIGGER_SEARCH_TS * 4;
+        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE, from(ClickType.Search), 0, flag), delay);
     }
 
-    private void searchInThread(int triggerId, ClickType clickType, final long flag) {
+    private void prepareSearch(ClickType clickType, long flag) {
+        var area = out.editorArea;
+        if (!area.getEditor().isMarkdownStyler()) {
+            searchInThread(clickType, flag, null, -1, null);
+            return;
+        }
+        Platform.runLater(() -> {
+            if (destroyed || area.getEditor().isDestroyed()
+                    || flag != out.lastChangeSearchFlag.get()) {
+                return;
+            }
+            if (area.getEditor() instanceof EditorAreaMgrCode codeEditor) {
+                codeEditor.invalidateMarkdownStyleRequest();
+            }
+            long contentVersion = area.getEditor().getContentVersion();
+            String text = area.getText();
+            var currentSpans = area.getStyleSpans(0, text.length());
+            post(() -> searchInThread(clickType, flag, text, contentVersion, currentSpans));
+        });
+    }
+
+    private void searchInThread(ClickType clickType, final long flag, String textSnapshot,
+                                long contentVersion, StyleSpans<Collection<String>> currentSpans) {
         var area = out.editorArea;// UIContext.currentAreaProp.get();
         if (area == null) {
+            return;
+        }
+        boolean isMarkdown = area.getEditor().isMarkdownStyler();
+        if (destroyed || isMarkdown && (flag != out.lastChangeSearchFlag.get()
+                || contentVersion != area.getEditor().getContentVersion())) {
             return;
         }
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread start....");
@@ -203,23 +239,33 @@ final class BottomHandler extends Handler {
             }
         }
 
-        var t = area.getText();
+        var t = isMarkdown ? textSnapshot : area.getText();
+        OneFileSearchResults newCacheResult;
         if (t == null || t.length() == 0) {
-            cache.cacheResult = new OneFileSearchResults();
+            newCacheResult = new OneFileSearchResults();
         } else if (searchParams == null) {
-            cache.cacheResult = new OneFileSearchResults().addTotalLen(t.length());
+            newCacheResult = new OneFileSearchResults().addTotalLen(t.length());
         } else {
             int[] totalLines = {0};
             //TimerCounter.start("bottom_search_in_thread");
             var lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
             //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
-            cache.cacheResult = null;
-            cache.cacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
+            newCacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
         }
+        if (isMarkdown && (flag != out.lastChangeSearchFlag.get()
+                || contentVersion != area.getEditor().getContentVersion())) {
+            return;
+        }
+        cache.cacheResult = newCacheResult;
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
 
         if (area.getEditor().isEditorCodeMode()) {
-            styler.stylingCode(clickType, curTempParams, curParams);
+            if (isMarkdown) {
+                styler.stylingMarkdown(clickType, curTempParams, curParams,
+                        t, contentVersion, currentSpans);
+            } else {
+                styler.stylingCode(clickType, curTempParams, curParams);
+            }
         } else {
             styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
         }

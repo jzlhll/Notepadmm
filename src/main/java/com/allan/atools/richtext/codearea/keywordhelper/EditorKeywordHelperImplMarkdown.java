@@ -28,13 +28,15 @@ import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -43,6 +45,9 @@ import java.util.regex.Pattern;
  * 嵌套元素（标题内加粗、粗斜体叠加、代码块内容不高亮等）由 AST 结构天然保证。
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
+    public record StyleUpdate(int start, StyleSpans<Collection<String>> spans) {
+    }
+
     private static final Parser PARSER = Parser.builder()
             .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
@@ -51,7 +56,30 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
 
-    private final HashMap<String, Set<String>> styleClassAndSetMap = new HashMap<>();
+    private static final int STYLE_CODE = 5;
+    private static final int STYLE_INLINE_CODE = 6;
+    private static final int STYLE_TABLE_MARK = 7;
+    private static final int STYLE_QUOTE = 8;
+    private static final int STYLE_LIST = 9;
+    private static final int STYLE_LINK = 10;
+    private static final int STYLE_IMAGE = 11;
+    private static final int STYLE_BOLD = 12;
+    private static final int STYLE_ITALIC = 13;
+    private static final int STYLE_STRIKETHROUGH = 14;
+    private static final int STYLE_TEMPORARY = 15;
+    private static final int STYLE_SEARCH = 16;
+    private static final int STYLE_COUNT = 17;
+    private static final int EVENT_META_BITS = 6;
+    private static final int EVENT_STYLE_MASK = 31;
+
+    private static final String[] STYLE_CLASSES = {
+            "markdown-title-1", "markdown-title-2", "markdown-title-3", "markdown-title-4", "markdown-title-5",
+            "markdown-code", "markdown-inline-code", "markdown-table-mark", "markdown-quote", "markdown-list",
+            "markdown-link", "markdown-image", "markdown-bold", "markdown-italic", "markdown-strikethrough",
+            "temporary", "search"
+    };
+
+    private final HashMap<Integer, Set<String>> styleClassAndSetMap = new HashMap<>();
 
     @Override
     public Pattern getPattern(SearchParams temporary, SearchParams search) {
@@ -74,13 +102,39 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     }
 
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
-        var regions = new ArrayList<Region>();
-        PARSER.parse(text).accept(new MarkdownRegionVisitor(text, regions));
-        addSearchRegions(text, regions);
-        return buildStyleSpans(regions, text.length());
+        return computeHighlighting(text, () -> true);
     }
 
-    private void addSearchRegions(String text, List<Region> regions) {
+    public StyleUpdate computeStyleUpdate(String text, SearchParams temporary, SearchParams search,
+                                          StyleSpans<Collection<String>> currentSpans,
+                                          BooleanSupplier canContinue) {
+        if (text.isEmpty()) {
+            return canContinue.getAsBoolean() ? new StyleUpdate(0, null) : null;
+        }
+        mLastMatcher = getPattern(temporary, search);
+        var newSpans = computeHighlighting(text, canContinue);
+        return newSpans == null || !canContinue.getAsBoolean()
+                ? null : createStyleUpdate(currentSpans, newSpans, text.length(), canContinue);
+    }
+
+    private StyleSpans<Collection<String>> computeHighlighting(String text, BooleanSupplier canContinue) {
+        var root = PARSER.parse(text);
+        if (!canContinue.getAsBoolean()) {
+            return null;
+        }
+        var events = new EventBuffer();
+        root.accept(new MarkdownRegionVisitor(text, events));
+        if (!canContinue.getAsBoolean()) {
+            return null;
+        }
+        addSearchRegions(text, events);
+        if (!canContinue.getAsBoolean()) {
+            return null;
+        }
+        return buildStyleSpans(events, text.length(), canContinue);
+    }
+
+    private void addSearchRegions(String text, EventBuffer events) {
         if (mLastMatcher == null) {
             return;
         }
@@ -89,10 +143,10 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             if (matcher.end() == matcher.start()) {
                 continue;
             }
-            String styleClass = mIsTemporaryEnabled && matcher.group("TEMPORARY") != null ? "temporary" :
-                    mIsSearchEnabled && matcher.group("SEARCH") != null ? "search" : null;
-            if (styleClass != null) {
-                regions.add(new Region(matcher.start(), matcher.end(), styleClass));
+            int styleId = mIsTemporaryEnabled && matcher.group("TEMPORARY") != null ? STYLE_TEMPORARY :
+                    mIsSearchEnabled && matcher.group("SEARCH") != null ? STYLE_SEARCH : -1;
+            if (styleId >= 0) {
+                events.addRegion(matcher.start(), matcher.end(), styleId);
             }
         }
     }
@@ -100,104 +154,120 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     /**
      * 事件扫描法合成重叠区间（如 **bold *italic*** 同时持有 bold 与 italic 样式类）。
      */
-    private StyleSpans<Collection<String>> buildStyleSpans(List<Region> regions, int textLength) {
-        record Ev(int pos, boolean add, String styleClass) {
+    private StyleSpans<Collection<String>> buildStyleSpans(EventBuffer events, int textLength,
+                                                            BooleanSupplier canContinue) {
+        events.sort();
+        if (!canContinue.getAsBoolean()) {
+            return null;
         }
-        var events = new ArrayList<Ev>(regions.size() * 2);
-        for (var region : regions) {
-            events.add(new Ev(region.start(), true, region.styleClass()));
-            events.add(new Ev(region.end(), false, region.styleClass()));
-        }
-        events.sort((a, b) -> a.pos() != b.pos()
-                ? Integer.compare(a.pos(), b.pos())
-                : Boolean.compare(a.add(), b.add()));
-
-        var active = new HashMap<String, Integer>();
-        var spansBuilder = new StyleSpansBuilder<Collection<String>>(Math.max(1, events.size() / 2 + 1));
+        var activeCounts = new int[STYLE_COUNT];
+        int activeMask = 0;
+        var spansBuilder = new StyleSpansBuilder<Collection<String>>(Math.max(1, events.size() + 1));
         int prev = 0;
-        for (var ev : events) {
-            if (ev.pos() > prev) {
-                spansBuilder.add(activeStyles(active), ev.pos() - prev);
-                prev = ev.pos();
+        int eventIndex = 0;
+        while (eventIndex < events.size()) {
+            if ((eventIndex & 1023) == 0 && !canContinue.getAsBoolean()) {
+                return null;
             }
-            active.merge(ev.styleClass(), ev.add() ? 1 : -1, Integer::sum);
-            if (active.get(ev.styleClass()) == 0) {
-                active.remove(ev.styleClass());
+            int position = events.positionAt(eventIndex);
+            if (position > prev) {
+                spansBuilder.add(activeStyles(activeMask), position - prev);
+                prev = position;
+            }
+            while (eventIndex < events.size() && events.positionAt(eventIndex) == position) {
+                int styleId = events.styleIdAt(eventIndex);
+                if (events.isAddAt(eventIndex)) {
+                    activeCounts[styleId]++;
+                    activeMask |= 1 << styleId;
+                } else {
+                    activeCounts[styleId]--;
+                    if (activeCounts[styleId] == 0) {
+                        activeMask &= ~(1 << styleId);
+                    }
+                }
+                eventIndex++;
             }
         }
-        spansBuilder.add(activeStyles(active), textLength - prev);
+        spansBuilder.add(activeStyles(activeMask), textLength - prev);
         return spansBuilder.create();
     }
 
-    private Collection<String> activeStyles(Map<String, Integer> active) {
-        if (active.isEmpty()) {
+    private Collection<String> activeStyles(int activeMask) {
+        if (activeMask == 0) {
             return Collections.emptyList();
         }
-        var key = active.size() == 1 ? active.keySet().iterator().next() : String.join(" ", active.keySet());
-        return styleClassAndSetMap.computeIfAbsent(key, k -> Set.copyOf(active.keySet()));
+        return styleClassAndSetMap.computeIfAbsent(activeMask, mask -> {
+            var styles = new HashSet<String>();
+            for (int styleId = 0; styleId < STYLE_COUNT; styleId++) {
+                if ((mask & (1 << styleId)) != 0) {
+                    styles.add(STYLE_CLASSES[styleId]);
+                }
+            }
+            return Set.copyOf(styles);
+        });
     }
 
     private final class MarkdownRegionVisitor extends AbstractVisitor {
         private final String text;
-        private final List<Region> regions;
+        private final EventBuffer events;
 
-        MarkdownRegionVisitor(String text, List<Region> regions) {
+        MarkdownRegionVisitor(String text, EventBuffer events) {
             this.text = text;
-            this.regions = regions;
+            this.events = events;
         }
 
         @Override
         public void visit(Heading heading) {
-            addNodeRegions(heading, "markdown-title-" + Math.min(heading.getLevel(), 5));
+            addNodeRegions(heading, Math.min(heading.getLevel(), 5) - 1);
             visitChildren(heading);
         }
 
         @Override
         public void visit(FencedCodeBlock block) {
-            addNodeRegions(block, "markdown-code");
+            addNodeRegions(block, STYLE_CODE);
         }
 
         @Override
         public void visit(IndentedCodeBlock block) {
-            addNodeRegions(block, "markdown-code");
+            addNodeRegions(block, STYLE_CODE);
         }
 
         @Override
         public void visit(BlockQuote blockQuote) {
-            addMarkerRegions(blockQuote, QUOTE_MARKER_PATTERN, "markdown-quote");
+            addMarkerRegions(blockQuote, QUOTE_MARKER_PATTERN, STYLE_QUOTE);
             visitChildren(blockQuote);
         }
 
         @Override
         public void visit(ListItem listItem) {
-            addMarkerRegions(listItem, LIST_MARKER_PATTERN, "markdown-list");
+            addMarkerRegions(listItem, LIST_MARKER_PATTERN, STYLE_LIST);
             visitChildren(listItem);
         }
 
         @Override
         public void visit(Code code) {
-            addNodeRegions(code, "markdown-inline-code");
+            addNodeRegions(code, STYLE_INLINE_CODE);
         }
 
         @Override
         public void visit(Link link) {
-            addNodeRegions(link, "markdown-link");
+            addNodeRegions(link, STYLE_LINK);
         }
 
         @Override
         public void visit(Image image) {
-            addNodeRegions(image, "markdown-image");
+            addNodeRegions(image, STYLE_IMAGE);
         }
 
         @Override
         public void visit(StrongEmphasis emphasis) {
-            addNodeRegions(emphasis, "markdown-bold");
+            addNodeRegions(emphasis, STYLE_BOLD);
             visitChildren(emphasis);
         }
 
         @Override
         public void visit(Emphasis emphasis) {
-            addNodeRegions(emphasis, "markdown-italic");
+            addNodeRegions(emphasis, STYLE_ITALIC);
             visitChildren(emphasis);
         }
 
@@ -212,24 +282,26 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(CustomNode customNode) {
             if (customNode instanceof Strikethrough strikethrough) {
-                addNodeRegions(strikethrough, "markdown-strikethrough");
+                addNodeRegions(strikethrough, STYLE_STRIKETHROUGH);
             }
             visitChildren(customNode);
         }
 
-        private void addNodeRegions(Node node, String styleClass) {
+        private void addNodeRegions(Node node, int styleId) {
             for (var span : node.getSourceSpans()) {
                 int start = span.getInputIndex();
-                regions.add(new Region(start, start + span.getLength(), styleClass));
+                events.addRegion(start, start + span.getLength(), styleId);
             }
         }
 
-        private void addMarkerRegions(Node node, Pattern markerPattern, String styleClass) {
+        private void addMarkerRegions(Node node, Pattern markerPattern, int styleId) {
             var matcher = markerPattern.matcher(text);
             for (var span : node.getSourceSpans()) {
                 int start = span.getInputIndex();
-                if (matcher.find(start) && matcher.start() == start) {
-                    regions.add(new Region(start, matcher.end(), styleClass));
+                int end = start + span.getLength();
+                matcher.region(start, end);
+                if (matcher.lookingAt()) {
+                    events.addRegion(start, matcher.end(), styleId);
                 }
             }
         }
@@ -251,18 +323,157 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 int start = span.getInputIndex();
                 int end = start + span.getLength();
                 if (rowLines.contains(span.getLineIndex())) {
-                    for (int i = start; i < end; i++) {
-                        if (text.charAt(i) == '|') {
-                            regions.add(new Region(i, i + 1, "markdown-table-mark"));
-                        }
+                    int separator = text.indexOf('|', start);
+                    while (separator >= 0 && separator < end) {
+                        events.addRegion(separator, separator + 1, STYLE_TABLE_MARK);
+                        separator = text.indexOf('|', separator + 1);
                     }
                 } else {
-                    regions.add(new Region(start, end, "markdown-table-mark"));
+                    events.addRegion(start, end, STYLE_TABLE_MARK);
                 }
             }
         }
     }
 
-    private record Region(int start, int end, String styleClass) {
+    private StyleUpdate createStyleUpdate(StyleSpans<Collection<String>> currentSpans,
+                                          StyleSpans<Collection<String>> newSpans, int textLength,
+                                          BooleanSupplier canContinue) {
+        if (textLength == 0) {
+            return new StyleUpdate(0, null);
+        }
+        if (newSpans.length() != textLength) {
+            throw new IllegalStateException("Markdown style length does not match text length");
+        }
+        if (currentSpans == null || currentSpans.length() != textLength) {
+            return new StyleUpdate(0, newSpans);
+        }
+        int changedStart = findChangedStart(currentSpans, newSpans, canContinue);
+        if (changedStart < 0) {
+            return null;
+        }
+        if (changedStart == textLength) {
+            return new StyleUpdate(0, null);
+        }
+        int changedEnd = findChangedEnd(currentSpans, newSpans, changedStart, canContinue);
+        if (changedEnd < 0) {
+            return null;
+        }
+        return new StyleUpdate(changedStart, newSpans.subView(changedStart, changedEnd));
+    }
+
+    private int findChangedStart(StyleSpans<Collection<String>> oldSpans,
+                                 StyleSpans<Collection<String>> newSpans,
+                                 BooleanSupplier canContinue) {
+        int oldIndex = 0;
+        int newIndex = 0;
+        int oldRemaining = oldSpans.getStyleSpan(0).getLength();
+        int newRemaining = newSpans.getStyleSpan(0).getLength();
+        int offset = 0;
+        while (oldIndex < oldSpans.getSpanCount() && newIndex < newSpans.getSpanCount()) {
+            if (((oldIndex + newIndex) & 1023) == 0 && !canContinue.getAsBoolean()) {
+                return -1;
+            }
+            var oldSpan = oldSpans.getStyleSpan(oldIndex);
+            var newSpan = newSpans.getStyleSpan(newIndex);
+            if (!Objects.equals(oldSpan.getStyle(), newSpan.getStyle())) {
+                return offset;
+            }
+            int consumed = oldRemaining < newRemaining ? oldRemaining : newRemaining;
+            offset += consumed;
+            oldRemaining -= consumed;
+            newRemaining -= consumed;
+            if (oldRemaining == 0 && ++oldIndex < oldSpans.getSpanCount()) {
+                oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
+            }
+            if (newRemaining == 0 && ++newIndex < newSpans.getSpanCount()) {
+                newRemaining = newSpans.getStyleSpan(newIndex).getLength();
+            }
+        }
+        return offset;
+    }
+
+    private int findChangedEnd(StyleSpans<Collection<String>> oldSpans,
+                               StyleSpans<Collection<String>> newSpans, int changedStart,
+                               BooleanSupplier canContinue) {
+        int oldIndex = oldSpans.getSpanCount() - 1;
+        int newIndex = newSpans.getSpanCount() - 1;
+        int oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
+        int newRemaining = newSpans.getStyleSpan(newIndex).getLength();
+        int suffixLength = 0;
+        int maxSuffixLength = oldSpans.length() - changedStart;
+        while (oldIndex >= 0 && newIndex >= 0 && suffixLength < maxSuffixLength) {
+            if (((oldIndex + newIndex) & 1023) == 0 && !canContinue.getAsBoolean()) {
+                return -1;
+            }
+            var oldSpan = oldSpans.getStyleSpan(oldIndex);
+            var newSpan = newSpans.getStyleSpan(newIndex);
+            if (!Objects.equals(oldSpan.getStyle(), newSpan.getStyle())) {
+                break;
+            }
+            int consumed = oldRemaining < newRemaining ? oldRemaining : newRemaining;
+            int remainingSuffix = maxSuffixLength - suffixLength;
+            if (consumed > remainingSuffix) {
+                consumed = remainingSuffix;
+            }
+            suffixLength += consumed;
+            oldRemaining -= consumed;
+            newRemaining -= consumed;
+            if (oldRemaining == 0 && --oldIndex >= 0) {
+                oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
+            }
+            if (newRemaining == 0 && --newIndex >= 0) {
+                newRemaining = newSpans.getStyleSpan(newIndex).getLength();
+            }
+        }
+        return oldSpans.length() - suffixLength;
+    }
+
+    private static final class EventBuffer {
+        private long[] values = new long[64];
+        private int size;
+
+        void addRegion(int start, int end, int styleId) {
+            if (end <= start) {
+                return;
+            }
+            ensureCapacity(size + 2);
+            values[size++] = encode(start, styleId, true);
+            values[size++] = encode(end, styleId, false);
+        }
+
+        void sort() {
+            Arrays.sort(values, 0, size);
+        }
+
+        int size() {
+            return size;
+        }
+
+        int positionAt(int index) {
+            return (int) (values[index] >>> EVENT_META_BITS);
+        }
+
+        int styleIdAt(int index) {
+            return (int) ((values[index] >>> 1) & EVENT_STYLE_MASK);
+        }
+
+        boolean isAddAt(int index) {
+            return (values[index] & 1) != 0;
+        }
+
+        private void ensureCapacity(int minCapacity) {
+            if (minCapacity <= values.length) {
+                return;
+            }
+            int newCapacity = values.length * 2;
+            if (newCapacity < minCapacity) {
+                newCapacity = minCapacity;
+            }
+            values = Arrays.copyOf(values, newCapacity);
+        }
+
+        private static long encode(int position, int styleId, boolean add) {
+            return ((long) position << EVENT_META_BITS) | ((long) styleId << 1) | (add ? 1 : 0);
+        }
     }
 }
