@@ -15,9 +15,5 @@ public final class EditorAreaAddModifyAction implements Action<CodeArea> {
 
     @Override
     public void invoke(CodeArea codeArea) {
-//        if (eb instanceof EditorAreaMgrCode ebk && codeArea instanceof EditorArea area) {
-//            area.getVisibleParagraphs().addModificationObserver(
-//                    new VisibleParagraphStyler<>(area, ebk.getHelper().getComputeHighlightFun()));
-//        }
     }
 }

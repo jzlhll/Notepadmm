@@ -171,14 +171,14 @@ final class BottomHandler extends Handler {
             Log.d("Styler: trigger When TextChanged flag " + flag);
         }
         removeMessages(MSG_TRIGGER_SEARCH_TEXT_CHANGE);
-        long delay = out.editorArea.getEditor().isMarkdownStyler()
+        long delay = out.editorArea.getEditor().isEditorCodeMode()
                 ? DELAY_TRIGGER_SEARCH_TS : DELAY_TRIGGER_SEARCH_TS * 4;
         sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE, from(ClickType.Search), 0, flag), delay);
     }
 
     private void prepareSearch(ClickType clickType, long flag) {
         var area = out.editorArea;
-        if (!area.getEditor().isMarkdownStyler()) {
+        if (!area.getEditor().isEditorCodeMode()) {
             searchInThread(clickType, flag, null, -1, null);
             return;
         }
@@ -188,7 +188,7 @@ final class BottomHandler extends Handler {
                 return;
             }
             if (area.getEditor() instanceof EditorAreaMgrCode codeEditor) {
-                codeEditor.invalidateMarkdownStyleRequest();
+                codeEditor.invalidateStyleRequest();
             }
             long contentVersion = area.getEditor().getContentVersion();
             String text = area.getText();
@@ -203,8 +203,8 @@ final class BottomHandler extends Handler {
         if (area == null) {
             return;
         }
-        boolean isMarkdown = area.getEditor().isMarkdownStyler();
-        if (destroyed || isMarkdown && (flag != out.lastChangeSearchFlag.get()
+        boolean isCode = area.getEditor().isEditorCodeMode();
+        if (destroyed || isCode && (flag != out.lastChangeSearchFlag.get()
                 || contentVersion != area.getEditor().getContentVersion())) {
             return;
         }
@@ -239,7 +239,7 @@ final class BottomHandler extends Handler {
             }
         }
 
-        var t = isMarkdown ? textSnapshot : area.getText();
+        var t = isCode ? textSnapshot : area.getText();
         OneFileSearchResults newCacheResult;
         if (t == null || t.length() == 0) {
             newCacheResult = new OneFileSearchResults();
@@ -252,7 +252,7 @@ final class BottomHandler extends Handler {
             //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
             newCacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
         }
-        if (isMarkdown && (flag != out.lastChangeSearchFlag.get()
+        if (isCode && (flag != out.lastChangeSearchFlag.get()
                 || contentVersion != area.getEditor().getContentVersion())) {
             return;
         }
@@ -260,12 +260,8 @@ final class BottomHandler extends Handler {
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
 
         if (area.getEditor().isEditorCodeMode()) {
-            if (isMarkdown) {
-                styler.stylingMarkdown(clickType, curTempParams, curParams,
-                        t, contentVersion, currentSpans);
-            } else {
-                styler.stylingCode(clickType, curTempParams, curParams);
-            }
+            styler.stylingCode(clickType, curTempParams, curParams,
+                    t, contentVersion, currentSpans);
         } else {
             styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
         }

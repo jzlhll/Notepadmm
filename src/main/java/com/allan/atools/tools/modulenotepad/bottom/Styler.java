@@ -41,14 +41,10 @@ final class Styler {
         mFullAction.action(area, flag, items, clickType, showType);
     }
 
-    void stylingCode(BottomHandler.ClickType clickType, SearchParams curTempParams, SearchParams curParams) {
-        mCodeAction.action(clickType, curTempParams, curParams);
-    }
-
-    void stylingMarkdown(BottomHandler.ClickType clickType, SearchParams curTempParams,
-                         SearchParams curParams, String text, long contentVersion,
-                         StyleSpans<Collection<String>> currentSpans) {
-        mCodeAction.actionMarkdown(clickType, curTempParams, curParams,
+    void stylingCode(BottomHandler.ClickType clickType, SearchParams curTempParams,
+                     SearchParams curParams, String text, long contentVersion,
+                     StyleSpans<Collection<String>> currentSpans) {
+        mCodeAction.action(clickType, curTempParams, curParams,
                 text, contentVersion, currentSpans);
     }
 

@@ -8,22 +8,13 @@ import com.allan.atools.utils.Log;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import javafx.application.Platform;
 
-final class StylerActionFull extends StylerAction implements StylerAction.INormalAction {
-    @Override
-    void setVisibleParaChanged() {
-    }
-
-    @Override
-    void removeVisibleParaChanged() {
-    }
-
+final class StylerActionFull extends StylerAction {
     StylerActionFull(BottomSearchBtnsMgr out) {
         super(out);
     }
 
     private boolean isLastEmpty = true;
 
-    @Override
     public void action(EditorArea area, long flag, OneFileSearchResults items, BottomHandler.ClickType clickType, ShowType showType) {
         if (flag != out.lastChangeSearchFlag.get()) {
             if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed55 flag=" + flag);

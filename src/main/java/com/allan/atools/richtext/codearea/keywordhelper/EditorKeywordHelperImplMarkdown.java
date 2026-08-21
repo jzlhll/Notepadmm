@@ -34,10 +34,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /**
@@ -45,9 +43,6 @@ import java.util.regex.Pattern;
  * 嵌套元素（标题内加粗、粗斜体叠加、代码块内容不高亮等）由 AST 结构天然保证。
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
-    public record StyleUpdate(int start, StyleSpans<Collection<String>> spans) {
-    }
-
     private static final Parser PARSER = Parser.builder()
             .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
@@ -92,32 +87,13 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             if (paramsPatterns[1] != null) {
                 patternParts.add("(?<SEARCH>" + paramsPatterns[1] + ")");
             }
-            return patternParts.isEmpty() ? null : Pattern.compile(String.join("|", patternParts));
+            return patternParts.isEmpty() ? null : compilePattern(String.join("|", patternParts));
         }
     }
 
     @Override
-    public Function<String, StyleSpans<Collection<String>>> getComputeHighlightFun() {
-        return this::computeHighlighting;
-    }
-
-    private StyleSpans<Collection<String>> computeHighlighting(String text) {
-        return computeHighlighting(text, () -> true);
-    }
-
-    public StyleUpdate computeStyleUpdate(String text, SearchParams temporary, SearchParams search,
-                                          StyleSpans<Collection<String>> currentSpans,
-                                          BooleanSupplier canContinue) {
-        if (text.isEmpty()) {
-            return canContinue.getAsBoolean() ? new StyleUpdate(0, null) : null;
-        }
-        mLastMatcher = getPattern(temporary, search);
-        var newSpans = computeHighlighting(text, canContinue);
-        return newSpans == null || !canContinue.getAsBoolean()
-                ? null : createStyleUpdate(currentSpans, newSpans, text.length(), canContinue);
-    }
-
-    private StyleSpans<Collection<String>> computeHighlighting(String text, BooleanSupplier canContinue) {
+    protected StyleSpans<Collection<String>> computeHighlighting(
+            String text, BooleanSupplier canContinue) {
         var root = PARSER.parse(text);
         if (!canContinue.getAsBoolean()) {
             return null;
@@ -333,99 +309,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 }
             }
         }
-    }
-
-    private StyleUpdate createStyleUpdate(StyleSpans<Collection<String>> currentSpans,
-                                          StyleSpans<Collection<String>> newSpans, int textLength,
-                                          BooleanSupplier canContinue) {
-        if (textLength == 0) {
-            return new StyleUpdate(0, null);
-        }
-        if (newSpans.length() != textLength) {
-            throw new IllegalStateException("Markdown style length does not match text length");
-        }
-        if (currentSpans == null || currentSpans.length() != textLength) {
-            return new StyleUpdate(0, newSpans);
-        }
-        int changedStart = findChangedStart(currentSpans, newSpans, canContinue);
-        if (changedStart < 0) {
-            return null;
-        }
-        if (changedStart == textLength) {
-            return new StyleUpdate(0, null);
-        }
-        int changedEnd = findChangedEnd(currentSpans, newSpans, changedStart, canContinue);
-        if (changedEnd < 0) {
-            return null;
-        }
-        return new StyleUpdate(changedStart, newSpans.subView(changedStart, changedEnd));
-    }
-
-    private int findChangedStart(StyleSpans<Collection<String>> oldSpans,
-                                 StyleSpans<Collection<String>> newSpans,
-                                 BooleanSupplier canContinue) {
-        int oldIndex = 0;
-        int newIndex = 0;
-        int oldRemaining = oldSpans.getStyleSpan(0).getLength();
-        int newRemaining = newSpans.getStyleSpan(0).getLength();
-        int offset = 0;
-        while (oldIndex < oldSpans.getSpanCount() && newIndex < newSpans.getSpanCount()) {
-            if (((oldIndex + newIndex) & 1023) == 0 && !canContinue.getAsBoolean()) {
-                return -1;
-            }
-            var oldSpan = oldSpans.getStyleSpan(oldIndex);
-            var newSpan = newSpans.getStyleSpan(newIndex);
-            if (!Objects.equals(oldSpan.getStyle(), newSpan.getStyle())) {
-                return offset;
-            }
-            int consumed = oldRemaining < newRemaining ? oldRemaining : newRemaining;
-            offset += consumed;
-            oldRemaining -= consumed;
-            newRemaining -= consumed;
-            if (oldRemaining == 0 && ++oldIndex < oldSpans.getSpanCount()) {
-                oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
-            }
-            if (newRemaining == 0 && ++newIndex < newSpans.getSpanCount()) {
-                newRemaining = newSpans.getStyleSpan(newIndex).getLength();
-            }
-        }
-        return offset;
-    }
-
-    private int findChangedEnd(StyleSpans<Collection<String>> oldSpans,
-                               StyleSpans<Collection<String>> newSpans, int changedStart,
-                               BooleanSupplier canContinue) {
-        int oldIndex = oldSpans.getSpanCount() - 1;
-        int newIndex = newSpans.getSpanCount() - 1;
-        int oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
-        int newRemaining = newSpans.getStyleSpan(newIndex).getLength();
-        int suffixLength = 0;
-        int maxSuffixLength = oldSpans.length() - changedStart;
-        while (oldIndex >= 0 && newIndex >= 0 && suffixLength < maxSuffixLength) {
-            if (((oldIndex + newIndex) & 1023) == 0 && !canContinue.getAsBoolean()) {
-                return -1;
-            }
-            var oldSpan = oldSpans.getStyleSpan(oldIndex);
-            var newSpan = newSpans.getStyleSpan(newIndex);
-            if (!Objects.equals(oldSpan.getStyle(), newSpan.getStyle())) {
-                break;
-            }
-            int consumed = oldRemaining < newRemaining ? oldRemaining : newRemaining;
-            int remainingSuffix = maxSuffixLength - suffixLength;
-            if (consumed > remainingSuffix) {
-                consumed = remainingSuffix;
-            }
-            suffixLength += consumed;
-            oldRemaining -= consumed;
-            newRemaining -= consumed;
-            if (oldRemaining == 0 && --oldIndex >= 0) {
-                oldRemaining = oldSpans.getStyleSpan(oldIndex).getLength();
-            }
-            if (newRemaining == 0 && --newIndex >= 0) {
-                newRemaining = newSpans.getStyleSpan(newIndex).getLength();
-            }
-        }
-        return oldSpans.length() - suffixLength;
     }
 
     private static final class EventBuffer {

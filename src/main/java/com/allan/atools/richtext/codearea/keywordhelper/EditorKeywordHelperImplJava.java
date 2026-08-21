@@ -9,18 +9,22 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
+    private String keywordPattern;
 
     private String keyWordPattern() {
-        var keywords = Arrays.stream(keyWords())
-                .map(Pattern::quote)
-                .collect(Collectors.joining("|"));
-        return "(?<![\\p{L}\\p{N}_$])(" + keywords + ")(?![\\p{L}\\p{N}_$])";
+        if (keywordPattern == null) {
+            var keywords = Arrays.stream(keyWords())
+                    .map(Pattern::quote)
+                    .collect(Collectors.joining("|"));
+            keywordPattern = "(?<![\\p{L}\\p{N}_$])(" + keywords + ")(?![\\p{L}\\p{N}_$])";
+        }
+        return keywordPattern;
     }
 
     private static final String PAREN_PATTERN = "\\(|\\)";
@@ -57,7 +61,7 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             var searchPattern = ans[1];
 
             if (tempPattern == null && searchPattern == null) {
-                return Pattern.compile(
+                return compilePattern(
                         "(?<KEYWORD>" + keyWordPattern() + ")"
                                 + "|(?<PAREN>" + PAREN_PATTERN + ")"
                                 + "|(?<BRACE>" + BRACE_PATTERN + ")"
@@ -68,7 +72,7 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             }
 
             if (tempPattern == null) { //tempPattern == null && searchPattern != null
-                return Pattern.compile(
+                return compilePattern(
                         "(?<SEARCH>" + searchPattern + ")"
                                 + "|(?<KEYWORD>" + keyWordPattern() + ")"
                                 + "|(?<PAREN>" + PAREN_PATTERN + ")"
@@ -81,7 +85,7 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             }
 
             if (searchPattern == null) { //tempPattern != null && searchPattern == null
-                return Pattern.compile(
+                return compilePattern(
                         "(?<TEMPORARY>" + tempPattern + ")"
                                 + "|(?<KEYWORD>" + keyWordPattern() + ")"
                                 + "|(?<PAREN>" + PAREN_PATTERN + ")"
@@ -94,7 +98,7 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             }
 
             //tempPattern != null && searchPattern != null
-            return Pattern.compile(
+            return compilePattern(
                     "(?<TEMPORARY>" + tempPattern + ")"
                             + "|(?<SEARCH>" + searchPattern + ")"
                             + "|(?<KEYWORD>" + keyWordPattern() + ")"
@@ -108,14 +112,11 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
         }
     }
 
-    @Override
-    public Function<String, StyleSpans<Collection<String>>> getComputeHighlightFun() {
-        return this::computeHighlighting;
-    }
-
     private final HashMap<String, Set<String>> styleClassAndSetMap = new HashMap<>();
 
-    private StyleSpans<Collection<String>> computeHighlighting(String text) {
+    @Override
+    protected StyleSpans<Collection<String>> computeHighlighting(
+            String text, BooleanSupplier canContinue) {
         if (mLastMatcher == null) {
             synchronized (LOCK) {
                 if (mLastMatcher == null) {
@@ -128,7 +129,11 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
         int lastKwEnd = 0;
         StyleSpansBuilder<Collection<String>> spansBuilder
                 = new StyleSpansBuilder<>();
+        int matchCount = 0;
         while (matcher.find()) {
+            if ((matchCount++ & 255) == 0 && !canContinue.getAsBoolean()) {
+                return null;
+            }
             //todo 其实可以更牛一点，采用temporary，search与关键字双重显示；不过比较复杂；需要多定义一些样式才行。
             String styleClass =
                     mIsTemporaryEnabled && matcher.group("TEMPORARY") != null ? "temporary" :
@@ -144,13 +149,12 @@ public class EditorKeywordHelperImplJava extends EditorKeywordHelperAbstract {
             assert styleClass != null;
             spansBuilder.add(Collections.emptyList(), matcher.start() - lastKwEnd);
 
-            if (styleClassAndSetMap.containsKey(styleClass)) {
-                spansBuilder.add(styleClassAndSetMap.get(styleClass), matcher.end() - matcher.start());
-            } else {
-                var set = Collections.singleton(styleClass);
-                styleClassAndSetMap.put(styleClass, set);
-                spansBuilder.add(set, matcher.end() - matcher.start());
+            var styleClasses = styleClassAndSetMap.get(styleClass);
+            if (styleClasses == null) {
+                styleClasses = Collections.singleton(styleClass);
+                styleClassAndSetMap.put(styleClass, styleClasses);
             }
+            spansBuilder.add(styleClasses, matcher.end() - matcher.start());
 
             lastKwEnd = matcher.end();
         }

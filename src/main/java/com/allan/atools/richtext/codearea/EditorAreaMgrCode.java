@@ -3,7 +3,6 @@ package com.allan.atools.richtext.codearea;
 import com.allan.atools.UIContext;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
-import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown;
 import com.allan.atools.threads.ClosedDroppedHandler;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
@@ -20,13 +19,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class EditorAreaMgrCode extends EditorAreaMgr {
     static boolean sJavaKeywordCssFileLoad = false;
-    private static volatile ClosedDroppedHandler sMarkdownHandler;
+    private static volatile ClosedDroppedHandler sStylerHandler;
 
     private final EditorKeywordHelperAbstract mKeywordHelper;
-    private final EditorKeywordHelperImplMarkdown mMarkdownHelper;
     private final boolean mIsDropDown; //是否采用掉落为，父类的逻辑
-    private final AtomicLong markdownRequestId = new AtomicLong();
-    private volatile Runnable pendingMarkdownTask;
+    private final AtomicLong styleRequestId = new AtomicLong();
+    private volatile Runnable pendingStyleTask;
 
     EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
         this(EditorKeywordHelperFactory.create(sourceFile), area, sourceFile, tab, isFake);
@@ -46,22 +44,21 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         }
 
         mKeywordHelper = helper;
-        mMarkdownHelper = helper instanceof EditorKeywordHelperImplMarkdown markdownHelper ? markdownHelper : null;
 
         if(!mIsDropDown) trigger(null, null, null);
     }
 
-    private static ClosedDroppedHandler markdownHandler() {
-        if (sMarkdownHandler == null) {
+    private static ClosedDroppedHandler stylerHandler() {
+        if (sStylerHandler == null) {
             synchronized (EditorAreaMgrCode.class) {
-                if (sMarkdownHandler == null) {
-                    var thread = new HandlerThread("markdown-styler");
+                if (sStylerHandler == null) {
+                    var thread = new HandlerThread("code-styler");
                     thread.start();
-                    sMarkdownHandler = new ClosedDroppedHandler(thread.getLooper());
+                    sStylerHandler = new ClosedDroppedHandler(thread.getLooper());
                 }
             }
         }
-        return sMarkdownHandler;
+        return sStylerHandler;
     }
 
     @Override
@@ -69,37 +66,26 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return !mIsDropDown;
     }
 
-    @Override
-    public boolean isMarkdownStyler() {
-        return mMarkdownHelper != null;
-    }
-
-    public void invalidateMarkdownStyleRequest() {
-        if (mMarkdownHelper != null) {
-            beginMarkdownRequest();
+    public void invalidateStyleRequest() {
+        if (mKeywordHelper != null) {
+            beginStyleRequest();
         }
     }
 
     @Override
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
         Log.d(getSourceFile() + " trigger");
-        if (mMarkdownHelper != null) {
-            long requestId = beginMarkdownRequest();
-            Runnable captureAction = () -> captureAndScheduleMarkdown(
-                    requestId, temporaryText, searchText, endSetStyleCallback);
-            if (Platform.isFxApplicationThread()) {
-                captureAction.run();
-            } else {
-                Platform.runLater(captureAction);
-            }
+        if (mKeywordHelper == null) {
             return;
         }
-        if (disableStylerIfNeeded(endSetStyleCallback)) {
-            return;
+        long requestId = beginStyleRequest();
+        Runnable captureAction = () -> captureAndScheduleStyle(
+                requestId, temporaryText, searchText, endSetStyleCallback);
+        if (Platform.isFxApplicationThread()) {
+            captureAction.run();
+        } else {
+            Platform.runLater(captureAction);
         }
-        long contentVersion = getContentVersion();
-        mKeywordHelper.triggerAllText(getArea(), temporaryText, searchText, endSetStyleCallback,
-                () -> contentVersion == getContentVersion() && !isRealtimeProcessingLimitReached());
     }
 
     @Override
@@ -107,29 +93,28 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
                                     StyleSpans<Collection<String>> currentSpans,
                                     SearchParams temporaryText, SearchParams searchText,
                                     Action0 endSetStyleCallback) {
-        if (mMarkdownHelper == null) {
-            trigger(temporaryText, searchText, endSetStyleCallback);
+        if (mKeywordHelper == null) {
             return;
         }
-        long requestId = beginMarkdownRequest();
-        scheduleMarkdown(requestId, text, contentVersion, currentSpans,
+        long requestId = beginStyleRequest();
+        scheduleStyle(requestId, text, contentVersion, currentSpans,
                 temporaryText, searchText, endSetStyleCallback);
     }
 
-    private long beginMarkdownRequest() {
-        long requestId = markdownRequestId.incrementAndGet();
-        Runnable task = pendingMarkdownTask;
-        var handler = sMarkdownHandler;
+    private long beginStyleRequest() {
+        long requestId = styleRequestId.incrementAndGet();
+        Runnable task = pendingStyleTask;
+        var handler = sStylerHandler;
         if (task != null && handler != null) {
             handler.removeCallback(task);
-            pendingMarkdownTask = null;
+            pendingStyleTask = null;
         }
         return requestId;
     }
 
-    private void captureAndScheduleMarkdown(long requestId, SearchParams temporaryText,
-                                            SearchParams searchText, Action0 endSetStyleCallback) {
-        if (requestId != markdownRequestId.get() || isDestroyed()) {
+    private void captureAndScheduleStyle(long requestId, SearchParams temporaryText,
+                                         SearchParams searchText, Action0 endSetStyleCallback) {
+        if (requestId != styleRequestId.get() || isDestroyed()) {
             return;
         }
         if (disableStylerIfNeeded(endSetStyleCallback)) {
@@ -142,15 +127,15 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         }
         String text = area.getText();
         var currentSpans = area.getStyleSpans(0, text.length());
-        scheduleMarkdown(requestId, text, contentVersion, currentSpans,
+        scheduleStyle(requestId, text, contentVersion, currentSpans,
                 temporaryText, searchText, endSetStyleCallback);
     }
 
-    private void scheduleMarkdown(long requestId, String text, long contentVersion,
-                                  StyleSpans<Collection<String>> currentSpans,
-                                  SearchParams temporaryText, SearchParams searchText,
-                                  Action0 endSetStyleCallback) {
-        if (requestId != markdownRequestId.get()
+    private void scheduleStyle(long requestId, String text, long contentVersion,
+                               StyleSpans<Collection<String>> currentSpans,
+                               SearchParams temporaryText, SearchParams searchText,
+                               Action0 endSetStyleCallback) {
+        if (requestId != styleRequestId.get()
                 || contentVersion != getContentVersion() || isDestroyed()) {
             return;
         }
@@ -158,24 +143,24 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
             return;
         }
         Runnable task = () -> {
-            if (!isMarkdownRequestValid(requestId, contentVersion)) {
+            if (!isStyleRequestValid(requestId, contentVersion)) {
                 return;
             }
-            if (pendingMarkdownTask != null && requestId == markdownRequestId.get()) {
-                pendingMarkdownTask = null;
+            if (pendingStyleTask != null && requestId == styleRequestId.get()) {
+                pendingStyleTask = null;
             }
             var area = getArea();
             if (area == null) {
                 return;
             }
             try {
-                var update = mMarkdownHelper.computeStyleUpdate(text, temporaryText, searchText, currentSpans,
-                        () -> isMarkdownRequestValid(requestId, contentVersion));
+                var update = mKeywordHelper.computeStyleUpdate(text, temporaryText, searchText, currentSpans,
+                        () -> isStyleRequestValid(requestId, contentVersion));
                 if (update == null) {
                     return;
                 }
                 Platform.runLater(() -> {
-                    if (!isMarkdownRequestValid(requestId, contentVersion)) {
+                    if (!isStyleRequestValid(requestId, contentVersion)) {
                         return;
                     }
                     if (update.spans() != null) {
@@ -186,15 +171,15 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
                     }
                 });
             } catch (RuntimeException e) {
-                Log.e("Markdown styler failed", e);
+                Log.e("Code styler failed", e);
             }
         };
-        pendingMarkdownTask = task;
-        markdownHandler().post(task);
+        pendingStyleTask = task;
+        stylerHandler().post(task);
     }
 
-    private boolean isMarkdownRequestValid(long requestId, long contentVersion) {
-        return requestId == markdownRequestId.get()
+    private boolean isStyleRequestValid(long requestId, long contentVersion) {
+        return requestId == styleRequestId.get()
                 && contentVersion == getContentVersion()
                 && !isRealtimeProcessingLimitReached()
                 && !isDestroyed();
@@ -202,13 +187,13 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
     @Override
     public void destroy() {
-        markdownRequestId.incrementAndGet();
-        Runnable task = pendingMarkdownTask;
-        var handler = sMarkdownHandler;
+        styleRequestId.incrementAndGet();
+        Runnable task = pendingStyleTask;
+        var handler = sStylerHandler;
         if (task != null && handler != null) {
             handler.removeCallback(task);
         }
-        pendingMarkdownTask = null;
+        pendingStyleTask = null;
         super.destroy();
     }
 }

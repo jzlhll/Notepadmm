@@ -77,10 +77,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return false;
     }
 
-    public boolean isMarkdownStyler() {
-        return false;
-    }
-
     public class TextChanged extends BaseChanged<Action0> {
         private Subscription textChangedSubscription;
 
