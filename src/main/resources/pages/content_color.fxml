@@ -15,7 +15,6 @@
 <?import javafx.geometry.Insets?>
 <?import com.jfoenix.controls.JFXComboBox?>
 <VBox xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.allan.atools.controller.ColorController"
       styleClass="custom-main-bg">
    <Label styleClass="title-label-big" text="颜色转换器" />
 

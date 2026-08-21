@@ -16,7 +16,7 @@
 <?import com.jfoenix.controls.JFXTextField?>
 <?import com.jfoenix.controls.JFXListView?>
 <?import com.jfoenix.controls.JFXColorPicker?>
-<AnchorPane prefHeight="520" styleClass="custom-notepad-pane" prefWidth="660" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.NotepadFindController">
+<AnchorPane prefHeight="520" styleClass="custom-notepad-pane" prefWidth="660" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1">
    <JFXTabPane fx:id="tabPane" prefHeight="50" styleClass="custom-jfx-tab-pane" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
       <Tab text="%findWindow.searchWithSpace" />
       <!-- Tab text="%findWindow.replaceWithSpace" / -->

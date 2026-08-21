@@ -76,15 +76,20 @@
     public static void main(java.lang.String[]);
 }
 
--keep class com.allan.atools.controller.** {
-    public protected *;
-}
+# Controller 类名与方法名已通过 setController() 方式摆脱 fx:controller 字符串依赖，
+# 仅 @FXML 标注的成员被 keep（见上方 -keepclassmembers @javafx.fxml.FXML *），其余可正常混淆。
+# tools 包同理，无 FXML 字符串类名引用。
 -dontnote com.allan.atools.controller.**
-
--keep class com.allan.atools.tools.** {
-    public protected *;
-}
 -dontnote com.allan.atools.tools.**
+
+# FXMLLoader 反射按方法名调用 initialize(URL,ResourceBundle) / initialize()；
+# 同时 keep 无参构造保证 clazz.getDeclaredConstructor().newInstance() 不炸（<init> 虽天然不混，显式写更稳）。
+# 类名本身不 keep，可正常混淆。
+-keepclassmembers class * extends com.allan.atools.bases.AbstractController {
+    <init>();
+    void initialize(java.net.URL, java.util.ResourceBundle);
+    void initialize();
+}
 
 #-keep class com.allan.atools.entro.** {
 #    public protected *;

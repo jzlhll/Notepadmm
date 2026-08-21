@@ -8,7 +8,6 @@
             xmlns:fx="http://javafx.com/fxml"
             styleClass="custom-main-bg"
             fx:id="outAnchorPane"
-            fx:controller="com.allan.atools.controller.HexShowController"
             prefHeight="650" prefWidth="500">
    <ScrollPane>
        <SplitPane orientation="VERTICAL">

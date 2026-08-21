@@ -11,7 +11,6 @@
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:id="outAnchorPane"
-            fx:controller="com.allan.atools.controller.PictureController"
             prefHeight="650" prefWidth="500">
     <HBox fx:id="floatingControlsLayout" prefHeight="30" minHeight="30" maxHeight="30"
           style="-fx-background-color: -au-tab-header-background-color;"

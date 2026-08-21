@@ -6,7 +6,7 @@
 <?import javafx.scene.layout.*?>
 <VBox prefHeight="650.0" prefWidth="1000" minHeight="400" minWidth="600" xmlns="http://javafx.com/javafx/15.0.1"
       xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.allan.atools.controller.NotepadController" styleClass="custom-main-bg">
+      styleClass="custom-main-bg">
     <HBox fx:id="notepadMainHeadBox" styleClass="notepad-main-head" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER" prefWidth="20">
         <padding>
             <Insets bottom="3.0" left="3.0" right="3.0" top="3.0"/>

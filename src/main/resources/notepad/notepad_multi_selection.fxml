@@ -9,7 +9,6 @@
 <?import javafx.scene.control.Label?>
 <VBox prefHeight="285.0" styleClass="custom-notepad-pane" prefWidth="420.0"
       xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.allan.atools.controller.NotepadMultiSelectionController"
       fx:id="outVbox">
    <Label text="%Mode1DeleteDirectly" styleClass="normal-desc-label">
       <VBox.margin>

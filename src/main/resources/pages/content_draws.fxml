@@ -11,8 +11,7 @@
 <?import javafx.scene.layout.VBox?>
 
 <VBox fx:id="pageRoot" minWidth="620.0" prefWidth="850.0" spacing="10.0" styleClass="custom-main-bg"
-      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.allan.atools.controller.DrawsController">
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1">
     <padding>
         <Insets bottom="24.0" left="24.0" right="24.0" top="12.0"/>
     </padding>

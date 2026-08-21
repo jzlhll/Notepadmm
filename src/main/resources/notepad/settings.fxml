@@ -15,7 +15,6 @@
             xmlns:fx="http://javafx.com/fxml"
             fx:id="vbox_id"
             styleClass="custom-main-bg"
-            fx:controller="com.allan.atools.controller.SettingController"
             fitToWidth="true"
             prefHeight="650" prefWidth="650">
     <VBox minWidth="0">

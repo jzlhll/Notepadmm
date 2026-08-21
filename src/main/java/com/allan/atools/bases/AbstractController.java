@@ -38,9 +38,28 @@ public abstract class AbstractController {
     }
 
     public static <T extends AbstractController> T load(Class<T> clazz) throws IOException {
-        var annotation = clazz.getAnnotationsByType(XmlPaths.class) [0];
+        var annotation = clazz.getAnnotationsByType(XmlPaths.class)[0];
         var url = ResLocation.getURL(annotation.paths());
-        return load(url);
+
+        FXMLLoader fxmlLoader = new FXMLLoader();
+        fxmlLoader.setResources(Locales.getResource());
+        fxmlLoader.setLocation(url);
+        fxmlLoader.setBuilderFactory(new JavaFXBuilderFactory());
+
+        try {
+            T controller = clazz.getDeclaredConstructor().newInstance();
+            fxmlLoader.setController(controller);
+        } catch (Exception e) {
+            throw new IOException("Failed to instantiate controller: " + clazz.getName(), e);
+        }
+
+        Parent view = fxmlLoader.load();
+        T c = fxmlLoader.getController();
+        if (c != null) {
+            c.setRootView(view);
+        }
+        RefWatcher.watchs(c, url.toString());
+        return c;
     }
 
     /*private static <T extends AbstractController> T loadtest() throws IOException {

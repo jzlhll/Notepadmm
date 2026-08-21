@@ -7,7 +7,7 @@
 <?import javafx.geometry.Insets?>
 <VBox styleClass="custom-main-bg"
       xmlns="http://javafx.com/javafx/15.0.1"
-      xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.allan.atools.controller.TestController">
+      xmlns:fx="http://javafx.com/fxml/1">
    <HBox>
       <Label text="Test" styleClass="title-label-big"/>
    </HBox>
