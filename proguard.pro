@@ -81,6 +81,11 @@
 }
 -dontnote com.allan.atools.controller.**
 
+-keep class com.allan.atools.tools.** {
+    public protected *;
+}
+-dontnote com.allan.atools.tools.**
+
 #-keep class com.allan.atools.entro.** {
 #    public protected *;
 #}

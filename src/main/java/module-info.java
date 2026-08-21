@@ -32,4 +32,5 @@ module atools {
     opens com.allan.atools.toolsstartup to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.controller   to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.richtext     to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
+    opens com.allan.atools.tools        to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
 }

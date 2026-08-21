@@ -46,7 +46,26 @@
     /*allan area的界面搜索中的显示文字背景的颜色；*/
     -au-editor-searched-bg-color: #515b70;
     -au-editor-search-temp-bg-color: #d6eaff;
-    
+
+    /*allan markdown 皮肤深色覆盖（浅色默认值见 editor_markdown.css）*/
+    -au-md-title-1: #d0a0e8;
+    -au-md-title-2: #c493de;
+    -au-md-title-3: #b886d4;
+    -au-md-title-4: #ac79ca;
+    -au-md-title-5: #a06cc0;
+    -au-md-code-bg: #161b22;
+    -au-md-code-fill: #56d9dd;
+    -au-md-inline-code-bg: #1f353d;
+    -au-md-inline-code-fill: #7fd9e0;
+    -au-md-table-mark: #566070;
+    -au-md-quote: #9aa4b2;
+    -au-md-list: #5fc9dc;
+    -au-md-link: #6cb6ff;
+    -au-md-image: #c084fc;
+    -au-md-image-frame-bg: #22272e;
+    -au-md-image-frame-border: #3a424d;
+    -au-md-image-placeholder-fill: #9aa4b2;
+
     -au-small-button-bg-color: #444443;
 
     -au-file-mask-code-color: #007d65;

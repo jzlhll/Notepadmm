@@ -1,0 +1,128 @@
+/*
+ * 编辑器 Markdown 皮肤文件：Markdown 全部语法高亮样式 + 编辑器整体配色变量。
+ * 换肤：整体调整 .root 中的变量即可；深色主题在 colors_dark.css 中覆盖同名变量。
+ * 注意：本文件需先于 colors.css / colors_dark.css 加载（见 StartupNotepadInitImp.getCssPaths）。
+ */
+.root {
+    /* ---- editor 整体（会被 colors*.css 主题文件覆盖，此处为默认值） ---- */
+    -au-editor-bg-color: #fffefe; /*编辑器整体背景色*/
+    -au-editor-text-color: #010101; /*编辑器默认文字颜色*/
+
+    /* ---- 标题 h1 ~ h5 ---- */
+    -au-md-title-1: #68206f;
+    -au-md-title-2: #783080;
+    -au-md-title-3: #884090;
+    -au-md-title-4: #9850a0;
+    -au-md-title-5: #a860ad;
+
+    /* ---- 代码块：终端科技风（深空底 + 霓虹青） ---- */
+    -au-md-code-bg: #1e242c;
+    -au-md-code-fill: #56d9dd;
+    -au-md-inline-code-bg: #def2f4;
+    -au-md-inline-code-fill: #0e7490;
+
+    /* ---- 表格 / 引用 / 列表 ---- */
+    -au-md-table-mark: #d8dde3;
+    -au-md-quote: #808080;
+    -au-md-list: #008080;
+
+    /* ---- 链接 / 图片 ---- */
+    -au-md-link: #0000ff;
+    -au-md-image: #9932cc;
+
+    /* ---- 行内图片显示（图片框 / 占位提示，见 MarkdownImageManager） ---- */
+    -au-md-image-frame-bg: #f6f7f9;
+    -au-md-image-frame-border: #d8dde3;
+    -au-md-image-placeholder-fill: #808080;
+}
+
+/* ===== 标题 ===== */
+.markdown-title-1 {
+    -fx-fill: -au-md-title-1;
+    -fx-font-size: 1.4em;
+    -fx-font-weight: bold;
+}
+
+.markdown-title-2 {
+    -fx-fill: -au-md-title-2;
+    -fx-font-size: 1.4em;
+}
+
+.markdown-title-3 {
+    -fx-fill: -au-md-title-3;
+    -fx-font-size: 1.3em;
+}
+
+.markdown-title-4 {
+    -fx-fill: -au-md-title-4;
+    -fx-font-size: 1.2em;
+}
+
+.markdown-title-5 {
+    -fx-fill: -au-md-title-5;
+    -fx-font-size: 1.1em;
+}
+
+/* ===== 代码块（``` 围栏与缩进代码块） ===== */
+.markdown-code {
+    -fx-fill: -au-md-code-fill;
+    -rtfx-background-color: -au-md-code-bg;
+}
+
+/* ===== 行内代码 `code` ===== */
+.markdown-inline-code {
+    -fx-fill: -au-md-inline-code-fill;
+    -rtfx-background-color: -au-md-inline-code-bg;
+}
+
+/* ===== 表格分隔符 | ===== */
+.markdown-table-mark {
+    -fx-fill: -au-md-table-mark;
+}
+
+/* ===== 引用 > ===== */
+.markdown-quote {
+    -fx-fill: -au-md-quote;
+}
+
+/* ===== 列表标记 - * 1. ===== */
+.markdown-list {
+    -fx-fill: -au-md-list;
+}
+
+/* ===== 链接 ===== */
+.markdown-link {
+    -fx-fill: -au-md-link;
+    -fx-underline: true;
+}
+
+/* ===== 图片 ===== */
+.markdown-image {
+    -fx-fill: -au-md-image;
+    -fx-underline: true;
+}
+
+/* ===== 强调：粗体/斜体由 CodeArea 代码实现（伪粗体描边、Shear 斜切） ===== */
+.markdown-bold {
+    -fx-font-weight: bold;
+}
+
+.markdown-strikethrough {
+    -fx-strikethrough: true;
+}
+
+/* ===== 行内图片显示 ===== */
+/* 图片框：边框宽度固定 1px，与 MarkdownImageManager.FRAME_BORDER 保持一致（框尺寸 = 图片 + 2 边框，不加 padding） */
+.markdown-image-frame {
+    -fx-background-color: -au-md-image-frame-bg;
+    -fx-background-radius: 4;
+    -fx-border-width: 1;
+    -fx-border-color: -au-md-image-frame-border;
+    -fx-border-radius: 4;
+    -fx-cursor: hand;
+}
+
+/* 加载中 / 加载失败占位文字 */
+.markdown-image-placeholder {
+    -fx-text-fill: -au-md-image-placeholder-fill;
+}

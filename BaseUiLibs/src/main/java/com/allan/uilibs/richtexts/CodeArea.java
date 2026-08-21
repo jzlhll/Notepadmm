@@ -25,12 +25,14 @@ import java.util.function.UnaryOperator;
 public abstract class CodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
     private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
+    /** 段落样式特殊条目前缀：pref-height:240 会转为 ParagraphText 的 -fx-pref-height 内联样式（用于撑高段落，如 markdown 行内图片） */
+    public static final String PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:";
 
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
                      @NamedArg("preserveStyle") boolean preserveStyle,
                      boolean markdownStyleEnabled) {
         super(Collections.<String>emptyList(),
-                (paragraph, styleClasses) -> paragraph.getStyleClass().addAll(styleClasses),
+                CodeArea::applyParagraphStyle,
                 new ArrayList<String>(1),
                 markdownStyleEnabled ? CodeArea::applyMarkdownTextStyle : CodeArea::applyTextStyle,
                 document,
@@ -49,6 +51,25 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
     private static void applyTextStyle(TextExt text, Collection<String> styleClasses) {
         text.getStyleClass().addAll(styleClasses);
+    }
+
+    /**
+     * 段落样式应用在 ParagraphText（TextFlow）上：
+     * 普通条目作为样式类追加；pref-height: 开头的条目转为 -fx-pref-height 内联样式，
+     * 利用 Region.prefHeight(double) 优先返回该属性的机制撑高行高（ParagraphBox.computePrefHeight 只算文本高度）。
+     */
+    private static void applyParagraphStyle(javafx.scene.text.TextFlow paragraph, Collection<String> styleClasses) {
+        if (styleClasses == null || styleClasses.isEmpty()) {
+            return;
+        }
+        for (String style : styleClasses) {
+            if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
+                paragraph.setStyle("-fx-pref-height: "
+                        + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;");
+            } else {
+                paragraph.getStyleClass().add(style);
+            }
+        }
     }
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {

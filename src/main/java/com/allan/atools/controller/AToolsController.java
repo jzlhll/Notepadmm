@@ -22,6 +22,8 @@ public final class AToolsController extends AbstractController {
     public HBox mainSplitPane;
     @FXML
     public Separator separator;
+
+    @FXML
     public ScrollPane pageHolderPanel;
 
     @FXML

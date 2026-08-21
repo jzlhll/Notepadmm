@@ -134,6 +134,8 @@ public final class StartupNotepadInitImp implements IStartupInit {
     @Override
     public String[] getCssPaths() {
         return new String[] {
+                //markdown 编辑器皮肤需先于主题文件加载，深色主题在 colors_dark.css 中覆盖其变量
+                ResLocation.getRealPath("css", "editor_markdown.css"),
                 SettingPreferences.getBoolean(SettingPreferences.appVisionKey) ?
                         ResLocation.getRealPath("css", "colors_dark.css") :
                         ResLocation.getRealPath("css", "colors.css"),
