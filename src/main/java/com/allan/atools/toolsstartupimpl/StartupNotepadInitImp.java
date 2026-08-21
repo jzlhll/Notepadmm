@@ -26,13 +26,12 @@ import java.util.Map;
 @StartupEntro
 public final class StartupNotepadInitImp implements IStartupInit {
     private void foreInit() {
-        System.out.println("111");
         UIContext.uiMainThread = Thread.currentThread();
-        System.out.println("444");
+        Log.e("startup: UI thread registered");
         // start is called on the FX Application Thread,
         // so Thread.currentThread() is the FX application thread:
         UIContext.uiMainThread.setUncaughtExceptionHandler((thread, throwable) -> {
-            Log.e("global exception: ", throwable);
+            Log.e("startup: global exception", throwable);
             var log = Log.getStackTraceString(throwable);
             var logs = log.split("\n");
             StringBuilder sb = new StringBuilder();
@@ -46,51 +45,49 @@ public final class StartupNotepadInitImp implements IStartupInit {
             Platform.runLater(()-> JfoenixDialogUtils.alert(Locales.str("notification"),
                     Locales.str("globalExceptionAlert") + sb, null, 1200));
         });
-        System.out.println("application 22");
+        Log.e("startup: global exception handler registered");
     }
 
     @Override
     public void beforeStart(Stage stage) {
         foreInit();
 
-        Log.e("application 33");
         //初始化css
         var paths = getCssPaths();
-        System.out.println("application 44");
+        Log.e("startup: CSS paths resolved");
 
         Map<String, String> customMap = new HashMap<>(2);
         customMap.put(CacheLocation.CustomFontSize, CacheLocation.fontSizeFile());
         customMap.put(CacheLocation.CustomFontFamily, CacheLocation.fontFamilyFile(-1));
         AllStagesManager.getInstance(paths, customMap);
-        Log.e("application 55");
+        Log.e("startup: stage manager initialized");
         AllStagesManager.getInstance().setMainStage(stage);
-        Log.e("application 66");
+        Log.e("startup: main stage registered");
 
         //here add your before init code
-        Log.e("Startup main thid:" + Thread.currentThread().getId());
-
         GenericStyledAreaBehaviorReflector.action();
+        Log.e("startup: RichTextFX reflection initialized");
     }
 
     @Override
     public void createMainView(Stage stage) {
         Parent root;
 
-        Log.e("createMainView 111");
+        Log.e("startup: main FXML load begin");
         NotepadController mainController;
         try {
             mainController = AbstractController.load(NotepadController.class);
             root = mainController.getRootView();
         } catch (Exception e) {
-            Log.e("主window main fxml error, e: ", e);
-            Log.e("主window main fxml error");
+            Log.e("startup: main FXML load failed", e);
             throw new RuntimeException("主window main fxml error!");
         }
 
-        Log.e("createMainView 222");
+        Log.e("startup: main FXML loaded");
         UIContext.mainController = mainController;
         //初始化controller代码
         mainController.init(stage);
+        Log.e("startup: main controller initialized");
 
         //Stage初始化
         WindowCreatorInfo createInfo = new WindowCreatorInfo();
@@ -103,7 +100,6 @@ public final class StartupNotepadInitImp implements IStartupInit {
         createInfo.isSystemWindow = false;
         createInfo.sizeAndLocateCachePrefixName = "notepad_main_";
 
-        Log.e("createMainView 333");
         //初始化主Stage（主window）
         if (!UIContext.CAN_DECORATOR) {
             createInfo.isSystemWindow = true;
@@ -123,7 +119,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
         UIContext.mainWindow = stage.getScene().getWindow();
         KeyEventDispatcher.instance.init(root);
 
-        Log.e("createMainView 444");
+        Log.e("startup: main stage content initialized");
         stage.setMinHeight(480);
         stage.setMinWidth(720);
 

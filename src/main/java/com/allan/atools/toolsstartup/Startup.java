@@ -70,7 +70,7 @@ public final class Startup {
             }
             new ProcessBuilder(cmd).inheritIO().start();
         } catch (Throwable t) {
-            Log.e("forward files to running instance failed", t);
+            Log.e("startup: forward files to running instance failed", t);
         }
     }
 
@@ -79,7 +79,7 @@ public final class Startup {
             try {
                 Desktop.getDesktop().setOpenFileHandler(null);
             } catch (RuntimeException e) {
-                Log.e("clear mac open file handler failed", e);
+                Log.e("startup: clear macOS open file handler failed", e);
             }
             ThreadUtils.shutdownAndExitProcess();
             return;
@@ -91,15 +91,18 @@ public final class Startup {
     // java.base/jdk.internal.loader.BuiltinClassLoader.loadClass
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
+        Log.e("startup: ==================== new launch ====================");
+        Log.e("startup: main entered, args count: " + args.length);
         if (!InstanceLock.tryLock()) {
             if (ResLocation.isOsx && args.length > 0) {
                 //命令行带文件转发给已有实例时静默退出，不打扰终端
                 forwardFilesToRunningInstance(args);
             } else {
-                Log.e("another instance is running, exit");
+                Log.e("startup: another instance is running, exit");
             }
             System.exit(0);
         }
+        Log.e("startup: instance lock acquired");
 
         if (!SettingPreferences.getBoolean(SettingPreferences.hdScreen2Key)) {
             System.setProperty("prism.lcdtext", "false");
@@ -112,6 +115,7 @@ public final class Startup {
         } else if (TextUtils.equals("print", watchMode) || TextUtils.equals("watch", watchMode)) {
             RefWatcher.initDebugEveryPrint(20*1000, 3);
         }
+        Log.e("startup: runtime options initialized, memory watcher: " + watchMode);
 
         //如何监听打开的文件：根据这个java8的时候文章，
         // https://docs.oracle.com/javase/tutorial/deployment/selfContainedApps/fileassociation.html
@@ -123,7 +127,7 @@ public final class Startup {
                 isArgsInit = true;
                 if (e != null) {
                     var files = e.getFiles();
-                    Log.e("open file handler size: " + files.size());
+                    Log.e("startup: open file handler received files, count: " + files.size());
                     onMacOpenFiles(files);
                 }
             });
@@ -134,12 +138,21 @@ public final class Startup {
                 sInitArgs = args;
             }
         } else {
-            FileLog.write("open file handler!!! not support: ", false);
+            FileLog.write("startup: open file handler is not supported", false);
             isArgsInit = true;
             Startup.sInitArgs = args;
         }
-        Application.launch(StartupApplication.class, args);
+        Log.e("startup: file open handler initialized, macOS: " + ResLocation.isOsx);
+        Log.e("startup: JavaFX launch begin");
+        try {
+            Application.launch(StartupApplication.class, args);
+            Log.e("startup: JavaFX launch returned");
+        } catch (RuntimeException | Error e) {
+            Log.e("startup: JavaFX launch failed", e);
+            throw e;
+        }
 
+        Log.e("startup: background thread shutdown begin");
         ThreadUtils.shutdown();
     }
 }

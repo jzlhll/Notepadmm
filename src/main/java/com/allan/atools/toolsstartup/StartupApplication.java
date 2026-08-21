@@ -10,7 +10,7 @@ public final class StartupApplication extends Application{
         try {
             return new StartupNotepadInitImp();
         } catch (Throwable e) {
-            e.printStackTrace();
+            Log.e("startup: initializer creation failed", e);
         }
         return null;
     }
@@ -38,17 +38,29 @@ public final class StartupApplication extends Application{
 //    }
 
     @Override
-    public void start(Stage stage) {
-        var init = create();
-        Log.e("beforeStart init");
-        assert init != null;
-        init.beforeStart(stage);
-        Log.e("beforeStart aftaer");
+    public void init() {
+        Log.e("startup: JavaFX application init");
+    }
 
-        //标记主程序
-        init.createMainView(stage);
-        Log.e("createMainView aftaer");
-        stage.show();
+    @Override
+    public void start(Stage stage) {
+        Log.e("startup: JavaFX application start begin");
+        try {
+            var init = create();
+            Log.e("startup: initializer created");
+            assert init != null;
+            init.beforeStart(stage);
+            Log.e("startup: beforeStart completed");
+
+            //标记主程序
+            init.createMainView(stage);
+            Log.e("startup: main view created");
+            stage.show();
+            Log.e("startup: main stage shown");
+        } catch (RuntimeException | Error e) {
+            Log.e("startup: JavaFX application start failed", e);
+            throw e;
+        }
     }
 
 }
