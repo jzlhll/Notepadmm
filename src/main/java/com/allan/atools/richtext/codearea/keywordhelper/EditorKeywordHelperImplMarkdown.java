@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.regex.Matcher;
@@ -56,6 +57,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
             "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
+    /** XML 代码块属性段：name = "value"（组 1=属性名 2=等号 3=属性值），与 EditorKeywordHelperImplXml 一致 */
+    private static final Pattern XML_ATTRIBUTE_PATTERN = Pattern.compile(
+            "([-.:\\w]+\\h*)(=)(\\h*(?:\"[^\"]*\"|'[^']*'))");
 
     private static final int STYLE_CODE = 5;
     private static final int STYLE_INLINE_CODE = 6;
@@ -69,7 +73,15 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_STRIKETHROUGH = 14;
     private static final int STYLE_TEMPORARY = 15;
     private static final int STYLE_SEARCH = 16;
-    private static final int STYLE_COUNT = 17;
+    private static final int STYLE_CODE_KEYWORD = 17;
+    private static final int STYLE_CODE_STRING = 18;
+    private static final int STYLE_CODE_COMMENT = 19;
+    private static final int STYLE_CODE_PUNCT = 20;
+    private static final int STYLE_CODE_TAG = 21;
+    private static final int STYLE_CODE_TAG_MARK = 22;
+    private static final int STYLE_CODE_ATTRIBUTE = 23;
+    private static final int STYLE_CODE_ATTRIBUTE_VALUE = 24;
+    private static final int STYLE_COUNT = 25;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -77,7 +89,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "markdown-title-1", "markdown-title-2", "markdown-title-3", "markdown-title-4", "markdown-title-5",
             "markdown-code", "markdown-inline-code", "markdown-table-mark", "markdown-quote", "markdown-list",
             "markdown-link", "markdown-image", "markdown-bold", "markdown-italic", "markdown-strikethrough",
-            "temporary", "search"
+            "temporary", "search",
+            "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
+            "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value"
     };
 
     private final HashMap<Integer, Set<String>> styleClassAndSetMap = new HashMap<>();
@@ -105,7 +119,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             return null;
         }
         var events = new EventBuffer();
-        root.accept(new MarkdownRegionVisitor(text, events));
+        root.accept(new MarkdownRegionVisitor(text, events, canContinue));
         if (!canContinue.getAsBoolean()) {
             return null;
         }
@@ -192,10 +206,12 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private final class MarkdownRegionVisitor extends AbstractVisitor {
         private final String text;
         private final EventBuffer events;
+        private final BooleanSupplier canContinue;
 
-        MarkdownRegionVisitor(String text, EventBuffer events) {
+        MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
             this.text = text;
             this.events = events;
+            this.canContinue = canContinue;
         }
 
         @Override
@@ -207,6 +223,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(FencedCodeBlock block) {
             addNodeRegions(block, STYLE_CODE);
+            addFencedCodeTokenRegions(block);
         }
 
         @Override
@@ -321,6 +338,76 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             }
         }
 
+        /**
+         * 代码块内容按 info 语言（java/kotlin/c/cpp/csharp/xml 等）做 token 高亮，样式叠加在 markdown-code 上。
+         * literal 首字符对齐 spans[1]（内容首行行首）；列表项内代码块的 literal 已剥离列表缩进，
+         * 起点对不上时放弃 token 高亮（整块仍为 markdown-code）。
+         */
+        private void addFencedCodeTokenRegions(FencedCodeBlock block) {
+            CodeBlockLanguages.CodeLanguage language = CodeBlockLanguages.of(block.getInfo());
+            String literal = block.getLiteral();
+            if (language == null || literal.isEmpty()) {
+                return;
+            }
+            var spans = block.getSourceSpans();
+            if (spans.size() < 2) {
+                return;
+            }
+            int base = spans.get(1).getInputIndex();
+            int lineEnd = literal.indexOf('\n');
+            String firstLine = lineEnd >= 0 ? literal.substring(0, lineEnd) : literal;
+            if (firstLine.isEmpty() || !text.regionMatches(base, firstLine, 0, firstLine.length())) {
+                return;
+            }
+            Matcher matcher = language.pattern().matcher(literal);
+            int matchCount = 0;
+            while (matcher.find()) {
+                if ((matchCount++ & 255) == 0 && !canContinue.getAsBoolean()) {
+                    return;
+                }
+                if (language.xml()) {
+                    addXmlTokenRegions(matcher, base);
+                } else {
+                    addJavaTokenRegion(matcher, base);
+                }
+            }
+        }
+
+        /** Java 系语言（含 kotlin/c/cpp/csharp）：PAREN/BRACE/BRACKET/SEMICOLON 统一为标点色 */
+        private void addJavaTokenRegion(Matcher matcher, int base) {
+            int styleId = matcher.group("KEYWORD") != null ? STYLE_CODE_KEYWORD
+                    : matcher.group("STRING") != null ? STYLE_CODE_STRING
+                    : matcher.group("COMMENT") != null ? STYLE_CODE_COMMENT
+                    : STYLE_CODE_PUNCT;
+            events.addRegion(base + matcher.start(), base + matcher.end(), styleId);
+        }
+
+        /** XML/HTML：ELEMENT 组内再按 开闭尖括号/标签名/属性名/等号/属性值 细分 */
+        private void addXmlTokenRegions(Matcher matcher, int base) {
+            if (matcher.group("COMMENT") != null) {
+                events.addRegion(base + matcher.start(), base + matcher.end(), STYLE_CODE_COMMENT);
+                return;
+            }
+            addTokenRegion(base, matcher, 2, STYLE_CODE_TAG_MARK);
+            addTokenRegion(base, matcher, 3, STYLE_CODE_TAG);
+            int attributesStart = matcher.start(4);
+            Matcher attrMatcher = XML_ATTRIBUTE_PATTERN.matcher(matcher.group(4));
+            while (attrMatcher.find()) {
+                addTokenRegion(base + attributesStart, attrMatcher, 1, STYLE_CODE_ATTRIBUTE);
+                addTokenRegion(base + attributesStart, attrMatcher, 2, STYLE_CODE_TAG_MARK);
+                addTokenRegion(base + attributesStart, attrMatcher, 3, STYLE_CODE_ATTRIBUTE_VALUE);
+            }
+            addTokenRegion(base, matcher, 5, STYLE_CODE_TAG_MARK);
+        }
+
+        private void addTokenRegion(int base, Matcher matcher, int group, int styleId) {
+            int start = matcher.start(group);
+            int end = matcher.end(group);
+            if (end > start) {
+                events.addRegion(base + start, base + end, styleId);
+            }
+        }
+
         private void addTableRegions(TableBlock tableBlock) {
             var rowLines = new HashSet<Integer>();
             for (var section = tableBlock.getFirstChild(); section != null; section = section.getNext()) {
@@ -396,6 +483,54 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         private static long encode(int position, int styleId, boolean add) {
             return ((long) position << EVENT_META_BITS) | ((long) styleId << 1) | (add ? 1 : 0);
+        }
+    }
+
+    /** 围栏代码块 info 语言 → token pattern（复用各语言 helper 的关键字/字符串/注释规则），懒加载缓存 */
+    private static final class CodeBlockLanguages {
+        private record CodeLanguage(Pattern pattern, boolean xml) {
+        }
+
+        private static final HashMap<String, CodeLanguage> CACHE = new HashMap<>();
+
+        static synchronized CodeLanguage of(String info) {
+            String language = normalize(info);
+            return language == null ? null : CACHE.computeIfAbsent(language, CodeBlockLanguages::create);
+        }
+
+        /** 取 info 首个空白前的 token 归一化（如 "java xx" → java），不支持的语言返回 null */
+        private static String normalize(String info) {
+            if (info == null || info.isBlank()) {
+                return null;
+            }
+            String token = info.trim();
+            int space = token.indexOf(' ');
+            if (space >= 0) {
+                token = token.substring(0, space);
+            }
+            token = token.toLowerCase(Locale.ROOT);
+            return switch (token) {
+                case "java" -> "java";
+                case "kotlin", "kt" -> "kotlin";
+                case "c", "cpp", "c++", "cc", "h", "hpp" -> "c";
+                case "csharp", "cs", "c#" -> "csharp";
+                case "xml", "html", "htm" -> "xml";
+                default -> null;
+            };
+        }
+
+        private static CodeLanguage create(String language) {
+            EditorKeywordHelperAbstract helper = switch (language) {
+                case "java" -> new EditorKeywordHelperImplJava();
+                case "kotlin" -> new EditorKeywordHelperImplKotlin();
+                case "c" -> new EditorKeywordHelperImplCC();
+                case "csharp" -> new EditorKeywordHelperImplCSharp();
+                case "xml" -> new EditorKeywordHelperImplXml();
+                default -> null;
+            };
+            // getPattern(null, null) 不含 temporary/search 组，返回纯语言 token pattern
+            return helper == null ? null
+                    : new CodeLanguage(helper.getPattern(null, null), "xml".equals(language));
         }
     }
 }

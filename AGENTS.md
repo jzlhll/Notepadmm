@@ -23,8 +23,9 @@ JavaFX + Gradle 多模块笔记编辑器（Java 17 / JavaFX 21 / richtextfx 0.11
 | `src/main/java/com/allan/atools/richtext/codearea/EditorArea.kt` | 编辑器入口 |
 | `src/main/java/com/allan/atools/richtext/codearea/EditorAreaMgr.java` | 保存（`area.getText()` + `Files.writeString`）、`resetText`、行号开关 |
 | `src/main/java/com/allan/atools/richtext/codearea/EditorAreaMgrCode.java` | trigger 高亮、加载 editor_keywords.css |
-| `src/main/java/com/allan/atools/richtext/codearea/keywordhelper/EditorKeywordHelperImplMarkdown.java` | Markdown AST 高亮核心（Image 节点标 `markdown-image`，与 link 区分） |
+| `src/main/java/com/allan/atools/richtext/codearea/keywordhelper/EditorKeywordHelperImplMarkdown.java` | Markdown AST 高亮核心（Image 节点标 `markdown-image`，与 link 区分；围栏代码块内容按 info 语言复用各语言 helper pattern 做 token 高亮，叠加样式 `markdown-code-*`） |
 | `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownImageManager.java` | 行内图片显示：解析/缓存/渲染/缩放（装饰 `paragraphGraphicFactoryProperty()` 与行号共存） |
+| `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownCodeBlockManager.java` | 代码块整块圆角矩形背景：后台解析收集代码块行区间，段落样式类 `md-code-block-first/mid/last/single` 在 TextFlow 上画背景；左右内缩与 editor.css 文本 padding 一致（65px，换行 105px），12px 圆角 |
 | `BaseUiLibs/src/main/java/com/allan/uilibs/richtexts/CodeArea.java` | `applyMarkdownTextStyle`：italic 加 Shear 变换、bold 加描边伪粗体（自加载 JetBrains Mono 字体无变体，CSS font-weight/font-style 不生效，效果均用代码实现）；`PARAGRAPH_PREF_HEIGHT_PREFIX` 段落样式条目转 `-fx-pref-height` 内联样式 |
 | `BaseUiLibs/src/main/java/com/allan/uilibs/richtexts/MyLineNumFactory.java` | 行号走 `setParagraphGraphicFactory`（ViewActions 接口 default 方法） |
 

@@ -16,6 +16,7 @@ import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownCodeBlockManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownTableOptimizeManager;
@@ -139,11 +140,13 @@ public final class NotepadController extends AbstractMainController {
     private MarkdownOutlineManager markdownOutlineManager;
     private MarkdownTableOptimizeManager markdownTableOptimizeManager;
     private MarkdownImageManager markdownImageManager;
+    private MarkdownCodeBlockManager markdownCodeBlockManager;
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
             (observable, oldValue, newValue) -> {
                 refreshCurrentDocumentPath();
                 updateMarkdownTableOptimizeManager(newValue);
                 updateMarkdownImageManager(newValue);
+                updateMarkdownCodeBlockManager(newValue);
             };
 
     private int getMainUiSizeMode() {
@@ -525,6 +528,7 @@ public final class NotepadController extends AbstractMainController {
         }
         updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
+        updateMarkdownCodeBlockManager(UIContext.currentAreaProp.get());
     }
 
     private void updateMarkdownTableOptimizeManager(EditorArea area) {
@@ -554,6 +558,21 @@ public final class NotepadController extends AbstractMainController {
             markdownImageManager = new MarkdownImageManager(area);
         } else {
             markdownImageManager.refreshCurrentFile(area);
+        }
+    }
+
+    private void updateMarkdownCodeBlockManager(EditorArea area) {
+        if (!MarkdownImageManager.supports(area)) {
+            if (markdownCodeBlockManager != null) {
+                markdownCodeBlockManager.destroy();
+                markdownCodeBlockManager = null;
+            }
+            return;
+        }
+        if (markdownCodeBlockManager == null) {
+            markdownCodeBlockManager = new MarkdownCodeBlockManager(area);
+        } else {
+            markdownCodeBlockManager.refreshCurrentFile(area);
         }
     }
 

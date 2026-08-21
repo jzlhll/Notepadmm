@@ -21,6 +21,16 @@
     -au-md-inline-code-bg: #def2f4;
     -au-md-inline-code-fill: #0e7490;
 
+    /* ---- 代码块内语言 token 色（叠加在 markdown-code 上，亮色 VSCode Light 风） ---- */
+    -au-md-code-keyword: #0033b3;
+    -au-md-code-string: #a31515;
+    -au-md-code-comment: #008000;
+    -au-md-code-punct: #47494e;
+    -au-md-code-tag: #800000;
+    -au-md-code-tagmark: #47494e;
+    -au-md-code-attribute: #e50000;
+    -au-md-code-attribute-value: #0451a5;
+
     /* ---- 表格 / 引用 / 列表 ---- */
     -au-md-table-mark: #d8dde3;
     -au-md-quote: #808080;
@@ -65,7 +75,74 @@
 /* ===== 代码块（``` 围栏与缩进代码块） ===== */
 .markdown-code {
     -fx-fill: -au-md-code-fill;
-    -rtfx-background-color: -au-md-code-bg;
+}
+
+/* ===== 代码块整块圆角矩形背景（段落样式类，见 MarkdownCodeBlockManager） =====
+ * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 12px 圆角整块。
+ * 左右内缩量与 editor.css 的文本 padding 一致（非换行 65px，换行 105px 由 :wrapped 覆盖），
+ * 背景左缘对齐正文起始位置，右缘不贴到可视区右端。 */
+.md-code-block-first {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-radius: 12 12 0 0;
+    -fx-background-insets: 0 65px 0 65px;
+}
+
+.md-code-block-mid {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-insets: 0 65px 0 65px;
+}
+
+.md-code-block-last {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-radius: 0 0 12 12;
+    -fx-background-insets: 0 65px 0 65px;
+}
+
+.md-code-block-single {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-radius: 12;
+    -fx-background-insets: 0 65px 0 65px;
+}
+
+/* 换行模式下 editor 左右 padding 均为 105px（见 editor.css），代码块背景同步内缩 */
+.styled-text-area.editor-area:wrapped .md-code-block-first,
+.styled-text-area.editor-area:wrapped .md-code-block-mid,
+.styled-text-area.editor-area:wrapped .md-code-block-last,
+.styled-text-area.editor-area:wrapped .md-code-block-single {
+    -fx-background-insets: 0 105px 0 105px;
+}
+
+/* ===== 代码块内语言 token（java/kotlin/c/cpp/csharp/xml，叠加在 markdown-code 上） ===== */
+.markdown-code-keyword {
+    -fx-fill: -au-md-code-keyword;
+}
+
+.markdown-code-string {
+    -fx-fill: -au-md-code-string;
+}
+
+.markdown-code-comment {
+    -fx-fill: -au-md-code-comment;
+}
+
+.markdown-code-punct {
+    -fx-fill: -au-md-code-punct;
+}
+
+.markdown-code-tag {
+    -fx-fill: -au-md-code-tag;
+}
+
+.markdown-code-tagmark {
+    -fx-fill: -au-md-code-tagmark;
+}
+
+.markdown-code-attribute {
+    -fx-fill: -au-md-code-attribute;
+}
+
+.markdown-code-attribute-value {
+    -fx-fill: -au-md-code-attribute-value;
 }
 
 /* ===== 行内代码 `code` ===== */

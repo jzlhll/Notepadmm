@@ -57,6 +57,15 @@
     -au-md-code-fill: #6fdbe2;
     -au-md-inline-code-bg: #1f353d;
     -au-md-inline-code-fill: #7fd9e0;
+    /* 代码块内语言 token 色（VSCode Dark+ 风） */
+    -au-md-code-keyword: #569cd6;
+    -au-md-code-string: #ce9178;
+    -au-md-code-comment: #6a9955;
+    -au-md-code-punct: #d4d4d4;
+    -au-md-code-tag: #569cd6;
+    -au-md-code-tagmark: #808080;
+    -au-md-code-attribute: #9cdcfe;
+    -au-md-code-attribute-value: #ce9178;
     -au-md-table-mark: #566070;
     -au-md-quote: #9aa4b2;
     -au-md-list: #5fc9dc;
