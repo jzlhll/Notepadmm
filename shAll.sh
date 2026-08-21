@@ -61,3 +61,30 @@ case "$architecture" in
         exit 1
         ;;
 esac
+
+echo ""
+echo "========== Gradle 编译完成 =========="
+echo "请选择是否执行 buildRoot 下的脚本："
+echo "0) 不执行（直接回车默认选此项）"
+echo "1) 执行 copyToApplications.sh"
+echo "2) 执行 jpackageCmd.sh"
+printf "请输入 0、1 或 2 [默认 0]："
+read -r build_action
+build_action="${build_action:-0}"
+
+case "$build_action" in
+    0)
+        echo "已选择：0) 不执行，脚本结束。"
+        ;;
+    1)
+        echo "已选择：1) 执行 copyToApplications.sh"
+        ./buildRoot/copyToApplications.sh
+        ;;
+    2)
+        echo "已选择：2) 执行 jpackageCmd.sh"
+        ./buildRoot/jpackageCmd.sh
+        ;;
+    *)
+        echo "输入无效，未执行任何脚本。"
+        ;;
+esac
