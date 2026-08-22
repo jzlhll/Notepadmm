@@ -7,18 +7,17 @@ import com.allan.atools.richtext.GenericStyledAreaBehaviorReflector;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.toolsstartup.IStartupInit;
-import com.allan.atools.toolsstartup.Startup;
+import com.allan.atools.toolsstartup.ATools;
 import com.allan.atools.toolsstartup.StartupEntro;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.utils.*;
 import com.allan.atools.beans.WindowCreatorInfo;
 import com.allan.atools.controller.NotepadController;
-import com.allan.uilibs.jfoenix.MyJFXDecorator;
 import javafx.application.Platform;
 import javafx.scene.Parent;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -85,6 +84,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
 
         Log.e("startup: main FXML loaded");
         UIContext.mainController = mainController;
+        stage.initStyle(StageStyle.TRANSPARENT);
         //初始化controller代码
         mainController.init(stage);
         Log.e("startup: main controller initialized");
@@ -94,28 +94,17 @@ public final class StartupNotepadInitImp implements IStartupInit {
         createInfo.width = 1000;
         createInfo.height = 650;
         createInfo.resizable = true;
-        createInfo.title = "atools";
+        createInfo.title = "ATools";
         createInfo.iconPath = ResLocation.getURLStr("pictures", "icon.png");
         createInfo.alwaysTop = false;
         createInfo.isSystemWindow = false;
         createInfo.sizeAndLocateCachePrefixName = "notepad_main_";
 
-        //初始化主Stage（主window）
-        if (!UIContext.CAN_DECORATOR) {
-            createInfo.isSystemWindow = true;
-        } else {
-            MyJFXDecorator decorator = new MyJFXDecorator(stage, root, true, true);
-            var imageView = new ImageView(new Image(ResLocation.getURLStr("pictures", "icon28.png")));
-            imageView.setFitHeight(MyJFXDecorator.HEIGHT_BUTTONS_IMAGE_HEIGHT);
-            imageView.setFitWidth(MyJFXDecorator.HEIGHT_BUTTONS_IMAGE_HEIGHT);
-            decorator.setGraphic(imageView);
-
-            root = decorator;
-            UIContext.context().setIsDecorate();
-        }
+        //主窗口统一使用页面内自绘标题栏，子窗口维持现有平台策略
         AllStagesManager.getInstance().initMainStage(stage, createInfo, root, (sz) -> {
             NotepadController.sizeXyChangedProp.set(NotepadController.sizeXyChangedProp.getValue() + 1);
         });
+        stage.getScene().setFill(Color.TRANSPARENT);
         UIContext.mainWindow = stage.getScene().getWindow();
         KeyEventDispatcher.instance.init(root);
 
@@ -127,7 +116,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
 
         stage.setOnCloseRequest(event -> {
             mainController.destroy();
-            Startup.shutdownAfterMainWindowClosed();
+            ATools.shutdownAfterMainWindowClosed();
         });
     }
 

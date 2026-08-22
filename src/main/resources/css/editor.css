@@ -28,8 +28,21 @@
 }
 
 .editor-virtualized-scroll-pane > .scroll-bar:vertical {
-  -fx-min-width: 13px;
-  -fx-pref-width: 13px;
+  -fx-min-width: 12px;
+  -fx-pref-width: 12px;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .increment-button,
+.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .decrement-button {
+  -fx-padding: 1px 1px 1px 1px;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .decrement-button > .decrement-arrow {
+  -fx-shape: "M 4 0 L 0 4 L 4 8 Z";
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .increment-button > .increment-arrow {
+  -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
 }
 
 .styled-text-area .selection {

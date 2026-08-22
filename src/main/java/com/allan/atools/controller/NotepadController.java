@@ -23,16 +23,16 @@ import com.allan.atools.tools.modulenotepad.manager.MarkdownTableOptimizeManager
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
-import com.allan.atools.toolsstartup.Startup;
+import com.allan.atools.toolsstartup.ATools;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.ui.SettingDrawer;
+import com.allan.atools.ui.MainWindowChrome;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
 import com.allan.atools.utils.*;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXTabPane;
 import com.jfoenix.controls.JFXTextField;
 import javafx.application.Platform;
-import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.event.EventHandler;
@@ -52,6 +52,7 @@ import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -72,8 +73,6 @@ public final class NotepadController extends AbstractMainController {
      */
     public static final SimpleLongProperty sizeXyChangedProp = new SimpleLongProperty();
 
-    private final SimpleDoubleProperty mHeightProp = new SimpleDoubleProperty();
-
     //fxml action head buttons
     public Label notepadMainActionBarFontBtn;
     public Label notepadMainActionBarSearchBtn;
@@ -92,6 +91,14 @@ public final class NotepadController extends AbstractMainController {
     public JFXTextField bottomSearchTextField;
 
     public HBox notepadMainHeadBox;
+    public HBox notepadWindowTitleBox;
+    public HBox notepadActionBarBox;
+    public StackPane notepadWindowCloseBtn;
+    public StackPane notepadWindowMinBtn;
+    public StackPane notepadWindowMaxBtn;
+    public StackPane workspaceSidebarToggleBtn;
+    public Label notepadCompactTitleLabel;
+    public VBox notepadRoot;
 
     public SplitPane notepadMainSplitPane;
 
@@ -102,6 +109,7 @@ public final class NotepadController extends AbstractMainController {
     public Label notepadMainEncodeLabel;
     public Label notepadReadonlyCheckBtn;
     public HBox notepadMainBottomBox;
+    public Region workspaceBottomExtension;
     public StackPane mainPane;
     public VBox notepadMainNotHasFileText;
     public Label notepadEmptyTitleLabel;
@@ -125,7 +133,6 @@ public final class NotepadController extends AbstractMainController {
     public Label currentDocumentPathText;
     public Label currentDocumentEmptyHintLabel;
     public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
-    public Label workspaceCloseBtn;
     public VBox workspaceVBox;
     public Label workspaceRefreshBtn;
     public Label workspaceGoUpBtn;
@@ -204,16 +211,19 @@ public final class NotepadController extends AbstractMainController {
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         workspaceTabSwitchBox.getStyleClass().removeAll(
                 "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
+        workspaceVBox.getStyleClass().removeAll(
+                "main-ui-size-default", "main-ui-size-large", "main-ui-size-larger");
         notepadMainHeadBox.getStyleClass().add(styleClass);
         notepadMainBottomBox.getStyleClass().add(styleClass);
         tabPane.getStyleClass().add(styleClass);
         workspaceTree.getStyleClass().add(styleClass);
         workspaceTabPane.getStyleClass().add(styleClass);
         workspaceTabSwitchBox.getStyleClass().add(styleClass);
+        workspaceVBox.getStyleClass().add(styleClass);
 
         double extra = mode;
-        notepadMainHeadBox.setPadding(new Insets(3 + extra));
-        notepadMainBottomBox.setPadding(new Insets(3 + extra, 2, 1 + extra, 2));
+        notepadActionBarBox.setPadding(new Insets(3 + extra));
+        notepadMainBottomBox.setPadding(new Insets(3 + extra, 2, 3, 2));
         bottomSearchTextField.setPrefHeight(20 + mode * 2);
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22 + mode * 2, 0));
 
@@ -406,9 +416,9 @@ public final class NotepadController extends AbstractMainController {
         ThreadUtils.globalHandler().postDelayedCheckClosed(()->{
             Platform.runLater(()->{
                 if (!ThreadUtils.sBeClosing) {
-                    Log.e("Startup sInit Args " + Startup.sInitArgs);
-                    if (Startup.sInitArgs != null && Startup.sInitArgs.length > 0) {
-                        for (var str : Startup.sInitArgs) {
+                    Log.e("ATools init args " + ATools.sInitArgs);
+                    if (ATools.sInitArgs != null && ATools.sInitArgs.length > 0) {
+                        for (var str : ATools.sInitArgs) {
                             if (!str.isEmpty()) {
                                 FileOpenSupportsKt.open(str);
                             }
@@ -456,6 +466,9 @@ public final class NotepadController extends AbstractMainController {
     @Override
     public void init(Stage stage) {
         super.init(stage);
+        new MainWindowChrome(stage, notepadRoot, notepadMainHeadBox,
+                notepadWindowCloseBtn, notepadWindowMinBtn, notepadWindowMaxBtn);
+        setIsDecorate();
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22, 0));
         mainPane.getChildren().remove(snackContainer);
 
@@ -498,13 +511,7 @@ public final class NotepadController extends AbstractMainController {
         markdownOutlineManager = new MarkdownOutlineManager(this);
         updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
-        getWorkspaceManager().removeWorkspace(false);
-
-        mHeightProp.set(stage.heightProperty().getValue() - 5);
-        stage.heightProperty().addListener((observable, oldValue, newValue) ->
-                mHeightProp.set(newValue.doubleValue() - 5));
-        mainPane.prefHeightProperty().bind(mHeightProp);
-        mainPane.prefWidthProperty().bind(stage.widthProperty());
+        getWorkspaceManager().initViewState();
 
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null && newValue) {

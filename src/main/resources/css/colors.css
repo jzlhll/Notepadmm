@@ -22,6 +22,7 @@
 
     -au-main-bg-color: white;
     -au-main-bg-color2: #fcfcfe;
+    -au-workspace-bg-color: #f5f5f5;
     -au-main-floating-color: #F2FAFAD2;
 
     -au-main-color: #4285F4;
@@ -37,7 +38,7 @@
      /*allan code area 选中某个字段的背景颜色 */
     -au-editor-selection-words-color: #add6ff;
     /*allan code area的左边行号背景*/
-    -au-editor-lineno-color: #e4e4e5;
+    -au-editor-lineno-color: -au-scroll-bg-color;
     /*allan code area的背景色*/
     -au-editor-bg-color: #fffefe;
      /*allan code area的文字颜色*/

@@ -3,6 +3,11 @@
    -fx-background-color : -au-main-bg-color;
 }
 
+.main-window-root {
+   -fx-background-color: -au-main-bg-color;
+   -fx-background-radius: 16;
+}
+
 .custom-main-bg2 {
    -fx-background-color : -au-main-bg-color2;
 }
@@ -21,15 +26,164 @@
 
 .notepad-main-head {
    -fx-background-color: -au-main-bg-color;
+   -fx-min-height: 44;
+   -fx-pref-height: 44;
+   -fx-max-height: 44;
+}
+
+.notepad-main-head.main-ui-size-large {
+   -fx-min-height: 46;
+   -fx-pref-height: 46;
+   -fx-max-height: 46;
+}
+
+.notepad-main-head.main-ui-size-larger {
+   -fx-min-height: 48;
+   -fx-pref-height: 48;
+   -fx-max-height: 48;
+}
+
+.window-title-section {
+   -fx-padding: 0 8 0 12;
+   -fx-background-color: transparent;
+}
+
+.window-control {
+   -fx-min-width: 14;
+   -fx-pref-width: 14;
+   -fx-max-width: 14;
+   -fx-min-height: 14;
+   -fx-pref-height: 14;
+   -fx-max-height: 14;
+   -fx-background-radius: 100;
+   -fx-border-radius: 100;
+   -fx-border-width: 0.5;
+   -fx-cursor: hand;
+}
+
+.window-control-close {
+   -fx-background-color: #ff5f57;
+   -fx-border-color: #e0443e;
+}
+
+.window-control-min {
+   -fx-background-color: #febc2e;
+   -fx-border-color: #d89e24;
+}
+
+.window-control-max {
+   -fx-background-color: #28c840;
+   -fx-border-color: #1eaa34;
+}
+
+.window-control-symbol {
+   -fx-font-size: 10;
+   -fx-font-weight: bold;
+   -fx-text-fill: rgba(0, 0, 0, 0.65);
+   -fx-opacity: 0;
+   -fx-padding: -2 0 0 0;
+}
+
+.window-controls:hover .window-control-symbol {
+   -fx-opacity: 1;
+}
+
+.window-sidebar-toggle {
+   -fx-min-width: 24;
+   -fx-pref-width: 24;
+   -fx-max-width: 24;
+   -fx-min-height: 22;
+   -fx-pref-height: 22;
+   -fx-max-height: 22;
+   -fx-background-color: transparent;
+   -fx-background-radius: 5;
+   -fx-cursor: hand;
+}
+
+.window-sidebar-toggle:hover {
+   -fx-background-color: rgba(128, 128, 128, 0.15);
+}
+
+.window-sidebar-icon-frame {
+   -fx-fill: transparent;
+   -fx-stroke: -au-default-desc-color;
+   -fx-stroke-width: 1.2;
+}
+
+.window-sidebar-icon-divider {
+   -fx-stroke: -au-default-desc-color;
+   -fx-stroke-width: 1.2;
+}
+
+.notepad-compact-title {
+   -fx-font-size: 12;
+   -fx-text-fill: -au-default-text-color;
+   -fx-padding: 0;
+}
+
+.notepad-main-head.main-ui-size-large .notepad-compact-title {
+   -fx-font-size: 13;
+}
+
+.notepad-main-head.main-ui-size-larger .notepad-compact-title {
+   -fx-font-size: 14;
+}
+
+.workspace-column-divider {
+   -fx-min-width: 1;
+   -fx-pref-width: 1;
+   -fx-max-width: 1;
+   -fx-background-color: -au-split-pane-divider-color;
+}
+
+.workspace-main-split > .split-pane-divider {
+   -fx-padding: 0 0.5 0 0.5;
+   -fx-background-color: -au-split-pane-divider-color;
+}
+
+#notepadMainSplitPane,
+#notepadSubSplitPane {
+   -fx-padding: 0;
+   -fx-background-insets: 0;
+}
+
+.workspace-column-background,
+.workspace-column-background .jfx-tree-view,
+.workspace-column-background .tree-cell,
+.workspace-column-background .tree-cell-dir,
+.workspace-column-background .tree-cell-major,
+.workspace-column-background .tree-cell-media,
+.workspace-column-background .tree-cell-image,
+.workspace-column-background .tree-cell-coding,
+.workspace-column-background .tree-cell-other,
+.workspace-column-background .markdown-outline-list,
+.workspace-column-background .markdown-outline-list .list-cell {
+   -fx-background-color: -au-workspace-bg-color;
+}
+
+.workspace-app-title {
+   -fx-font-size: 20;
+   -fx-font-weight: bold;
+   -fx-text-fill: -au-default-text-color;
+   -fx-padding: 12 8 4 8;
+}
+
+.main-ui-size-large .workspace-app-title {
+   -fx-font-size: 21;
+}
+
+.main-ui-size-larger .workspace-app-title {
+   -fx-font-size: 22;
 }
 
 .notepad-bottom-bar {
    -fx-background-color: -au-main-bg-color2;
 }
 
-.notepad-bottom-bar #bottomSearchTextField > .input-line,
-.notepad-bottom-bar #bottomSearchTextField > .input-focused-line {
-   -fx-background-color: transparent;
+.workspace-bottom-extension {
+   -fx-background-color: -au-workspace-bg-color;
+   -fx-border-color: transparent -au-split-pane-divider-color transparent transparent;
+   -fx-border-width: 0 1 0 0;
 }
 
 .jfx-tab-pane.main-ui-size-default .headers-region .tab:closable {
@@ -92,7 +246,7 @@
    -fx-pref-height: 0;
    -fx-max-height: 0;
    -fx-padding: 0;
-   visibility: hidden;
+   -fx-opacity: 0;
 }
 
 .workspace-tab-pane .headers-region > .tab {
@@ -102,9 +256,38 @@
    -fx-padding: 0;
 }
 
+.workspace-tab-pane .control-buttons-tab,
+.workspace-tab-pane .tab-down-button {
+   -fx-min-width: 0;
+   -fx-pref-width: 0;
+   -fx-max-width: 0;
+   -fx-min-height: 0;
+   -fx-pref-height: 0;
+   -fx-max-height: 0;
+   -fx-padding: 0;
+   -fx-opacity: 0;
+}
+
+/* 保留工作区文件树和文档大纲的滚动能力，仅隐藏滚动条。 */
+.workspace-tab-pane .scroll-bar:vertical {
+   -fx-min-width: 0;
+   -fx-pref-width: 0;
+   -fx-max-width: 0;
+   -fx-padding: 0;
+   -fx-opacity: 0;
+}
+
+.workspace-tab-pane .scroll-bar:horizontal {
+   -fx-min-height: 0;
+   -fx-pref-height: 0;
+   -fx-max-height: 0;
+   -fx-padding: 0;
+   -fx-opacity: 0;
+}
+
 .workspace-tab-switch-box {
-   -fx-background-color: rgba(128, 128, 128, 0.12);
-   -fx-background-radius: 10;
+   -fx-background-color: transparent;
+   -fx-background-radius: 0;
    -fx-padding: 3;
 }
 
@@ -190,16 +373,20 @@
    -fx-font-size: 16;
 }
 
+.current-document-path-label {
+   -fx-text-fill: -au-default-desc-color;
+}
+
 .workspace-tab-pane.main-ui-size-default .current-document-path-label {
-   -fx-font-size: 14;
+   -fx-font-size: 12;
 }
 
 .workspace-tab-pane.main-ui-size-large .current-document-path-label {
-   -fx-font-size: 15;
+   -fx-font-size: 13;
 }
 
 .workspace-tab-pane.main-ui-size-larger .current-document-path-label {
-   -fx-font-size: 16;
+   -fx-font-size: 14;
 }
 
 .markdown-outline-list,
@@ -212,6 +399,10 @@
 }
 
 .markdown-outline-list .list-cell:selected {
+   -fx-background-color: rgba(66, 133, 244, 0.2);
+}
+
+.workspace-column-background .markdown-outline-list .list-cell:selected {
    -fx-background-color: rgba(66, 133, 244, 0.2);
 }
 

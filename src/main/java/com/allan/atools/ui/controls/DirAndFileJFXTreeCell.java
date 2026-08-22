@@ -7,6 +7,7 @@ import com.jfoenix.utils.JFXNodeUtils;
 import javafx.geometry.Insets;
 import javafx.scene.Group;
 import javafx.scene.Node;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.layout.*;
@@ -27,6 +28,8 @@ import static com.allan.atools.utils.FileExtersions.*;
  * @since 2017-02-15
  */
 public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
+    private static final double HORIZONTAL_SCROLL_END_SPACE = 32;
+
     private static final class JFXRipplerImpl extends JFXRippler {
         JFXRipplerImpl(DirAndFileJFXTreeCell<?> cell) {
             super(cell);
@@ -65,13 +68,20 @@ public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
     private final StackPane selectedPane = new StackPane();
 
     public DirAndFileJFXTreeCell(boolean isDir) {
+        setTextOverrun(OverrunStyle.CLIP);
         selectedPane.getStyleClass().add("selection-bar");
         selectedPane.setBackground(new Background(new BackgroundFill(Color.RED, CornerRadii.EMPTY, Insets.EMPTY)));
         selectedPane.setPrefWidth(3);
         selectedPane.setMouseTransparent(true);
         selectedProperty().addListener((o, oldVal, newVal) -> selectedPane.setVisible(newVal));
 
-        setPadding(new Insets(0,0,0,-8)); //*** 牛逼的搞法 label移除graphic和string之间的间距
+        setPadding(new Insets(0,0,0,-8)); // 移除 graphic 与文字之间的多余间距
+    }
+
+    @Override
+    protected double computePrefWidth(double height) {
+        double width = super.computePrefWidth(height);
+        return getText() == null ? width : width + HORIZONTAL_SCROLL_END_SPACE;
     }
 
     @Override

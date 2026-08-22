@@ -5,7 +5,7 @@ import com.allan.atools.utils.Log;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
-public final class StartupApplication extends Application{
+public final class AToolsApplication extends Application{
     private IStartupInit create() {
         try {
             return new StartupNotepadInitImp();

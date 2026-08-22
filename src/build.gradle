@@ -32,7 +32,7 @@ sourceSets {
 
 application {
     mainModule = 'atools'
-    mainClass = 'com.allan.atools.toolsstartup.Startup'
+    mainClass = 'com.allan.atools.toolsstartup.ATools'
     applicationDefaultJvmArgs = providers.gradleProperty('packageVmOptions')
             .get()
             .split(/\s+/)
@@ -70,7 +70,7 @@ tasks.named('run', JavaExec) {
     dependsOn tasks.named('jar'), ':BaseParty:jar', ':BaseUiLibs:jar'
     workingDir = rootProject.projectDir
     mainModule.set('atools')
-    mainClass.set('com.allan.atools.toolsstartup.Startup')
+    mainClass.set('com.allan.atools.toolsstartup.ATools')
     modularity.inferModulePath.set(true)
     jvmArgs providers.gradleProperty('packageVmOptions')
             .get()

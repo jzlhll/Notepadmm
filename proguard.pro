@@ -71,7 +71,7 @@
 #注解保留
 -keep class com.allan.atools.toolsstartup.StartupEntro {*;}
 #主入口
--keep public class com.allan.atools.toolsstartup.Startup {
+-keep public class com.allan.atools.toolsstartup.ATools {
     public static void main(java.lang.String[]);
 }
 

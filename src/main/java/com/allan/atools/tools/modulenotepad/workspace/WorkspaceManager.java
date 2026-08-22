@@ -26,6 +26,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeItem;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.Region;
 import javafx.stage.DirectoryChooser;
 
 import java.io.File;
@@ -45,22 +46,26 @@ public final class WorkspaceManager implements IWorkspace {
     private static final String KEY_WORKSPACE_SORT_MODE = "workspace_sort";
     private static final String KEY_WORKSPACE_WIDTH = "workspace_width";
 
-    private static final int WIDTH_OF_WORKSPACE_MIN = 80;
+    private static final int WIDTH_OF_WORKSPACE_MIN = 126;
+    private static final int WIDTH_OF_WORKSPACE_MAX = 400;
+    private static final int WIDTH_OF_WORKSPACE_DIVIDER = 1;
     /** 最近打开工作区列表的最大保存数量 */
     private static final int MAX_RECENT_WORKSPACES = 8;
     /** 最近工作区列表在 recent.json 中的顶层 key */
     private static final String KEY_RECENT_WORKSPACES = "workspaces";
 
 
-    private volatile boolean isWorkspaceShown = true;
+    private volatile boolean isWorkspaceShown;
     private File currentDir;
     private boolean isSortByFileOrTime;
     private boolean isWorkspaceVBoxAdded = true;
+    private boolean isViewStateInitialized;
+    private boolean workspaceWidthReady;
 
     private TreeItemEx<?> currentItem;
     private ContextMenu rightClickContextMenu;
-
-    private File nextCurrentDir;
+    private Tooltip sidebarToggleTooltip;
+    private File pendingWorkspaceDir;
 
     private boolean isAddedStageFocus = false;
     private final Action0 stageFocused = ()-> {
@@ -81,8 +86,6 @@ public final class WorkspaceManager implements IWorkspace {
                 c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton.invoke());
         IconfontCreator.setText(c.workspaceRefreshBtn, "exchangerate",
                 c.getMainWorkspaceIconSize(17), Colors.ColorHeadButton.invoke());
-        IconfontCreator.setText(c.workspaceCloseBtn, "close",
-                c.getMainWorkspaceIconSize(19), "#ff0000");
     }
 
     private boolean changeSortByFileOrTime() {
@@ -93,11 +96,60 @@ public final class WorkspaceManager implements IWorkspace {
 
     public WorkspaceManager() {
         isSortByFileOrTime = GlobalCfgStores.user().getBoolean(KEY_WORKSPACE_SORT_MODE, true);
+        isWorkspaceShown = GlobalCfgStores.user().getBoolean(KEY_WORKSPACE_IS_OPENED, true);
+        workspaceWidth = GlobalCfgStores.user().getInt(KEY_WORKSPACE_WIDTH, 175);
+        if (workspaceWidth < WIDTH_OF_WORKSPACE_MIN) {
+            workspaceWidth = WIDTH_OF_WORKSPACE_MIN;
+        } else if (workspaceWidth > WIDTH_OF_WORKSPACE_MAX) {
+            workspaceWidth = WIDTH_OF_WORKSPACE_MAX;
+        }
     }
 
     @Override
-    public void removeWorkspace(boolean savedCfg) {
+    public void initViewState() {
+        if (isViewStateInitialized) {
+            return;
+        }
+        isViewStateInitialized = true;
+        initOnce();
+
+        var c = UIContext.context();
+        c.workspaceSidebarToggleBtn.setOnMouseClicked(event -> toggleVisibility());
+        sidebarToggleTooltip = new Tooltip();
+        Tooltip.install(c.workspaceSidebarToggleBtn, sidebarToggleTooltip);
+        c.workspaceVBox.setPrefWidth(workspaceWidth);
+        if (isWorkspaceShown) {
+            updateHeaderState();
+        } else {
+            hideWorkspace(false);
+        }
+    }
+
+    private void toggleVisibility() {
+        if (isWorkspaceShown) {
+            hideWorkspace(true);
+            return;
+        }
+
+        File savedWorkspace = currentDir;
+        if (savedWorkspace == null || !savedWorkspace.exists()) {
+            var path = GlobalCfgStores.user().getString(KEY_WORKSPACE_FILE, "");
+            if (!TextUtils.isEmpty(path)) {
+                savedWorkspace = new File(path);
+            }
+        }
+        if (savedWorkspace != null && savedWorkspace.exists() && savedWorkspace.isDirectory()) {
+            openWorkspace(savedWorkspace);
+        } else {
+            showEmptyWorkspaceState();
+            GlobalCfgStores.user().setBoolean(KEY_WORKSPACE_IS_OPENED, true);
+        }
+    }
+
+    private void hideWorkspace(boolean saveState) {
         isWorkspaceShown = false;
+        workspaceWidthReady = false;
+        pendingWorkspaceDir = null;
         if (isWorkspaceVBoxAdded) {
             UIContext.context().notepadSubSplitPane.getItems().remove(UIContext.context().workspaceVBox);
             isWorkspaceVBoxAdded = false;
@@ -107,7 +159,8 @@ public final class WorkspaceManager implements IWorkspace {
             isAddedStageFocus = false;
         }
 
-        if (savedCfg) {
+        updateHeaderState();
+        if (saveState) {
             ThreadUtils.globalHandler().post(()-> {
                 GlobalCfgStores.user().setBoolean(KEY_WORKSPACE_IS_OPENED, false);
                 Platform.runLater(()-> UIContext.context().requestFocus4Jfoenix());
@@ -117,13 +170,22 @@ public final class WorkspaceManager implements IWorkspace {
 
     @Override
     public void initWhenAppStart() {
-        if (GlobalCfgStores.user().getBoolean(KEY_WORKSPACE_IS_OPENED, false)) {
-           openWorkspace(new File(GlobalCfgStores.user().getString(KEY_WORKSPACE_FILE, "")));
+        if (!isViewStateInitialized) {
+            initViewState();
+        }
+        var path = GlobalCfgStores.user().getString(KEY_WORKSPACE_FILE, "");
+        File savedWorkspace = TextUtils.isEmpty(path) ? null : new File(path);
+        if (savedWorkspace != null && savedWorkspace.exists() && savedWorkspace.isDirectory()) {
+            currentDir = savedWorkspace;
+        }
+        if (!isWorkspaceShown) {
+            return;
+        }
+        setSplitPanePosition();
+        if (currentDir != null) {
+            openWorkspace(currentDir);
         } else {
-            var recents = saveOrReadRecentWorkspaces(null);
-            if (recents.isEmpty()) {
-                showEmptyWorkspaceState();
-            }
+            showEmptyWorkspaceState();
         }
     }
 
@@ -136,7 +198,6 @@ public final class WorkspaceManager implements IWorkspace {
         if (!isWorkspaceVBoxAdded) {
             isWorkspaceVBoxAdded = true;
             c.notepadSubSplitPane.getItems().add(0, c.workspaceVBox);
-            setSplitPanePosition();
 
             //面板首次加入时初始化tree root，否则openWorkspace走else分支时getRoot()为null
             TreeItem<String> base = new TreeItem<>();
@@ -144,6 +205,15 @@ public final class WorkspaceManager implements IWorkspace {
             c.workspaceTree.setRoot(base);
             c.workspaceTree.setShowRoot(false);
         }
+        if (c.workspaceTree.getRoot() == null) {
+            TreeItem<String> base = new TreeItem<>();
+            base.setExpanded(false);
+            c.workspaceTree.setRoot(base);
+            c.workspaceTree.setShowRoot(false);
+        }
+        isWorkspaceShown = true;
+        updateHeaderState();
+        setSplitPanePosition();
         c.workspaceToolbarBox.setVisible(false);
         c.workspaceToolbarBox.setManaged(false);
         c.workspaceText.setVisible(false);
@@ -169,7 +239,7 @@ public final class WorkspaceManager implements IWorkspace {
     @Override
     public void ifRefreshWorkspace(File changedFile) {
         if(DEBUG) Log.d(TAG, "refresh workspace " + isWorkspaceShown);
-        if (isWorkspaceShown) {
+        if (isWorkspaceShown && currentDir != null) {
             var dir = IO.getParentPath(changedFile.getAbsolutePath(), false);
             var curDir = currentDir.getAbsolutePath();
             if (curDir.endsWith("\\") || curDir.endsWith("/")) {
@@ -191,9 +261,13 @@ public final class WorkspaceManager implements IWorkspace {
 
     private void setSplitPanePosition() {
         double totalWidth = UIContext.context().notepadSubSplitPane.getWidth();
+        if (totalWidth <= 0) {
+            return;
+        }
         double pos = (double) workspaceWidth / totalWidth;
         if(DEBUG) Log.d(TAG, "todo notepad SubSplitPane setDividerPositions " + pos + " workspace Width:" + workspaceWidth + "/ notepadSub SplitPane width: " + totalWidth);
         UIContext.context().notepadSubSplitPane.setDividerPositions(pos);
+        workspaceWidthReady = true;
     }
 
     private void initOnce() {
@@ -204,40 +278,20 @@ public final class WorkspaceManager implements IWorkspace {
         }
 
 
-        if (workspaceWidth == 0) {
-            workspaceWidth = GlobalCfgStores.user().getInt(KEY_WORKSPACE_WIDTH, 175);
-        }
         if(DEBUG) Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
 
         refreshSize();
 
         c.workspaceVBox.widthProperty().addListener((observable, oldValue, newValue) -> {
-            workspaceWidth = newValue.intValue();
-            if(DEBUG) Log.d(TAG, "todo mWorkspace Width " + newValue.intValue() + " total notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
-            if (workspaceWidth < WIDTH_OF_WORKSPACE_MIN) {
-                if(c.workspaceVBox.isVisible()) {
-                    if(DEBUG) Log.d(TAG, "change workspace VBox false");
-                    c.workspaceVBox.setVisible(false);
-                }
-            } else {
-                if (!c.workspaceVBox.isVisible()) {
-                    c.workspaceVBox.setVisible(true);
-                    if(DEBUG) Log.d(TAG, "change workspace VBox true");
-                }
+            if (!workspaceWidthReady || !isWorkspaceShown || !isWorkspaceVBoxAdded
+                    || newValue.doubleValue() < WIDTH_OF_WORKSPACE_MIN) {
+                return;
             }
-
+            workspaceWidth = newValue.intValue();
+            updateHeaderState();
+            if(DEBUG) Log.d(TAG, "todo mWorkspace Width " + newValue.intValue() + " total notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
             ThreadUtils.globalHandler().removeCallback(saveWorkspaceVBoxWidthRunnable);
             ThreadUtils.globalHandler().postDelayed(saveWorkspaceVBoxWidthRunnable, 1200);
-            if (nextCurrentDir != null) {
-                var finalNextCurrentDir = nextCurrentDir;
-                nextCurrentDir = null;
-                ThreadUtils.executeDelay(100, ()-> {
-                    Platform.runLater(()-> {
-                        if(DEBUG) Log.d(TAG, "treeItems: delayed to do after width info<<<< " + finalNextCurrentDir);
-                        openWorkspace(finalNextCurrentDir);
-                    });
-                });
-            }
         });
 
         c.workspaceSortBtn.setTooltip(new Tooltip(Locales.str("sortBtn")));
@@ -283,9 +337,6 @@ public final class WorkspaceManager implements IWorkspace {
         c.workspaceRefreshBtn.setTooltip(new Tooltip(Locales.str("refresh")));
         c.workspaceRefreshBtn.setOnMouseClicked(event -> openWorkspace(currentDir));
 
-        c.workspaceCloseBtn.setTooltip(new Tooltip(Locales.str("close")));
-        c.workspaceCloseBtn.setOnMouseClicked(event -> removeWorkspace(true));
-
         c.workspaceEmptyHintLabel.setText(Locales.str("workspaceEmptyHint"));
         c.workspaceOpenBtn.setTooltip(new Tooltip(Locales.str("openWorkspace")));
         c.workspaceOpenBtn.setOnMouseClicked(event -> selectDirAsWorkspaceDialog());
@@ -327,6 +378,9 @@ public final class WorkspaceManager implements IWorkspace {
             return;
         }
 
+        isWorkspaceShown = true;
+        updateHeaderState();
+
         if (!isAddedStageFocus) {
             isAddedStageFocus = true;
             if (mustDelayAddedStageFocus) {
@@ -341,10 +395,9 @@ public final class WorkspaceManager implements IWorkspace {
         if (!isWorkspaceVBoxAdded) {
             if(DEBUG) Log.d(TAG, "first init treeItems");
             isWorkspaceVBoxAdded = true;
-            //*** 这里delay去等待width的变化；如果出现removeWorkspace或者快速的二次开启就会有bug。
-            //不过我认为不可能出现这种case
-            nextCurrentDir = dir; //*** 标记nextCurrentDir 等待 ****
-            if(DEBUG) Log.d(TAG, "treeItems: delay to wait for width change info...>>>...nextCurFile: " + dir + "current width notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
+            //等待侧栏恢复宽度后再刷新文件树，避免影响编辑区滚动布局。
+            pendingWorkspaceDir = dir;
+            if(DEBUG) Log.d(TAG, "treeItems: delay to wait for width change info...>>>...current dir: " + dir + "current width notepad SubSplitPane: " + UIContext.context().notepadSubSplitPane.getWidth());
 
             var ctrl = UIContext.context();
             ctrl.notepadSubSplitPane.getItems().add(0, ctrl.workspaceVBox);
@@ -359,6 +412,14 @@ public final class WorkspaceManager implements IWorkspace {
 
             ctrl.workspaceTree.setRoot(base);
             ctrl.workspaceTree.setShowRoot(false);
+
+            var pendingDir = dir;
+            ThreadUtils.executeDelay(100, () -> Platform.runLater(() -> {
+                if (isWorkspaceShown && isWorkspaceVBoxAdded && pendingDir.equals(pendingWorkspaceDir)) {
+                    pendingWorkspaceDir = null;
+                    openWorkspace(pendingDir);
+                }
+            }));
         } else {
             if(DEBUG) Log.d(TAG, "treeItems: just directly action...>>>...<<<...");
             if (!dir.exists()) {
@@ -372,6 +433,12 @@ public final class WorkspaceManager implements IWorkspace {
             if(DEBUG) Log.d(TAG, "treeItems: real doing.....");
             var ctrl = UIContext.context();
             var base = ctrl.workspaceTree.getRoot();
+            if (base == null) {
+                base = new TreeItem<>();
+                base.setExpanded(false);
+                ctrl.workspaceTree.setRoot(base);
+                ctrl.workspaceTree.setShowRoot(false);
+            }
             base.getChildren().clear();
 
             ctrl.workspaceText.setText(path);
@@ -413,13 +480,51 @@ public final class WorkspaceManager implements IWorkspace {
                 }
             }
 
-            isWorkspaceShown = true;
             if(DEBUG) Log.d(TAG, "treeItems: real done!");
             ThreadUtils.globalHandler().post(()-> {
                 var user = GlobalCfgStores.user();
                 user.setString(KEY_WORKSPACE_FILE, path);
                 user.setBoolean(KEY_WORKSPACE_IS_OPENED, true);
             });
+        }
+    }
+
+    private void updateHeaderState() {
+        var c = UIContext.context();
+        c.notepadCompactTitleLabel.setVisible(!isWorkspaceShown);
+        c.notepadCompactTitleLabel.setManaged(!isWorkspaceShown);
+        if (sidebarToggleTooltip != null) {
+            sidebarToggleTooltip.setText(Locales.str(isWorkspaceShown ? "hideSidebar" : "showSidebar"));
+        }
+
+        if (isWorkspaceShown) {
+            if (!c.notepadWindowTitleBox.getStyleClass().contains("workspace-column-background")) {
+                c.notepadWindowTitleBox.getStyleClass().add("workspace-column-background");
+            }
+            if (!c.notepadWindowTitleBox.prefWidthProperty().isBound()) {
+                c.notepadWindowTitleBox.minWidthProperty().bind(c.workspaceVBox.widthProperty());
+                c.notepadWindowTitleBox.prefWidthProperty().bind(c.workspaceVBox.widthProperty());
+                c.notepadWindowTitleBox.maxWidthProperty().bind(c.workspaceVBox.widthProperty());
+                var bottomWidth = c.workspaceVBox.widthProperty().add(WIDTH_OF_WORKSPACE_DIVIDER);
+                c.workspaceBottomExtension.minWidthProperty().bind(bottomWidth);
+                c.workspaceBottomExtension.prefWidthProperty().bind(bottomWidth);
+                c.workspaceBottomExtension.maxWidthProperty().bind(bottomWidth);
+            }
+            c.workspaceBottomExtension.setVisible(true);
+            c.workspaceBottomExtension.setManaged(true);
+        } else {
+            c.notepadWindowTitleBox.getStyleClass().remove("workspace-column-background");
+            c.notepadWindowTitleBox.minWidthProperty().unbind();
+            c.notepadWindowTitleBox.prefWidthProperty().unbind();
+            c.notepadWindowTitleBox.maxWidthProperty().unbind();
+            c.workspaceBottomExtension.minWidthProperty().unbind();
+            c.workspaceBottomExtension.prefWidthProperty().unbind();
+            c.workspaceBottomExtension.maxWidthProperty().unbind();
+            c.notepadWindowTitleBox.setMinWidth(Region.USE_COMPUTED_SIZE);
+            c.notepadWindowTitleBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+            c.notepadWindowTitleBox.setMaxWidth(Region.USE_PREF_SIZE);
+            c.workspaceBottomExtension.setVisible(false);
+            c.workspaceBottomExtension.setManaged(false);
         }
     }
 

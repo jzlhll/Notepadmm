@@ -4,86 +4,106 @@
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<VBox prefHeight="650.0" prefWidth="1000" minHeight="400" minWidth="600" xmlns="http://javafx.com/javafx/15.0.1"
-      xmlns:fx="http://javafx.com/fxml/1"
-      styleClass="custom-main-bg">
-    <HBox fx:id="notepadMainHeadBox" styleClass="notepad-main-head" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER" prefWidth="20">
-        <padding>
-            <Insets bottom="3.0" left="3.0" right="3.0" top="3.0"/>
-        </padding>
+<?import javafx.scene.shape.*?>
+<StackPane prefHeight="650.0" prefWidth="1000" minHeight="400" minWidth="600"
+           xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
+           style="-fx-background-color: transparent;">
+<VBox fx:id="notepadRoot" styleClass="main-window-root,custom-main-bg">
+    <HBox fx:id="notepadMainHeadBox" styleClass="notepad-main-head" alignment="CENTER_LEFT" VBox.vgrow="NEVER">
+        <HBox fx:id="notepadWindowTitleBox" styleClass="window-title-section" alignment="CENTER_LEFT" spacing="8">
+            <HBox styleClass="window-controls" alignment="CENTER_LEFT" spacing="8">
+                <StackPane fx:id="notepadWindowCloseBtn" styleClass="window-control,window-control-close,window-header-action">
+                    <Label text="×" styleClass="window-control-symbol" mouseTransparent="true"/>
+                </StackPane>
+                <StackPane fx:id="notepadWindowMinBtn" styleClass="window-control,window-control-min,window-header-action">
+                    <Label text="−" styleClass="window-control-symbol" mouseTransparent="true"/>
+                </StackPane>
+                <StackPane fx:id="notepadWindowMaxBtn" styleClass="window-control,window-control-max,window-header-action">
+                    <Label text="+" styleClass="window-control-symbol" mouseTransparent="true"/>
+                </StackPane>
+            </HBox>
+            <StackPane fx:id="workspaceSidebarToggleBtn" styleClass="window-sidebar-toggle,window-header-action">
+                <Rectangle width="15" height="13" arcWidth="4" arcHeight="4" styleClass="window-sidebar-icon-frame" mouseTransparent="true"/>
+                <Line startY="-5.5" endY="5.5" translateX="-3" styleClass="window-sidebar-icon-divider" mouseTransparent="true"/>
+            </StackPane>
+            <Label fx:id="notepadCompactTitleLabel" text="ATools" visible="false" managed="false"
+                   styleClass="notepad-compact-title" mouseTransparent="true"/>
+        </HBox>
+        <Region styleClass="workspace-column-divider"/>
+        <HBox fx:id="notepadActionBarBox" alignment="CENTER_LEFT" spacing="5.0" HBox.hgrow="ALWAYS">
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarFileOpenBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarFileOpenBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarSaveBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarSaveBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarNewBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarNewBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarFontBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarFontBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainAltMultiSelectBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets left="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainAltMultiSelectBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
-        <!-- 左边 -->
-        <Pane prefHeight="-1.0" prefWidth="-1.0" HBox.hgrow="ALWAYS"/>
-        <!-- 右边 -->
+            <Pane prefHeight="-1.0" prefWidth="-1.0" HBox.hgrow="ALWAYS"/>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets right="8"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets right="8"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets right="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets right="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
 
-        <JFXRippler styleClass="jfx-rippler">
-            <HBox.margin>
-                <Insets right="5"/>
-            </HBox.margin>
-            <Label fx:id="notepadMainActionBarSettingBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-        </JFXRippler>
-
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets right="5"/>
+                </HBox.margin>
+                <Label fx:id="notepadMainActionBarSettingBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
+        </HBox>
     </HBox>
 
-    <StackPane fx:id="mainPane" styleClass="custom-main-bg">
+    <StackPane fx:id="mainPane" styleClass="custom-main-bg" VBox.vgrow="ALWAYS">
         <SplitPane fx:id="notepadMainSplitPane" styleClass="custom-main-bg" orientation="VERTICAL">
-            <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg">
-                <VBox fx:id="workspaceVBox" minWidth="80" maxWidth="400" styleClass="custom-main-bg">
+            <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg,workspace-main-split">
+                <VBox fx:id="workspaceVBox" minWidth="126" maxWidth="400"
+                      styleClass="workspace-column-background">
+                    <Label text="ATools" styleClass="workspace-app-title"/>
                     <GridPane fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" hgap="3">
                         <VBox.margin>
                             <Insets top="6"/>
@@ -100,7 +120,8 @@
                     <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane"
                                 tabMinHeight="0" tabMaxHeight="0">
                         <Tab closable="false" text="%workspaceTab">
-                            <VBox styleClass="custom-main-bg">
+                            <StackPane>
+                            <VBox>
                                 <HBox fx:id="workspaceToolbarBox" prefWidth="160">
                                     <JFXRippler styleClass="jfx-rippler-red-custom">
                                         <HBox.margin>
@@ -134,15 +155,9 @@
                                         </HBox.margin>
                                         <Label fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
                                     </JFXRippler>
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceCloseBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
                                 </HBox>
                                 <Label fx:id="workspaceText" styleClass="small-desc-label,workspace-path-label" textOverrun="CENTER_ELLIPSIS"/>
-                                <VBox fx:id="workspaceEmptyBox" styleClass="custom-main-bg" visible="false" managed="false"
+                                <VBox fx:id="workspaceEmptyBox" visible="false" managed="false"
                                       spacing="12" VBox.vgrow="ALWAYS">
                                     <padding>
                                         <Insets bottom="8" left="10" right="10" top="28"/>
@@ -152,11 +167,14 @@
                                     <JFXButton fx:id="workspaceOpenBtn" text="+" maxWidth="Infinity"
                                                styleClass="workspace-open-btn"/>
                                 </VBox>
-                                <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS" styleClass="jfx-tree-view"/>
+                                <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS"
+                                                       styleClass="jfx-tree-view"/>
                             </VBox>
+                            </StackPane>
                         </Tab>
                         <Tab closable="false" text="%currentDocumentTab">
-                            <VBox styleClass="custom-main-bg">
+                            <StackPane>
+                            <VBox>
                                 <padding>
                                     <Insets bottom="8" left="8" right="8" top="8"/>
                                 </padding>
@@ -167,8 +185,10 @@
                                         <Insets top="12"/>
                                     </VBox.margin>
                                 </Label>
-                                <ListView fx:id="currentDocumentOutlineList" VBox.vgrow="ALWAYS" styleClass="markdown-outline-list"/>
+                                <ListView fx:id="currentDocumentOutlineList" VBox.vgrow="ALWAYS"
+                                          styleClass="markdown-outline-list"/>
                             </VBox>
+                            </StackPane>
                         </Tab>
                     </JFXTabPane>
                 </VBox>
@@ -185,7 +205,10 @@
         </VBox>
     </StackPane>
 
-    <HBox fx:id="notepadMainBottomBox" styleClass="notepad-bottom-bar" alignment="CENTER_LEFT" spacing="3.0" VBox.vgrow="NEVER">
+    <HBox VBox.vgrow="NEVER">
+        <Region fx:id="workspaceBottomExtension" styleClass="workspace-bottom-extension"/>
+        <HBox fx:id="notepadMainBottomBox" styleClass="notepad-bottom-bar" alignment="CENTER_LEFT"
+              spacing="3.0" HBox.hgrow="ALWAYS">
         <padding>
             <Insets bottom="1.0" left="2.0" right="2.0" top="3.0"/>
         </padding>
@@ -261,5 +284,7 @@
             </HBox.margin>
             <Label fx:id="notepadMainEncodeLabel" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-colored-label"/>
         </JFXRippler>
+        </HBox>
     </HBox>
 </VBox>
+</StackPane>

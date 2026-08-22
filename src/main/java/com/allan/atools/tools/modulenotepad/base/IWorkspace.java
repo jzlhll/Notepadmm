@@ -3,8 +3,8 @@ package com.allan.atools.tools.modulenotepad.base;
 import java.io.File;
 
 public interface IWorkspace {
+    void initViewState();
     void initWhenAppStart();
-    void removeWorkspace(boolean savedCfg);
     void openRecentWorkspace(String path);
     void refreshWorkspace();
 

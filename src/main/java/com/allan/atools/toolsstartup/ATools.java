@@ -17,7 +17,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Startup {
+public final class ATools {
     public static volatile String[] sInitArgs;
     public static volatile boolean isArgsInit;
 
@@ -140,12 +140,12 @@ public final class Startup {
         } else {
             FileLog.write("startup: open file handler is not supported", false);
             isArgsInit = true;
-            Startup.sInitArgs = args;
+            ATools.sInitArgs = args;
         }
         Log.e("startup: file open handler initialized, macOS: " + ResLocation.isOsx);
         Log.e("startup: JavaFX launch begin");
         try {
-            Application.launch(StartupApplication.class, args);
+            Application.launch(AToolsApplication.class, args);
             Log.e("startup: JavaFX launch returned");
         } catch (RuntimeException | Error e) {
             Log.e("startup: JavaFX launch failed", e);
