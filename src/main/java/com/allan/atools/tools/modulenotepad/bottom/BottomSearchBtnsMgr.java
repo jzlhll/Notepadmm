@@ -101,7 +101,7 @@ public final class BottomSearchBtnsMgr {
         }
         var item = handler.cache.getNextCachedLineNum(editorArea, back, cycleNext, out);
         if (item == null) {
-            //todo GlobalProfs.bottomSearchedIndicateProp.set("0");
+            updateIndicator(0, 0);
             return;
         }
         Highlight.JumpMode mode = back ? Highlight.JumpMode.GoUp : Highlight.JumpMode.GoDown;
@@ -111,7 +111,11 @@ public final class BottomSearchBtnsMgr {
         }
         Highlight.jumpToLineAndSelectWord(area, mode, out.lineNum, item.range.start, item.range.end);
 
-        mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", out.resultIndex, out.totalResultSize);
+        updateIndicator(out.resultIndex, out.totalResultSize);
+    }
+
+    void updateIndicator(int resultIndex, int totalResultSize) {
+        mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", resultIndex, totalResultSize);
         UIContext.bottomSearchedIndicateProp.set(mSearchParamAndIndicatorParam.indicator);
     }
 

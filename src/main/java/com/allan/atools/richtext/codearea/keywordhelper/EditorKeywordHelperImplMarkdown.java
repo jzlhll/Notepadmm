@@ -93,6 +93,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
             "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value"
     };
+    private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
     private final HashMap<Integer, Set<String>> styleClassAndSetMap = new HashMap<>();
 
@@ -190,14 +191,21 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private Collection<String> activeStyles(int activeMask) {
         if (activeMask == 0) {
-            return Collections.emptyList();
+            return DEFAULT_TEXT_STYLE;
         }
         return styleClassAndSetMap.computeIfAbsent(activeMask, mask -> {
             var styles = new HashSet<String>();
+            boolean hasTextColorStyle = false;
             for (int styleId = 0; styleId < STYLE_COUNT; styleId++) {
                 if ((mask & (1 << styleId)) != 0) {
                     styles.add(STYLE_CLASSES[styleId]);
+                    if (styleId <= STYLE_IMAGE || styleId >= STYLE_CODE_KEYWORD) {
+                        hasTextColorStyle = true;
+                    }
                 }
+            }
+            if (!hasTextColorStyle) {
+                styles.addAll(DEFAULT_TEXT_STYLE);
             }
             return Set.copyOf(styles);
         });

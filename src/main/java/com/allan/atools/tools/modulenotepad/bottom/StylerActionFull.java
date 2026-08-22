@@ -1,6 +1,5 @@
 package com.allan.atools.tools.modulenotepad.bottom;
 
-import com.allan.atools.UIContext;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.tools.modulenotepad.local.StyleCreator;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
@@ -39,17 +38,18 @@ final class StylerActionFull extends StylerAction {
             });
         } else {
             //走到这里说明是empty
-            if (isLastEmpty) {
-                if (Styler.DEBUG_STYLER) Log.d("Styler: ignore last is empty!");
-                return;
-            }
-
             Platform.runLater(() -> {
                 if (flag != out.lastChangeSearchFlag.get()) {
                     if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed88 flag=" + flag);
                     return;
                 }
-                UIContext.bottomSearchedIndicateProp.set("0"); //TODO 由于这个search End Callback是综合了搜索和双击temprory搜索直接设置有点问题
+                if (clickType == BottomHandler.ClickType.Search) {
+                    out.updateIndicator(0, 0);
+                }
+                if (isLastEmpty) {
+                    if (Styler.DEBUG_STYLER) Log.d("Styler: ignore last is empty!");
+                    return;
+                }
                 var len = area.getLength();
                 if (len > 0) {
                     if(Styler.DEBUG_STYLER) Log.w(">>>>>set style initialTextStyle " + len + "<<<<< last is empty: " + isLastEmpty);

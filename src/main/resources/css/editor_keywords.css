@@ -48,7 +48,3 @@
 }
 
 /* markdown 语法样式已抽取至 editor_markdown.css */
-
-.paragraph-box:has-caret {
-    -fx-background-color: #f2f9fc;
-}

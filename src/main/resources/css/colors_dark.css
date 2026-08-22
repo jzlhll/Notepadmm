@@ -48,32 +48,32 @@
     -au-editor-searched-bg-color: #515b70;
     -au-editor-search-temp-bg-color: #d6eaff;
 
-    /*allan markdown 皮肤深色覆盖（浅色默认值见 editor_markdown.css）*/
-    -au-md-title-1: #d0a0e8;
-    -au-md-title-2: #c493de;
-    -au-md-title-3: #b886d4;
-    -au-md-title-4: #ac79ca;
-    -au-md-title-5: #a06cc0;
-    -au-md-code-bg: #1e2630;
-    -au-md-code-fill: #6fdbe2;
-    -au-md-inline-code-bg: #1f353d;
-    -au-md-inline-code-fill: #7fd9e0;
-    /* 代码块内语言 token 色（VSCode Dark+ 风） */
-    -au-md-code-keyword: #569cd6;
-    -au-md-code-string: #ce9178;
-    -au-md-code-comment: #6a9955;
-    -au-md-code-punct: #d4d4d4;
-    -au-md-code-tag: #569cd6;
-    -au-md-code-tagmark: #808080;
-    -au-md-code-attribute: #9cdcfe;
-    -au-md-code-attribute-value: #ce9178;
-    -au-md-table-mark: #566070;
-    -au-md-quote: #9aa4b2;
-    -au-md-list: #5fc9dc;
-    -au-md-link: #6cb6ff;
-    -au-md-image: #c084fc;
-    -au-md-image-frame-border: #3a424d;
-    -au-md-image-placeholder-fill: #9aa4b2;
+    /* allan markdown 皮肤深色覆盖（统一为低饱和 GitHub Dark 风格） */
+    -au-md-title-1: #d2a8ff;
+    -au-md-title-2: #c89bf5;
+    -au-md-title-3: #bd8fea;
+    -au-md-title-4: #b283df;
+    -au-md-title-5: #a777d4;
+    -au-md-code-bg: #1b1f24;
+    -au-md-code-fill: #e6edf3;
+    -au-md-inline-code-bg: #262b32;
+    -au-md-inline-code-fill: #e6edf3;
+    /* 代码块内语言 token 色 */
+    -au-md-code-keyword: #ff7b72;
+    -au-md-code-string: #a5d6ff;
+    -au-md-code-comment: #8b949e;
+    -au-md-code-punct: #e6edf3;
+    -au-md-code-tag: #7ee787;
+    -au-md-code-tagmark: #8b949e;
+    -au-md-code-attribute: #d2a8ff;
+    -au-md-code-attribute-value: #a5d6ff;
+    -au-md-table-mark: #484f58;
+    -au-md-quote: #8b949e;
+    -au-md-list: #ffa657;
+    -au-md-link: #58a6ff;
+    -au-md-image: #d2a8ff;
+    -au-md-image-frame-border: #30363d;
+    -au-md-image-placeholder-fill: #8b949e;
 
     -au-small-button-bg-color: #444443;
 

@@ -61,7 +61,10 @@ public final class ColorPickerUtil {
             }
         }
 
-        throw new RuntimeException(" get offset is null");
+        var color = Color.web("#" + _6StrColor);
+        var matchedColor = color.getBrightness() > 0.5 ? color.darker() : color.brighter();
+        var textColor = matchedColor.getBrightness() > 0.5 ? Color.BLACK : Color.WHITE;
+        return new Color[]{matchedColor, textColor};
     }
 
     public static double[] preDefColors() {
