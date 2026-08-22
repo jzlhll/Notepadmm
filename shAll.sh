@@ -35,8 +35,18 @@ echo "请选择需要编译的 macOS 架构："
 echo "0) 当前电脑平台：${current_arch}（直接回车默认选此项）"
 echo "1) ARM（Apple Silicon）"
 echo "2) Intel（x64）"
-printf "请输入 0、1 或 2 [默认 0]："
-read -r architecture
+
+# 倒计时 8 秒，期间可随时输入；超时或直接回车则默认执行 0
+architecture=""
+seconds_left=8
+while [ "$seconds_left" -gt 0 ]; do
+    printf "\r请输入 0、1 或 2 [默认 0]（%d 秒后自动执行 0）：" "$seconds_left"
+    if read -t 1 -r architecture; then
+        break
+    fi
+    seconds_left=$((seconds_left - 1))
+done
+printf "\r%*s\r" 60 ""
 architecture="${architecture:-0}"
 
 case "$architecture" in
@@ -64,13 +74,25 @@ esac
 
 echo ""
 echo "========== Gradle 编译完成 =========="
+echo ""
+echo ""
 echo "请选择是否执行 buildRoot 下的脚本："
-echo "0) 不执行（直接回车默认选此项）"
-echo "1) 执行 copyToApplications.sh"
+echo "0) 不执行"
+echo "1) 执行 copyToApplications.sh（直接回车默认选此项）"
 echo "2) 执行 jpackageCmd.sh"
-printf "请输入 0、1 或 2 [默认 0]："
-read -r build_action
-build_action="${build_action:-0}"
+
+# 倒计时 8 秒，期间可随时输入；超时或直接回车则默认执行 1
+build_action=""
+seconds_left=8
+while [ "$seconds_left" -gt 0 ]; do
+    printf "\r请输入 0、1 或 2 [默认 1]（%d 秒后自动执行 1）：" "$seconds_left"
+    if read -t 1 -r build_action; then
+        break
+    fi
+    seconds_left=$((seconds_left - 1))
+done
+printf "\r%*s\r" 60 ""
+build_action="${build_action:-1}"
 
 case "$build_action" in
     0)
