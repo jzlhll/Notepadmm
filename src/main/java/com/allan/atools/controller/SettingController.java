@@ -44,6 +44,7 @@ public final class SettingController extends AbstractController {
     public JFXToggleButton resultAreaInNewBtn;
     public JFXToggleButton resultIfHasNumBtn;
     public JFXToggleButton editorLineNumberVisibleBtn;
+    public JFXToggleButton editorChinesePunctuationBtn;
     public JFXToggleButton visionBtn;
     public JFXToggleButton hdScreenBtn2;
     public JFXToggleButton cycleNextBtn;
@@ -277,6 +278,11 @@ public final class SettingController extends AbstractController {
         editorLineNumberVisibleBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.editorLineNumberVisibleKey));
         editorLineNumberVisibleBtn.selectedProperty().addListener((observableValue, oldValue, newValue) -> {
             SettingPreferences.updateBool(SettingPreferences.editorLineNumberVisibleKey, newValue);
+        });
+
+        editorChinesePunctuationBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey));
+        editorChinesePunctuationBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
+            SettingPreferences.updateBool(SettingPreferences.editorChinesePunctuationKey, newValue);
         });
 
         var newFileDirLinkText = SettingPreferences.getStr(SettingPreferences.newFileDirKey);

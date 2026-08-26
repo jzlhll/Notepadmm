@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea;
 
+import com.allan.atools.SettingPreferences;
 import com.allan.atools.text.IEditorAreaState;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.utils.ReflectionUtils;
@@ -17,6 +18,8 @@ final class EditorAreaState implements IEditorAreaState {
 
     private boolean isReadonly = false;
     private boolean isWrap = false;
+    // tab 打开时快照一次全局"输入法中文标点"开关，之后仅影响本 tab
+    private boolean isChinesePunctuation = SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey);
 
     private String fileEncoding;
     @Override
@@ -39,6 +42,16 @@ final class EditorAreaState implements IEditorAreaState {
     @Override
     public boolean isWrap() {
         return isWrap;
+    }
+
+    @Override
+    public boolean isChinesePunctuation() {
+        return isChinesePunctuation;
+    }
+
+    @Override
+    public void setChinesePunctuation(boolean chinesePunctuation) {
+        isChinesePunctuation = chinesePunctuation;
     }
 
     @Override

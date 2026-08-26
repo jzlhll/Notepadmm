@@ -7,6 +7,9 @@ public interface IEditorAreaState {
     boolean isWrap();
     void setWrap(boolean wrap);
 
+    boolean isChinesePunctuation();
+    void setChinesePunctuation(boolean chinesePunctuation);
+
     void setFileEncoding(String fileEncoding);
 
     String getFileEncoding();

@@ -19,9 +19,32 @@
             prefHeight="650" prefWidth="650">
     <VBox minWidth="0">
         <!--- 第1部分 -->
+        <Label text="%setting.mainUiSize" styleClass="normal-label">
+            <VBox.margin>
+                <Insets left="3" top="20"/>
+            </VBox.margin>
+        </Label>
+        <HBox>
+            <JFXRadioButton fx:id="mainUiSizeDefaultBtn" text="%setting.mainUiSizeDefault">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="mainUiSizeLargeBtn" text="%setting.mainUiSizeLarge">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+            <JFXRadioButton fx:id="mainUiSizeLargerBtn" text="%setting.mainUiSizeLarger">
+                <HBox.margin>
+                    <Insets left="20" top="5"/>
+                </HBox.margin>
+            </JFXRadioButton>
+        </HBox>
+
         <HBox>
             <VBox.margin>
-                <Insets top="20" left="6"/>
+                <Insets top="28" left="6"/>
             </VBox.margin>
             <Label text="%setting.language" styleClass="normal-label">
             </Label>
@@ -32,6 +55,12 @@
                 </HBox.margin>
             </JFXComboBox>
         </HBox>
+
+        <JFXToggleButton fx:id="visionBtn" text="%setting.visionname">
+            <VBox.margin>
+                <Insets top="12" left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
 
         <Label text="%setting.newfileDirName" styleClass="normal-label">
             <VBox.margin>
@@ -74,41 +103,6 @@
             </Hyperlink>
         </HBox>
 
-        <Label text="%setting.mainUiSize" styleClass="normal-label">
-            <VBox.margin>
-                <Insets left="3" top="12"/>
-            </VBox.margin>
-        </Label>
-        <HBox>
-            <JFXRadioButton fx:id="mainUiSizeDefaultBtn" text="%setting.mainUiSizeDefault">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-            <JFXRadioButton fx:id="mainUiSizeLargeBtn" text="%setting.mainUiSizeLarge">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-            <JFXRadioButton fx:id="mainUiSizeLargerBtn" text="%setting.mainUiSizeLarger">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-        </HBox>
-
-        <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
-            <VBox.margin>
-                <Insets left="4" top="5"/>
-            </VBox.margin>
-        </JFXToggleButton>
-
-        <JFXToggleButton fx:id="autoSaveOnExitBtn" text="%setting.autoSaveOnExit" selected="true">
-            <VBox.margin>
-                <Insets left="4" top="-8"/>
-            </VBox.margin>
-        </JFXToggleButton>
-
         <!--- 第2部分 -->
         <Separator styleClass="full-width-separator" prefHeight="1">
             <VBox.margin>
@@ -129,6 +123,12 @@
         </JFXToggleButton>
 
         <JFXToggleButton fx:id="editorLineNumberVisibleBtn" text="%setting.showEditorLineNum" selected="true">
+            <VBox.margin>
+                <Insets top="-12" left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="editorChinesePunctuationBtn" text="%setting.chinesePunctuation">
             <VBox.margin>
                 <Insets top="-12" left="4"/>
             </VBox.margin>
@@ -178,9 +178,15 @@
             </VBox.margin>
         </Label>
 
-        <JFXToggleButton fx:id="visionBtn" text="%setting.visionname">
+        <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
             <VBox.margin>
-                <Insets left="4" />
+                <Insets left="4"/>
+            </VBox.margin>
+        </JFXToggleButton>
+
+        <JFXToggleButton fx:id="autoSaveOnExitBtn" text="%setting.autoSaveOnExit" selected="true">
+            <VBox.margin>
+                <Insets top="-8" left="4"/>
             </VBox.margin>
         </JFXToggleButton>
 

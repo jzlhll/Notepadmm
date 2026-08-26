@@ -36,9 +36,9 @@ echo "0) 当前电脑平台：${current_arch}（直接回车默认选此项）"
 echo "1) ARM（Apple Silicon）"
 echo "2) Intel（x64）"
 
-# 倒计时 8 秒，期间可随时输入；超时或直接回车则默认执行 0
+# 倒计时 5 秒，期间可随时输入；超时或直接回车则默认执行 0
 architecture=""
-seconds_left=8
+seconds_left=5
 while [ "$seconds_left" -gt 0 ]; do
     printf "\r请输入 0、1 或 2 [默认 0]（%d 秒后自动执行 0）：" "$seconds_left"
     if read -t 1 -r architecture; then
@@ -81,9 +81,9 @@ echo "0) 不执行"
 echo "1) 执行 copyToApplications.sh（直接回车默认选此项）"
 echo "2) 执行 jpackageCmd.sh"
 
-# 倒计时 8 秒，期间可随时输入；超时或直接回车则默认执行 1
+# 倒计时 5 秒，期间可随时输入；超时或直接回车则默认执行 1
 build_action=""
-seconds_left=8
+seconds_left=5
 while [ "$seconds_left" -gt 0 ]; do
     printf "\r请输入 0、1 或 2 [默认 1]（%d 秒后自动执行 1）：" "$seconds_left"
     if read -t 1 -r build_action; then

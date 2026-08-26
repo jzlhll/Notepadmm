@@ -108,6 +108,7 @@ public final class NotepadController extends AbstractMainController {
 
     public Label notepadMainEncodeLabel;
     public Label notepadReadonlyCheckBtn;
+    public Label notepadPunctuationCheckBtn;
     public HBox notepadMainBottomBox;
     public Region workspaceBottomExtension;
     public StackPane mainPane;
@@ -468,7 +469,6 @@ public final class NotepadController extends AbstractMainController {
         super.init(stage);
         new MainWindowChrome(stage, notepadRoot, notepadMainHeadBox,
                 notepadWindowCloseBtn, notepadWindowMinBtn, notepadWindowMaxBtn);
-        setIsDecorate();
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22, 0));
         mainPane.getChildren().remove(snackContainer);
 
@@ -604,6 +604,7 @@ public final class NotepadController extends AbstractMainController {
 
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, newValue.getEditor().getState().isWrap());
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
+                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, newValue.getEditor().getState().isChinesePunctuation());
                     jsonPopBtn.setVisible(true);
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
@@ -611,6 +612,7 @@ public final class NotepadController extends AbstractMainController {
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, null);
                     jsonPopBtn.setVisible(false);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
+                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, null);
                 }
             });
 
@@ -675,6 +677,16 @@ public final class NotepadController extends AbstractMainController {
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, s);
                 }
             });
+
+            // 标点按钮：切换本 tab 的中文标点效果，初始值来自 tab 打开时快照的全局设置
+            notepadPunctuationCheckBtn.setOnMouseClicked(ev -> {
+                var curArea = UIContext.currentAreaProp.get();
+                if (curArea != null) {
+                    var checked = !curArea.getEditor().getState().isChinesePunctuation();
+                    curArea.getEditor().getState().setChinesePunctuation(checked);
+                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, checked);
+                }
+            });
         }
     }
 
@@ -700,14 +712,16 @@ public final class NotepadController extends AbstractMainController {
         requestFocus4Jfoenix();
     }
 
-    private boolean isDecorate = false;
-    public void setIsDecorate() {
-        isDecorate = true;
-    }
     /**
-     * jfoenix必须在某些情况下，失去焦点；避免JFXDecorator获取到效果。
+     * 窗口重新聚焦、隐藏工作区、tab 全部关闭等场景下归还焦点：
+     * 有当前编辑器时交给编辑器（保证切回窗口可直接键入），否则回退到主面板。
      */
     public void requestFocus4Jfoenix() {
-        if(isDecorate) mainPane.requestFocus();
+        EditorArea area = UIContext.currentAreaProp.get();
+        if (area != null) {
+            area.requestFocus();
+        } else {
+            mainPane.requestFocus();
+        }
     }
 }

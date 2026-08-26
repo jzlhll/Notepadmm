@@ -278,6 +278,12 @@
             </HBox.margin>
             <Label fx:id="notepadReadonlyCheckBtn" text="%setting.readonly" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
         </JFXRippler>
+        <JFXRippler styleClass="jfx-rippler">
+            <HBox.margin>
+                <Insets right="2"/>
+            </HBox.margin>
+            <Label fx:id="notepadPunctuationCheckBtn" text="%setting.chinesePunctuationShort" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+        </JFXRippler>
         <JFXRippler styleClass="jfx-rippler" maxWidth="80" minWidth="40">
             <HBox.margin>
                 <Insets right="6"/>
