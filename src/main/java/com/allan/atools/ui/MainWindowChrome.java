@@ -7,7 +7,6 @@ import javafx.scene.Parent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Region;
-import javafx.scene.shape.Rectangle;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -16,7 +15,6 @@ import javafx.stage.WindowEvent;
 /** 主窗口自绘标题栏的移动、缩放与窗口按钮行为。 */
 public final class MainWindowChrome {
     private static final double RESIZE_MARGIN = 5;
-    private static final double WINDOW_CLIP_ARC = 32;
 
     private final Stage stage;
     private final Region root;
@@ -42,13 +40,6 @@ public final class MainWindowChrome {
         this.stage = stage;
         this.root = root;
         this.header = header;
-
-        Rectangle windowClip = new Rectangle();
-        windowClip.widthProperty().bind(root.widthProperty());
-        windowClip.heightProperty().bind(root.heightProperty());
-        windowClip.setArcWidth(WINDOW_CLIP_ARC);
-        windowClip.setArcHeight(WINDOW_CLIP_ARC);
-        root.setClip(windowClip);
 
         closeButton.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
@@ -85,11 +76,6 @@ public final class MainWindowChrome {
         if (event.getButton() != MouseButton.PRIMARY || isHeaderAction(event.getTarget())) {
             return;
         }
-        if (maximized) {
-            restoreForDrag(event);
-        } else if (stage.isMaximized()) {
-            stage.setMaximized(false);
-        }
         rememberStageBounds(event);
         moving = true;
     }
@@ -98,21 +84,47 @@ public final class MainWindowChrome {
         if (!moving || resizing || stage.isFullScreen()) {
             return;
         }
+        if (!event.isPrimaryButtonDown()) {
+            //释放事件丢失时的兜底，避免移动状态卡死
+            moving = false;
+            return;
+        }
+        if (maximized) {
+            //真正发生拖动时才还原，避免双击第一下按下就误触发还原
+            restoreForDrag(event);
+            rememberStageBounds(event);
+        } else if (stage.isMaximized()) {
+            stage.setMaximized(false);
+            rememberStageBounds(event);
+        }
         stage.setX(pressedStageX + event.getScreenX() - pressedScreenX);
         stage.setY(pressedStageY + event.getScreenY() - pressedScreenY);
         event.consume();
     }
 
     private void onHeaderClicked(MouseEvent event) {
-        if (event.getButton() == MouseButton.PRIMARY
-                && event.getClickCount() == 2
-                && !isHeaderAction(event.getTarget())) {
-            toggleMaximized();
-            event.consume();
+        if (event.getButton() != MouseButton.PRIMARY
+                || event.getClickCount() != 2
+                || !event.isStillSincePress()
+                || isHeaderAction(event.getTarget())) {
+            return;
         }
+        //靠近窗口边缘的双击属于缩放热区，不触发最大化
+        if (event.getSceneX() <= RESIZE_MARGIN
+                || event.getSceneX() >= root.getWidth() - RESIZE_MARGIN
+                || event.getSceneY() <= RESIZE_MARGIN) {
+            return;
+        }
+        toggleMaximized();
+        event.consume();
     }
 
     private void onRootMoved(MouseEvent event) {
+        if (resizing || moving) {
+            //MOUSE_MOVED 只有在无按键按下时才会派发，到达这里说明释放事件丢失了，重置拖拽状态
+            resizing = false;
+            moving = false;
+        }
         if (isMaximized() || stage.isFullScreen() || !stage.isResizable()) {
             resizeCursor = Cursor.DEFAULT;
         } else {
@@ -122,7 +134,11 @@ public final class MainWindowChrome {
     }
 
     private void onRootPressed(MouseEvent event) {
-        if (event.getButton() != MouseButton.PRIMARY || Cursor.DEFAULT.equals(resizeCursor)) {
+        if (event.getButton() != MouseButton.PRIMARY) {
+            return;
+        }
+        if (Cursor.DEFAULT.equals(resizeCursor)) {
+            resizing = false;
             return;
         }
         rememberStageBounds(event);
@@ -135,37 +151,85 @@ public final class MainWindowChrome {
         if (!resizing || isMaximized() || stage.isFullScreen()) {
             return;
         }
+        if (!event.isPrimaryButtonDown()) {
+            //释放事件丢失时的兜底，避免缩放状态卡死
+            resizing = false;
+            return;
+        }
 
         double deltaX = event.getScreenX() - pressedScreenX;
         double deltaY = event.getScreenY() - pressedScreenY;
+        if (Double.isNaN(deltaX) || Double.isNaN(deltaY)) {
+            return;
+        }
         double minWidth = Math.max(stage.getMinWidth(), 1);
         double minHeight = Math.max(stage.getMinHeight(), 1);
 
-        if (Cursor.E_RESIZE.equals(resizeCursor)
+        boolean east = Cursor.E_RESIZE.equals(resizeCursor)
                 || Cursor.NE_RESIZE.equals(resizeCursor)
-                || Cursor.SE_RESIZE.equals(resizeCursor)) {
-            stage.setWidth(Math.max(minWidth, pressedStageWidth + deltaX));
-        }
-        if (Cursor.S_RESIZE.equals(resizeCursor)
+                || Cursor.SE_RESIZE.equals(resizeCursor);
+        boolean south = Cursor.S_RESIZE.equals(resizeCursor)
                 || Cursor.SE_RESIZE.equals(resizeCursor)
-                || Cursor.SW_RESIZE.equals(resizeCursor)) {
-            stage.setHeight(Math.max(minHeight, pressedStageHeight + deltaY));
-        }
-        if (Cursor.W_RESIZE.equals(resizeCursor)
+                || Cursor.SW_RESIZE.equals(resizeCursor);
+        boolean west = Cursor.W_RESIZE.equals(resizeCursor)
                 || Cursor.NW_RESIZE.equals(resizeCursor)
-                || Cursor.SW_RESIZE.equals(resizeCursor)) {
-            double width = Math.max(minWidth, pressedStageWidth - deltaX);
-            stage.setX(pressedStageX + pressedStageWidth - width);
-            stage.setWidth(width);
-        }
-        if (Cursor.N_RESIZE.equals(resizeCursor)
+                || Cursor.SW_RESIZE.equals(resizeCursor);
+        boolean north = Cursor.N_RESIZE.equals(resizeCursor)
                 || Cursor.NE_RESIZE.equals(resizeCursor)
-                || Cursor.NW_RESIZE.equals(resizeCursor)) {
-            double height = Math.max(minHeight, pressedStageHeight - deltaY);
-            stage.setY(pressedStageY + pressedStageHeight - height);
-            stage.setHeight(height);
+                || Cursor.NW_RESIZE.equals(resizeCursor);
+
+        double newWidth = pressedStageWidth;
+        double newHeight = pressedStageHeight;
+        if (east) {
+            newWidth = pressedStageWidth + deltaX;
         }
+        if (south) {
+            newHeight = pressedStageHeight + deltaY;
+        }
+        if (west) {
+            newWidth = pressedStageWidth - deltaX;
+        }
+        if (north) {
+            newHeight = pressedStageHeight - deltaY;
+        }
+
+        newWidth = Math.max(minWidth, newWidth);
+        newHeight = Math.max(minHeight, newHeight);
+
+        double newX = pressedStageX;
+        double newY = pressedStageY;
+        if (west) {
+            newX = pressedStageX + pressedStageWidth - newWidth;
+        }
+        if (north) {
+            newY = pressedStageY + pressedStageHeight - newHeight;
+        }
+
+        //限制在当前屏幕可视区域内，窗口不允许缩放到屏幕外
+        Rectangle2D bounds = currentScreenBounds();
+        newWidth = Math.min(newWidth, bounds.getWidth());
+        newHeight = Math.min(newHeight, bounds.getHeight());
+        if (west) {
+            newX = pressedStageX + pressedStageWidth - newWidth;
+        }
+        if (north) {
+            newY = pressedStageY + pressedStageHeight - newHeight;
+        }
+        newX = Math.min(Math.max(newX, bounds.getMinX()), bounds.getMaxX() - newWidth);
+        newY = Math.min(Math.max(newY, bounds.getMinY()), bounds.getMaxY() - newHeight);
+
+        stage.setX(newX);
+        stage.setY(newY);
+        stage.setWidth(newWidth);
+        stage.setHeight(newHeight);
         event.consume();
+    }
+
+    private Rectangle2D currentScreenBounds() {
+        var screens = Screen.getScreensForRectangle(
+                stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
+        Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
+        return screen.getVisualBounds();
     }
 
     private Cursor resolveResizeCursor(double x, double y) {

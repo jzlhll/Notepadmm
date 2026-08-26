@@ -5,7 +5,6 @@
 
 .main-window-root {
    -fx-background-color: -au-main-bg-color;
-   -fx-background-radius: 16;
 }
 
 .custom-main-bg2 {
