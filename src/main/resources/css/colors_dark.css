@@ -22,6 +22,8 @@
 
     -au-main-bg-color: #313337;
     -au-main-bg-color2: #3a3d3f;
+    /*allan 主窗口边框色*/
+    -au-main-window-border-color: #3f4246;
     -au-workspace-bg-color: #383a3e;
     -au-main-floating-color: #050505ee;
 

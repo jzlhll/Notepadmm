@@ -5,6 +5,8 @@
 
 .main-window-root {
    -fx-background-color: -au-main-bg-color;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-width: 2;
 }
 
 .custom-main-bg2 {
