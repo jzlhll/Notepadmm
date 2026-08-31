@@ -1,5 +1,6 @@
 package com.allan.atools.ui;
 
+import javafx.collections.ListChangeListener;
 import javafx.event.EventTarget;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Cursor;
@@ -57,7 +58,9 @@ public final class MainWindowChrome {
         root.addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
         root.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
         root.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> finishDrag());
+        root.addEventFilter(MouseEvent.MOUSE_CLICKED, this::onMouseClicked);
         stage.addEventHandler(WindowEvent.WINDOW_SHOWN, event -> ensureWindowVisible());
+        Screen.getScreens().addListener((ListChangeListener<Screen>) change -> onScreensChanged());
     }
 
     private void onMouseMoved(MouseEvent event) {
@@ -105,6 +108,18 @@ public final class MainWindowChrome {
         } else {
             resizeWindow(event);
         }
+        event.consume();
+    }
+
+    private void onMouseClicked(MouseEvent event) {
+        if (event.getButton() != MouseButton.PRIMARY
+                || event.getClickCount() != 2
+                || !event.isStillSincePress()
+                || !isDraggableHeaderTarget(event.getTarget())
+                || resolveResizeMode(event.getSceneX(), event.getSceneY()) != DragMode.NONE) {
+            return;
+        }
+        toggleMaximized();
         event.consume();
     }
 
@@ -224,6 +239,17 @@ public final class MainWindowChrome {
                 bounds.getMinX(), bounds.getMinY(), bounds.getWidth(), bounds.getHeight()));
     }
 
+    private void onScreensChanged() {
+        finishDrag();
+        if (maximized) {
+            Rectangle2D bounds = screenForWindow().getVisualBounds();
+            applyBounds(new WindowBounds(
+                    bounds.getMinX(), bounds.getMinY(), bounds.getWidth(), bounds.getHeight()));
+        } else {
+            ensureWindowVisible();
+        }
+    }
+
     private void ensureWindowVisible() {
         if (maximized || stage.isFullScreen()) {
             return;
@@ -255,8 +281,12 @@ public final class MainWindowChrome {
         } else if (newY > maxY) {
             newY = maxY;
         }
-        stage.setX(newX);
-        stage.setY(newY);
+        if (Double.compare(stage.getX(), newX) != 0) {
+            stage.setX(newX);
+        }
+        if (Double.compare(stage.getY(), newY) != 0) {
+            stage.setY(newY);
+        }
     }
 
     private Screen screenContaining(double x, double y) {
