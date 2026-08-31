@@ -63,4 +63,9 @@ public final class AToolsApplication extends Application{
         }
     }
 
+    @Override
+    public void stop() {
+        ATools.shutdownApplication();
+    }
+
 }

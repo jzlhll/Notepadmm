@@ -114,10 +114,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
 
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> UIContext.focus.notifyMainStageFocusChanged(newValue));
 
-        stage.setOnCloseRequest(event -> {
-            mainController.destroy();
-            ATools.shutdownAfterMainWindowClosed();
-        });
+        stage.setOnCloseRequest(event -> ATools.shutdownApplication());
     }
 
     @Override

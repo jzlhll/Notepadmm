@@ -16,10 +16,12 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ATools {
     public static volatile String[] sInitArgs;
     public static volatile boolean isArgsInit;
+    private static final AtomicBoolean sApplicationShutdownStarted = new AtomicBoolean(false);
 
     private static void onMacOpenFiles(List<File> files) {
         if (ThreadUtils.sBeClosing || files == null || files.isEmpty()) {
@@ -74,12 +76,25 @@ public final class ATools {
         }
     }
 
-    public static void shutdownAfterMainWindowClosed() {
+    public static void shutdownApplication() {
+        if (!sApplicationShutdownStarted.compareAndSet(false, true)) {
+            return;
+        }
+        var mainController = UIContext.mainController;
+        if (mainController != null) {
+            mainController.destroy();
+        }
+        shutdownAfterMainWindowClosed();
+    }
+
+    private static void shutdownAfterMainWindowClosed() {
         if (ResLocation.isOsx) {
             try {
-                Desktop.getDesktop().setOpenFileHandler(null);
+                var desktop = Desktop.getDesktop();
+                desktop.setOpenFileHandler(null);
+                desktop.setQuitHandler(null);
             } catch (RuntimeException e) {
-                Log.e("startup: clear macOS open file handler failed", e);
+                Log.e("startup: clear macOS application handlers failed", e);
             }
             ThreadUtils.shutdownAndExitProcess();
             return;
@@ -123,12 +138,23 @@ public final class ATools {
         // 而mac需要通过openFileHandler来做。Application.getApplication().setOpenFileHandler((AppEvent.OpenFilesEvent
         //而javafx，我找到了如下的代码
         if (ResLocation.isOsx) { //todo 验证windows 是不是不会触发
-            Desktop.getDesktop().setOpenFileHandler(e -> {
+            var desktop = Desktop.getDesktop();
+            desktop.setOpenFileHandler(e -> {
                 isArgsInit = true;
                 if (e != null) {
                     var files = e.getFiles();
                     Log.e("startup: open file handler received files, count: " + files.size());
                     onMacOpenFiles(files);
+                }
+            });
+            desktop.setQuitHandler((event, response) -> {
+                Log.e("startup: macOS quit requested");
+                try {
+                    Platform.runLater(ATools::shutdownApplication);
+                    response.cancelQuit();
+                } catch (IllegalStateException e) {
+                    Log.e("startup: JavaFX quit dispatch failed", e);
+                    response.performQuit();
                 }
             });
             //终端直接执行二进制（如 ATools file.txt）冷启动时，文件只会出现在命令行参数里；
