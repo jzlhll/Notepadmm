@@ -110,3 +110,27 @@ case "$build_action" in
         echo "输入无效，未执行任何脚本。"
         ;;
 esac
+
+app_path='/Applications/ATools.app'
+if [ ! -d "$app_path" ]; then
+    echo "错误: 找不到待启动的应用: $app_path"
+    exit 1
+fi
+
+cancel_restart() {
+    echo ""
+    echo "已取消结束和重启程序。"
+    exit 130
+}
+trap cancel_restart INT TERM
+
+echo ""
+echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
+sleep 3
+/usr/bin/pkill -x ATools 2>/dev/null || true
+
+echo "3 秒后重新打开 ATools，按 Ctrl+C 取消。"
+sleep 3
+/usr/bin/open "$app_path"
+
+trap - INT TERM
