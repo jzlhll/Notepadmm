@@ -1,14 +1,12 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.Colors;
-import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.controllerwindow.NotepadMultiSelectionWindow;
 import com.allan.atools.pop.impl.FontSizeChooseCreatorImpl;
 import com.allan.atools.pop.impl.NotepadFileCreatorImpl;
-import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.*;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.JfoenixDialogUtils;
@@ -16,7 +14,6 @@ import com.allan.atools.utils.Locales;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.jfoenix.controls.JFXPopup;
-import javafx.application.Platform;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
@@ -24,7 +21,6 @@ import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 
 import java.io.File;
-import java.util.Calendar;
 import java.util.Optional;
 
 public final class NotepadHeadButtons {
@@ -146,21 +142,15 @@ public final class NotepadHeadButtons {
     }
 
     public static void newATempFile(String baseDir) {
-        do {
-            if (baseDir != null && baseDir.length() > 0) {
-                var file = new File(baseDir);
-                if (file.exists() && file.isDirectory()) {
-                    createNewFile(file);
-                    break;
-                }
-            }
-            JfoenixDialogUtils.alert(Locales.str("notification"), Locales.str("pleaseSetNewFileDir"),
-                    () -> UIContext.context().openSettingDrawer());
-        } while(false);
+        var initialDirectory = baseDir == null ? null : new File(baseDir);
+        if (initialDirectory != null && !initialDirectory.isDirectory()) {
+            initialDirectory = null;
+        }
+        AllEditorsManager.Instance.newUntitledFile(initialDirectory);
     }
 
     public static void newATempFile() {
-        newATempFile(SettingPreferences.getStr(SettingPreferences.newFileDirKey));
+        AllEditorsManager.Instance.newUntitledFile(null);
     }
 
     private void loadDocument() {
@@ -193,35 +183,4 @@ public final class NotepadHeadButtons {
         }
     }
 
-    private static String newFileName(File dir) {
-        Calendar c = Calendar.getInstance();
-        int hour = c.get(Calendar.HOUR_OF_DAY);
-        int minute = c.get(Calendar.MINUTE);
-        int second = c.get(Calendar.SECOND);
-        var baseName = String.format("temp%02d_%02d_%02d", hour, minute, second);
-        var index = 0;
-        while (true) {
-            var fileName = index == 0 ? baseName + ".txt" : baseName + "_" + index + ".txt";
-            var file = new File(dir, fileName);
-            var hiddenFile = new File(dir, "." + fileName);
-            if (!file.exists() && !hiddenFile.exists()
-                    && AllEditorsManager.Instance.getAreaByFilePath(file) == null) {
-                return fileName;
-            }
-            index++;
-        }
-    }
-
-    private static void createNewFile(File dir) {
-        //TODO 目前是直接创建文件。后面修改为不创建。
-        String file = dir.getAbsolutePath();
-        if (!file.endsWith(File.separator)) {
-            file = file + File.separatorChar;
-        }
-
-        String finalFile = file + newFileName(dir);
-        ThreadUtils.globalHandler().postDelayedCheckClosed(()-> Platform.runLater(()-> {
-            AllEditorsManager.Instance.newFakeFile(new File(finalFile));
-        }), 200);
-    }
 }

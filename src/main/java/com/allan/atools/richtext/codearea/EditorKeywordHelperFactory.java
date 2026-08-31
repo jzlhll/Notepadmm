@@ -20,7 +20,11 @@ final class EditorKeywordHelperFactory {
 //    }
 
     static EditorKeywordHelperAbstract create(File file) {
-        return switch (sFilePathToExtension.invoke(file)) {
+        var extension = sFilePathToExtension.invoke(file);
+        if (extension == null) {
+            return null;
+        }
+        return switch (extension) {
             case "java" -> new EditorKeywordHelperImplJava();
             case "kotlin" -> new EditorKeywordHelperImplKotlin();
             case "markdown" -> new EditorKeywordHelperImplMarkdown();
@@ -33,10 +37,16 @@ final class EditorKeywordHelperFactory {
     }
 
     static ActionR<File, String> sFilePathToExtension = (file) -> {
+        if (file == null) {
+            return null;
+        }
         if(file.getName().equalsIgnoreCase("module-info.java")) {
             return "module-info";
         }
         int lastIndexOf = file.getName().lastIndexOf(".");
+        if (lastIndexOf < 0 || lastIndexOf == file.getName().length() - 1) {
+            return null;
+        }
         //获取文件的后缀名
         var suffix = file.getName().substring(lastIndexOf + 1);
         if (suffix.equalsIgnoreCase("java")) {

@@ -62,18 +62,6 @@
             </VBox.margin>
         </JFXToggleButton>
 
-        <Label text="%setting.newfileDirName" styleClass="normal-label">
-            <VBox.margin>
-                <Insets left="3" top="12"/>
-            </VBox.margin>
-        </Label>
-
-        <Hyperlink fx:id="newFileDirLink" prefWidth="400" prefHeight="30" styleClass="myhyperlink">
-            <VBox.margin>
-                <Insets left="25"/>
-            </VBox.margin>
-        </Hyperlink>
-
         <Label text="%setting.selectFont" styleClass="normal-label">
             <VBox.margin>
                 <Insets left="3" top="12"/>
@@ -181,12 +169,6 @@
         <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
             <VBox.margin>
                 <Insets left="4"/>
-            </VBox.margin>
-        </JFXToggleButton>
-
-        <JFXToggleButton fx:id="autoSaveOnExitBtn" text="%setting.autoSaveOnExit" selected="true">
-            <VBox.margin>
-                <Insets top="-8" left="4"/>
             </VBox.margin>
         </JFXToggleButton>
 

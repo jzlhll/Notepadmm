@@ -9,6 +9,7 @@ import com.allan.atools.text.FinderFactory;
 import com.allan.atools.text.IEditorAreaEx;
 import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.atools.threads.ThreadUtils;
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.modulenotepad.Highlight;
 import com.allan.atools.tools.modulenotepad.StaticsProf;
@@ -16,6 +17,9 @@ import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
+import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
+import com.allan.atools.tools.modulenotepad.session.SaveResult;
+import com.allan.atools.tools.modulenotepad.session.SessionCommitResult;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.utils.*;
@@ -35,10 +39,11 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
 import org.fxmisc.richtext.GenericStyledArea;
 import org.fxmisc.richtext.model.StyleSpans;
+import org.fxmisc.undo.UndoManager;
 import org.reactfx.Subscription;
 
 import java.awt.*;
@@ -46,12 +51,13 @@ import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collection;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -62,10 +68,15 @@ import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, Collection<String>>, ITextFindAndReplace {
     static final String TAG = "Editor";
 
-    private static final String TEMP_MASK_FILE = " *";
     private static final int MAX_LINE_COUNT_FOR_STYLE = 10000;
+    private static final ExecutorService SAVE_EXECUTOR = Executors.newFixedThreadPool(2, runnable -> {
+        var thread = new Thread(runnable, "editor-save-io");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private final EditorAreaState state;
+    private final EditorDocumentState documentState;
 
     @Override
     public IEditorAreaState getState() {
@@ -92,7 +103,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 }
             }
 
-            textHasChanged();
+            updateDirtyFromUndo();
         }
 
         @Override
@@ -262,7 +273,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         }
     }
 
-    private GenericStyledArea<Collection<String>, String, Collection<String>> area;
+    private EditorArea area;
 
     @Override
     public GenericStyledArea<Collection<String>, String, Collection<String>> getArea() {
@@ -275,9 +286,12 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     final BaseChanged<Action5<Integer, Integer, Integer, Integer, Integer>> caretPosChanged = new CaretPosChanged();
 
     private final EditorBaseFocus editorFocus = new EditorBaseFocus(this);
-    private File sourceFile;
     public File getSourceFile() {
-        return sourceFile;
+        return documentState.getSourceFile();
+    }
+
+    public EditorDocumentState getDocumentState() {
+        return documentState;
     }
 
     Tab tab;
@@ -285,11 +299,12 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return tab;
     }
 
-    private boolean mIsNotSaved = false;
-    private Object mLastNextUndo;
-    private final AtomicLong saveVersion = new AtomicLong();
     private final AtomicLong contentVersion = new AtomicLong();
-    private volatile Future<?> pendingSave;
+    private final Object saveLock = new Object();
+    private CompletableFuture<Void> saveChain = CompletableFuture.completedFuture(null);
+    private volatile CompletableFuture<SaveResult> pendingSave =
+            CompletableFuture.completedFuture(SaveResult.SUCCESS_CLEAN);
+    private boolean programmaticReplace;
     private volatile boolean mSourceFileSizeReachedStyleLimit;
     private volatile boolean mContentSizeReachedStyleLimit;
     private volatile boolean mLineCountReachedStyleLimit;
@@ -333,10 +348,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
      * 反射找出本tab的title tabLabel
      */
     private Label tabLabel;
-    private Button closeBtn;
-
-    private boolean isFake;
-    public boolean getIsFake() {return isFake;}
 
     private final ChangeListener<Boolean> lineNumberChanged = (observable, oldValue, newValue) ->
             updateLineNumberVisible(newValue);
@@ -363,16 +374,22 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
         editorFocus.removeFocusChanged();
 
-        tab = null;
+        if (area != null) {
+            EditorSessionManager.getInstance().onDestroyed(area);
+        }
 
-        UIContext.allOpenedFileList.remove(sourceFile);
-        sourceFile = null;
+        var sourceFile = getSourceFile();
+        if (sourceFile != null) {
+            UIContext.allOpenedFileList.remove(sourceFile);
+        }
+
+        tab = null;
         area = null;
     }
 
     @Override
     public boolean isDestroyed() {
-        return area == null || sourceFile == null;
+        return area == null || tab == null;
     }
 
     private enum ConfirmStat {
@@ -383,171 +400,343 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private ConfirmStat mConfirmStat = ConfirmStat.Normal;
 
     public void closeTab() {
-        Optional.ofNullable(closeBtn).ifPresent(Button::fire);
+        requestClose();
     }
 
-    EditorAreaMgr(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
-        this.sourceFile = sourceFile;
+    public void requestClose() {
+        if (mConfirmStat != ConfirmStat.Normal || isDestroyed()) {
+            return;
+        }
+        mConfirmStat = ConfirmStat.DialogOpened;
+        if (!documentState.isDirty()) {
+            closeAfterCommit(EditorSessionManager.getInstance().untrackAndCommit(area));
+            return;
+        }
+        JfoenixDialogUtils.confirm(Locales.ALERT(),
+                Locales.str("ifUwantCloseIt").replace("%s", documentState.getDisplayName()),
+                0, 0,
+                new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
+                        Locales.str("save"), () -> save().whenComplete((saveResult, throwable) ->
+                                Platform.runLater(() -> {
+                                    if (throwable == null && saveResult == SaveResult.SUCCESS_CLEAN) {
+                                        closeAfterCommit(EditorSessionManager.getInstance()
+                                                .untrackAndCommit(area));
+                                    } else {
+                                        mConfirmStat = ConfirmStat.Normal;
+                                        if (throwable != null) {
+                                            JfoenixDialogUtils.alert(Locales.ALERT(),
+                                                    Locales.str("saveFileFailed"));
+                                        }
+                                    }
+                                }))),
+                new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Extra,
+                        Locales.str("notSave"), () -> closeAfterCommit(
+                                EditorSessionManager.getInstance().untrackAndCommit(area))),
+                new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
+                        null, () -> mConfirmStat = ConfirmStat.Normal));
+    }
+
+    /** 会话提交成功后关闭标签；失败则恢复确认状态并提示。 */
+    private void closeAfterCommit(CompletionStage<SessionCommitResult> commit) {
+        commit.whenComplete((commitResult, throwable) -> Platform.runLater(() -> {
+            if (throwable == null && commitResult == SessionCommitResult.SUCCESS) {
+                closeWithoutConfirm();
+            } else {
+                mConfirmStat = ConfirmStat.Normal;
+                JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("sessionWriteFailed"));
+            }
+        }));
+    }
+
+    private void closeWithoutConfirm() {
+        mConfirmStat = ConfirmStat.Normal;
+        AllEditorsManager.Instance.closeTabImmediately(tab);
+    }
+
+    EditorAreaMgr(EditorArea area, File sourceFile, Tab tab,
+                  EditorDocumentState restoredState) {
+        documentState = restoredState != null
+                ? restoredState
+                : sourceFile == null
+                ? EditorDocumentState.untitled(
+                        "New", null,
+                        StandardCharsets.UTF_8.name())
+                : EditorDocumentState.named(sourceFile, StandardCharsets.UTF_8.name());
+        sourceFile = documentState.getSourceFile();
         int maxRealtimeProcessingSize = StaticsProf.getMaxFileSizeForStyle();
-        mSourceFileSizeReachedStyleLimit = !isFake
+        mSourceFileSizeReachedStyleLimit = sourceFile != null
                 && sourceFile.length() >= maxRealtimeProcessingSize;
         mContentSizeReachedStyleLimit = area.getLength() >= maxRealtimeProcessingSize;
         mLineCountReachedStyleLimit = area.getParagraphs().size() >= MAX_LINE_COUNT_FOR_STYLE;
-        state = new EditorAreaState(area);
-        UIContext.allOpenedFileList.add(sourceFile);
-        Log.w("new EditorBase:: " + sourceFile.lastModified());
+        state = new EditorAreaState(area, documentState);
+        state.setFileEncoding(documentState.getEncoding());
+        if (sourceFile != null) {
+            UIContext.allOpenedFileList.add(sourceFile);
+            Log.w("new EditorBase:: " + sourceFile.lastModified());
+        }
         this.tab = tab;
-        this.isFake = isFake;
-        tab.setText(isFake ? sourceFile.getName() + TEMP_MASK_FILE : sourceFile.getName());
+        tab.setUserData(documentState);
+        updateTabTitle();
         tab.setOnCloseRequest(event -> {
-            var text = tab.getText();
-            if (mConfirmStat == ConfirmStat.Normal) {
-                if (text.endsWith(TEMP_MASK_FILE)) {
-                    if (isFake && area.getText().isEmpty()) {
-                        return;
-                    }
-                    event.consume();
-                    mConfirmStat = ConfirmStat.DialogOpened;
-                    JfoenixDialogUtils.confirm(Locales.ALERT(),
-                            Locales.str("ifUwantCloseIt").replace("%s", text.replace(TEMP_MASK_FILE, "")),
-                            0, 0,
-                            new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
-                                    Locales.str("save"), () -> {
-                                saveContent(null, true);
-                                closeTab();
-                            }),
-                            new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Extra,
-                                    Locales.str("notSave"), this::closeTab),
-                            new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, null, () -> {
-                                mConfirmStat = ConfirmStat.Normal;
-                            }));
-                }
-            }
+            event.consume();
+            requestClose();
         });
-
-        markCurrentFileTs();
 
         this.area = area;
         initArea();
-
-        RefWatcher.watchs(this, sourceFile.getPath());
-    }
-
-    private void textSaved() {
-        var a = area;
-        if (a != null) {
-            mIsNotSaved = false;
-            tab.setText(isFake ? sourceFile.getName() + TEMP_MASK_FILE : sourceFile.getName());
-            mLastNextUndo = a.getUndoManager().getNextUndo();
-        }
-    }
-
-    private void textHasChanged() {
-        //todo 变成更好的文件变化判断
-        var nextUndo = area.getUndoManager().getNextUndo();
-        if (nextUndo == mLastNextUndo) {
-            mIsNotSaved = false;
-            tab.setText(sourceFile.getName());
+        if (documentState.isDirty()) {
+            documentState.invalidateSavedUndoPosition();
         } else {
-            if (!mIsNotSaved) {
-                mIsNotSaved = true;
-                tab.setText(sourceFile.getName() + TEMP_MASK_FILE);
-            }
+            establishUndoBaseline();
+        }
+        markCurrentFileTs();
+        RefWatcher.watchs(this, sourceFile == null ? documentState.getDisplayName() : sourceFile.getPath());
+        EditorSessionManager.getInstance().track(area);
+    }
+
+    private void establishUndoBaseline() {
+        UndoManager.UndoPosition position = area.getUndoManager().getCurrentPosition();
+        position.mark();
+        documentState.setSavedUndoPosition(position);
+        documentState.setDirty(false);
+        updateTabTitle();
+    }
+
+    private void updateDirtyFromUndo() {
+        if (programmaticReplace) {
+            return;
+        }
+        documentState.setDirty(documentState.isSavedUndoPositionValid()
+                ? !area.getUndoManager().isAtMarkedPosition()
+                : true);
+        updateTabTitle();
+        EditorSessionManager.getInstance().onTextChanged(area, contentVersion.get());
+    }
+
+    private void updateTabTitle() {
+        if (tab != null) {
+            tab.setText(documentState.getDisplayName() + (documentState.isDirty() ? " *" : ""));
         }
     }
 
     private void markCurrentFileTs() {
-        editorFocus.mLastFileChangedTs = !isFake ? sourceFile.lastModified() : 0L;
-        textSaved();
+        var sourceFile = getSourceFile();
+        editorFocus.mLastFileChangedTs = sourceFile == null ? 0L : sourceFile.lastModified();
+        editorFocus.mLastFileSize = sourceFile == null ? 0L : sourceFile.length();
     }
 
-    private void saveContentInner(String sourceCode, Object savedUndo,
-                                  File savedFile, String encoding, long requestVersion) {
-        pendingSave = ThreadUtils.submitFileIo(() -> {
-            if (requestVersion != saveVersion.get()) {
-                return;
-            }
-            try {
-                Log.d("Files writeString save content");
-                var path = Path.of(savedFile.getAbsolutePath());
-                var parent = path.getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
-                }
-                Files.writeString(path, sourceCode, Charset.forName(encoding));
-                boolean sourceFileLimitReached = savedFile.length() >= StaticsProf.getMaxFileSizeForStyle();
-                boolean sourceFileLimitChanged = mSourceFileSizeReachedStyleLimit != sourceFileLimitReached;
-                mSourceFileSizeReachedStyleLimit = sourceFileLimitReached;
-                if (sourceFileLimitChanged && !ThreadUtils.sBeClosing) {
-                    Platform.runLater(() -> {
-                        if (area != null && UIContext.currentAreaProp.get() == area) {
-                            UIContext.context().refreshCurrentDocumentInfo();
-                        }
-                    });
-                }
-            } catch (IOException | RuntimeException e) {
-                Log.e("save content failed: " + savedFile.getAbsolutePath(), e);
-                return;
-            }
-
-            AllEditorsManager.delayToSaveRecentFile(savedFile.getAbsolutePath());
-            notifyWorkspaceRefreshDelayed(savedFile);
-            if (!ThreadUtils.sBeClosing) {
-                Platform.runLater(() -> {
-                    if (isDestroyed() || !savedFile.getAbsolutePath().equals(sourceFile.getAbsolutePath())) {
-                        return;
-                    }
-                    isFake = false;
-                    editorFocus.mLastFileChangedTs = savedFile.lastModified();
-                    mLastNextUndo = savedUndo;
-                    textHasChanged();
-                });
-            }
-        });
+    public CompletionStage<SaveResult> save() {
+        if (!documentState.isDirty() && !documentState.isUntitled()
+                && documentState.getExternalState() == EditorDocumentState.ExternalState.UNCHANGED) {
+            return CompletableFuture.completedFuture(SaveResult.SUCCESS_CLEAN);
+        }
+        var result = new CompletableFuture<SaveResult>();
+        resolveSaveTarget(false, result);
+        pendingSave = result;
+        return result;
     }
 
     public void saveContent(ActionEvent event, boolean forceSave) {
-        Log.w("save content forceSave:" + forceSave);
-        if (!mIsNotSaved && !forceSave) {
+        if (!forceSave) {
+            save();
             return;
         }
+        var result = new CompletableFuture<SaveResult>();
+        var sourceFile = getSourceFile();
+        if (sourceFile == null) {
+            resolveSaveTarget(false, result);
+        } else {
+            prepareSave(sourceFile, result);
+        }
+        pendingSave = result;
+    }
 
+    private void resolveSaveTarget(boolean forceSaveAs, CompletableFuture<SaveResult> result) {
+        File target = forceSaveAs || documentState.isUntitled() ? chooseSaveTarget() : getSourceFile();
+        if (target == null) {
+            result.complete(SaveResult.CANCELLED);
+            return;
+        }
+        var openedArea = AllEditorsManager.Instance.getAreaByFilePath(target);
+        if (openedArea != null && openedArea != area) {
+            JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("fileOpenedInOtherTab"));
+            result.complete(SaveResult.CANCELLED);
+            return;
+        }
+        if (!forceSaveAs && documentState.getExternalState() != EditorDocumentState.ExternalState.UNCHANGED) {
+            String acceptText = documentState.getExternalState() == EditorDocumentState.ExternalState.DELETED
+                    ? Locales.str("reCreateFile") : Locales.str("overwriteDiskFile");
+            JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("fileChangedOnDisk"),
+                    0, 0,
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
+                            acceptText, () -> prepareSave(target, result)),
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Extra,
+                            Locales.str("saveAsFile"), () -> resolveSaveTarget(true, result)),
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
+                            null, () -> result.complete(SaveResult.CANCELLED)));
+            return;
+        }
+        prepareSave(target, result);
+    }
+
+    private File chooseSaveTarget() {
+        var chooser = new FileChooser();
+        chooser.setTitle(Locales.str("editor.saveFile"));
+        chooser.setInitialFileName(documentState.isUntitled()
+                ? documentState.getDisplayName() + ".txt"
+                : documentState.getDisplayName());
+        var initialDirectory = firstWritableDirectory();
+        if (initialDirectory != null) {
+            chooser.setInitialDirectory(initialDirectory);
+        }
+        var selected = chooser.showSaveDialog(UIContext.mainWindow);
+        if (selected == null) {
+            return null;
+        }
+        String name = selected.getName();
+        int extensionIndex = name.lastIndexOf('.');
+        if (extensionIndex <= 0 || extensionIndex == name.length() - 1) {
+            selected = new File(selected.getParentFile(), name + ".txt");
+        }
+        return selected.toPath().toAbsolutePath().normalize().toFile();
+    }
+
+    private File firstWritableDirectory() {
+        var initial = documentState.getInitialSaveDirectory();
+        if (initial != null) {
+            var directory = new File(initial);
+            if (directory.isDirectory() && directory.canRead() && directory.canWrite()) {
+                return directory;
+            }
+        }
+        var last = GlobalCfgStores.user().getString(SettingPreferences.lastSaveDirKey, "");
+        if (!last.isBlank()) {
+            var directory = new File(last);
+            if (directory.isDirectory() && directory.canRead() && directory.canWrite()) {
+                return directory;
+            }
+        }
+        var home = new File(System.getProperty("user.home"));
+        return home.isDirectory() && home.canRead() && home.canWrite() ? home : null;
+    }
+
+    private void prepareSave(File target, CompletableFuture<SaveResult> result) {
         String sourceCode = area.getText();
-        var savedUndo = area.getUndoManager().getNextUndo();
-        var savedFile = sourceFile;
-        var encoding = state.getFileEncoding();
-        var requestVersion = saveVersion.incrementAndGet();
-        saveContentInner(sourceCode, savedUndo, savedFile, encoding, requestVersion);
-    }
-
-    public void saveContentAndWait(boolean forceSave) {
-        saveContent(null, forceSave);
-        awaitPendingSave();
-    }
-
-    private boolean awaitPendingSave() {
-        var save = pendingSave;
-        if (save == null) {
-            return true;
+        String encoding = state.getFileEncoding();
+        if (encoding == null) {
+            encoding = StandardCharsets.UTF_8.name();
         }
+        Charset charset;
         try {
-            save.get();
-            return true;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Log.e("wait pending save interrupted", e);
-        } catch (ExecutionException e) {
-            Log.e("wait pending save failed", e);
+            charset = Charset.forName(encoding);
+        } catch (RuntimeException e) {
+            JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("encodingInvalid"));
+            result.complete(SaveResult.FAILED);
+            return;
         }
-        return false;
+        if (!charset.newEncoder().canEncode(sourceCode)) {
+            JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("encodingCannotRepresent"),
+                    0, 0,
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
+                            Locales.str("saveWithUtf8"), () -> {
+                        state.setFileEncoding(StandardCharsets.UTF_8.name());
+                        startSave(target, sourceCode, StandardCharsets.UTF_8.name(), result);
+                    }),
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
+                            null, () -> result.complete(SaveResult.CANCELLED)));
+            return;
+        }
+        startSave(target, sourceCode, encoding, result);
+    }
+
+    private void startSave(File target, String sourceCode, String encoding,
+                           CompletableFuture<SaveResult> result) {
+        long capturedVersion = contentVersion.get();
+        UndoManager.UndoPosition savedPosition = area.getUndoManager().getCurrentPosition();
+        CompletableFuture<Boolean> write;
+        synchronized (saveLock) {
+            write = saveChain.handle((ignored, throwable) -> null)
+                    .thenApplyAsync(ignored -> writeSourceFile(target, sourceCode, encoding), SAVE_EXECUTOR);
+            saveChain = write.handle((ignored, throwable) -> null);
+        }
+        write.whenComplete((success, throwable) -> Platform.runLater(() -> {
+            if (throwable != null || !Boolean.TRUE.equals(success) || isDestroyed()) {
+                if (throwable != null) {
+                    Log.e("save content failed: " + target, throwable);
+                }
+                if (!isDestroyed()) {
+                    JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("saveFileFailed"));
+                }
+                result.complete(SaveResult.FAILED);
+                return;
+            }
+            bindSavedFile(target);
+            documentState.updateBaseFileMetadata();
+            documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
+            if (savedPosition.isValid()) {
+                savedPosition.mark();
+                documentState.setSavedUndoPosition(savedPosition);
+            }
+            boolean clean = savedPosition.isValid()
+                    && contentVersion.get() == capturedVersion
+                    && area.getUndoManager().isAtMarkedPosition();
+            documentState.setDirty(!clean);
+            updateTabTitle();
+            var saveResult = clean ? SaveResult.SUCCESS_CLEAN : SaveResult.SUCCESS_DIRTY;
+            EditorSessionManager.getInstance().onSaved(area, saveResult);
+            AllEditorsManager.delayToSaveRecentFile(target.getAbsolutePath());
+            notifyWorkspaceRefreshDelayed(target);
+            result.complete(saveResult);
+        }));
+    }
+
+    private boolean writeSourceFile(File target, String sourceCode, String encoding) {
+        try {
+            var path = target.toPath();
+            var parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(path, sourceCode, Charset.forName(encoding));
+            return true;
+        } catch (IOException | RuntimeException e) {
+            Log.e("save content failed: " + target.getAbsolutePath(), e);
+            return false;
+        }
+    }
+
+    private void bindSavedFile(File target) {
+        var oldFile = getSourceFile();
+        if (oldFile != null) {
+            UIContext.allOpenedFileList.remove(oldFile);
+        }
+        documentState.bindSourceFile(target);
+        documentState.setDisplayName(target.getName());
+        UIContext.allOpenedFileList.add(target);
+        if (tab != null) {
+            tab.setUserData(documentState);
+        }
+        if (this instanceof EditorAreaMgrCode codeEditor) {
+            codeEditor.bindKeywordHelper(target);
+        }
+        var parent = target.getParentFile();
+        if (parent != null) {
+            GlobalCfgStores.user().setString(SettingPreferences.lastSaveDirKey, parent.getAbsolutePath());
+        }
+        mSourceFileSizeReachedStyleLimit = target.length() >= StaticsProf.getMaxFileSizeForStyle();
+        markCurrentFileTs();
+        if (tabLabel != null) {
+            tabLabel.setTooltip(new Tooltip(target.getAbsolutePath()));
+        }
+        if (UIContext.currentAreaProp.get() == area) {
+            UIContext.context().refreshCurrentDocumentInfo();
+        }
     }
 
     private void initArea() {
         var lineNumberVisibleProperty = SettingPreferences.getBoolProp(editorLineNumberVisibleKey);
         updateLineNumberVisible(lineNumberVisibleProperty.get());
         lineNumberVisibleProperty.addListener(lineNumberChanged);
-
-        mLastNextUndo = area.getUndoManager().getNextUndo();
 
         textChanged.init();
         visibleParagraphChanged.init();
@@ -612,19 +801,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                 tabLabel = (Label) tl;
                             }
 
-                            var innerObj = ReflectionUtils.getPrivateFieldValue(cur, "inner");
-                            if (innerObj instanceof HBox inner) {
-                                for (var n : inner.getChildren()) {
-                                    if (n instanceof Button) {
-                                        closeBtn = (Button) n;
-                                        break;
-                                    }
-                                    if (closeBtn != null) {
-                                        break;
-                                    }
-                                }
-                            }
-
                             break;
                         }
                     }
@@ -647,7 +823,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                 } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
                                     openCurrentFolder(null);
                                 } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
-                                    var path = isFake || sourceFile == null ? "" : sourceFile.getAbsolutePath();
+                                    var sourceFile = getSourceFile();
+                                    var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
                                     if (!path.isEmpty()) {
                                         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
                                         SnackbarUtils.show(Locales.str("fullPathCopied"));
@@ -660,7 +837,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                         }
                     });
 
-                    tabLabel.setTooltip(new Tooltip(sourceFile.getAbsolutePath()));
+                    var sourceFile = getSourceFile();
+                    if (sourceFile != null) {
+                        tabLabel.setTooltip(new Tooltip(sourceFile.getAbsolutePath()));
+                    }
                 }
             });
         });
@@ -668,9 +848,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void rename() {
+        var sourceFile = getSourceFile();
+        if (sourceFile == null) {
+            return;
+        }
         JfoenixDialogUtils.editInput(Locales.ALERT(), sourceFile.getName(), s -> {
             if (!TextUtils.isEmpty(s)) {
-                if (!awaitPendingSave()) {
+                if (!pendingSave.isDone()) {
                     return;
                 }
                 var ans = Utils.rename(sourceFile, s);
@@ -680,7 +864,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("doUWantReplaceOldFile"),
                             0, 0,
                             new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, null, () -> {
-                                if (!awaitPendingSave()) {
+                                if (!pendingSave.isDone()) {
                                     return;
                                 }
                                 var newFullPa = ans.run().invoke();
@@ -699,15 +883,27 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void resetText(String text) {
-        mSourceFileSizeReachedStyleLimit = !isFake && sourceFile != null
+        var sourceFile = getSourceFile();
+        mSourceFileSizeReachedStyleLimit = sourceFile != null
                 && sourceFile.length() >= StaticsProf.getMaxFileSizeForStyle();
-        area.replaceText(text);
+        programmaticReplace = true;
+        try {
+            area.replaceText(text);
+            area.getUndoManager().forgetHistory();
+            area.getUndoManager().mark();
+            establishUndoBaseline();
+        } finally {
+            programmaticReplace = false;
+        }
+        documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
+        documentState.updateBaseFileMetadata();
         markCurrentFileTs();
+        EditorSessionManager.getInstance().onSaved(area, SaveResult.SUCCESS_CLEAN);
     }
 
     @Override
     public boolean canClosed() {
-        return tab == null || !isFake;
+        return tab == null || !documentState.isDirty();
     }
 
     @Override
@@ -729,16 +925,22 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private void afterRename(String newFile) {
         editorFocus.removeFocusChanged();
         var newf = new File(newFile);
-        AllEditorsManager.Instance.reOpenCurrentFile(tab, newf, state.getFileEncoding());
-        var oldFile = sourceFile;
-        UIContext.allOpenedFileList.remove(oldFile);
-        sourceFile = newf;
+        var oldFile = getSourceFile();
+        if (oldFile != null) {
+            UIContext.allOpenedFileList.remove(oldFile);
+        }
+        documentState.bindSourceFile(newf);
         UIContext.allOpenedFileList.add(newf);
 
-        isFake = false;
+        tab.setUserData(documentState);
+        updateTabTitle();
+        if (this instanceof EditorAreaMgrCode codeEditor) {
+            codeEditor.bindKeywordHelper(newf);
+        }
         mSourceFileSizeReachedStyleLimit = newf.length() >= StaticsProf.getMaxFileSizeForStyle();
         UIContext.context().refreshCurrentDocumentInfo();
         AllEditorsManager.delayToSaveRecentFile(newFile);
+        EditorSessionManager.getInstance().onCaretOrStructureChanged();
 
         markCurrentFileTs();
         if (tabLabel.getTooltip() == null) {
@@ -767,6 +969,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         MenuItem openFolder =       new MenuItem(Locales.str("editor.openHereDir"));
         MenuItem openTerminal =     new MenuItem(Locales.str("editor.programTerminal"));
         MenuItem openTerminalHere = new MenuItem(Locales.str("editor.directoryTerminal"));
+        MenuItem reload = new MenuItem(Locales.str("editor.reload"));
         MenuItem screenShot =       new MenuItem(Locales.str("editor.screenshot"));
         MenuItem removeUnknownSymbols = new MenuItem(Locales.str("removeUnknownSymbols"));
         MenuItem formatJson =        new MenuItem(Locales.str("jsonFormat"));
@@ -793,6 +996,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         openFolder.setOnAction(this::openCurrentFolder);
         openTerminal.setOnAction(this::openTerminal);
         openTerminalHere.setOnAction(this::openTerminalHere);
+        reload.setOnAction(event -> reloadFromDisk());
         screenShot.setOnAction(this::captureScreenShot);
         removeUnknownSymbols.setOnAction(event -> {
             var newText = new JsonFormatLog().removeFanxieExtraQuote(area.getSelectedText());
@@ -816,6 +1020,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         // contextMenu.getItems().add(openTerminal);
         contextMenu.getItems().add(openTerminalHere);
         contextMenu.getItems().add(openFolder);
+        contextMenu.getItems().add(reload);
 
         contextMenu.setOnShowing(event -> {
             boolean hasSelection = !area.getSelectedText().isEmpty();
@@ -824,11 +1029,32 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             formatJson.setVisible(hasSelection);
             copyLine.setVisible(!hasSelection);
             screenShot.setVisible(!hasSelection);
-            openTerminalHere.setVisible(!hasSelection);
-            openFolder.setVisible(!hasSelection);
+            boolean named = getSourceFile() != null;
+            openTerminalHere.setVisible(!hasSelection && named);
+            openFolder.setVisible(!hasSelection && named);
+            reload.setVisible(!hasSelection && named);
         });
 
         return contextMenu;
+    }
+
+    private void reloadFromDisk() {
+        var sourceFile = getSourceFile();
+        if (sourceFile == null || !sourceFile.isFile()) {
+            return;
+        }
+        Runnable reload = () -> AllEditorsManager.Instance.reOpenCurrentFile(
+                tab, sourceFile, state.getFileEncoding());
+        if (!documentState.isDirty()) {
+            reload.run();
+            return;
+        }
+        JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("confirmReloadDiscard"),
+                0, 0,
+                new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
+                        null, reload::run),
+                new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
+                        null, null));
     }
 
     private void replaceSelectedTextWithPadding(String newText) {
@@ -879,6 +1105,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void openCurrentFolder(ActionEvent event) {
+        var sourceFile = getSourceFile();
         if (sourceFile != null) {
             if (sourceFile.getParentFile() != null) {
                 Utils.openFolderExplore(sourceFile);
@@ -891,6 +1118,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void openTerminalHere(ActionEvent event) {
+        var sourceFile = getSourceFile();
         if (sourceFile != null)
             if (sourceFile.getParentFile() != null)
                 Utils.openTerminalHere(sourceFile.getParentFile());
@@ -906,7 +1134,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     new SearchParams[] {params},
                     totalLines);
             var result = new OneFileSearchResults()
-                    .addFile(sourceFile)
+                    .addFile(getSourceFile())
+                    .addSessionId(documentState.getSessionId())
+                    .addDisplayName(documentState.getDisplayName())
                     .addArea(this)
                     .addTotalLen(text == null ? 0 : text.length())
                     .addResults(ans);
@@ -924,7 +1154,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     params,
                     totalLines);
             var result = new OneFileSearchResults()
-                    .addFile(sourceFile)
+                    .addFile(getSourceFile())
+                    .addSessionId(documentState.getSessionId())
+                    .addDisplayName(documentState.getDisplayName())
                     .addArea(this)
                     .addTotalLen(text == null ? 0 : text.length())
                     .addResults(ans);
@@ -958,19 +1190,27 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         private boolean mIsAddedFocusChanged = false;
 
         private long mLastFileChangedTs;
+        private long mLastFileSize;
 
         private Action0 mFocused;
 
         private void checkFileChangedTs() {
-            if (editor.isFake) {
-                Log.d("EditorBase","checkFile ChangedTs is fake file, ignored!" + editor.sourceFile);
+            var sourceFile = editor.getSourceFile();
+            if (sourceFile == null) {
                 return;
             }
-            //顺序不得变化
-            if (!editor.sourceFile.exists()) {
+            if (!sourceFile.exists()) {
+                if (editor.documentState.getExternalState() == EditorDocumentState.ExternalState.DELETED) {
+                    return;
+                }
+                editor.documentState.setExternalState(EditorDocumentState.ExternalState.DELETED);
+                if (editor.documentState.isDirty()) {
+                    JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("sourceDeletedKept"));
+                    return;
+                }
                 JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("fileNotExsit"),
                         0, 0,
-                        new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("save"), ()-> {
+                        new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("reCreateFile"), ()-> {
                             removeFocusChanged();
                             editor.saveContent(null, true);
                             ThreadUtils.globalHandler().postDelayed(this::addFocusChanged, 250);
@@ -983,18 +1223,22 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 return;
             }
 
-            if (mLastFileChangedTs == editor.sourceFile.lastModified()) {
-                //Log.d(TAG, "!@focus no changed this file " + editorBase.sourceFile);
+            if (mLastFileChangedTs == sourceFile.lastModified() && mLastFileSize == sourceFile.length()) {
                 return;
             }
-
-            //Log.d("!@focus reOpenCurrent： lastModify :  " + lastModify + ", lastFileChangedTs: " + mLastFileChangedTs + " " + sourceFile);
-            AllEditorsManager.Instance.reOpenCurrentFile(editor.tab, editor.sourceFile, null);
+            if (editor.documentState.isDirty()) {
+                if (editor.documentState.getExternalState() != EditorDocumentState.ExternalState.MODIFIED) {
+                    editor.documentState.setExternalState(EditorDocumentState.ExternalState.MODIFIED);
+                    JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("sourceChangedKept"));
+                }
+                return;
+            }
+            AllEditorsManager.Instance.reOpenCurrentFile(editor.tab, sourceFile, null);
         }
 
         private void removeFocusChanged() {
             if (mIsAddedFocusChanged) {
-                Log.d(TAG, " remove focusChanged====" + editor.sourceFile);
+                Log.d(TAG, "remove focusChanged " + editor.getSourceFile());
                 UIContext.context().removeMainStageFocused(mFocused);
                 mFocused = null;
                 mIsAddedFocusChanged = false;
@@ -1007,7 +1251,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             }
 
             if (!mIsAddedFocusChanged) {
-                Log.d(TAG, "add focusChanged====" + editor.sourceFile);
+                Log.d(TAG, "add focusChanged " + editor.getSourceFile());
                 UIContext.context().addMainStageFocused(mFocused);
                 mIsAddedFocusChanged = true;
             }

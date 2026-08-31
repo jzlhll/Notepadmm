@@ -34,7 +34,10 @@ public class AllFilesSearchResults {
             if (fileLineIndexes != null) {
                 fileLineIndexes[i++] = totalLines;
             }
-            var line = "  " + oneFileResults.file.getName()
+            var name = oneFileResults.displayName != null
+                    ? oneFileResults.displayName
+                    : oneFileResults.file == null ? "" : oneFileResults.file.getName();
+            var line = "  " + name
                     + "  (" +  String.format(hitFmt, oneFileResults.results.size()) + ")";
             sb.append(line).append(System.lineSeparator());
             for (ResultItemWrap item : oneFileResults.results) {

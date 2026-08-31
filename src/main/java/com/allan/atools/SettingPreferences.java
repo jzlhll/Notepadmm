@@ -29,7 +29,10 @@ public final class SettingPreferences {
 
     public static final String searchResultAreaIsWrapKey = "searchResultAreaIsWrap"; //***** add一处新名字用于外部调用
     public static final String saveLastOpenedFileKey = "saveLastOpenedFile";
+    public static final String restoreSavedFilesOnStartupKey = "restoreSavedFilesOnStartup";
     public static final String autoSaveOnExitKey = "autoSaveOnExit";
+    public static final String sessionMigrationVersionKey = "sessionMigrationVersion";
+    public static final String lastSaveDirKey = "lastSaveDir";
     public static final String resultAreaInNewWindowKey = "resultAreaInNewWindow";
     public static final String searchResultHasNumberKey = "searchResultHasNumber";
     public static final String editorLineNumberVisibleKey = "editorLineNumberVisible";
@@ -50,15 +53,18 @@ public final class SettingPreferences {
             "TipsDoubleClickWordNext" };
 
     private synchronized static void assetInit() {
+        var sp = GlobalCfgStores.user();
+        if (!sp.contains(restoreSavedFilesOnStartupKey)) {
+            sp.setBoolean(restoreSavedFilesOnStartupKey,
+                    sp.getBoolean(saveLastOpenedFileKey, true));
+        }
         SettingProfDef[] defs = new SettingProfDef[] { //***** add 这2处即可
                 new SettingProfDef("bool", searchResultAreaIsWrapKey, "false"),
-                new SettingProfDef("bool", saveLastOpenedFileKey, "true"),
-                new SettingProfDef("bool", autoSaveOnExitKey, "true"),
+                new SettingProfDef("bool", restoreSavedFilesOnStartupKey, "true"),
                 new SettingProfDef("bool", resultAreaInNewWindowKey, "false"),
                 //new SettingProfDef("bool", search1LineOnlyOnceKey, "true"),
                 new SettingProfDef("bool", searchResultHasNumberKey, "true"),
                 new SettingProfDef("bool", editorLineNumberVisibleKey, "true"),
-                new SettingProfDef("str", newFileDirKey, ""),
                 new SettingProfDef("bool", appVisionKey, "false"),
                 new SettingProfDef("bool", hdScreen2Key, "true"),
                 new SettingProfDef("bool", cycleNextKey, "true"),
@@ -72,8 +78,6 @@ public final class SettingPreferences {
         };
 
         map = new HashMap<>(8);
-        var sp = GlobalCfgStores.user();
-
         for (var config : defs) {
             if (sp.contains(config.keyName)) {
                 if ("str".equals(config.type)) {

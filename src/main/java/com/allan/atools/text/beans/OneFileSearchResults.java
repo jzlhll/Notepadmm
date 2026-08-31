@@ -14,6 +14,8 @@ public class OneFileSearchResults {
     public List<ResultItemWrap> results;
     public int totalLen;
     public File file;
+    public String sessionId;
+    public String displayName;
     public WeakReference<EditorAreaMgr> area;
 
     public OneFileSearchResults addArea(EditorAreaMgr area) {
@@ -28,6 +30,16 @@ public class OneFileSearchResults {
 
     public OneFileSearchResults addFile(File file) {
         this.file = file;
+        return this;
+    }
+
+    public OneFileSearchResults addDisplayName(String displayName) {
+        this.displayName = displayName;
+        return this;
+    }
+
+    public OneFileSearchResults addSessionId(String sessionId) {
+        this.sessionId = sessionId;
         return this;
     }
 

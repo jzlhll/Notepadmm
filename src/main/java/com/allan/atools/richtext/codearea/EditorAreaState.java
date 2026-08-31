@@ -12,8 +12,10 @@ final class EditorAreaState implements IEditorAreaState {
     private static final PseudoClass WRAPPED = PseudoClass.getPseudoClass("wrapped");
 
     private EditorArea area;
-    public EditorAreaState(EditorArea area) {
+    private final EditorDocumentState documentState;
+    public EditorAreaState(EditorArea area, EditorDocumentState documentState) {
         this.area = area;
+        this.documentState = documentState;
     }
 
     private boolean isReadonly = false;
@@ -21,12 +23,13 @@ final class EditorAreaState implements IEditorAreaState {
     // tab 打开时快照一次全局"输入法中文标点"开关，之后仅影响本 tab
     private boolean isChinesePunctuation = SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey);
 
-    private String fileEncoding;
     @Override
-    public void setFileEncoding(String fileEncoding) {this.fileEncoding = fileEncoding;}
+    public void setFileEncoding(String fileEncoding) {
+        documentState.setEncoding(fileEncoding);
+    }
 
     @Override
-    public String getFileEncoding() {return fileEncoding;}
+    public String getFileEncoding() {return documentState.getEncoding();}
 
     @Override
     public boolean isCurrentReadonly() {

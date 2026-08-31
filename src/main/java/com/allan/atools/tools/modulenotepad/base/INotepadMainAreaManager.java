@@ -2,6 +2,7 @@ package com.allan.atools.tools.modulenotepad.base;
 
 import com.allan.atools.keyevent.IKeyDispatcherLeaf;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.tools.modulenotepad.session.SessionTab;
 import javafx.scene.control.Tab;
 
 import java.io.File;
@@ -19,15 +20,12 @@ public interface INotepadMainAreaManager extends INotepadManager, ITextMultiFind
     EditorArea[] getAllAreas();
 
     void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront);
-    void newFakeFile(File fakeFile);
+    EditorArea newUntitledFile(File initialDirectory);
+    EditorArea restoreSessionEntry(SessionTab entry, String text);
 
     void reOpenCurrentFile(Tab tab, File file, String forceEncoding);
 
     void saveListFilePaths();
 
-    void saveUnSaved();
-
     void removeAllOtherTabs(Tab tab);
-
-    boolean hasAnyUnSaved();
 }

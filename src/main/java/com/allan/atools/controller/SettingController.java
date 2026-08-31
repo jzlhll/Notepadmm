@@ -13,7 +13,6 @@ import com.allan.atools.utils.CacheLocation;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
-import com.allan.baseparty.handler.TextUtils;
 import com.jfoenix.controls.JFXComboBox;
 import com.jfoenix.controls.JFXRadioButton;
 import com.jfoenix.controls.JFXScrollPane;
@@ -25,7 +24,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
-import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -40,7 +38,6 @@ public final class SettingController extends AbstractController {
 
     public JFXToggleButton resultAreaWrapBtn;
     public JFXToggleButton openLastFileBtn;
-    public JFXToggleButton autoSaveOnExitBtn;
     public JFXToggleButton resultAreaInNewBtn;
     public JFXToggleButton resultIfHasNumBtn;
     public JFXToggleButton editorLineNumberVisibleBtn;
@@ -55,7 +52,6 @@ public final class SettingController extends AbstractController {
     public JFXRadioButton mainUiSizeLargeBtn;
     public JFXRadioButton mainUiSizeLargerBtn;
     public Hyperlink fontCustomLink;
-    public Hyperlink newFileDirLink;
 
     public JFXComboBox<Label> localesComboBox;
 
@@ -254,14 +250,10 @@ public final class SettingController extends AbstractController {
             SettingPreferences.updateBool(SettingPreferences.searchResultAreaIsWrapKey, newValue);
         });
 
-        openLastFileBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey));
+        openLastFileBtn.setSelected(SettingPreferences.getBoolean(
+                SettingPreferences.restoreSavedFilesOnStartupKey));
         openLastFileBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
-            SettingPreferences.updateBool(SettingPreferences.saveLastOpenedFileKey, newValue);
-        });
-
-        autoSaveOnExitBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.autoSaveOnExitKey));
-        autoSaveOnExitBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
-            SettingPreferences.updateBool(SettingPreferences.autoSaveOnExitKey, newValue);
+            SettingPreferences.updateBool(SettingPreferences.restoreSavedFilesOnStartupKey, newValue);
         });
 
         resultAreaInNewBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.resultAreaInNewWindowKey));
@@ -283,31 +275,6 @@ public final class SettingController extends AbstractController {
         editorChinesePunctuationBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey));
         editorChinesePunctuationBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
             SettingPreferences.updateBool(SettingPreferences.editorChinesePunctuationKey, newValue);
-        });
-
-        var newFileDirLinkText = SettingPreferences.getStr(SettingPreferences.newFileDirKey);
-        var HINT = Locales.str("setting.newFileDirectoryHint");
-        if (TextUtils.isEmpty(newFileDirLinkText)) {
-            newFileDirLinkText = HINT;
-        }
-        newFileDirLink.setText(newFileDirLinkText);
-
-        newFileDirLink.setOnAction(event -> {
-            DirectoryChooser directoryChooser= new DirectoryChooser();
-            File file = directoryChooser.showDialog(stage);
-            if (file == null) {
-                return;
-            }
-            String s = file.getAbsolutePath();
-            if (s.length() <= 0 || HINT.equals(s)) {
-                return;
-            }
-            if (file.exists() && file.isDirectory()) {
-                SettingPreferences.updateStr(SettingPreferences.newFileDirKey, s);
-                newFileDirLink.setText(s);
-            } else {
-                JfoenixDialogUtils.alert(Locales.str("error"), Locales.str("setting.dirIsWrong"));
-            }
         });
 
         visionBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.appVisionKey));

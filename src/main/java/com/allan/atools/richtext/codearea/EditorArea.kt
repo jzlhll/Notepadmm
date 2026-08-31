@@ -14,11 +14,13 @@ import javafx.scene.control.Tab
 import javafx.scene.input.KeyEvent
 import java.io.File
 
-class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
-    CodeArea(
-        text,
-        sourceFile != null && EditorKeywordHelperFactory.sFilePathToExtension.invoke(sourceFile) == "markdown"
-    ) {
+class EditorArea @JvmOverloads constructor(
+    sourceFile: File?,
+    tab: Tab?,
+    text: String,
+    documentState: EditorDocumentState? = null
+) :
+    CodeArea(text, true) {
 
     val editor: EditorAreaMgr
     val bottomSearchBtnsMgr: BottomSearchBtnsMgr
@@ -41,17 +43,18 @@ class EditorArea(sourceFile: File?, tab: Tab?, isFake: Boolean, text: String) :
         )
     }
 
-    private fun createEditorAreaMgr(area: EditorArea, sourceFile: File?, tab: Tab?, isFake: Boolean): EditorAreaMgr {
-        assert(sourceFile != null)
-        val shortcutType = EditorKeywordHelperFactory.sFilePathToExtension.invoke(sourceFile)
-        return if (shortcutType != null) {
-            EditorAreaMgrCode(area, sourceFile, tab, isFake)
-        } else EditorAreaMgr(area, sourceFile, tab, isFake)
+    private fun createEditorAreaMgr(
+        area: EditorArea,
+        sourceFile: File?,
+        tab: Tab?,
+        documentState: EditorDocumentState?
+    ): EditorAreaMgr {
+        return EditorAreaMgrCode(area, sourceFile, tab, documentState)
     }
 
     init {
         styleClass.add("editor-area")
-        editor = createEditorAreaMgr(this, sourceFile, tab, isFake)
+        editor = createEditorAreaMgr(this, sourceFile, tab, documentState)
         multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)
         Highlight.initGenericAreaFont(this)

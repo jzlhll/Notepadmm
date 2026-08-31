@@ -4,7 +4,11 @@ import com.allan.atools.UIContext;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.FileOpenSupportsKt;
+import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
+import com.allan.atools.tools.modulenotepad.session.FlushResult;
+import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.utils.FileLog;
+import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.allan.baseparty.handler.TextUtils;
@@ -14,13 +18,13 @@ import javafx.application.Platform;
 
 import java.awt.*;
 import java.io.File;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ATools {
     public static volatile String[] sInitArgs;
-    public static volatile boolean isArgsInit;
     private static final AtomicBoolean sApplicationShutdownStarted = new AtomicBoolean(false);
 
     private static void onMacOpenFiles(List<File> files) {
@@ -30,22 +34,41 @@ public final class ATools {
         var paths = files.stream()
                 .map(File::getAbsolutePath)
                 .toArray(String[]::new);
-        sInitArgs = paths;
+        appendInitArgs(paths);
         try {
             Platform.runLater(() -> {
-                if (ThreadUtils.sBeClosing || UIContext.mainController == null) {
+                if (ThreadUtils.sBeClosing || UIContext.mainController == null
+                        || EditorSessionManager.getInstance().isRestoring()) {
                     return;
                 }
-                for (var path : paths) {
-                    FileOpenSupportsKt.open(path);
+                var pendingPaths = takeInitArgs();
+                if (pendingPaths == null) {
+                    return;
                 }
-                if (sInitArgs == paths) {
-                    sInitArgs = null;
+                for (var path : pendingPaths) {
+                    FileOpenSupportsKt.open(path);
                 }
             });
         } catch (IllegalStateException ignored) {
             // JavaFX 尚未启动，主界面初始化后会读取 sInitArgs。
         }
+    }
+
+    private static synchronized void appendInitArgs(String[] paths) {
+        if (sInitArgs == null || sInitArgs.length == 0) {
+            sInitArgs = paths;
+            return;
+        }
+        var allPaths = new String[sInitArgs.length + paths.length];
+        System.arraycopy(sInitArgs, 0, allPaths, 0, sInitArgs.length);
+        System.arraycopy(paths, 0, allPaths, sInitArgs.length, paths.length);
+        sInitArgs = allPaths;
+    }
+
+    public static synchronized String[] takeInitArgs() {
+        var args = sInitArgs;
+        sInitArgs = null;
+        return args;
     }
 
     //已有实例在运行时，把命令行传入的文件通过 Launch Services 转发给运行中的实例（触发其 openFileHandler 打开文件）
@@ -80,10 +103,35 @@ public final class ATools {
         if (!sApplicationShutdownStarted.compareAndSet(false, true)) {
             return;
         }
+        var sessionManager = EditorSessionManager.getInstance();
+        if (sessionManager.flushAndWait(Duration.ofSeconds(30)) == FlushResult.FAILED) {
+            JfoenixDialogUtils.confirm(Locales.str("exitFailed"), Locales.str("sessionWriteFailed"),
+                    0, 0,
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
+                            Locales.str("retry"), () -> {
+                        sessionManager.resumeAfterFailedFlush();
+                        sApplicationShutdownStarted.set(false);
+                        shutdownApplication();
+                    }),
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Extra,
+                            Locales.str("exitAnyway"), ATools::completeShutdown),
+                    new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
+                            Locales.str("backToApp"), () -> {
+                        sessionManager.resumeAfterFailedFlush();
+                        sApplicationShutdownStarted.set(false);
+                    }));
+            return;
+        }
+        completeShutdown();
+    }
+
+    private static void completeShutdown() {
         var mainController = UIContext.mainController;
         if (mainController != null) {
             mainController.destroy();
         }
+        EditorSessionManager.getInstance().destroy();
+        Platform.exit();
         shutdownAfterMainWindowClosed();
     }
 
@@ -140,7 +188,6 @@ public final class ATools {
         if (ResLocation.isOsx) { //todo 验证windows 是不是不会触发
             var desktop = Desktop.getDesktop();
             desktop.setOpenFileHandler(e -> {
-                isArgsInit = true;
                 if (e != null) {
                     var files = e.getFiles();
                     Log.e("startup: open file handler received files, count: " + files.size());
@@ -160,12 +207,10 @@ public final class ATools {
             //终端直接执行二进制（如 ATools file.txt）冷启动时，文件只会出现在命令行参数里；
             //Launch Services 启动（open -a / 双击文件）不会传命令行参数，不会与 openFileHandler 重复打开
             if (args.length > 0) {
-                isArgsInit = true;
                 sInitArgs = args;
             }
         } else {
             FileLog.write("startup: open file handler is not supported", false);
-            isArgsInit = true;
             ATools.sInitArgs = args;
         }
         Log.e("startup: file open handler initialized, macOS: " + ResLocation.isOsx);

@@ -21,31 +21,17 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     static boolean sJavaKeywordCssFileLoad = false;
     private static volatile ClosedDroppedHandler sStylerHandler;
 
-    private final EditorKeywordHelperAbstract mKeywordHelper;
-    private final boolean mIsDropDown; //是否采用掉落为，父类的逻辑
+    private EditorKeywordHelperAbstract mKeywordHelper;
     private final AtomicLong styleRequestId = new AtomicLong();
     private volatile Runnable pendingStyleTask;
 
-    EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab, boolean isFake) {
-        this(EditorKeywordHelperFactory.create(sourceFile), area, sourceFile, tab, isFake);
-    }
+    EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab,
+                      EditorDocumentState documentState) {
+        super(area, sourceFile, tab, documentState);
+        mKeywordHelper = EditorKeywordHelperFactory.create(sourceFile);
+        ensureKeywordStylesheet(mKeywordHelper);
 
-    private EditorAreaMgrCode(EditorKeywordHelperAbstract helper, EditorArea area, File sourceFile, Tab tab, boolean isFake) {
-        super(area, sourceFile, tab, isFake);
-        mIsDropDown = helper == null;
-        if (!sJavaKeywordCssFileLoad && !mIsDropDown) {
-            sJavaKeywordCssFileLoad = true;
-            try {
-                var url = ResLocation.getURLByRealPath(ResLocation.getRealPath("css", "editor_keywords.css"));
-                UIContext.mainController.getStage().getScene().getStylesheets().add(url.toExternalForm());
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-        }
-
-        mKeywordHelper = helper;
-
-        if(!mIsDropDown) trigger(null, null, null);
+        if (mKeywordHelper != null) trigger(null, null, null);
     }
 
     private static ClosedDroppedHandler stylerHandler() {
@@ -63,7 +49,34 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
     @Override
     public boolean isEditorCodeMode() {
-        return !mIsDropDown;
+        return mKeywordHelper != null;
+    }
+
+    public void bindKeywordHelper(File sourceFile) {
+        beginStyleRequest();
+        mKeywordHelper = EditorKeywordHelperFactory.create(sourceFile);
+        ensureKeywordStylesheet(mKeywordHelper);
+        if (mKeywordHelper == null) {
+            var area = getArea();
+            if (area != null && area.getLength() > 0) {
+                area.setStyle(0, area.getLength(), area.getInitialTextStyle());
+            }
+            return;
+        }
+        trigger(null, null, null);
+    }
+
+    private static void ensureKeywordStylesheet(EditorKeywordHelperAbstract helper) {
+        if (sJavaKeywordCssFileLoad || helper == null) {
+            return;
+        }
+        sJavaKeywordCssFileLoad = true;
+        try {
+            var url = ResLocation.getURLByRealPath(ResLocation.getRealPath("css", "editor_keywords.css"));
+            UIContext.mainController.getStage().getScene().getStylesheets().add(url.toExternalForm());
+        } catch (MalformedURLException e) {
+            Log.e("load editor keyword stylesheet failed", e);
+        }
     }
 
     public void invalidateStyleRequest() {

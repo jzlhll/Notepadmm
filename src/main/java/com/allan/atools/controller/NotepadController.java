@@ -1,7 +1,6 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractMainController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
@@ -21,10 +20,12 @@ import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownTableOptimizeManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
+import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
 import com.allan.atools.toolsstartup.ATools;
 import com.allan.atools.ui.SnackbarUtils;
+import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.ui.SettingDrawer;
 import com.allan.atools.ui.MainWindowChrome;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
@@ -290,8 +291,6 @@ public final class NotepadController extends AbstractMainController {
             markdownImageManager = null;
         }
         UIContext.currentAreaProp.removeListener(currentDocumentAreaChanged);
-        AllEditorsManager.Instance.saveUnSaved();
-        AllEditorsManager.Instance.saveListFilePaths();
         AllEditorsManager.Instance.removeKeyListener();
         NotepadFindWindow.getInstance().hide();
     }
@@ -390,49 +389,37 @@ public final class NotepadController extends AbstractMainController {
         initEncodingIndicateClick();
         applyMainUiSizeMode();
 
-        AllEditorsManager.restoreHiddenTempFiles();
-
-        //delay打开之前的文件
-        if (SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey)) {
-            ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
-                Platform.runLater(() -> {
-                    var lastFiles = GlobalCfgStores.user().getStringList("lastFile", List.of());
-                    Log.d("load old files start...");
-                    for (var lastFile : lastFiles) {
-                        if (lastFile != null && lastFile.length() > 0 && new File(lastFile).exists()) {
-                            AllEditorsManager.Instance.openFile(new File(lastFile), false, false);
-                        }
-                    }
-                    Log.d("load old files end!");
-                });
-            }, 250);
-        }
-
-        //delay打开workspace
-        ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
-            Platform.runLater(()-> getWorkspaceManager().initWhenAppStart());
-        }, 500);
-
-        //delay打开打开文件参数
-        ThreadUtils.globalHandler().postDelayedCheckClosed(()->{
-            Platform.runLater(()->{
-                if (!ThreadUtils.sBeClosing) {
-                    Log.e("ATools init args " + ATools.sInitArgs);
-                    if (ATools.sInitArgs != null && ATools.sInitArgs.length > 0) {
-                        for (var str : ATools.sInitArgs) {
-                            if (!str.isEmpty()) {
-                                FileOpenSupportsKt.open(str);
-                            }
-                        }
-                    }
-                }
-            });
-        }, 1000);
+        EditorSessionManager.getInstance().restoreSession().whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                Log.e("restore session failed", throwable);
+                JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("restoreSessionFailed"));
+            } else if (result != null && !result.warningMessage().isEmpty()) {
+                JfoenixDialogUtils.alert(Locales.str("notification"), result.warningMessage());
+            }
+            getWorkspaceManager().initWhenAppStart();
+            openStartupFiles();
+        });
 
         //delay打开提示条
         ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
             Platform.runLater(()-> runTip(0));
         }, 2000);
+    }
+
+    private void openStartupFiles() {
+        if (ThreadUtils.sBeClosing) {
+            return;
+        }
+        var args = ATools.takeInitArgs();
+        Log.e("ATools init args " + Arrays.toString(args));
+        if (args == null) {
+            return;
+        }
+        for (var path : args) {
+            if (path != null && !path.isEmpty()) {
+                FileOpenSupportsKt.open(path);
+            }
+        }
     }
 
     private void runTip(int count) {
@@ -620,7 +607,7 @@ public final class NotepadController extends AbstractMainController {
                 if (UIContext.currentTabProp.get() != null) {
                     var area = UIContext.currentAreaProp.get();
                     var f = area.getEditor().getSourceFile();
-                    if (!f.exists() || area.getEditor().getIsFake()) {
+                    if (f == null || !f.exists()) {
                         SnackbarUtils.show(Locales.str("fileIsNotSave"));
                         return;
                     }
@@ -631,7 +618,7 @@ public final class NotepadController extends AbstractMainController {
                     if (curTab != null) {
                         var area = UIContext.currentAreaProp.get();
                         var f = area.getEditor().getSourceFile();
-                        if (!f.exists() || area.getEditor().getIsFake()) {
+                        if (f == null || !f.exists()) {
                             SnackbarUtils.show(Locales.str("fileIsNotSave"));
                             return;
                         } else {

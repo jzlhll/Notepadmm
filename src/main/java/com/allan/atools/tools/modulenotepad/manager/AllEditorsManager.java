@@ -1,6 +1,5 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
-import com.allan.atools.SettingPreferences;
 import com.allan.atools.UIContext;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bean.FileEncodingMap;
@@ -12,6 +11,9 @@ import com.allan.atools.keyevent.IKeyDispatcherLeaf;
 import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.keyevent.ShortCutKeys;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorDocumentState;
+import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
+import com.allan.atools.tools.modulenotepad.session.SessionTab;
 import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.base.INotepadMainAreaManager;
@@ -26,9 +28,7 @@ import javafx.collections.ListChangeListener;
 import javafx.scene.control.Tab;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -38,7 +38,6 @@ import com.google.gson.reflect.TypeToken;
 
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
-    private static final String HIDDEN_TEMP_FILE_REGEX = "^\\.temp\\d{2}_\\d{2}_\\d{2}(?:_\\d+)*\\.txt$";
     /** 最近打开文件列表的最大保存数量 */
     private static final int MAX_RECENT_FILES = 12;
     /** 最近文件列表在 recent.json 中的顶层 key */
@@ -73,7 +72,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     private AllEditorsManager() {
     }
 
-    public static final INotepadMainAreaManager Instance = new AllEditorsManager();
+    public static final AllEditorsManager Instance = new AllEditorsManager();
 
     private void setCurrentArea(EditorArea newArea) {
         var lastArea = UIContext.currentAreaProp.get();
@@ -111,6 +110,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             setCurrentTab(newTab);
             setCurrentArea(newTab != null ? codeAreaExInTab(newTab) : null);
             UIContext.bottomIndicateProp.set("");
+            EditorSessionManager.getInstance().onCaretOrStructureChanged();
         });
 
         UIContext.context().tabPane.getTabs().addListener((ListChangeListener<Tab>) c -> {
@@ -126,15 +126,18 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             }
 
             tabSize = newSize;
+            EditorSessionManager.getInstance().onCaretOrStructureChanged();
         });
     }
 
     private Tab isFilePathAlreadyInTabs(File file) {
-        var absolutePath = file.getAbsolutePath();
+        var absolutePath = file.toPath().toAbsolutePath().normalize();
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
-            File fileData = tab.getUserData() != null ? (File) tab.getUserData() : null;
-            if (fileData != null && absolutePath.equals(fileData.getAbsolutePath())) {
+            File fileData = tab.getUserData() instanceof EditorDocumentState state
+                    ? state.getSourceFile() : null;
+            if (fileData != null && absolutePath.equals(
+                    fileData.toPath().toAbsolutePath().normalize())) {
                 return tab;
             }
         }
@@ -144,10 +147,9 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     @Override
     public String getCurrentTabFilePath() {
         var tab = UIContext.currentTabProp.get();
-        if (tab != null) {
-            if (tab.getUserData() != null) {
-                return ((File)tab.getUserData()).getAbsolutePath();
-            }
+        if (tab != null && tab.getUserData() instanceof EditorDocumentState state
+                && state.getSourceFile() != null) {
+            return state.getSourceFile().getAbsolutePath();
         }
 
         return null;
@@ -158,13 +160,14 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         var tabs = UIContext.context().tabPane.getTabs();
         var ss = new ArrayList<String>(tabs.size());
         for (Tab tab : tabs) {
-            if (tab.getUserData() != null) {
-                File file = (File)tab.getUserData();
+            if (tab.getUserData() instanceof EditorDocumentState state) {
+                File file = state.getSourceFile();
+                if (file == null) {
+                    continue;
+                }
                 if (file.exists()) {
                     ss.add(file.getAbsolutePath());
                 }
-            } else {
-                throw new RuntimeException("竟然没有文件地址！");
             }
         }
         /*
@@ -179,18 +182,23 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
     看到没。传入的就是返回的。
          */
-        return ss.toArray(new String[tabs.size()]);
+        return ss.toArray(new String[0]);
     }
 
     @Override
     public EditorArea getAreaByFilePath(File fil) {
+        if (fil == null) {
+            return null;
+        }
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
-            if (tab.getUserData() == fil) {
-                return codeAreaExInTab(tab);
-            }
-            if (tab.getUserData() instanceof File file) {
-                if (fil.getAbsolutePath().equals(file.getAbsolutePath())) {
+            if (tab.getUserData() instanceof EditorDocumentState state) {
+                var file = state.getSourceFile();
+                if (file == null) {
+                    continue;
+                }
+                if (fil.toPath().toAbsolutePath().normalize().equals(
+                        file.toPath().toAbsolutePath().normalize())) {
                     return codeAreaExInTab(tab);
                 }
             }
@@ -202,86 +210,18 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     public EditorArea getAreaByFilePath(String filePath) {
         var tabs = UIContext.context().tabPane.getTabs();
         for (var tab : tabs) {
-            if (tab.getUserData() instanceof File file) {
-                if (filePath != null && filePath.equals(file.getAbsolutePath())) {
+            if (tab.getUserData() instanceof EditorDocumentState state) {
+                var file = state.getSourceFile();
+                if (file == null) {
+                    continue;
+                }
+                if (filePath != null && Path.of(filePath).toAbsolutePath().normalize().equals(
+                        file.toPath().toAbsolutePath().normalize())) {
                     return codeAreaExInTab(tab);
                 }
             }
         }
         return null;
-    }
-
-    @Override
-    public void saveUnSaved() {
-        var areas = getAllAreas();
-        var autoSaveOnExit = SettingPreferences.getBoolean(SettingPreferences.autoSaveOnExitKey);
-        for (var area : areas) {
-            var editor = area.getEditor();
-            if (autoSaveOnExit) {
-                editor.saveContentAndWait(editor.getIsFake());
-            } else if (editor.getIsFake()) {
-                saveHiddenTempFile(area);
-            }
-        }
-    }
-
-    private void saveHiddenTempFile(EditorArea area) {
-        var sourceFile = area.getEditor().getSourceFile();
-        var newFileDir = new File(SettingPreferences.getStr(SettingPreferences.newFileDirKey));
-        var targetDir = newFileDir.isDirectory() ? newFileDir : sourceFile.getParentFile();
-        if (targetDir == null) {
-            return;
-        }
-
-        try {
-            Files.createDirectories(targetDir.toPath());
-            var hiddenTempFile = newHiddenTempFile(targetDir.toPath(), sourceFile.getName());
-            Files.writeString(hiddenTempFile, area.getText(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            Log.e("save hidden temp file failed: " + sourceFile, e);
-        }
-    }
-
-    private Path newHiddenTempFile(Path targetDir, String sourceFileName) {
-        var extensionIndex = sourceFileName.lastIndexOf('.');
-        var baseName = extensionIndex >= 0 ? sourceFileName.substring(0, extensionIndex) : sourceFileName;
-        var extension = extensionIndex >= 0 ? sourceFileName.substring(extensionIndex) : "";
-        var index = 0;
-        while (true) {
-            var fileName = index == 0
-                    ? "." + baseName + extension
-                    : "." + baseName + "_" + index + extension;
-            var hiddenTempFile = targetDir.resolve(fileName);
-            if (!Files.exists(hiddenTempFile)) {
-                return hiddenTempFile;
-            }
-            index++;
-        }
-    }
-
-    public static void restoreHiddenTempFiles() {
-        var newFileDir = new File(SettingPreferences.getStr(SettingPreferences.newFileDirKey));
-        if (!newFileDir.isDirectory()) {
-            return;
-        }
-
-        var hiddenTempFiles = newFileDir.listFiles(file ->
-                file.isFile() && file.getName().matches(HIDDEN_TEMP_FILE_REGEX));
-        if (hiddenTempFiles == null) {
-            return;
-        }
-
-        for (var hiddenTempFile : hiddenTempFiles) {
-            try {
-                var text = Files.readString(hiddenTempFile.toPath(), StandardCharsets.UTF_8);
-                var fakeFile = new File(newFileDir, hiddenTempFile.getName().substring(1));
-                if (((AllEditorsManager) Instance).newFakeFile(fakeFile, text)) {
-                    Files.deleteIfExists(hiddenTempFile.toPath());
-                }
-            } catch (IOException e) {
-                Log.e("restore hidden temp file failed: " + hiddenTempFile, e);
-            }
-        }
     }
 
     @Override
@@ -304,24 +244,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public boolean hasAnyUnSaved() {
-        var areas = getAllAreas();
-        for (var area : areas) {
-            var base = area.getEditor();
-            if (!base.canClosed()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    @Override
     public void saveListFilePaths() {
-        if (SettingPreferences.getBoolean(SettingPreferences.saveLastOpenedFileKey)) {
-            var paths = getAllTabsFilePaths();
-            GlobalCfgStores.user().setStringList("lastFile", List.of(paths));
-        }
+        EditorSessionManager.getInstance().onCaretOrStructureChanged();
     }
 
     @Override
@@ -352,40 +276,87 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     @Override
-    public void newFakeFile(File fakeFile) {
-        newFakeFile(fakeFile, "");
+    public EditorArea newUntitledFile(File initialDirectory) {
+        int index = 1;
+        var usedNames = new java.util.HashSet<String>();
+        for (var area : getAllAreas()) {
+            usedNames.add(area.getEditor().getDocumentState().getDisplayName());
+        }
+        while (usedNames.contains("New" + index)) {
+            index++;
+        }
+        var state = EditorDocumentState.untitled(
+                "New" + index, initialDirectory, EncodingUtil.CHOISE_ENCODING_UTF8);
+        return createEditorTab(state, "", true, true);
     }
 
-    private boolean newFakeFile(File fakeFile, String text) {
-        Tab newTab = new Tab();
-
-        RefWatcher.watchs(newTab, "fakeFile " + fakeFile.getPath());
-
-        newTab.setUserData(fakeFile);
-        newTab.setOnClosed(event -> onTabCloseAction(newTab));
-
-        Log.e(" : open fake file Tab open encode ");
-        //textTab.setGraphic(ImageUtils.buildImageView(FILE_ICON));
+    @Override
+    public EditorArea restoreSessionEntry(SessionTab entry, String text) {
+        var sourceFile = entry.sourcePath == null ? null : new File(entry.sourcePath);
+        String encoding = entry.encoding == null ? EncodingUtil.CHOISE_ENCODING_UTF8 : entry.encoding;
         try {
-            EditorArea editorCodeArea = new EditorArea(fakeFile, newTab, true, text);
-            editorCodeArea.getEditor().getState().setFileEncoding(EncodingUtil.CHOISE_ENCODING_UTF8);
+            Charset.forName(encoding);
+        } catch (RuntimeException ignored) {
+            encoding = EncodingUtil.CHOISE_ENCODING_UTF8;
+        }
+        var state = new EditorDocumentState(entry.sessionId, entry.displayName, sourceFile,
+                entry.untitled, encoding,
+                entry.initialSaveDirectory == null ? null : new File(entry.initialSaveDirectory));
+        state.setDirty(entry.dirty);
+        if (entry.dirty) {
+            state.setBaseLastModified(entry.baseLastModified);
+            state.setBaseFileSize(entry.baseFileSize);
+        } else {
+            state.updateBaseFileMetadata();
+        }
+        if (!entry.untitled && entry.dirty && (sourceFile == null || !sourceFile.exists())) {
+            state.setExternalState(EditorDocumentState.ExternalState.DELETED);
+        } else if (!entry.untitled && entry.dirty && sourceFile != null
+                && (sourceFile.lastModified() != entry.baseLastModified
+                || sourceFile.length() != entry.baseFileSize)) {
+            state.setExternalState(EditorDocumentState.ExternalState.MODIFIED);
+        }
+        var area = createEditorTab(state, text == null ? "" : text, false, false);
+        if (area != null) {
+            int caret = entry.caretPosition;
+            if (caret < 0) {
+                caret = 0;
+            } else if (caret > area.getLength()) {
+                caret = area.getLength();
+            }
+            area.moveTo(caret);
+            EditorSessionManager.getInstance().registerRestoredBackup(area, entry);
+        }
+        return area;
+    }
+
+    private EditorArea createEditorTab(EditorDocumentState state, String text,
+                                       boolean select, boolean announceError) {
+        Tab newTab = new Tab();
+        RefWatcher.watchs(newTab, state.getDisplayName());
+        newTab.setUserData(state);
+        newTab.setOnClosed(event -> onTabCloseAction(newTab));
+        try {
+            EditorArea editorCodeArea = new EditorArea(
+                    state.getSourceFile(), newTab, text, state);
+            editorCodeArea.getEditor().getState().setFileEncoding(state.getEncoding());
             editorCodeArea.getBottomSearchBtnsMgr().init();
             var vpane = new MyVirtualScrollPane<>(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
-            UIContext.context().tabPane.getSelectionModel().select(newTab);
-            // position the caret at the beginning
+            if (select) {
+                UIContext.context().tabPane.getSelectionModel().select(newTab);
+            }
             changeNotHasFileText(false);
-            return true;
+            return editorCodeArea;
         } catch (Exception e) {
-            e.printStackTrace();
             String warnMessage = "openTextIn Tab Can't Open File in Tab pane";
-            //Debugging warning
             Log.e("openTextIn Tab open failed: " + warnMessage, e);
-            //UI warning
-            JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
-            return false;
+            if (announceError) {
+                JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
+            }
+            return null;
         }
     }
 
@@ -471,9 +442,21 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 Log.d("ignore stale opened file: " + textFile.getAbsolutePath());
                 return;
             }
-            targetTab.setUserData(textFile);
+            var state = area.getEditor().getDocumentState();
+            state.bindSourceFile(textFile);
+            targetTab.setUserData(state);
             area.getEditor().getState().setFileEncoding(detectedEncoding);
+            var selection = area.getSelection();
             area.getEditor().resetText(text);
+            int anchor = selection.getStart();
+            int caret = selection.getEnd();
+            if (anchor > area.getLength()) {
+                anchor = area.getLength();
+            }
+            if (caret > area.getLength()) {
+                caret = area.getLength();
+            }
+            area.selectRange(anchor, caret);
             UIContext.fileEncodeIndicateProp.set(detectedEncoding);
             if (toFront) {
                 UIContext.context().tabPane.getSelectionModel().select(targetTab);
@@ -484,14 +467,13 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         Tab newTab = new Tab();
         RefWatcher.watchs(newTab, "openFile");
 
-        newTab.setUserData(textFile);
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
 
         Log.e(textFile.getAbsolutePath() + " : openTextIn Tab open encode " + detectedEncoding + " " + text.length());
         Log.d("open file: " + textFile);
 
         try {
-            EditorArea editorCodeArea = new EditorArea(textFile, newTab, false, text);
+            EditorArea editorCodeArea = new EditorArea(textFile, newTab, text);
 
             editorCodeArea.getEditor().getState().setFileEncoding(detectedEncoding);
             editorCodeArea.getBottomSearchBtnsMgr().init();
@@ -544,6 +526,15 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 Log.d("");
             }
         });*/
+    }
+
+    public void closeTabImmediately(Tab tab) {
+        if (tab == null) {
+            return;
+        }
+        tab.setOnClosed(null);
+        UIContext.context().tabPane.getTabs().remove(tab);
+        onTabCloseAction(tab);
     }
 
     private void changeNotHasFileText(boolean vis) {
