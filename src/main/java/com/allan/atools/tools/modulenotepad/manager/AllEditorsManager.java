@@ -218,7 +218,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         for (var area : areas) {
             var editor = area.getEditor();
             if (autoSaveOnExit) {
-                editor.saveContent(null, editor.getIsFake());
+                editor.saveContentAndWait(editor.getIsFake());
             } else if (editor.getIsFake()) {
                 saveHiddenTempFile(area);
             }

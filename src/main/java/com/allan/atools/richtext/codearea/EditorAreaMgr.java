@@ -520,6 +520,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         saveContentInner(sourceCode, savedUndo, savedFile, encoding, requestVersion);
     }
 
+    public void saveContentAndWait(boolean forceSave) {
+        saveContent(null, forceSave);
+        awaitPendingSave();
+    }
+
     private boolean awaitPendingSave() {
         var save = pendingSave;
         if (save == null) {
