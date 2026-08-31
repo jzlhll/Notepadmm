@@ -40,7 +40,3 @@ JavaFX + Gradle 多模块笔记编辑器（Java 17 / JavaFX 21 / richtextfx 0.11
 | `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownImageManager.java` | Markdown 行内图片 |
 | `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownCodeBlockManager.java` | Markdown 代码块背景 |
 | `BaseUiLibs/src/main/java/com/allan/uilibs/richtexts/CodeArea.java` | 编辑器基础能力 |
-
-## 其他
-
-- 编译安装参考 `build-install` skill 约定（不主动运行 Gradle）。
