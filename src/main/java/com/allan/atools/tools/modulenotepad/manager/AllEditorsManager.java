@@ -351,7 +351,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             changeNotHasFileText(false);
             return editorCodeArea;
         } catch (Exception e) {
-            String warnMessage = "openTextIn Tab Can't Open File in Tab pane";
+            String warnMessage = Locales.str("openTabFailed");
             Log.e("openTextIn Tab open failed: " + warnMessage, e);
             if (announceError) {
                 JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
@@ -410,7 +410,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 Log.e("open file failed: " + textFile.getAbsolutePath(), e);
                 if (!ThreadUtils.sBeClosing) {
                     Platform.runLater(() -> JfoenixDialogUtils.alert(Locales.ALERT(),
-                            "openTextIn Tab Can't Open File in Tab pane"));
+                            Locales.str("openTabFailed")));
                 }
             }
         });
@@ -492,10 +492,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             changeNotHasFileText(false);
         } catch (Exception e) {
             e.printStackTrace();
-            String warnMessage = "openTextIn Tab Can't Open File in Tab pane";
-            //Debugging warning
+            String warnMessage = Locales.str("openTabFailed");
             Log.e("openTextIn Tab open failed: " + warnMessage, e);
-            //UI warning
             JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
         }
     }

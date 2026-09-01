@@ -4,6 +4,7 @@ import com.allan.atools.FontTheme
 import com.allan.atools.UIContext
 import com.allan.atools.tools.modulenotepad.Highlight
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr
+import com.allan.atools.tools.modulenotepad.session.EditorSessionManager
 import com.allan.atools.utils.Log
 import com.allan.baseparty.Action
 import com.allan.baseparty.memory.RefWatcher
@@ -86,6 +87,7 @@ class EditorArea @JvmOverloads constructor(
         }
 
         RefWatcher.watchs(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
+        EditorSessionManager.getInstance().track(this)
     }
 
     fun destroy() {

@@ -491,7 +491,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         }
         markCurrentFileTs();
         RefWatcher.watchs(this, sourceFile == null ? documentState.getDisplayName() : sourceFile.getPath());
-        EditorSessionManager.getInstance().track(area);
     }
 
     private void establishUndoBaseline() {

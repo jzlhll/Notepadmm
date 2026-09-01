@@ -58,6 +58,11 @@
 -keeppackagenames com.allan.atools.richtext
 -keeppackagenames com.allan.atools.ui.controls
 -keeppackagenames com.allan.atools.bean
+# Gson 会话持久化需要 opens 命中的字面包名保持（module-info opens 按字面包名）
+-keeppackagenames com.allan.atools.tools.modulenotepad.session
+# 会话清单、备份条目与枚举类名与字段名必须保留（Gson 按原名反射 fromJson/toJson）
+-keep class com.allan.atools.tools.modulenotepad.session.** { *; }
+-dontnote com.allan.atools.tools.modulenotepad.session.**
 
 -keepattributes StartupEntro
 
