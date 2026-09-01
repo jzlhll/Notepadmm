@@ -8,7 +8,10 @@ import com.allan.baseparty.Action0;
 import com.jfoenix.controls.JFXSnackbar;
 import com.jfoenix.controls.JFXSnackbarLayout;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Pane;
 import javafx.util.Duration;
 
 public final class SnackbarUtils {
@@ -72,6 +75,36 @@ public final class SnackbarUtils {
                         Platform.runLater(()-> {
                             parent.getChildren().remove(snackbarHost);
                         }),
+                duration + 200);
+    }
+
+    /** 在 scene 所属窗口底部居中弹出提示，浮层不随页面内容滚动 */
+    public static void showInScene(Scene scene, String title, long duration) {
+        if (!(scene.getRoot() instanceof Pane root)) {
+            return;
+        }
+        AnchorPaneEx snackbarHost = new AnchorPaneEx();
+        snackbarHost.setManaged(false);
+        snackbarHost.setPickOnBounds(false);
+        snackbarHost.resizeRelocate(0.0, 0.0, root.getWidth(), root.getHeight());
+        ChangeListener<Number> resizeListener = (observable, oldValue, newValue) ->
+                snackbarHost.resizeRelocate(0.0, 0.0, root.getWidth(), root.getHeight());
+        root.widthProperty().addListener(resizeListener);
+        root.heightProperty().addListener(resizeListener);
+        root.getChildren().add(snackbarHost);
+        Runnable cleanup = () -> {
+            root.getChildren().remove(snackbarHost);
+            root.widthProperty().removeListener(resizeListener);
+            root.heightProperty().removeListener(resizeListener);
+        };
+        var snackbar = new JFXSnackbar(snackbarHost);
+        snackbar.setPrefWidth(str2width(title));
+        snackbar.fireEvent(new JFXSnackbar.SnackbarEvent(
+                new JFXSnackbarLayout(title, Locales.str("known"), action -> cleanup.run()),
+                Duration.millis(duration), null));
+
+        ThreadUtils.globalHandler().postDelayed(()->
+                        Platform.runLater(cleanup::run),
                 duration + 200);
     }
 //    public static void showWithClose(Pane root, String title) {

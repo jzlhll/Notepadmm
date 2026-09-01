@@ -3,12 +3,29 @@ set -e
 
 cd "$(dirname "$0")"
 
-case "$(uname -s)" in
+# 检测系统平台
+os_name="$(uname -s)"
+arch_name="$(uname -m)"
+current_os=""
+current_arch=""
+current_task=""
+gradlew_cmd="./gradlew"
+default_build_action="0"   # buildRoot 脚本默认值，按平台设置
+app_path=""
+
+case "$os_name" in
     Darwin)
+        current_os="macOS"
+        default_build_action="1"
+        app_path='/Applications/ATools.app'
         ;;
     MINGW*|MSYS*|CYGWIN*)
-        echo "当前系统为 Windows，请在 IDEA 中依次打开 Gradle -> distribution，然后运行 mainShAllWindowsArm64 或 mainShAllWindowsX64。"
-        exit 0
+        current_os="Windows"
+        default_build_action="0"
+        # Windows 下优先使用 gradlew.bat
+        if [ -f "./gradlew.bat" ]; then
+            gradlew_cmd="./gradlew.bat"
+        fi
         ;;
     *)
         echo "当前系统不支持运行此脚本。"
@@ -16,27 +33,43 @@ case "$(uname -s)" in
         ;;
 esac
 
-case "$(uname -m)" in
+# 检测当前架构与对应的默认 Gradle task
+case "$arch_name" in
     arm64|aarch64)
-        current_arch="ARM（Apple Silicon）"
-        current_task="mainShAllMacArm64"
+        if [ "$current_os" = "macOS" ]; then
+            current_arch="ARM（Apple Silicon）"
+            current_task="mainShAllMacArm64"
+        elif [ "$current_os" = "Windows" ]; then
+            current_arch="ARM（Windows Arm64）"
+            current_task="mainShAllWindowsArm64"
+        fi
         ;;
     x86_64)
-        current_arch="Intel（x64）"
-        current_task="mainShAllMacX64"
+        if [ "$current_os" = "macOS" ]; then
+            current_arch="Intel（x64）"
+            current_task="mainShAllMacX64"
+        elif [ "$current_os" = "Windows" ]; then
+            current_arch="Intel（x64）"
+            current_task="mainShAllWindowsX64"
+        fi
         ;;
     *)
-        current_arch="未知（$(uname -m)）"
+        current_arch="未知（${arch_name}）"
         current_task=""
         ;;
 esac
 
-echo "请选择需要编译的 macOS 架构："
+# ---------- 步骤 1：选择编译架构 ----------
+echo "请选择需要编译的 ${current_os} 架构："
 echo "0) 当前电脑平台：${current_arch}（直接回车默认选此项）"
-echo "1) ARM（Apple Silicon）"
-echo "2) Intel（x64）"
+if [ "$current_os" = "macOS" ]; then
+    echo "1) ARM（Apple Silicon）"
+    echo "2) Intel（x64）"
+else
+    echo "1) ARM（Windows Arm64）"
+    echo "2) Intel（x64）"
+fi
 
-# 倒计时 3 秒，期间可随时输入；超时或直接回车则默认执行 0
 architecture=""
 seconds_left=3
 while [ "$seconds_left" -gt 0 ]; do
@@ -56,15 +89,25 @@ case "$architecture" in
             exit 1
         fi
         echo "已选择：0) 当前电脑平台 -> ${current_arch}"
-        ./gradlew "$current_task"
+        "$gradlew_cmd" "$current_task"
         ;;
     1)
-        echo "已选择：1) ARM（Apple Silicon）"
-        ./gradlew mainShAllMacArm64
+        if [ "$current_os" = "macOS" ]; then
+            echo "已选择：1) ARM（Apple Silicon）"
+            "$gradlew_cmd" mainShAllMacArm64
+        else
+            echo "已选择：1) ARM（Windows Arm64）"
+            "$gradlew_cmd" mainShAllWindowsArm64
+        fi
         ;;
     2)
-        echo "已选择：2) Intel（x64）"
-        ./gradlew mainShAllMacX64
+        if [ "$current_os" = "macOS" ]; then
+            echo "已选择：2) Intel（x64）"
+            "$gradlew_cmd" mainShAllMacX64
+        else
+            echo "已选择：2) Intel（x64）"
+            "$gradlew_cmd" mainShAllWindowsX64
+        fi
         ;;
     *)
         echo "输入无效，已取消编译。"
@@ -76,23 +119,26 @@ echo ""
 echo "========== Gradle 编译完成 =========="
 echo ""
 echo ""
+
+# ---------- 步骤 2：是否执行 buildRoot 脚本（默认值按平台挂钩） ----------
 echo "请选择是否执行 buildRoot 下的脚本："
 echo "0) 不执行"
-echo "1) 执行 copyToApplications.sh（直接回车默认选此项）"
+echo "1) 执行 copyToApplications.sh"
 echo "2) 执行 jpackageCmd.sh"
 
-# 倒计时 3 秒，期间可随时输入；超时或直接回车则默认执行 1
+build_action_prompt="请输入 0、1 或 2 [默认 ${default_build_action}]（%d 秒后自动执行 ${default_build_action}）："
 build_action=""
 seconds_left=3
 while [ "$seconds_left" -gt 0 ]; do
-    printf "\r请输入 0、1 或 2 [默认 1]（%d 秒后自动执行 1）：" "$seconds_left"
+    # shellcheck disable=SC2059
+    printf "\r${build_action_prompt}" "$seconds_left"
     if read -t 1 -r build_action; then
         break
     fi
     seconds_left=$((seconds_left - 1))
 done
 printf "\r%*s\r" 60 ""
-build_action="${build_action:-1}"
+build_action="${build_action:-${default_build_action}}"
 
 case "$build_action" in
     0)
@@ -111,26 +157,28 @@ case "$build_action" in
         ;;
 esac
 
-app_path='/Applications/ATools.app'
-if [ ! -d "$app_path" ]; then
-    echo "错误: 找不到待启动的应用: $app_path"
-    exit 1
-fi
+# ---------- 步骤 3：macOS 下自动结束并重启应用（仅 Darwin 平台执行） ----------
+if [ "$current_os" = "macOS" ] && [ -n "$app_path" ]; then
+    if [ ! -d "$app_path" ]; then
+        echo "警告: 找不到待启动的应用: $app_path，跳过重启步骤。"
+        exit 0
+    fi
 
-cancel_restart() {
+    cancel_restart() {
+        echo ""
+        echo "已取消结束和重启程序。"
+        exit 130
+    }
+    trap cancel_restart INT TERM
+
     echo ""
-    echo "已取消结束和重启程序。"
-    exit 130
-}
-trap cancel_restart INT TERM
+    echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
+    sleep 3
+    /usr/bin/pkill -x ATools 2>/dev/null || true
 
-echo ""
-echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
-sleep 3
-/usr/bin/pkill -x ATools 2>/dev/null || true
+    echo "3 秒后重新打开 ATools，按 Ctrl+C 取消。"
+    sleep 3
+    /usr/bin/open "$app_path"
 
-echo "3 秒后重新打开 ATools，按 Ctrl+C 取消。"
-sleep 3
-/usr/bin/open "$app_path"
-
-trap - INT TERM
+    trap - INT TERM
+fi

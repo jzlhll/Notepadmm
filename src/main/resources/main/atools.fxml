@@ -39,7 +39,7 @@
 <?import javafx.scene.control.Separator?>
 <HBox fx:id="mainSplitPane" xmlns="http://javafx.com/javafx/15.0.1"
       xmlns:fx="http://javafx.com/fxml/1" styleClass="custom-main-bg">
-    <JFXListView fx:id="leftMenuListView" styleClass="custom-jfx-list-view"/>
+    <JFXListView fx:id="leftMenuListView" styleClass="custom-jfx-list-view" style="-fx-font-size: 15px;"/>
     <Separator fx:id="separator" prefWidth="3" orientation="VERTICAL"/>
     <ScrollPane fx:id="pageHolderPanel" fitToWidth="true" HBox.hgrow="ALWAYS" />
 </HBox>

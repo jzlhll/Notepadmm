@@ -6,6 +6,8 @@ import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.moduledraws.DrawsVectorParser;
+import com.allan.atools.ui.SnackbarUtils;
+import com.allan.atools.utils.Locales;
 import com.google.gson.Gson;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXComboBox;
@@ -15,6 +17,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXML;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
@@ -37,6 +40,8 @@ import javafx.scene.transform.Scale;
 import javafx.stage.Stage;
 
 import javax.imageio.ImageIO;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -592,6 +597,13 @@ public final class DrawsController extends AbstractController {
             name.setAlignment(Pos.CENTER);
             name.setTextAlignment(TextAlignment.CENTER);
             name.setTextOverrun(OverrunStyle.ELLIPSIS);
+            name.setCursor(Cursor.HAND);
+            // 点击文件名复制到系统剪贴板
+            name.setOnMouseClicked(e -> {
+                var text = name.getText();
+                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
+                SnackbarUtils.showInScene(pageRoot.getScene(), Locales.str("drawsNameCopied").formatted(text), 1800);
+            });
             nameArea.setAlignment(Pos.CENTER);
             nameArea.getChildren().add(name);
             Tooltip.install(name, new Tooltip(preview.path().toAbsolutePath().normalize().toString()));
