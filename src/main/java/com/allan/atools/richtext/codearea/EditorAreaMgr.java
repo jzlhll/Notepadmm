@@ -813,6 +813,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 if (tabLabel != null) {
                     tabLabel.setOnMouseClicked(event-> {
                         if (event.getButton() == MouseButton.SECONDARY) {
+                            var sourceFile = getSourceFile();
+                            var pinned = sourceFile != null
+                                    && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
                             var region = new TabTitleCreatorImpl().createPop(ev -> {
                                 Log.d("ev " + ev);
                                 if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
@@ -822,15 +825,19 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                 } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
                                     openCurrentFolder(null);
                                 } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
-                                    var sourceFile = getSourceFile();
                                     var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
                                     if (!path.isEmpty()) {
                                         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
                                         SnackbarUtils.show(Locales.str("fullPathCopied"));
                                     }
+                                } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(ev)) {
+                                    if (sourceFile != null) {
+                                        var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
+                                        SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
+                                    }
                                 }
                                 GlobalPopupManager.instance().hide();
-                            });
+                            }, pinned);
 
                             GlobalPopupManager.instance().setContent(region).setHeight(300).show(tabLabel, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
                         }

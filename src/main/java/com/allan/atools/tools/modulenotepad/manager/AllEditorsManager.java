@@ -44,6 +44,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     private static final String KEY_RECENT_FILES = "files";
     /** 文件编码映射在 recent.json 中的顶层 key */
     private static final String KEY_FILE_ENCODINGS = "fileEncodings";
+    /** 固定文件列表在 recent.json 中的顶层 key */
+    private static final String KEY_PINNED_FILES = "pinnedFiles";
     private static final TypeToken<List<FileEncodingMap>> TYPE_FILE_ENCODINGS = new TypeToken<>() {};
 
     @Override
@@ -639,6 +641,32 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         ThreadUtils.globalHandler().postDelayed(()->{
             saveOrReadRecentFiles(sourceFilePath);
         }, 200);
+    }
+
+    /** 读取固定文件列表，去重并过滤已不存在的文件 */
+    public static List<String> readPinnedRecentFiles() {
+        return GlobalCfgStores.recent().getStringList(KEY_PINNED_FILES, List.of())
+                .stream().distinct().filter(s -> new File(s).exists()).toList();
+    }
+
+    /** 查询路径是否已固定 */
+    public static boolean isPinnedRecentFile(String file) {
+        return readPinnedRecentFiles().contains(file);
+    }
+
+    /** 切换固定/取消固定，返回固定后状态 */
+    public static boolean togglePinnedRecentFile(String file) {
+        var pinned = new ArrayList<>(readPinnedRecentFiles());
+        boolean add;
+        if (pinned.contains(file)) {
+            pinned.remove(file);
+            add = false;
+        } else {
+            pinned.add(0, file);
+            add = true;
+        }
+        GlobalCfgStores.recent().setStringList(KEY_PINNED_FILES, pinned);
+        return add;
     }
 
     private static String readLastFileEncoding(String file) {

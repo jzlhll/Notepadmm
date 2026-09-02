@@ -13,13 +13,15 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 
 class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
-    override fun createPop(action: Action<String>?): Region {
+    override fun createPop(action: Action<String>?): Region = createPop(action, false)
+
+    fun createPop(action: Action<String>?, pinnedFile: Boolean): Region {
         val vBox = VBox()
         val list: JFXListView<Label>
         list = JFXListView()
         list.style = "-fx-background-color:" + Colors.SearchBgColor.invoke() + ";"
         list.maxWidth = 280.0
-        list.prefHeight = 145.0
+        list.prefHeight = 181.0
 
         var label: Label = createLabel(Locales.str("modifyName"))
         list.items.add(label)
@@ -33,6 +35,9 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
         label = createLabel(Locales.str("editor.copyFullPath"))
         list.items.add(label)
 
+        label = createLabel(Locales.str(if (pinnedFile) "editor.unpinRecentFile" else "editor.pinRecentFile"))
+        list.items.add(label)
+
         list.selectionModel.selectedIndexProperty()
             .addListener { observable: ObservableValue<out Number>?, oldValue: Number?, newValue: Number ->
                 if (newValue.toInt() == 0) {
@@ -43,6 +48,8 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
                     action?.invoke(EVENT_OPEN_TO_EXPLORE)
                 } else if (newValue.toInt() == 3) {
                     action?.invoke(EVENT_COPY_FULL_PATH)
+                } else if (newValue.toInt() == 4) {
+                    action?.invoke(EVENT_PIN_RECENT_FILE)
                 }
             }
 
@@ -93,6 +100,9 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
 
         @kotlin.jvm.JvmField
         var EVENT_COPY_FULL_PATH: String = "copyFullPath"
+
+        @kotlin.jvm.JvmField
+        var EVENT_PIN_RECENT_FILE: String = "pinRecentFile"
     }
 
 }

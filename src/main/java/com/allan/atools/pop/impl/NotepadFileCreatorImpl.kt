@@ -33,19 +33,34 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
         }
 
         val recentFilesMenu = Menu(Locales.str("allRecentFiles"))
-        val list = AllEditorsManager.saveOrReadRecentFiles(null)
-        if (list != null && list.size > 0) {
-            for (f in list) {
-                val item = MenuItem(f)
-                item.onAction = EventHandler {
-                    AllEditorsManager.Instance.openFile(
-                        File(f),
-                        true,
-                        true
-                    )
-                }
-                recentFilesMenu.items.add(item)
+        val pinnedList = AllEditorsManager.readPinnedRecentFiles()
+        for (f in pinnedList) {
+            val item = MenuItem(f)
+            item.onAction = EventHandler {
+                AllEditorsManager.Instance.openFile(
+                    File(f),
+                    true,
+                    true
+                )
             }
+            recentFilesMenu.items.add(item)
+        }
+        if (pinnedList.isNotEmpty()) {
+            recentFilesMenu.items.add(SeparatorMenuItem())
+        }
+
+        val list = AllEditorsManager.saveOrReadRecentFiles(null)
+        val recentList = list?.filter { !pinnedList.contains(it) } ?: emptyList()
+        for (f in recentList) {
+            val item = MenuItem(f)
+            item.onAction = EventHandler {
+                AllEditorsManager.Instance.openFile(
+                    File(f),
+                    true,
+                    true
+                )
+            }
+            recentFilesMenu.items.add(item)
         }
 
         val menu2 = MenuItem(Locales.str("openDirAsWorkspace"))
@@ -69,7 +84,7 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
         }
 
         contextMenu.items.addAll(menu0, menu1)
-        if (!list.isNullOrEmpty()) {
+        if (recentList.isNotEmpty() || pinnedList.isNotEmpty()) {
             contextMenu.items.add(recentFilesMenu)
         }
         contextMenu.items.addAll(SeparatorMenuItem(), menu2)
