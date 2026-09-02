@@ -86,7 +86,10 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
         List<Paragraph<ParStyle, String, TextStyle>> retParas = new ArrayList<>();
         for (OneFileSearchResults oneFileResults : all.allResults) {
             var hitText = String.format(Locales.str("result.hitTimes"), oneFileResults.results.size());
-            var headText = "  " + oneFileResults.file.getName() + "  (" + hitText + ")";
+            var fileName = oneFileResults.displayName != null
+                    ? oneFileResults.displayName
+                    : oneFileResults.file == null ? "" : oneFileResults.file.getName();
+            var headText = "  " + fileName + "  (" + hitText + ")";
             retParas.add(new Paragraph<>(lineParaStyle, segmentOps, headText, lineTextStyle));
 
             for (ResultItemWrap itemWrap : oneFileResults.results) {
