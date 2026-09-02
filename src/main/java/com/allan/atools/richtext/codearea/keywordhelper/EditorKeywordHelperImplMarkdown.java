@@ -54,6 +54,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
+    private static final Pattern RELAXED_BOLD_PATTERN = Pattern.compile(
+            "(?<![\\\\*])\\*\\*(?!\\*)([^\\r\\n]*?)(?<![\\\\*])\\*\\*(?!\\*)");
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
             "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
@@ -120,7 +122,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             return null;
         }
         var events = new EventBuffer();
-        root.accept(new MarkdownRegionVisitor(text, events, canContinue));
+        var visitor = new MarkdownRegionVisitor(text, events, canContinue);
+        root.accept(visitor);
+        visitor.addRelaxedBoldRegions();
         if (!canContinue.getAsBoolean()) {
             return null;
         }
@@ -215,6 +219,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private final String text;
         private final EventBuffer events;
         private final BooleanSupplier canContinue;
+        private final ArrayList<int[]> literalRegions = new ArrayList<>();
 
         MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
             this.text = text;
@@ -230,12 +235,14 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(FencedCodeBlock block) {
+            addLiteralRegions(block);
             addNodeRegions(block, STYLE_CODE);
             addFencedCodeTokenRegions(block);
         }
 
         @Override
         public void visit(IndentedCodeBlock block) {
+            addLiteralRegions(block);
             addNodeRegions(block, STYLE_CODE);
         }
 
@@ -253,6 +260,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(Code code) {
+            addLiteralRegions(code);
             addNodeRegions(code, STYLE_INLINE_CODE);
         }
 
@@ -263,16 +271,19 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(Image image) {
+            addLiteralRegions(image);
             addNodeRegions(image, STYLE_IMAGE);
         }
 
         @Override
         public void visit(HtmlBlock block) {
+            addLiteralRegions(block);
             addHtmlImgRegions(block);
         }
 
         @Override
         public void visit(HtmlInline inline) {
+            addLiteralRegions(inline);
             addHtmlImgRegions(inline);
         }
 
@@ -331,6 +342,36 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             for (var span : node.getSourceSpans()) {
                 int start = span.getInputIndex();
                 events.addRegion(start, start + span.getLength(), styleId);
+            }
+        }
+
+        private void addLiteralRegions(Node node) {
+            for (var span : node.getSourceSpans()) {
+                int start = span.getInputIndex();
+                literalRegions.add(new int[]{start, start + span.getLength()});
+            }
+        }
+
+        /** 允许双星号内侧保留空格，同时避开代码、HTML 与图片原文。 */
+        private void addRelaxedBoldRegions() {
+            Matcher matcher = RELAXED_BOLD_PATTERN.matcher(text);
+            while (matcher.find()) {
+                if (!canContinue.getAsBoolean()) {
+                    return;
+                }
+                int contentStart = matcher.start(1);
+                int contentEnd = matcher.end(1);
+                if (contentStart == contentEnd || text.substring(contentStart, contentEnd).isBlank()) {
+                    continue;
+                }
+                if (!Character.isWhitespace(text.charAt(contentStart))
+                        && !Character.isWhitespace(text.charAt(contentEnd - 1))) {
+                    continue;
+                }
+                if (literalRegions.stream().noneMatch(region ->
+                        matcher.start() < region[1] && matcher.end() > region[0])) {
+                    events.addRegion(matcher.start(), matcher.end(), STYLE_BOLD);
+                }
             }
         }
 
