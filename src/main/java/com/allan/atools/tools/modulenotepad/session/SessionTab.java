@@ -18,4 +18,5 @@ public final class SessionTab {
     public String initialSaveDirectory;
 
     public transient String restoredText;
+    public transient String savedText;
 }

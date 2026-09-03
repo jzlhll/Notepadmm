@@ -295,6 +295,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     @Override
     public EditorArea restoreSessionEntry(SessionTab entry, String text) {
         var sourceFile = entry.sourcePath == null ? null : new File(entry.sourcePath);
+        var restoredText = text == null ? "" : text;
+        var savedText = entry.untitled ? "" : entry.savedText;
+        boolean hasSavedState = entry.dirty && savedText != null;
+        boolean hasUnsavedDifference = hasSavedState && !savedText.equals(restoredText);
         String encoding = entry.encoding == null ? EncodingUtil.CHOISE_ENCODING_UTF8 : entry.encoding;
         try {
             Charset.forName(encoding);
@@ -304,7 +308,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         var state = new EditorDocumentState(entry.sessionId, entry.displayName, sourceFile,
                 entry.untitled, encoding,
                 entry.initialSaveDirectory == null ? null : new File(entry.initialSaveDirectory));
-        state.setDirty(entry.dirty);
+        state.setDirty(entry.dirty && !hasSavedState);
         if (entry.dirty) {
             state.setBaseLastModified(entry.baseLastModified);
             state.setBaseFileSize(entry.baseFileSize);
@@ -318,8 +322,11 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 || sourceFile.length() != entry.baseFileSize)) {
             state.setExternalState(EditorDocumentState.ExternalState.MODIFIED);
         }
-        var area = createEditorTab(state, text == null ? "" : text, false, false);
+        var area = createEditorTab(state, hasSavedState ? savedText : restoredText, false, false);
         if (area != null) {
+            if (hasUnsavedDifference) {
+                area.getEditor().restoreUnsavedText(restoredText);
+            }
             int caret = entry.caretPosition;
             if (caret < 0) {
                 caret = 0;

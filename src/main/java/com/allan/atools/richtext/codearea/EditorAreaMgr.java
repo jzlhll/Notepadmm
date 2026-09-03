@@ -103,7 +103,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 }
             }
 
-            updateDirtyFromUndo();
+            updateDirtyFromContent();
         }
 
         @Override
@@ -497,19 +497,41 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         UndoManager.UndoPosition position = area.getUndoManager().getCurrentPosition();
         position.mark();
         documentState.setSavedUndoPosition(position);
+        documentState.setSavedText(area.getText());
         documentState.setDirty(false);
         updateTabTitle();
     }
 
-    private void updateDirtyFromUndo() {
+    /** 将会话内容作为一次独立编辑恢复，使首次撤销回到磁盘保存状态。 */
+    public void restoreUnsavedText(String text) {
+        if (area.getText().equals(text)) {
+            return;
+        }
+        var undoManager = area.getUndoManager();
+        undoManager.preventMerge();
+        area.replaceText(text);
+        undoManager.preventMerge();
+    }
+
+    private void updateDirtyFromContent() {
         if (programmaticReplace) {
             return;
         }
-        documentState.setDirty(documentState.isSavedUndoPositionValid()
-                ? !area.getUndoManager().isAtMarkedPosition()
-                : true);
+        documentState.setDirty(!isCurrentContentSaved());
         updateTabTitle();
         EditorSessionManager.getInstance().onTextChanged(area, contentVersion.get());
+    }
+
+    private boolean isCurrentContentSaved() {
+        var savedText = documentState.getSavedText();
+        if (savedText == null) {
+            return false;
+        }
+        if (documentState.isSavedUndoPositionValid()
+                && area.getUndoManager().isAtMarkedPosition()) {
+            return true;
+        }
+        return area.getLength() == savedText.length() && area.getText().equals(savedText);
     }
 
     private void updateTabTitle() {
@@ -650,8 +672,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private void startSave(File target, String sourceCode, String encoding,
                            CompletableFuture<SaveResult> result) {
-        long capturedVersion = contentVersion.get();
-        UndoManager.UndoPosition savedPosition = area.getUndoManager().getCurrentPosition();
+        var undoManager = area.getUndoManager();
+        undoManager.preventMerge();
+        UndoManager.UndoPosition savedPosition = undoManager.getCurrentPosition();
         CompletableFuture<Boolean> write;
         synchronized (saveLock) {
             write = saveChain.handle((ignored, throwable) -> null)
@@ -672,13 +695,14 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             bindSavedFile(target);
             documentState.updateBaseFileMetadata();
             documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
+            documentState.setSavedText(sourceCode);
             if (savedPosition.isValid()) {
                 savedPosition.mark();
                 documentState.setSavedUndoPosition(savedPosition);
+            } else {
+                documentState.invalidateSavedUndoPosition();
             }
-            boolean clean = savedPosition.isValid()
-                    && contentVersion.get() == capturedVersion
-                    && area.getUndoManager().isAtMarkedPosition();
+            boolean clean = isCurrentContentSaved();
             documentState.setDirty(!clean);
             updateTabTitle();
             var saveResult = clean ? SaveResult.SUCCESS_CLEAN : SaveResult.SUCCESS_DIRTY;

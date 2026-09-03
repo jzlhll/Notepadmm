@@ -461,7 +461,7 @@ public final class EditorSessionManager {
                         return;
                     }
                     var previousTab = previousById.get(tab.sessionId);
-                    if (previousTab != null && previousTab.dirty && loadBackup(previousTab)) {
+                    if (previousTab != null && previousTab.dirty && loadDirtyTab(previousTab)) {
                         previousTab.order = tab.order;
                         restored.add(previousTab);
                         warnings.add(Locales.str("sessionRestoredOlder").replace("%s", tab.displayName));
@@ -503,7 +503,7 @@ public final class EditorSessionManager {
 
     private boolean loadTabText(SessionTab tab, List<String> warnings) {
         if (tab.dirty) {
-            return loadBackup(tab);
+            return loadDirtyTab(tab);
         }
         if (tab.untitled) {
             tab.restoredText = "";
@@ -521,6 +521,33 @@ public final class EditorSessionManager {
         } catch (Exception e) {
             warnings.add(Locales.str("sessionFileReadFailed").replace("%s", tab.displayName));
             return false;
+        }
+    }
+
+    private boolean loadDirtyTab(SessionTab tab) {
+        if (!loadBackup(tab)) {
+            return false;
+        }
+        loadSavedText(tab);
+        return true;
+    }
+
+    private void loadSavedText(SessionTab tab) {
+        if (tab.untitled) {
+            return;
+        }
+        var source = pathOrNull(tab.sourcePath);
+        if (source == null || !Files.isRegularFile(source)) {
+            return;
+        }
+        try {
+            if (Files.getLastModifiedTime(source).toMillis() != tab.baseLastModified
+                    || Files.size(source) != tab.baseFileSize) {
+                return;
+            }
+            var encoding = tab.encoding == null ? StandardCharsets.UTF_8 : Charset.forName(tab.encoding);
+            tab.savedText = Files.readString(source, encoding);
+        } catch (Exception ignored) {
         }
     }
 

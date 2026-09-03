@@ -25,6 +25,7 @@ public final class EditorDocumentState {
     private long baseFileSize;
     private String initialSaveDirectory;
     private transient UndoManager.UndoPosition savedUndoPosition;
+    private transient String savedText;
 
     public EditorDocumentState(String sessionId, String displayName, File sourceFile,
                                boolean untitled, String encoding, File initialSaveDirectory) {
@@ -131,6 +132,14 @@ public final class EditorDocumentState {
 
     public void invalidateSavedUndoPosition() {
         savedUndoPosition = null;
+    }
+
+    public String getSavedText() {
+        return savedText;
+    }
+
+    public void setSavedText(String savedText) {
+        this.savedText = savedText;
     }
 
     public void updateBaseFileMetadata() {
