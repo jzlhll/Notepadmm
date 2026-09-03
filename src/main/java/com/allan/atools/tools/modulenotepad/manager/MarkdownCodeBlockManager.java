@@ -4,11 +4,11 @@ import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
-import com.allan.baseparty.Action0;
 import javafx.application.Platform;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.FencedCodeBlock;
 import org.commonmark.node.IndentedCodeBlock;
+import org.reactfx.Subscription;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
+
+import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 
 /**
  * Markdown 代码块整块圆角矩形背景管理器：
@@ -42,11 +44,11 @@ public final class MarkdownCodeBlockManager {
     private static final Set<String> PARA_CLASSES = Set.of(
             PARA_FIRST, PARA_MID, PARA_LAST, PARA_SINGLE, PARA_EMPTY);
 
-    private final Action0 textChangedAction = this::onTextChanged;
     private final LatestRefreshScheduler refreshScheduler =
             new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
 
     private EditorArea currentArea;
+    private Subscription textChangeSubscription;
     /** 行号 → 当前已应用的段落样式类 */
     private Map<Integer, String> lineStyles = Map.of();
     private boolean runtimeActive;
@@ -73,7 +75,8 @@ public final class MarkdownCodeBlockManager {
         if (!MarkdownImageManager.supports(area)) {
             return;
         }
-        area.getEditor().textChanged.addAction(textChangedAction);
+        textChangeSubscription = area.plainTextChanges().subscribe(change ->
+                onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted()));
         if (isOverLimit(area)) {
             return;
         }
@@ -86,13 +89,16 @@ public final class MarkdownCodeBlockManager {
         if (area == null) {
             return;
         }
-        area.getEditor().textChanged.removeAction(textChangedAction);
+        if (textChangeSubscription != null) {
+            textChangeSubscription.unsubscribe();
+            textChangeSubscription = null;
+        }
         deactivateRuntime();
         clearAllStyles(area);
         currentArea = null;
     }
 
-    private void onTextChanged() {
+    private void onTextChanged(int position, String removed, String inserted) {
         var area = currentArea;
         if (isOverLimit(area)) {
             deactivateRuntime();
@@ -100,8 +106,40 @@ public final class MarkdownCodeBlockManager {
             return;
         }
         activateRuntime();
-        clearAllStyles(area);
+        updateLineStylesAfterEdit(area, position, removed, inserted);
         refreshScheduler.request();
+    }
+
+    private void updateLineStylesAfterEdit(EditorArea area, int position,
+                                           String removed, String inserted) {
+        int editLine = area.offsetToPosition(Math.min(position, area.getLength()), Forward).getMajor();
+        int removedLines = countNewlines(removed);
+        int insertedLines = countNewlines(inserted);
+        int oldEndLine = editLine + removedLines;
+        int lineDelta = insertedLines - removedLines;
+        var adjusted = new HashMap<Integer, String>();
+        for (var entry : lineStyles.entrySet()) {
+            int line = entry.getKey();
+            if (line < editLine) {
+                adjusted.put(line, entry.getValue());
+            } else if (line > oldEndLine) {
+                adjusted.put(line + lineDelta, entry.getValue());
+            }
+        }
+        lineStyles = adjusted.isEmpty() ? Map.of() : adjusted;
+        for (int line = editLine; line <= editLine + insertedLines; line++) {
+            setParagraphStyleClass(area, line, null);
+        }
+    }
+
+    private static int countNewlines(String text) {
+        int count = 0;
+        for (int index = 0; index < text.length(); index++) {
+            if (text.charAt(index) == '\n') {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void startRefresh(long requestId) {
