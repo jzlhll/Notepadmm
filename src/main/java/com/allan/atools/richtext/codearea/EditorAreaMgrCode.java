@@ -3,35 +3,55 @@ package com.allan.atools.richtext.codearea;
 import com.allan.atools.UIContext;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
+import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown;
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache;
 import com.allan.atools.threads.ClosedDroppedHandler;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.allan.baseparty.Action0;
 import com.allan.baseparty.handler.HandlerThread;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.Tab;
-import org.fxmisc.richtext.model.StyleSpans;
+import javafx.util.Duration;
+import org.commonmark.node.Node;
+import org.reactfx.Subscription;
 
 import java.io.File;
 import java.net.MalformedURLException;
-import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class EditorAreaMgrCode extends EditorAreaMgr {
+    private static final long STYLE_INTERVAL_MS = 120;
     static boolean sJavaKeywordCssFileLoad = false;
     private static volatile ClosedDroppedHandler sStylerHandler;
 
     private EditorKeywordHelperAbstract mKeywordHelper;
+    private final MarkdownAstCache markdownAstCache = new MarkdownAstCache();
     private final AtomicLong styleRequestId = new AtomicLong();
+    private final PauseTransition styleDelay = new PauseTransition();
+    private Subscription styleTextSubscription;
     private volatile Runnable pendingStyleTask;
+    private SearchParams latestTemporaryText;
+    private SearchParams latestSearchText;
+    private Action0 latestEndCallback;
+    private boolean styleDirty;
+    private boolean styleRunning;
+    private long runningStyleRequestId;
+    private volatile long styleOptionsVersion;
+    private int runningStablePrefixLimit;
+    private long lastStyleStartedAt;
 
     EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab,
                       EditorDocumentState documentState) {
         super(area, sourceFile, tab, documentState);
-        mKeywordHelper = EditorKeywordHelperFactory.create(sourceFile);
+        styleDelay.setOnFinished(event -> startLatestStyle());
+        mKeywordHelper = createKeywordHelper(sourceFile);
         ensureKeywordStylesheet(mKeywordHelper);
-
-        if (mKeywordHelper != null) trigger(null, null, null);
+        if (mKeywordHelper != null) {
+            bindStyleTextChanges();
+            requestStyle(null, null, null, true);
+        }
     }
 
     private static ClosedDroppedHandler stylerHandler() {
@@ -53,9 +73,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     }
 
     public void bindKeywordHelper(File sourceFile) {
-        beginStyleRequest();
-        mKeywordHelper = EditorKeywordHelperFactory.create(sourceFile);
+        resetStyleScheduler();
+        mKeywordHelper = createKeywordHelper(sourceFile);
         ensureKeywordStylesheet(mKeywordHelper);
+        bindStyleTextChanges();
         if (mKeywordHelper == null) {
             var area = getArea();
             if (area != null && area.getLength() > 0) {
@@ -63,7 +84,36 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
             }
             return;
         }
-        trigger(null, null, null);
+        requestStyle(null, null, null, true);
+    }
+
+    private void bindStyleTextChanges() {
+        if (styleTextSubscription != null) {
+            styleTextSubscription.unsubscribe();
+            styleTextSubscription = null;
+        }
+        var area = getArea();
+        if (mKeywordHelper != null && area != null) {
+            styleTextSubscription = area.plainTextChanges().subscribe(change -> {
+                if (styleRunning && change.getPosition() < runningStablePrefixLimit) {
+                    runningStablePrefixLimit = change.getPosition();
+                }
+                styleDirty = true;
+                scheduleLatestStyle(false);
+            });
+        }
+    }
+
+    private EditorKeywordHelperAbstract createKeywordHelper(File sourceFile) {
+        var helper = EditorKeywordHelperFactory.create(sourceFile);
+        if (helper instanceof EditorKeywordHelperImplMarkdown markdownHelper) {
+            markdownHelper.setAstCache(markdownAstCache);
+        }
+        return helper;
+    }
+
+    public Node parseMarkdown(String text) {
+        return markdownAstCache.parse(text);
     }
 
     private static void ensureKeywordStylesheet(EditorKeywordHelperAbstract helper) {
@@ -79,127 +129,168 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         }
     }
 
-    public void invalidateStyleRequest() {
-        if (mKeywordHelper != null) {
-            beginStyleRequest();
-        }
-    }
-
     @Override
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
-        Log.d(getSourceFile() + " trigger");
-        if (mKeywordHelper == null) {
-            return;
-        }
-        long requestId = beginStyleRequest();
-        Runnable captureAction = () -> captureAndScheduleStyle(
-                requestId, temporaryText, searchText, endSetStyleCallback);
+        requestStyle(temporaryText, searchText, endSetStyleCallback, true);
+    }
+
+    private void requestStyle(SearchParams temporaryText, SearchParams searchText,
+                              Action0 endSetStyleCallback, boolean immediate) {
+        SearchParams temporaryCopy = temporaryText == null ? null : temporaryText.copy();
+        SearchParams searchCopy = searchText == null ? null : searchText.copy();
+        Runnable action = () -> {
+            if (mKeywordHelper == null || isDestroyed()) {
+                return;
+            }
+            latestTemporaryText = temporaryCopy;
+            latestSearchText = searchCopy;
+            latestEndCallback = endSetStyleCallback;
+            styleOptionsVersion++;
+            styleDirty = true;
+            scheduleLatestStyle(immediate);
+        };
         if (Platform.isFxApplicationThread()) {
-            captureAction.run();
+            action.run();
         } else {
-            Platform.runLater(captureAction);
+            Platform.runLater(action);
         }
     }
 
-    @Override
-    public void triggerWithSnapshot(String text, long contentVersion,
-                                    StyleSpans<Collection<String>> currentSpans,
-                                    SearchParams temporaryText, SearchParams searchText,
-                                    Action0 endSetStyleCallback) {
-        if (mKeywordHelper == null) {
+    private void scheduleLatestStyle(boolean immediate) {
+        if (!styleDirty || styleRunning || mKeywordHelper == null || isDestroyed()) {
             return;
         }
-        long requestId = beginStyleRequest();
-        scheduleStyle(requestId, text, contentVersion, currentSpans,
-                temporaryText, searchText, endSetStyleCallback);
+        long elapsed = (System.nanoTime() - lastStyleStartedAt) / 1_000_000;
+        if (immediate || lastStyleStartedAt == 0 || elapsed >= STYLE_INTERVAL_MS) {
+            startLatestStyle();
+            return;
+        }
+        styleDelay.setDuration(Duration.millis(STYLE_INTERVAL_MS - elapsed));
+        styleDelay.playFromStart();
     }
 
-    private long beginStyleRequest() {
-        long requestId = styleRequestId.incrementAndGet();
-        Runnable task = pendingStyleTask;
-        var handler = sStylerHandler;
-        if (task != null && handler != null) {
-            handler.removeCallback(task);
-            pendingStyleTask = null;
-        }
-        return requestId;
-    }
-
-    private void captureAndScheduleStyle(long requestId, SearchParams temporaryText,
-                                         SearchParams searchText, Action0 endSetStyleCallback) {
-        if (requestId != styleRequestId.get() || isDestroyed()) {
+    private void startLatestStyle() {
+        if (!styleDirty || styleRunning || mKeywordHelper == null || isDestroyed()) {
             return;
         }
-        if (disableStylerIfNeeded(endSetStyleCallback)) {
+        if (disableStylerIfNeeded(latestEndCallback)) {
+            styleDirty = false;
+            latestEndCallback = null;
             return;
         }
-        long contentVersion = getContentVersion();
-        var area = getArea();
+        EditorArea area = (EditorArea) getArea();
         if (area == null) {
             return;
         }
+        styleDelay.stop();
+        styleDirty = false;
+        styleRunning = true;
+        lastStyleStartedAt = System.nanoTime();
+        long requestId = styleRequestId.incrementAndGet();
+        runningStyleRequestId = requestId;
+        long optionsVersion = styleOptionsVersion;
+        long contentVersion = getContentVersion();
         String text = area.getText();
+        runningStablePrefixLimit = text.length();
         var currentSpans = area.getStyleSpans(0, text.length());
-        scheduleStyle(requestId, text, contentVersion, currentSpans,
-                temporaryText, searchText, endSetStyleCallback);
-    }
+        var temporaryText = latestTemporaryText;
+        var searchText = latestSearchText;
+        var endCallback = latestEndCallback;
+        latestEndCallback = null;
+        var helper = mKeywordHelper;
 
-    private void scheduleStyle(long requestId, String text, long contentVersion,
-                               StyleSpans<Collection<String>> currentSpans,
-                               SearchParams temporaryText, SearchParams searchText,
-                               Action0 endSetStyleCallback) {
-        if (requestId != styleRequestId.get()
-                || contentVersion != getContentVersion() || isDestroyed()) {
-            return;
-        }
-        if (disableStylerIfNeeded(endSetStyleCallback)) {
-            return;
-        }
         Runnable task = () -> {
-            if (!isStyleRequestValid(requestId, contentVersion)) {
-                return;
-            }
-            if (pendingStyleTask != null && requestId == styleRequestId.get()) {
-                pendingStyleTask = null;
-            }
-            var area = getArea();
-            if (area == null) {
-                return;
-            }
+            EditorKeywordHelperAbstract.StyleUpdate update = null;
             try {
-                var update = mKeywordHelper.computeStyleUpdate(text, temporaryText, searchText, currentSpans,
-                        () -> isStyleRequestValid(requestId, contentVersion));
-                if (update == null) {
-                    return;
+                if (canComputeStyle(requestId, optionsVersion, contentVersion, helper)) {
+                    update = helper.computeStyleUpdate(text, temporaryText, searchText, currentSpans,
+                            () -> canComputeStyle(requestId, optionsVersion, contentVersion, helper));
                 }
-                Platform.runLater(() -> {
-                    if (!isStyleRequestValid(requestId, contentVersion)) {
-                        return;
-                    }
-                    if (update.spans() != null) {
-                        area.setStyleSpans(update.start(), update.spans());
-                    }
-                    if (endSetStyleCallback != null) {
-                        endSetStyleCallback.invoke();
-                    }
-                });
             } catch (RuntimeException e) {
                 Log.e("Code styler failed", e);
             }
+            var result = update;
+            Platform.runLater(() -> finishStyle(
+                    requestId, optionsVersion, contentVersion, text,
+                    helper, area, result, endCallback));
         };
         pendingStyleTask = task;
         stylerHandler().post(task);
     }
 
-    private boolean isStyleRequestValid(long requestId, long contentVersion) {
+    private void finishStyle(long requestId, long optionsVersion, long contentVersion, String text,
+                             EditorKeywordHelperAbstract helper, EditorArea area,
+                             EditorKeywordHelperAbstract.StyleUpdate update, Action0 endCallback) {
+        if (requestId != runningStyleRequestId) {
+            return;
+        }
+        int stablePrefixLimit = runningStablePrefixLimit;
+        pendingStyleTask = null;
+        styleRunning = false;
+        runningStyleRequestId = 0;
+        runningStablePrefixLimit = 0;
+        boolean alive = isStyleTaskAlive(requestId, optionsVersion, helper);
+        boolean contentCurrent = contentVersion == getContentVersion();
+        if (alive && update != null && update.spans() != null) {
+            if (contentCurrent) {
+                area.setStyleSpans(update.start(), update.spans());
+            } else if (helper instanceof EditorKeywordHelperImplMarkdown) {
+                applyStablePrefix(area, text, stablePrefixLimit, update);
+            }
+        }
+        if (alive && contentCurrent && endCallback != null) {
+            endCallback.invoke();
+        }
+        if (styleDirty) {
+            scheduleLatestStyle(false);
+        }
+    }
+
+    private void applyStablePrefix(EditorArea area, String text, int prefixLimit,
+                                   EditorKeywordHelperAbstract.StyleUpdate update) {
+        int stableEnd = stableMarkdownBoundary(text, prefixLimit);
+        int applyEnd = Math.min(stableEnd, update.start() + update.spans().length());
+        if (applyEnd > update.start()) {
+            area.setStyleSpans(update.start(),
+                    update.spans().subView(0, applyEnd - update.start()));
+        }
+    }
+
+    private static int stableMarkdownBoundary(String text, int prefixLimit) {
+        int end = Math.min(prefixLimit, text.length());
+        for (int index = end - 1; index > 0; index--) {
+            if (text.charAt(index) != '\n') {
+                continue;
+            }
+            int previous = index - 1;
+            if (text.charAt(previous) == '\r') {
+                previous--;
+            }
+            if (previous >= 0 && text.charAt(previous) == '\n') {
+                return index + 1;
+            }
+        }
+        return 0;
+    }
+
+    private boolean isStyleTaskAlive(long requestId, long optionsVersion,
+                                     EditorKeywordHelperAbstract helper) {
         return requestId == styleRequestId.get()
-                && contentVersion == getContentVersion()
+                && optionsVersion == styleOptionsVersion
+                && helper == mKeywordHelper
                 && !isRealtimeProcessingLimitReached()
                 && !isDestroyed();
     }
 
-    @Override
-    public void destroy() {
+    private boolean canComputeStyle(long requestId, long optionsVersion, long contentVersion,
+                                    EditorKeywordHelperAbstract helper) {
+        return isStyleTaskAlive(requestId, optionsVersion, helper)
+                && (helper instanceof EditorKeywordHelperImplMarkdown
+                || contentVersion == getContentVersion());
+    }
+
+    private void resetStyleScheduler() {
+        styleDelay.stop();
         styleRequestId.incrementAndGet();
         Runnable task = pendingStyleTask;
         var handler = sStylerHandler;
@@ -207,6 +298,25 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
             handler.removeCallback(task);
         }
         pendingStyleTask = null;
+        latestTemporaryText = null;
+        latestSearchText = null;
+        latestEndCallback = null;
+        styleDirty = false;
+        styleRunning = false;
+        runningStyleRequestId = 0;
+        styleOptionsVersion++;
+        runningStablePrefixLimit = 0;
+        lastStyleStartedAt = 0;
+    }
+
+    @Override
+    public void destroy() {
+        if (styleTextSubscription != null) {
+            styleTextSubscription.unsubscribe();
+            styleTextSubscription = null;
+        }
+        resetStyleScheduler();
+        styleDelay.setOnFinished(null);
         super.destroy();
     }
 }

@@ -1,12 +1,12 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action0;
 import com.allan.uilibs.richtexts.CodeArea;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
@@ -21,15 +21,10 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
-import javafx.util.Duration;
-import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
-import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.HtmlBlock;
 import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Paragraph;
-import org.commonmark.parser.IncludeSourceSpans;
-import org.commonmark.parser.Parser;
 
 import javax.imageio.ImageIO;
 import java.io.File;
@@ -60,7 +55,8 @@ import java.util.regex.Pattern;
  * 段落样式变更不进 undo（plainText undo 只订阅文本变更）。
  */
 public final class MarkdownImageManager {
-    private static final long REFRESH_DELAY_MS = 600;
+    private static final long REFRESH_DELAY_MS = 220;
+    private static final long MAX_REFRESH_WAIT_MS = 450;
     /** 原图尺寸未知时（后台加载完成前）的占位显示高度（逻辑像素） */
     private static final double PLACEHOLDER_IMAGE_HEIGHT = 180;
     private static final double GAP_TOP = 4;
@@ -77,11 +73,6 @@ public final class MarkdownImageManager {
     private static final double LINE_NO_COMPENSATE = 100;
     private static final String IMAGE_PARA_CLASS = "markdown-image-para";
     private static final String PREF_HEIGHT_PREFIX = CodeArea.PARAGRAPH_PREF_HEIGHT_PREFIX;
-
-    private static final Parser PARSER = Parser.builder()
-            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
-            .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
-            .build();
 
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG = Pattern.compile(
@@ -111,13 +102,13 @@ public final class MarkdownImageManager {
     };
 
     private EditorArea currentArea;
-    private PauseTransition refreshDelay;
+    private final LatestRefreshScheduler refreshScheduler =
+            new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
     /** 行号等基础 graphic 工厂（可能为 null） */
     private IntFunction<? extends Node> baseGraphicFactory;
     private Map<Integer, MarkdownImage> imageByLine = Map.of();
     private boolean runtimeActive;
     private boolean destroyed;
-    private long requestId;
     private long shownContentVersion = -1;
     private Future<?> parseTask;
     private double cachedLineHeight = -1;
@@ -129,6 +120,7 @@ public final class MarkdownImageManager {
     public void destroy() {
         destroyed = true;
         unbindEditor();
+        refreshScheduler.dispose();
     }
 
     public void refreshCurrentFile(EditorArea area) {
@@ -146,7 +138,7 @@ public final class MarkdownImageManager {
             return;
         }
         activateRuntime();
-        startRefresh();
+        refreshScheduler.startNow();
     }
 
     private void unbindEditor() {
@@ -161,45 +153,54 @@ public final class MarkdownImageManager {
     }
 
     private void onTextChanged() {
-        invalidateRefresh();
         if (isOverLimit(currentArea)) {
             deactivateRuntime();
             clearAllImageStyles(currentArea);
             return;
         }
         activateRuntime();
-        refreshDelay.playFromStart();
+        clearAllImageStyles(currentArea);
+        refreshScheduler.request();
     }
 
-    private void startRefresh() {
-        invalidateRefresh();
+    private void startRefresh(long requestId) {
         var area = currentArea;
         if (destroyed || !runtimeActive || !supports(area) || isOverLimit(area)) {
+            refreshScheduler.complete(requestId, null);
             return;
         }
         long contentVersion = area.getEditor().getContentVersion();
         String text = area.getText();
         File mdFile = area.getEditor().getSourceFile();
-        long currentRequestId = requestId;
         parseTask = ThreadUtils.submit(() -> {
+            List<MarkdownImage> images = null;
             try {
-                var images = parseImages(text, mdFile);
-                if (images != null && !ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                    Platform.runLater(() -> applyImages(area, contentVersion, currentRequestId, images));
-                }
+                images = parseImages(area, text, mdFile);
             } catch (RuntimeException e) {
                 Log.e("parse markdown images failed", e);
+            }
+            var result = images;
+            Platform.runLater(() -> finishRefresh(
+                    area, contentVersion, requestId, result));
+        });
+    }
+
+    private void finishRefresh(EditorArea area, long contentVersion, long parsedRequestId,
+                               List<MarkdownImage> parsed) {
+        refreshScheduler.complete(parsedRequestId, () -> {
+            parseTask = null;
+            if (parsed != null && !destroyed && area == currentArea
+                    && area.getEditor().getContentVersion() == contentVersion && !isOverLimit(area)) {
+                applyImages(area, contentVersion, parsed);
             }
         });
     }
 
-    private void applyImages(EditorArea area, long contentVersion, long parsedRequestId,
-                             List<MarkdownImage> parsed) {
-        if (destroyed || area != currentArea || parsedRequestId != requestId
+    private void applyImages(EditorArea area, long contentVersion, List<MarkdownImage> parsed) {
+        if (destroyed || area != currentArea
                 || area.getEditor().getContentVersion() != contentVersion || isOverLimit(area)) {
             return;
         }
-        parseTask = null;
         cachedLineHeight = -1;
         var newByLine = new LinkedHashMap<Integer, MarkdownImage>();
         for (var info : parsed) {
@@ -223,8 +224,6 @@ public final class MarkdownImageManager {
             return;
         }
         runtimeActive = true;
-        refreshDelay = new PauseTransition(Duration.millis(REFRESH_DELAY_MS));
-        refreshDelay.setOnFinished(event -> startRefresh());
         baseGraphicFactory = area.paragraphGraphicFactoryProperty().get();
         area.paragraphGraphicFactoryProperty().addListener(factoryListener);
         installComposedFactory();
@@ -256,10 +255,6 @@ public final class MarkdownImageManager {
         }
         runtimeActive = false;
         invalidateRefresh();
-        if (refreshDelay != null) {
-            refreshDelay.setOnFinished(null);
-            refreshDelay = null;
-        }
     }
 
     /** 段落 graphic：行号节点 + 图片（零宽容器，图片经子节点溢出绘制在标签行下方） */
@@ -416,8 +411,10 @@ public final class MarkdownImageManager {
         }
         for (var line : imageByLine.keySet()) {
             clearImageParagraphStyle(area, line);
+            area.recreateParagraphGraphic(line);
         }
         imageByLine = Map.of();
+        shownContentVersion = -1;
     }
 
     private void beginLoad(EditorArea area, int index, MarkdownImage info) {
@@ -541,10 +538,7 @@ public final class MarkdownImageManager {
     }
 
     private void invalidateRefresh() {
-        if (refreshDelay != null) {
-            refreshDelay.stop();
-        }
-        requestId++;
+        refreshScheduler.invalidate();
         var task = parseTask;
         parseTask = null;
         if (task != null) {
@@ -564,9 +558,9 @@ public final class MarkdownImageManager {
         return name.endsWith(".md") || name.endsWith(".markdown");
     }
 
-    private static List<MarkdownImage> parseImages(String text, File mdFile) {
+    private static List<MarkdownImage> parseImages(EditorArea area, String text, File mdFile) {
         var collector = new ImageCollector();
-        PARSER.parse(text).accept(collector);
+        ((EditorAreaMgrCode) area.getEditor()).parseMarkdown(text).accept(collector);
         if (collector.found.isEmpty()) {
             return List.of();
         }

@@ -42,7 +42,6 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import org.fxmisc.richtext.GenericStyledArea;
-import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.undo.UndoManager;
 import org.reactfx.Subscription;
 
@@ -1204,12 +1203,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 end) {
         //do nothing...
         throw new RuntimeException("base should not call trigger in EditorBase");
-    }
-
-    public void triggerWithSnapshot(String text, long contentVersion,
-                                    StyleSpans<Collection<String>> currentSpans,
-                                    SearchParams temporaryText, SearchParams searchText, Action0 end) {
-        trigger(temporaryText, searchText, end);
     }
 
     private static class EditorBaseFocus {

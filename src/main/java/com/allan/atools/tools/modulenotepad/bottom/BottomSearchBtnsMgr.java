@@ -43,6 +43,11 @@ public final class BottomSearchBtnsMgr {
     }
 
     public void init() {
+        var pair = new SearchParamsIndicator();
+        pair.indicator = "";
+        pair.searchParams = BottomHandler.getTemplateParams().copy();
+        mSearchParamAndIndicatorParam = pair;
+
         editorArea.getEditor().textChanged.addAction(() -> {
             if(EditorArea.DEBUG_EDITOR) Log.d("code area text changed refresh search！");
             var flag = lastChangeSearchFlag.incrementAndGet();
@@ -63,11 +68,6 @@ public final class BottomSearchBtnsMgr {
             }
         });
         temporaryWord = null;
-
-        var pair = new SearchParamsIndicator();
-        pair.indicator = "";
-        pair.searchParams = BottomHandler.getTemplateParams().copy();
-        mSearchParamAndIndicatorParam = pair;
     }
 
     private boolean isEnableSelectionListener = true;

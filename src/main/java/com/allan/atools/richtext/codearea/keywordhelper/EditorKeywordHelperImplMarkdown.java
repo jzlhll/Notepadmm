@@ -49,11 +49,11 @@ import java.util.regex.Pattern;
  * 嵌套元素（标题内加粗、粗斜体叠加、代码块内容不高亮等）由 AST 结构天然保证。
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
-    private static final Parser PARSER = Parser.builder()
+    private final Parser relaxedParser = Parser.builder()
             .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
-
+    private MarkdownAstCache astCache = new MarkdownAstCache();
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
     private static final char RELAXED_SPACE_PLACEHOLDER = '\uE000';
@@ -102,6 +102,10 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private final HashMap<Integer, Set<String>> styleClassAndSetMap = new HashMap<>();
 
+    public void setAstCache(MarkdownAstCache astCache) {
+        this.astCache = astCache;
+    }
+
     @Override
     public Pattern getPattern(SearchParams temporary, SearchParams search) {
         synchronized (LOCK) {
@@ -120,7 +124,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     @Override
     protected StyleSpans<Collection<String>> computeHighlighting(
             String text, BooleanSupplier canContinue) {
-        var root = PARSER.parse(text);
+        var root = astCache.parse(text);
         if (!canContinue.getAsBoolean()) {
             return null;
         }
@@ -389,7 +393,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 return;
             }
 
-            var relaxedRoot = PARSER.parse(new String(normalized));
+            var relaxedRoot = relaxedParser.parse(new String(normalized));
             if (!canContinue.getAsBoolean()) {
                 return;
             }

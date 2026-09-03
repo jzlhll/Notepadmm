@@ -5,7 +5,6 @@ import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action0;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
@@ -18,7 +17,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Popup;
-import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +28,8 @@ import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 
 /** 管理 Markdown 表格优化提示与原文对齐。 */
 public final class MarkdownTableOptimizeManager {
-    private static final long REFRESH_DELAY_MS = 600;
+    private static final long REFRESH_DELAY_MS = 250;
+    private static final long MAX_REFRESH_WAIT_MS = 500;
     private static final Pattern SEPARATOR_CELL_PATTERN = Pattern.compile(":?-+:?");
 
     private final Action0 textChangedAction = this::onTextChanged;
@@ -38,9 +37,10 @@ public final class MarkdownTableOptimizeManager {
             (observable, oldValue, newValue) -> updatePopupForCaret();
     private final ChangeListener<Number> scrollChanged =
             (observable, oldValue, newValue) -> updatePopupForCaret();
+    private final LatestRefreshScheduler refreshScheduler =
+            new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
 
     private EditorArea currentArea;
-    private PauseTransition refreshDelay;
     private Popup optimizePopup;
     private Label optimizeLabel;
     private List<MarkdownTable> optimizableTables = List.of();
@@ -48,7 +48,6 @@ public final class MarkdownTableOptimizeManager {
     private boolean runtimeActive;
     private boolean tablesDirty;
     private boolean destroyed;
-    private long requestId;
     private long shownContentVersion = -1;
     private Future<?> parseTask;
 
@@ -59,6 +58,7 @@ public final class MarkdownTableOptimizeManager {
     public void destroy() {
         destroyed = true;
         unbindEditor();
+        refreshScheduler.dispose();
     }
 
     public void refreshCurrentFile(EditorArea area) {
@@ -106,7 +106,7 @@ public final class MarkdownTableOptimizeManager {
         }
         activateRuntime();
         tablesDirty = true;
-        startRefresh();
+        refreshScheduler.startNow();
     }
 
     private void unbindEditor() {
@@ -120,7 +120,7 @@ public final class MarkdownTableOptimizeManager {
     }
 
     private void onTextChanged() {
-        invalidateRefresh();
+        hidePopup();
         tablesDirty = true;
         if (isOverLimit(currentArea)) {
             deactivateRuntime();
@@ -129,38 +129,47 @@ public final class MarkdownTableOptimizeManager {
             return;
         }
         activateRuntime();
-        refreshDelay.playFromStart();
+        refreshScheduler.request();
     }
 
-    private void startRefresh() {
-        invalidateRefresh();
+    private void startRefresh(long requestId) {
         var area = currentArea;
-        if (destroyed || !runtimeActive || !tablesDirty || !supports(area) || isOverLimit(area)) {
+        if (destroyed || !runtimeActive
+                || !tablesDirty || !supports(area) || isOverLimit(area)) {
+            refreshScheduler.complete(requestId, null);
             return;
         }
-
         long contentVersion = area.getEditor().getContentVersion();
         String text = area.getText();
-        long currentRequestId = requestId;
         parseTask = ThreadUtils.submit(() -> {
+            List<MarkdownTable> tables = null;
             try {
-                var tables = parseTables(text);
-                if (tables != null && !ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                    Platform.runLater(() -> applyTables(area, contentVersion, currentRequestId, tables));
-                }
+                tables = parseTables(text);
             } catch (RuntimeException e) {
                 Log.e("parse markdown tables failed", e);
+            }
+            var result = tables;
+            Platform.runLater(() -> finishRefresh(
+                    area, contentVersion, requestId, result));
+        });
+    }
+
+    private void finishRefresh(EditorArea area, long contentVersion, long parsedRequestId,
+                               List<MarkdownTable> tables) {
+        refreshScheduler.complete(parsedRequestId, () -> {
+            parseTask = null;
+            if (tables != null && !destroyed && area == currentArea
+                    && area.getEditor().getContentVersion() == contentVersion && !isOverLimit(area)) {
+                applyTables(area, contentVersion, tables);
             }
         });
     }
 
-    private void applyTables(EditorArea area, long contentVersion, long parsedRequestId,
-                             List<MarkdownTable> tables) {
-        if (destroyed || area != currentArea || parsedRequestId != requestId
+    private void applyTables(EditorArea area, long contentVersion, List<MarkdownTable> tables) {
+        if (destroyed || area != currentArea
                 || area.getEditor().getContentVersion() != contentVersion || isOverLimit(area)) {
             return;
         }
-        parseTask = null;
         optimizableTables = tables;
         shownContentVersion = contentVersion;
         tablesDirty = false;
@@ -173,8 +182,6 @@ public final class MarkdownTableOptimizeManager {
             return;
         }
         runtimeActive = true;
-        refreshDelay = new PauseTransition(Duration.millis(REFRESH_DELAY_MS));
-        refreshDelay.setOnFinished(event -> startRefresh());
         area.caretPositionProperty().addListener(caretChanged);
         area.estimatedScrollXProperty().addListener(scrollChanged);
         area.estimatedScrollYProperty().addListener(scrollChanged);
@@ -189,10 +196,6 @@ public final class MarkdownTableOptimizeManager {
         }
         runtimeActive = false;
         invalidateRefresh();
-        if (refreshDelay != null) {
-            refreshDelay.setOnFinished(null);
-            refreshDelay = null;
-        }
         disposePopup();
     }
 
@@ -354,11 +357,8 @@ public final class MarkdownTableOptimizeManager {
     }
 
     private void invalidateRefresh() {
-        if (refreshDelay != null) {
-            refreshDelay.stop();
-        }
+        refreshScheduler.invalidate();
         hidePopup();
-        requestId++;
         var task = parseTask;
         parseTask = null;
         if (task != null) {

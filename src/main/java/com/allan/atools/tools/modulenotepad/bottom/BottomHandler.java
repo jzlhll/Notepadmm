@@ -2,7 +2,6 @@ package com.allan.atools.tools.modulenotepad.bottom;
 
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.richtext.codearea.EditorArea;
-import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.tools.modulenotepad.manager.ShowType;
 import com.allan.atools.utils.Log;
 import com.allan.atools.bean.SearchParams;
@@ -11,11 +10,9 @@ import com.allan.atools.text.beans.OneFileSearchResults;
 import com.allan.baseparty.handler.*;
 import com.google.gson.Gson;
 import javafx.application.Platform;
-import org.fxmisc.richtext.model.StyleSpans;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Collection;
 
 /**
  * BottomHandler是BottomSearchBtnsMgr的对象，即每一个Editor有一个Handler。
@@ -53,8 +50,9 @@ final class BottomHandler extends Handler {
     }
 
     private static final long DELAY_SAVE_PARAM_TS = 10 * 1000L;
-    private static final long DELAY_TRIGGER_SEARCH_TS = 600L;
-    private static final long DELAY_TRIGGER_SEARCH_TEMPORARY_TS = 300L;
+    private static final long DELAY_TRIGGER_SEARCH_TS = 300L;
+    private static final long DELAY_TRIGGER_SEARCH_TEMPORARY_TS = 150L;
+    private static final long DELAY_TRIGGER_SEARCH_TEXT_CHANGE_TS = 500L;
 
     private static final int MSG_SAVE_PARAM = 1;
     private static final int MSG_TRIGGER_SEARCH = 2;
@@ -171,15 +169,14 @@ final class BottomHandler extends Handler {
             Log.d("Styler: trigger When TextChanged flag " + flag);
         }
         removeMessages(MSG_TRIGGER_SEARCH_TEXT_CHANGE);
-        long delay = out.editorArea.getEditor().isEditorCodeMode()
-                ? DELAY_TRIGGER_SEARCH_TS : DELAY_TRIGGER_SEARCH_TS * 4;
-        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE, from(ClickType.Search), 0, flag), delay);
+        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE,
+                from(ClickType.Search), 0, flag), DELAY_TRIGGER_SEARCH_TEXT_CHANGE_TS);
     }
 
     private void prepareSearch(ClickType clickType, long flag) {
         var area = out.editorArea;
         if (!area.getEditor().isEditorCodeMode()) {
-            searchInThread(clickType, flag, null, -1, null);
+            searchInThread(clickType, flag, null, -1);
             return;
         }
         Platform.runLater(() -> {
@@ -187,18 +184,14 @@ final class BottomHandler extends Handler {
                     || flag != out.lastChangeSearchFlag.get()) {
                 return;
             }
-            if (area.getEditor() instanceof EditorAreaMgrCode codeEditor) {
-                codeEditor.invalidateStyleRequest();
-            }
             long contentVersion = area.getEditor().getContentVersion();
             String text = area.getText();
-            var currentSpans = area.getStyleSpans(0, text.length());
-            post(() -> searchInThread(clickType, flag, text, contentVersion, currentSpans));
+            post(() -> searchInThread(clickType, flag, text, contentVersion));
         });
     }
 
     private void searchInThread(ClickType clickType, final long flag, String textSnapshot,
-                                long contentVersion, StyleSpans<Collection<String>> currentSpans) {
+                                long contentVersion) {
         var area = out.editorArea;// UIContext.currentAreaProp.get();
         if (area == null) {
             return;
@@ -260,8 +253,7 @@ final class BottomHandler extends Handler {
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
 
         if (area.getEditor().isEditorCodeMode()) {
-            styler.stylingCode(clickType, curTempParams, curParams,
-                    t, contentVersion, currentSpans);
+            styler.stylingCode(flag, contentVersion, clickType, curTempParams, curParams);
         } else {
             styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
         }

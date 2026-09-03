@@ -1,19 +1,14 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action0;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.util.Duration;
-import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
-import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.FencedCodeBlock;
 import org.commonmark.node.IndentedCodeBlock;
-import org.commonmark.parser.IncludeSourceSpans;
-import org.commonmark.parser.Parser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,7 +27,8 @@ import java.util.concurrent.Future;
  * 超大文档（isRealtimeProcessingLimitReached）自动停用并清理样式。
  */
 public final class MarkdownCodeBlockManager {
-    private static final long REFRESH_DELAY_MS = 600;
+    private static final long REFRESH_DELAY_MS = 180;
+    private static final long MAX_REFRESH_WAIT_MS = 400;
     /** 首行（含围栏行）上圆角 */
     static final String PARA_FIRST = "md-code-block-first";
     /** 中间行 */
@@ -46,20 +42,15 @@ public final class MarkdownCodeBlockManager {
     private static final Set<String> PARA_CLASSES = Set.of(
             PARA_FIRST, PARA_MID, PARA_LAST, PARA_SINGLE, PARA_EMPTY);
 
-    private static final Parser PARSER = Parser.builder()
-            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
-            .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
-            .build();
-
     private final Action0 textChangedAction = this::onTextChanged;
+    private final LatestRefreshScheduler refreshScheduler =
+            new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
 
     private EditorArea currentArea;
-    private PauseTransition refreshDelay;
     /** 行号 → 当前已应用的段落样式类 */
     private Map<Integer, String> lineStyles = Map.of();
     private boolean runtimeActive;
     private boolean destroyed;
-    private long requestId;
     private Future<?> parseTask;
 
     public MarkdownCodeBlockManager(EditorArea area) {
@@ -69,6 +60,7 @@ public final class MarkdownCodeBlockManager {
     public void destroy() {
         destroyed = true;
         unbindEditor();
+        refreshScheduler.dispose();
     }
 
     public void refreshCurrentFile(EditorArea area) {
@@ -86,7 +78,7 @@ public final class MarkdownCodeBlockManager {
             return;
         }
         activateRuntime();
-        startRefresh();
+        refreshScheduler.startNow();
     }
 
     private void unbindEditor() {
@@ -101,7 +93,6 @@ public final class MarkdownCodeBlockManager {
     }
 
     private void onTextChanged() {
-        invalidateRefresh();
         var area = currentArea;
         if (isOverLimit(area)) {
             deactivateRuntime();
@@ -109,37 +100,48 @@ public final class MarkdownCodeBlockManager {
             return;
         }
         activateRuntime();
-        refreshDelay.playFromStart();
+        clearAllStyles(area);
+        refreshScheduler.request();
     }
 
-    private void startRefresh() {
-        invalidateRefresh();
+    private void startRefresh(long requestId) {
         var area = currentArea;
-        if (destroyed || !runtimeActive || !MarkdownImageManager.supports(area) || isOverLimit(area)) {
+        if (destroyed || !runtimeActive
+                || !MarkdownImageManager.supports(area) || isOverLimit(area)) {
+            refreshScheduler.complete(requestId, null);
             return;
         }
         long contentVersion = area.getEditor().getContentVersion();
         String text = area.getText();
-        long currentRequestId = requestId;
         parseTask = ThreadUtils.submit(() -> {
+            List<int[]> blocks = null;
             try {
-                var blocks = parseBlocks(text);
-                if (!ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                    Platform.runLater(() -> applyBlocks(area, contentVersion, currentRequestId, blocks));
-                }
+                blocks = parseBlocks(area, text);
             } catch (RuntimeException e) {
                 Log.e("parse markdown code blocks failed", e);
+            }
+            var result = blocks;
+            Platform.runLater(() -> finishRefresh(
+                    area, contentVersion, requestId, result));
+        });
+    }
+
+    private void finishRefresh(EditorArea area, long contentVersion, long parsedRequestId,
+                               List<int[]> blocks) {
+        refreshScheduler.complete(parsedRequestId, () -> {
+            parseTask = null;
+            if (blocks != null && !destroyed && area == currentArea
+                    && area.getEditor().getContentVersion() == contentVersion && !isOverLimit(area)) {
+                applyBlocks(area, contentVersion, blocks);
             }
         });
     }
 
-    private void applyBlocks(EditorArea area, long contentVersion, long parsedRequestId,
-                             List<int[]> blocks) {
-        if (destroyed || area != currentArea || parsedRequestId != requestId
+    private void applyBlocks(EditorArea area, long contentVersion, List<int[]> blocks) {
+        if (destroyed || area != currentArea
                 || area.getEditor().getContentVersion() != contentVersion || isOverLimit(area)) {
             return;
         }
-        parseTask = null;
         var newStyles = new HashMap<Integer, String>();
         for (int[] block : blocks) {
             for (int line = block[0]; line <= block[1]; line++) {
@@ -202,24 +204,15 @@ public final class MarkdownCodeBlockManager {
             return;
         }
         runtimeActive = true;
-        refreshDelay = new PauseTransition(Duration.millis(REFRESH_DELAY_MS));
-        refreshDelay.setOnFinished(event -> startRefresh());
     }
 
     private void deactivateRuntime() {
         runtimeActive = false;
         invalidateRefresh();
-        if (refreshDelay != null) {
-            refreshDelay.setOnFinished(null);
-            refreshDelay = null;
-        }
     }
 
     private void invalidateRefresh() {
-        if (refreshDelay != null) {
-            refreshDelay.stop();
-        }
-        requestId++;
+        refreshScheduler.invalidate();
         var task = parseTask;
         parseTask = null;
         if (task != null) {
@@ -232,9 +225,9 @@ public final class MarkdownCodeBlockManager {
     }
 
     /** 收集代码块行区间 [firstLine, lastLine]（sourceSpans 每行一个 span） */
-    private static List<int[]> parseBlocks(String text) {
+    private static List<int[]> parseBlocks(EditorArea area, String text) {
         var collector = new CodeBlockCollector();
-        PARSER.parse(text).accept(collector);
+        ((EditorAreaMgrCode) area.getEditor()).parseMarkdown(text).accept(collector);
         return collector.blocks;
     }
 

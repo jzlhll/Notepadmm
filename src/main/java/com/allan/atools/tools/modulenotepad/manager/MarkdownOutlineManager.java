@@ -6,7 +6,6 @@ import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action0;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
@@ -14,7 +13,6 @@ import javafx.scene.Cursor;
 import javafx.scene.Parent;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.MouseButton;
-import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,12 +21,14 @@ import java.util.concurrent.Future;
 
 /** 管理“当前文档”中的 Markdown 标题目录。 */
 public final class MarkdownOutlineManager {
-    private static final long REFRESH_DELAY_MS = 2000;
+    private static final long REFRESH_DELAY_MS = 350;
+    private static final long MAX_REFRESH_WAIT_MS = 700;
     private static final int LEVEL_INDENT = 12;
 
     private final NotepadController controller;
     private final Action0 textChangedAction = this::onTextChanged;
-    private final PauseTransition refreshDelay = new PauseTransition(Duration.millis(REFRESH_DELAY_MS));
+    private final LatestRefreshScheduler refreshScheduler =
+            new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
     private final ChangeListener<EditorArea> currentAreaChanged =
             (observable, oldValue, newValue) -> bindEditor(newValue);
     private final ChangeListener<Number> workspaceTabChanged =
@@ -42,13 +42,11 @@ public final class MarkdownOutlineManager {
     private List<MarkdownHeading> shownHeadings = List.of();
     private boolean outlineDirty;
     private boolean destroyed;
-    private long requestId;
     private long shownContentVersion = -1;
     private Future<?> parseTask;
 
     public MarkdownOutlineManager(NotepadController controller) {
         this.controller = controller;
-        refreshDelay.setOnFinished(event -> startRefresh());
         controller.currentDocumentOutlineList.setCellFactory(list -> new HeadingCell());
         controller.workspaceTabPane.getSelectionModel().selectedIndexProperty().addListener(workspaceTabChanged);
         controller.workspaceVBox.parentProperty().addListener(workspaceParentChanged);
@@ -65,7 +63,7 @@ public final class MarkdownOutlineManager {
         controller.workspaceTabPane.getSelectionModel().selectedIndexProperty().removeListener(workspaceTabChanged);
         controller.workspaceVBox.parentProperty().removeListener(workspaceParentChanged);
         controller.workspaceVBox.visibleProperty().removeListener(workspaceVisibleChanged);
-        refreshDelay.setOnFinished(null);
+        refreshScheduler.dispose();
     }
 
     private void bindEditor(EditorArea area) {
@@ -86,7 +84,7 @@ public final class MarkdownOutlineManager {
             return;
         }
         if (isOutlineShown()) {
-            startRefresh();
+            refreshScheduler.startNow();
         }
     }
 
@@ -98,9 +96,9 @@ public final class MarkdownOutlineManager {
     }
 
     private void onTextChanged() {
-        invalidateRefresh();
         outlineDirty = true;
         if (isOverLimit(currentArea)) {
+            invalidateRefresh();
             clearOutline();
             outlineDirty = false;
             return;
@@ -108,52 +106,61 @@ public final class MarkdownOutlineManager {
         if (!isOutlineShown()) {
             return;
         }
-        refreshDelay.playFromStart();
+        refreshScheduler.request();
     }
 
     private void onOutlineVisibilityChanged() {
         if (!isOutlineShown()) {
             invalidateRefresh();
         } else if (outlineDirty) {
-            startRefresh();
+            refreshScheduler.startNow();
         }
     }
 
-    private void startRefresh() {
-        invalidateRefresh();
+    private void startRefresh(long requestId) {
         var area = currentArea;
-        if (destroyed || !outlineDirty || !isOutlineShown() || !isMarkdown(area)) {
+        if (destroyed || !outlineDirty
+                || !isOutlineShown() || !isMarkdown(area)) {
+            refreshScheduler.complete(requestId, null);
             return;
         }
         if (isOverLimit(area)) {
             clearOutline();
             outlineDirty = false;
+            refreshScheduler.complete(requestId, null);
             return;
         }
-
         long contentVersion = area.getEditor().getContentVersion();
         String text = area.getText();
-        long currentRequestId = requestId;
         parseTask = ThreadUtils.submit(() -> {
+            List<MarkdownHeading> headings = null;
             try {
-                var headings = parseHeadings(text);
-                if (headings != null && !ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                    Platform.runLater(() -> applyHeadings(area, contentVersion, currentRequestId, headings));
-                }
+                headings = parseHeadings(text);
             } catch (RuntimeException e) {
                 Log.e("parse markdown outline failed", e);
+            }
+            var result = headings;
+            Platform.runLater(() -> finishRefresh(
+                    area, contentVersion, requestId, result));
+        });
+    }
+
+    private void finishRefresh(EditorArea area, long contentVersion, long parsedRequestId,
+                               List<MarkdownHeading> headings) {
+        refreshScheduler.complete(parsedRequestId, () -> {
+            parseTask = null;
+            if (headings != null && !destroyed && area == currentArea && isOutlineShown()
+                    && area.getEditor().getContentVersion() == contentVersion && !isOverLimit(area)) {
+                applyHeadings(area, contentVersion, headings);
             }
         });
     }
 
-    private void applyHeadings(EditorArea area, long contentVersion, long parsedRequestId,
-                               List<MarkdownHeading> headings) {
-        if (destroyed || area != currentArea || parsedRequestId != requestId || !isOutlineShown()
+    private void applyHeadings(EditorArea area, long contentVersion, List<MarkdownHeading> headings) {
+        if (destroyed || area != currentArea || !isOutlineShown()
                 || area.getEditor().getContentVersion() != contentVersion || isOverLimit(area)) {
             return;
         }
-
-        parseTask = null;
         if (!shownHeadings.equals(headings)) {
             controller.currentDocumentOutlineList.getItems().setAll(headings);
             shownHeadings = headings;
@@ -199,8 +206,7 @@ public final class MarkdownOutlineManager {
     }
 
     private void invalidateRefresh() {
-        refreshDelay.stop();
-        requestId++;
+        refreshScheduler.invalidate();
         var task = parseTask;
         parseTask = null;
         if (task != null) {
