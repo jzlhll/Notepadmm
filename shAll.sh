@@ -3,6 +3,42 @@ set -e
 
 cd "$(dirname "$0")"
 
+# 检查 Java 17 JDK 编译环境
+java_cmd="java"
+javac_cmd="javac"
+if [ -n "${JAVA_HOME:-}" ]; then
+    java_cmd="${JAVA_HOME}/bin/java"
+    javac_cmd="${JAVA_HOME}/bin/javac"
+    if [ -x "${java_cmd}.exe" ]; then
+        java_cmd="${java_cmd}.exe"
+        javac_cmd="${javac_cmd}.exe"
+    fi
+fi
+
+if ! command -v "$java_cmd" >/dev/null 2>&1; then
+    echo "未找到 Java。请安装 JDK 17，并正确设置 JAVA_HOME 或 PATH。"
+    exit 1
+fi
+if ! command -v "$javac_cmd" >/dev/null 2>&1; then
+    echo "未找到 javac。请安装完整的 JDK 17，并正确设置 JAVA_HOME 或 PATH。"
+    exit 1
+fi
+
+java_version_output="$("$java_cmd" -version 2>&1)"
+javac_version_output="$("$javac_cmd" -version 2>&1)"
+java_version="$(printf '%s\n' "$java_version_output" | sed -n '1s/.*version "\([^"]*\)".*/\1/p')"
+javac_version="$(printf '%s\n' "$javac_version_output" | sed -n '1s/^javac[[:space:]]*\([^[:space:]]*\).*/\1/p')"
+java_major="${java_version%%[.-]*}"
+javac_major="${javac_version%%[.-]*}"
+
+if [ "$java_major" != "17" ] || [ "$javac_major" != "17" ]; then
+    echo "当前编译环境不是 JDK 17（java: ${java_version:-未知}，javac: ${javac_version:-未知}）。"
+    echo "请切换 JAVA_HOME 或 PATH 到 JDK 17 后重试。"
+    exit 1
+fi
+
+echo "Java 编译环境检查通过：JDK ${javac_version}。"
+
 # 检测系统平台
 os_name="$(uname -s)"
 arch_name="$(uname -m)"
