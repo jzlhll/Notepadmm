@@ -1,26 +1,42 @@
 package com.allan.atools.richtext.codearea;
 
+import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.bean.EditorDocumentOptions;
 import com.allan.atools.text.IEditorAreaState;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.utils.ReflectionUtils;
+import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.css.PseudoClass;
+
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 final class EditorAreaState implements IEditorAreaState {
     private static final PseudoClass WRAPPED = PseudoClass.getPseudoClass("wrapped");
+    private static final String KEY_DOCUMENT_OPTIONS = "editorDocumentOptions";
+    private static final int MAX_DOCUMENT_OPTIONS = 200;
+    private static final TypeToken<List<EditorDocumentOptions>> TYPE_DOCUMENT_OPTIONS = new TypeToken<>() {};
 
-    private EditorArea area;
+    private final EditorArea area;
     private final EditorDocumentState documentState;
     public EditorAreaState(EditorArea area, EditorDocumentState documentState) {
         this.area = area;
         this.documentState = documentState;
+        restoreDocumentOptions();
+        area.setEditable(!isReadonly);
+        area.pseudoClassStateChanged(WRAPPED, isWrap);
+        area.setWrapText(isWrap);
+        if (isWrap) {
+            Platform.runLater(this::forgetFlowCellSizes);
+        }
     }
 
     private boolean isReadonly = false;
     private boolean isWrap = false;
-    // tab 打开时快照一次全局"输入法中文标点"开关，之后仅影响本 tab
+    // 文档没有独立配置时，使用全局“输入法中文标点”设置作为初始值
     private boolean isChinesePunctuation = SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey);
 
     @Override
@@ -40,6 +56,7 @@ final class EditorAreaState implements IEditorAreaState {
     public void setCurrentReadonly(boolean readonly) {
         isReadonly = readonly;
         area.setEditable(!readonly);
+        saveDocumentOptions();
     }
 
     @Override
@@ -55,6 +72,7 @@ final class EditorAreaState implements IEditorAreaState {
     @Override
     public void setChinesePunctuation(boolean chinesePunctuation) {
         isChinesePunctuation = chinesePunctuation;
+        saveDocumentOptions();
     }
 
     @Override
@@ -65,6 +83,46 @@ final class EditorAreaState implements IEditorAreaState {
         // 切换 wrap 后，flowless 缓存的 cell 最小宽度(minBreadth)不会自动失效，导致 totalWidthEstimate
         // 滞后偏大、横向滚动条不消失。反射清除 SizeTracker 的尺寸备忘，强制下次 layout 按新 wrap 重算
         Platform.runLater(this::forgetFlowCellSizes);
+        saveDocumentOptions();
+    }
+
+    private void restoreDocumentOptions() {
+        var options = GlobalCfgStores.recent().getObject(
+                KEY_DOCUMENT_OPTIONS, TYPE_DOCUMENT_OPTIONS, List.of());
+        for (var option : options) {
+            if (matches(option)) {
+                isWrap = option.wrap();
+                isReadonly = option.readonly();
+                isChinesePunctuation = option.chinesePunctuation();
+                return;
+            }
+        }
+    }
+
+    void saveDocumentOptions() {
+        var options = new ArrayList<>(GlobalCfgStores.recent().getObject(
+                KEY_DOCUMENT_OPTIONS, TYPE_DOCUMENT_OPTIONS, List.of()));
+        var sourcePath = documentState.getSourcePath();
+        var sessionId = documentState.getSessionId();
+        options.removeIf(option -> option == null
+                || sourcePath != null && sourcePath.equals(option.file())
+                || sessionId.equals(option.sessionId()));
+        options.add(0, new EditorDocumentOptions(sourcePath, sessionId, isWrap,
+                isReadonly, isChinesePunctuation));
+        if (options.size() > MAX_DOCUMENT_OPTIONS) {
+            options.subList(MAX_DOCUMENT_OPTIONS, options.size()).clear();
+        }
+        GlobalCfgStores.recent().set(KEY_DOCUMENT_OPTIONS, options);
+    }
+
+    private boolean matches(EditorDocumentOptions option) {
+        if (option == null) {
+            return false;
+        }
+        var sourcePath = documentState.getSourcePath();
+        return sourcePath == null
+                ? documentState.getSessionId().equals(option.sessionId())
+                : sourcePath.equals(option.file());
     }
 
     private void forgetFlowCellSizes() {
