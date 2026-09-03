@@ -5,6 +5,7 @@ import com.allan.baseparty.utils.ReflectionUtils;
 import javafx.beans.NamedArg;
 import javafx.beans.binding.Bindings;
 import javafx.scene.shape.StrokeType;
+import javafx.scene.text.Font;
 import javafx.scene.transform.Shear;
 import org.fxmisc.richtext.CaretSelectionBind;
 import org.fxmisc.richtext.StyledTextArea;
@@ -25,6 +26,8 @@ import java.util.function.UnaryOperator;
 public abstract class CodeArea extends StyledTextArea<Collection<String>, Collection<String>> {
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
     private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
+    private static final String MARKDOWN_EMOJI_STYLE = "markdown-emoji";
+    private static final String EMOJI_FONT_FAMILY = findEmojiFontFamily();
     /** 段落样式特殊条目前缀：pref-height:240 会转为 ParagraphText 的 -fx-pref-height 内联样式（用于撑高段落，如 markdown 行内图片） */
     public static final String PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:";
 
@@ -74,6 +77,9 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {
         applyTextStyle(text, styleClasses);
+        if (EMOJI_FONT_FAMILY != null && styleClasses.contains(MARKDOWN_EMOJI_STYLE)) {
+            text.setStyle("-fx-font-family: \"" + EMOJI_FONT_FAMILY + "\";");
+        }
         if (styleClasses.contains(MARKDOWN_ITALIC_STYLE)) {
             text.getTransforms().add(new Shear(-0.18, 0));
         }
@@ -88,6 +94,16 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                     },
                     text.fontProperty()));
         }
+    }
+
+    private static String findEmojiFontFamily() {
+        var families = Font.getFamilies();
+        for (var family : new String[]{"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"}) {
+            if (families.contains(family)) {
+                return family;
+            }
+        }
+        return null;
     }
 
     private Method suspendVisibleParsWhile;

@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Future;
 
@@ -42,7 +41,10 @@ public final class MarkdownCodeBlockManager {
     static final String PARA_LAST = "md-code-block-last";
     /** 单行代码块整体圆角 */
     static final String PARA_SINGLE = "md-code-block-single";
-    private static final Set<String> PARA_CLASSES = Set.of(PARA_FIRST, PARA_MID, PARA_LAST, PARA_SINGLE);
+    /** 无文本或仅含空白的代码块行 */
+    static final String PARA_EMPTY = "md-code-block-empty";
+    private static final Set<String> PARA_CLASSES = Set.of(
+            PARA_FIRST, PARA_MID, PARA_LAST, PARA_SINGLE, PARA_EMPTY);
 
     private static final Parser PARSER = Parser.builder()
             .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
@@ -150,9 +152,7 @@ public final class MarkdownCodeBlockManager {
         var lines = new HashSet<Integer>(lineStyles.keySet());
         lines.addAll(newStyles.keySet());
         for (var line : lines) {
-            if (!Objects.equals(lineStyles.get(line), newStyles.get(line))) {
-                setParagraphStyleClass(area, line, newStyles.get(line));
-            }
+            setParagraphStyleClass(area, line, newStyles.get(line));
         }
         lineStyles = newStyles;
     }
@@ -164,9 +164,11 @@ public final class MarkdownCodeBlockManager {
         }
         var existing = new ArrayList<String>(area.getParagraph(index).getParagraphStyle());
         var merged = new ArrayList<String>();
+        boolean empty = styleClass != null && area.getText(index).isBlank();
         boolean changed = false;
         for (String style : existing) {
-            if (PARA_CLASSES.contains(style) && !style.equals(styleClass)) {
+            if (PARA_CLASSES.contains(style)
+                    && !style.equals(styleClass) && !(empty && style.equals(PARA_EMPTY))) {
                 changed = true;
             } else {
                 merged.add(style);
@@ -174,6 +176,10 @@ public final class MarkdownCodeBlockManager {
         }
         if (styleClass != null && !merged.contains(styleClass)) {
             merged.add(styleClass);
+            changed = true;
+        }
+        if (empty && !merged.contains(PARA_EMPTY)) {
+            merged.add(PARA_EMPTY);
             changed = true;
         }
         if (changed) {

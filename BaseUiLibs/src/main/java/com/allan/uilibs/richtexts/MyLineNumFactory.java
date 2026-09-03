@@ -82,7 +82,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         lineNo.setPadding(DEFAULT_INSETS);
         lineNo.setAlignment(Pos.TOP_RIGHT);
         lineNo.getStyleClass().add("lineno");
-        lineNo.setText(format(idx, area.getParagraphs().size()));
+        lineNo.setText(format(idx + 1, area.getParagraphs().size()));
 
         return lineNo;
     }

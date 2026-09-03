@@ -29,8 +29,10 @@ import org.commonmark.parser.Parser;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,8 +56,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
-    private static final Pattern RELAXED_BOLD_PATTERN = Pattern.compile(
-            "(?<![\\\\*])\\*\\*(?!\\*)([^\\r\\n]*?)(?<![\\\\*])\\*\\*(?!\\*)");
+    private static final char RELAXED_SPACE_PLACEHOLDER = '\uE000';
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
             "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
@@ -83,7 +84,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_CODE_TAG_MARK = 22;
     private static final int STYLE_CODE_ATTRIBUTE = 23;
     private static final int STYLE_CODE_ATTRIBUTE_VALUE = 24;
-    private static final int STYLE_COUNT = 25;
+    private static final int STYLE_EMOJI = 25;
+    private static final int STYLE_COUNT = 26;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -93,7 +95,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "markdown-link", "markdown-image", "markdown-bold", "markdown-italic", "markdown-strikethrough",
             "temporary", "search",
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
-            "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value"
+            "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value",
+            "markdown-emoji"
     };
     private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
@@ -124,10 +127,11 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         var events = new EventBuffer();
         var visitor = new MarkdownRegionVisitor(text, events, canContinue);
         root.accept(visitor);
-        visitor.addRelaxedBoldRegions();
+        visitor.addRelaxedEmphasisRegions();
         if (!canContinue.getAsBoolean()) {
             return null;
         }
+        addEmojiFontRegions(text, events);
         addSearchRegions(text, events);
         if (!canContinue.getAsBoolean()) {
             return null;
@@ -149,6 +153,21 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             if (styleId >= 0) {
                 events.addRegion(matcher.start(), matcher.end(), styleId);
             }
+        }
+    }
+
+    private void addEmojiFontRegions(String text, EventBuffer events) {
+        for (int index = 0; index < text.length(); ) {
+            int codePoint = text.codePointAt(index);
+            int end = index + Character.charCount(codePoint);
+            char next = end < text.length() ? text.charAt(end) : 0;
+            if ((codePoint == 0x231B || codePoint == 0x23F3) && next != '\uFE0E') {
+                if (next == '\uFE0F') {
+                    end++;
+                }
+                events.addRegion(index, end, STYLE_EMOJI);
+            }
+            index = end;
         }
     }
 
@@ -203,7 +222,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             for (int styleId = 0; styleId < STYLE_COUNT; styleId++) {
                 if ((mask & (1 << styleId)) != 0) {
                     styles.add(STYLE_CLASSES[styleId]);
-                    if (styleId <= STYLE_IMAGE || styleId >= STYLE_CODE_KEYWORD) {
+                    if (styleId <= STYLE_IMAGE
+                            || styleId >= STYLE_CODE_KEYWORD && styleId <= STYLE_CODE_ATTRIBUTE_VALUE) {
                         hasTextColorStyle = true;
                     }
                 }
@@ -219,7 +239,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private final String text;
         private final EventBuffer events;
         private final BooleanSupplier canContinue;
-        private final ArrayList<int[]> literalRegions = new ArrayList<>();
+        private final BitSet relaxedEmphasisExcluded = new BitSet();
 
         MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
             this.text = text;
@@ -348,29 +368,111 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private void addLiteralRegions(Node node) {
             for (var span : node.getSourceSpans()) {
                 int start = span.getInputIndex();
-                literalRegions.add(new int[]{start, start + span.getLength()});
+                relaxedEmphasisExcluded.set(start, start + span.getLength());
             }
         }
 
-        /** 允许双星号内侧保留空格，同时避开代码、HTML 与图片原文。 */
-        private void addRelaxedBoldRegions() {
-            Matcher matcher = RELAXED_BOLD_PATTERN.matcher(text);
-            while (matcher.find()) {
-                if (!canContinue.getAsBoolean()) {
+        /** 内侧空格使用等长占位符归一化，再交由 commonmark 解析星号嵌套关系。 */
+        private void addRelaxedEmphasisRegions() {
+            var normalized = text.toCharArray();
+            var adjustedSpaces = new BitSet(text.length());
+            int lineStart = 0;
+            while (lineStart < text.length()) {
+                int lineEnd = text.indexOf('\n', lineStart);
+                if (lineEnd < 0) {
+                    lineEnd = text.length();
+                }
+                normalizeRelaxedEmphasisLine(normalized, adjustedSpaces, lineStart, lineEnd);
+                lineStart = lineEnd + 1;
+            }
+            if (adjustedSpaces.isEmpty() || !canContinue.getAsBoolean()) {
+                return;
+            }
+
+            var relaxedRoot = PARSER.parse(new String(normalized));
+            if (!canContinue.getAsBoolean()) {
+                return;
+            }
+            relaxedRoot.accept(new AbstractVisitor() {
+                @Override
+                public void visit(StrongEmphasis emphasis) {
+                    addRelaxedNodeRegion(emphasis, STYLE_BOLD, adjustedSpaces);
+                    visitChildren(emphasis);
+                }
+
+                @Override
+                public void visit(Emphasis emphasis) {
+                    addRelaxedNodeRegion(emphasis, STYLE_ITALIC, adjustedSpaces);
+                    visitChildren(emphasis);
+                }
+
+                @Override public void visit(Image image) {}
+            });
+        }
+
+        private void normalizeRelaxedEmphasisLine(char[] normalized, BitSet adjustedSpaces,
+                                                  int lineStart, int lineEnd) {
+            var openers = new HashMap<Integer, ArrayDeque<Integer>>();
+            int index = lineStart;
+            while (index < lineEnd) {
+                if ((index & 4095) == 0 && !canContinue.getAsBoolean()) {
                     return;
                 }
-                int contentStart = matcher.start(1);
-                int contentEnd = matcher.end(1);
-                if (contentStart == contentEnd || text.substring(contentStart, contentEnd).isBlank()) {
+                if (text.charAt(index) != '*' || relaxedEmphasisExcluded.get(index)
+                        || isEscaped(index)) {
+                    index++;
                     continue;
                 }
-                if (!Character.isWhitespace(text.charAt(contentStart))
-                        && !Character.isWhitespace(text.charAt(contentEnd - 1))) {
-                    continue;
+                int runStart = index;
+                while (index < lineEnd && text.charAt(index) == '*'
+                        && !relaxedEmphasisExcluded.get(index)) {
+                    index++;
                 }
-                if (literalRegions.stream().noneMatch(region ->
-                        matcher.start() < region[1] && matcher.end() > region[0])) {
-                    events.addRegion(matcher.start(), matcher.end(), STYLE_BOLD);
+                int runEnd = index;
+                var runs = openers.computeIfAbsent(runEnd - runStart, ignored -> new ArrayDeque<>());
+                if (!runs.isEmpty() && hasNonWhitespace(runs.peek(), runStart)) {
+                    normalizeInnerSpace(normalized, adjustedSpaces, runs.pop());
+                    normalizeInnerSpace(normalized, adjustedSpaces, runStart - 1);
+                } else if (runEnd < lineEnd) {
+                    runs.push(runEnd);
+                }
+            }
+        }
+
+        private void normalizeInnerSpace(char[] normalized, BitSet adjustedSpaces, int index) {
+            if (index >= 0 && index < text.length()
+                    && text.charAt(index) != '\r' && text.charAt(index) != '\n'
+                    && Character.isWhitespace(text.charAt(index))) {
+                normalized[index] = RELAXED_SPACE_PLACEHOLDER;
+                adjustedSpaces.set(index);
+            }
+        }
+
+        private boolean hasNonWhitespace(int start, int end) {
+            for (int i = start; i < end; i++) {
+                if (!Character.isWhitespace(text.charAt(i))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isEscaped(int index) {
+            int slashCount = 0;
+            for (int i = index - 1; i >= 0 && text.charAt(i) == '\\'; i--) {
+                slashCount++;
+            }
+            return (slashCount & 1) != 0;
+        }
+
+        private void addRelaxedNodeRegion(Node node, int styleId, BitSet adjustedSpaces) {
+            for (var span : node.getSourceSpans()) {
+                int start = span.getInputIndex();
+                int end = start + span.getLength();
+                int adjusted = adjustedSpaces.nextSetBit(start);
+                if (adjusted >= 0 && adjusted < end) {
+                    addNodeRegions(node, styleId);
+                    return;
                 }
             }
         }
@@ -383,6 +485,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 matcher.region(start, end);
                 if (matcher.lookingAt()) {
                     events.addRegion(start, matcher.end(), styleId);
+                    if (styleId == STYLE_LIST) {
+                        relaxedEmphasisExcluded.set(start, matcher.end());
+                    }
                 }
             }
         }

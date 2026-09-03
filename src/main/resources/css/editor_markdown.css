@@ -122,6 +122,10 @@
     -fx-padding: 0 10px 0 75px;
 }
 
+.styled-text-area.editor-area .paragraph-text.md-code-block-empty {
+    -fx-pref-height: 1.25em;
+}
+
 .styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-first,
 .styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-mid,
 .styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-last,
