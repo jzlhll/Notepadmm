@@ -38,7 +38,7 @@ import com.google.gson.reflect.TypeToken;
 
 public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDispatcherLeaf {
     private static final String TAG = "EditAreaManager";
-    /** 最近打开文件列表的最大保存数量 */
+    /** 普通最近文件列表与固定文件列表各自的最大数量 */
     private static final int MAX_RECENT_FILES = 12;
     /** 最近文件列表在 recent.json 中的顶层 key */
     private static final String KEY_RECENT_FILES = "files";
@@ -653,7 +653,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     /** 读取固定文件列表，去重并过滤已不存在的文件 */
     public static List<String> readPinnedRecentFiles() {
         return GlobalCfgStores.recent().getStringList(KEY_PINNED_FILES, List.of())
-                .stream().distinct().filter(s -> new File(s).exists()).toList();
+                .stream().distinct().filter(s -> new File(s).exists()).limit(MAX_RECENT_FILES).toList();
     }
 
     /** 查询路径是否已固定 */
@@ -672,7 +672,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             pinned.add(0, file);
             add = true;
         }
-        GlobalCfgStores.recent().setStringList(KEY_PINNED_FILES, pinned);
+        GlobalCfgStores.recent().setStringList(KEY_PINNED_FILES, pinned.stream().limit(MAX_RECENT_FILES).toList());
         return add;
     }
 
