@@ -733,25 +733,28 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             UIContext.allOpenedFileList.remove(oldFile);
         }
         documentState.bindSourceFile(target);
+        boolean styleLimitReached = target.length() >= StaticsProf.getMaxFileSizeForStyle();
+        boolean refreshStyles = !getSourceFile().equals(oldFile)
+                || mSourceFileSizeReachedStyleLimit != styleLimitReached;
+        mSourceFileSizeReachedStyleLimit = styleLimitReached;
         documentState.setDisplayName(target.getName());
         state.saveDocumentOptions();
         UIContext.allOpenedFileList.add(target);
         if (tab != null) {
             tab.setUserData(documentState);
         }
-        if (this instanceof EditorAreaMgrCode codeEditor) {
+        if (refreshStyles && this instanceof EditorAreaMgrCode codeEditor) {
             codeEditor.bindKeywordHelper(target);
         }
         var parent = target.getParentFile();
         if (parent != null) {
             GlobalCfgStores.user().setString(SettingPreferences.lastSaveDirKey, parent.getAbsolutePath());
         }
-        mSourceFileSizeReachedStyleLimit = target.length() >= StaticsProf.getMaxFileSizeForStyle();
         markCurrentFileTs();
         if (tabLabel != null) {
             tabLabel.setTooltip(new Tooltip(target.getAbsolutePath()));
         }
-        if (UIContext.currentAreaProp.get() == area) {
+        if (refreshStyles && UIContext.currentAreaProp.get() == area) {
             UIContext.context().refreshCurrentDocumentInfo();
         }
     }

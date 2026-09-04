@@ -11,7 +11,7 @@ import java.util.List;
 /** 在同一文档版本的 Markdown 功能之间复用 AST。 */
 public final class MarkdownAstCache {
     private final Parser parser = Parser.builder()
-            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
+            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.builder().requireTwoTildes(true).build()))
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
     private String cachedText;

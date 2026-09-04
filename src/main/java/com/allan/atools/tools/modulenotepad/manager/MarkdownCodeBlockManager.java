@@ -117,6 +117,11 @@ public final class MarkdownCodeBlockManager {
         int insertedLines = countNewlines(inserted);
         int oldEndLine = editLine + removedLines;
         int lineDelta = insertedLines - removedLines;
+        String startStyle = lineStyles.get(editLine);
+        String endStyle = lineStyles.get(oldEndLine);
+        boolean insideBlock = startStyle != null && endStyle != null;
+        boolean blockStart = PARA_FIRST.equals(startStyle) || PARA_SINGLE.equals(startStyle);
+        boolean blockEnd = PARA_LAST.equals(endStyle) || PARA_SINGLE.equals(endStyle);
         var adjusted = new HashMap<Integer, String>();
         for (var entry : lineStyles.entrySet()) {
             int line = entry.getKey();
@@ -126,10 +131,18 @@ public final class MarkdownCodeBlockManager {
                 adjusted.put(line + lineDelta, entry.getValue());
             }
         }
-        lineStyles = adjusted.isEmpty() ? Map.of() : adjusted;
+        // 输入期间沿用代码块背景，围栏边界由异步解析结果校正。
         for (int line = editLine; line <= editLine + insertedLines; line++) {
-            setParagraphStyleClass(area, line, null);
+            String style = null;
+            if (insideBlock) {
+                boolean first = blockStart && line == editLine;
+                boolean last = blockEnd && line == editLine + insertedLines;
+                style = first && last ? PARA_SINGLE : first ? PARA_FIRST : last ? PARA_LAST : PARA_MID;
+                adjusted.put(line, style);
+            }
+            setParagraphStyleClass(area, line, style);
         }
+        lineStyles = adjusted.isEmpty() ? Map.of() : adjusted;
     }
 
     private static int countNewlines(String text) {

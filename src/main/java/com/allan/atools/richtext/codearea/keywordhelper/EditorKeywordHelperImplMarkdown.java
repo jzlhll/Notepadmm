@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
     private final Parser relaxedParser = Parser.builder()
-            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.create()))
+            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.builder().requireTwoTildes(true).build()))
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
     private MarkdownAstCache astCache = new MarkdownAstCache();
