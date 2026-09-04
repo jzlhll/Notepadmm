@@ -6,6 +6,7 @@ import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstr
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown;
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache;
 import com.allan.atools.threads.ClosedDroppedHandler;
+import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.allan.baseparty.Action0;
@@ -18,7 +19,10 @@ import org.commonmark.node.Node;
 import org.reactfx.Subscription;
 
 import java.io.File;
+import java.awt.Desktop;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class EditorAreaMgrCode extends EditorAreaMgr {
@@ -114,6 +118,50 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
     public Node parseMarkdown(String text) {
         return markdownAstCache.parse(text);
+    }
+
+    public void openMarkdownLinkAt(int position) {
+        if (!(mKeywordHelper instanceof EditorKeywordHelperImplMarkdown helper) || isDestroyed()) {
+            return;
+        }
+        String text = getArea().getText();
+        ThreadUtils.execute(() -> {
+            try {
+                String destination = helper.findLinkDestination(text, position);
+                if (destination == null) {
+                    return;
+                }
+                var bytes = destination.getBytes(StandardCharsets.UTF_8);
+                var encoded = new StringBuilder(bytes.length);
+                // 保留 URL 分隔符与已有百分号编码，其余字符按 UTF-8 编码。
+                for (int index = 0; index < bytes.length; index++) {
+                    int value = bytes[index] & 0xff;
+                    if (value == '%' && index + 2 < bytes.length
+                            && Character.digit((char) bytes[index + 1], 16) >= 0
+                            && Character.digit((char) bytes[index + 2], 16) >= 0) {
+                        encoded.append('%').append((char) bytes[++index]).append((char) bytes[++index]);
+                    } else if (value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z'
+                            || value >= '0' && value <= '9' || "-._~:/?#[]@!$&'()*+,;=".indexOf(value) >= 0) {
+                        encoded.append((char) value);
+                    } else {
+                        encoded.append('%').append(Character.forDigit(value >>> 4, 16))
+                                .append(Character.forDigit(value & 0xf, 16));
+                    }
+                }
+                var uri = new URI(encoded.toString());
+                if ((!"http".equalsIgnoreCase(uri.getScheme())
+                        && !"https".equalsIgnoreCase(uri.getScheme())) || uri.getRawAuthority() == null) {
+                    return;
+                }
+                if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Log.e("open markdown link: system browser is unavailable");
+                    return;
+                }
+                Desktop.getDesktop().browse(uri);
+            } catch (Exception e) {
+                Log.e("open markdown link failed", e);
+            }
+        });
     }
 
     private static void ensureKeywordStylesheet(EditorKeywordHelperAbstract helper) {

@@ -1,4 +1,12 @@
 .root {
+    /* 菜单与工具栏的主题颜色 */
+    -au-bottom-button-color: #404040;
+    -au-bottom-button-gray-color: #cccccc;
+    -au-button-highlight-color: #4285F4;
+    -au-head-button-color: #222222;
+    -au-popup-text-color: #000000;
+    -au-popup-bg-color: #ffffff;
+
     -au-list-view-bg-color: #ffffff;
     -au-split-pane-divider-color: #F0F0F0;
 

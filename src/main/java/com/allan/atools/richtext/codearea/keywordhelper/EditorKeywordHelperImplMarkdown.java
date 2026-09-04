@@ -24,6 +24,7 @@ import org.commonmark.node.Link;
 import org.commonmark.node.ListItem;
 import org.commonmark.node.Node;
 import org.commonmark.node.StrongEmphasis;
+import org.commonmark.node.Text;
 import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
 import org.fxmisc.richtext.model.StyleSpans;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,6 +58,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private MarkdownAstCache astCache = new MarkdownAstCache();
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
+    private static final Pattern BARE_LINK_PATTERN = Pattern.compile(
+            "(?i)(?<![\\p{L}\\p{N}_])https?://[\\p{L}\\p{N}\\[][^\\s\\p{Z}<>\"'`\\\\，。；：！？、（）【】《》“”‘’]*");
     private static final char RELAXED_SPACE_PLACEHOLDER = '\uE000';
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
@@ -85,7 +89,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_CODE_ATTRIBUTE = 23;
     private static final int STYLE_CODE_ATTRIBUTE_VALUE = 24;
     private static final int STYLE_EMOJI = 25;
-    private static final int STYLE_COUNT = 26;
+    private static final int STYLE_CODE_FENCE = 26;
+    private static final int STYLE_COUNT = 27;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -96,7 +101,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "temporary", "search",
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
             "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value",
-            "markdown-emoji"
+            "markdown-emoji", "markdown-code-fence"
     };
     private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
@@ -104,6 +109,81 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     public void setAstCache(MarkdownAstCache astCache) {
         this.astCache = astCache;
+    }
+
+    public String findLinkDestination(String text, int position) {
+        var destination = new String[1];
+        astCache.parse(text).accept(new AbstractVisitor() {
+            @Override
+            protected void visitChildren(Node parent) {
+                if (destination[0] == null) {
+                    super.visitChildren(parent);
+                }
+            }
+
+            @Override
+            public void visit(Link link) {
+                for (var span : link.getSourceSpans()) {
+                    if (position >= span.getInputIndex()
+                            && position < span.getInputIndex() + span.getLength()) {
+                        destination[0] = link.getDestination();
+                        return;
+                    }
+                }
+            }
+
+            @Override
+            public void visit(Text node) {
+                forEachBareLink(text, node, () -> destination[0] == null, (start, end) -> {
+                    if (position >= start && position < end) {
+                        destination[0] = text.substring(start, end);
+                    }
+                });
+            }
+
+            @Override
+            public void visit(Image image) {}
+        });
+        return destination[0];
+    }
+
+    private static void forEachBareLink(String text, Text node, BooleanSupplier canContinue,
+                                        BiConsumer<Integer, Integer> action) {
+        var matcher = BARE_LINK_PATTERN.matcher(text);
+        for (var span : node.getSourceSpans()) {
+            matcher.region(span.getInputIndex(), span.getInputIndex() + span.getLength());
+            while (matcher.find()) {
+                if (!canContinue.getAsBoolean()) {
+                    return;
+                }
+                int start = matcher.start();
+                int end = matcher.end();
+                int parentheses = 0;
+                int brackets = 0;
+                for (int index = start; index < end; index++) {
+                    switch (text.charAt(index)) {
+                        case '(' -> parentheses++;
+                        case ')' -> parentheses--;
+                        case '[' -> brackets++;
+                        case ']' -> brackets--;
+                    }
+                }
+                // 外围强调标记由 AST 排除，URL 尾部的合法字符保持原样。
+                while (end > start) {
+                    char last = text.charAt(end - 1);
+                    if (last == ')' && parentheses < 0) {
+                        parentheses++;
+                        end--;
+                    } else if (last == ']' && brackets < 0) {
+                        brackets++;
+                        end--;
+                    } else {
+                        break;
+                    }
+                }
+                action.accept(start, end);
+            }
+        }
     }
 
     @Override
@@ -262,6 +342,29 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             addLiteralRegions(block);
             addNodeRegions(block, STYLE_CODE);
             addFencedCodeTokenRegions(block);
+            var spans = block.getSourceSpans();
+            if (spans.isEmpty()) {
+                return;
+            }
+            char fence = block.getFenceCharacter().charAt(0);
+            for (int index = 0; index < 2; index++) {
+                if (index == 1 && block.getClosingFenceLength() == null) {
+                    break;
+                }
+                var span = spans.get(index == 0 ? 0 : spans.size() - 1);
+                int start = span.getInputIndex();
+                int end = start + span.getLength();
+                while (start < end && (text.charAt(start) == ' ' || text.charAt(start) == '\t')) {
+                    start++;
+                }
+                int fenceEnd = start;
+                while (fenceEnd < end && text.charAt(fenceEnd) == fence) {
+                    fenceEnd++;
+                }
+                if (fenceEnd > start) {
+                    events.addRegion(start, fenceEnd, STYLE_CODE_FENCE);
+                }
+            }
         }
 
         @Override
@@ -291,6 +394,14 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(Link link) {
             addNodeRegions(link, STYLE_LINK);
+        }
+
+        @Override
+        public void visit(Text node) {
+            forEachBareLink(text, node, canContinue, (start, end) -> {
+                events.addRegion(start, end, STYLE_LINK);
+                relaxedEmphasisExcluded.set(start, end);
+            });
         }
 
         @Override

@@ -1,6 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.SettingPreferences;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.SizeAndXyChangedListener;
 import com.allan.atools.bases.XmlPaths;
@@ -14,6 +15,7 @@ import com.allan.uilibs.jfoenix.MyJFXDecorator;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
@@ -118,26 +120,27 @@ public final class PictureController extends AbstractController {
     public void init(Stage stage) {
         super.init(stage);
 
-        applyCheckerboardBackground();
+        outAnchorPane.backgroundProperty().bind(Bindings.createObjectBinding(this::createCheckerboardBackground,
+                SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)));
         imageContentPane.setPadding(new Insets(PictureControllerImageMgr.CONTENT_PADDING));
         draggerScrollPane.setStyle("-fx-background-color: transparent;");
 
         zoomBigBtn.setTooltip(new Tooltip(Locales.str("zoomBig")));
-        IconfontCreator.setText(zoomBigBtn, "fangda", 24, Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(zoomBigBtn, "fangda", 24, Colors.ColorHeadButton);
         zoomBigBtn.setOnMouseClicked(e -> imageMgr.zoomBig());
 
         zoomSmallBtn.setTooltip(new Tooltip(Locales.str("zoomSmall")));
-        IconfontCreator.setText(zoomSmallBtn, "suoxiao", 25, Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(zoomSmallBtn, "suoxiao", 25, Colors.ColorHeadButton);
         zoomSmallBtn.setOnMouseClicked(e -> imageMgr.zoomSmall());
 
         zoomResetBtn.setTooltip(new Tooltip(Locales.str("reset")));
-        IconfontCreator.setText(zoomResetBtn, "bx-reset", 19, Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(zoomResetBtn, "bx-reset", 19, Colors.ColorHeadButton);
         zoomResetBtn.setOnMouseClicked(e ->{
             rotateReset();
         });
 
         rotateBtn.setTooltip(new Tooltip(Locales.str("rotate")));
-        IconfontCreator.setText(rotateBtn, "exchangerate", 24, Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(rotateBtn, "exchangerate", 24, Colors.ColorHeadButton);
         rotateBtn.setOnMouseClicked(e ->{
             if (enableRotateBtn) {
                 rotate();
@@ -145,7 +148,7 @@ public final class PictureController extends AbstractController {
         });
 
         pickupColorBtn.setTooltip(new Tooltip(Locales.str("colorPick")));
-        IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorHeadButton.invoke());
+        IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorHeadButton);
         pickupColorBtn.setOnMouseClicked(e ->{
             var cur = imageMgr.getEnableColorPickMode();
             imageMgr.setEnableColorPickMode(!cur);
@@ -163,11 +166,11 @@ public final class PictureController extends AbstractController {
                     }
                 };
 
-                IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorBottomBtnHighLight.invoke());
+                IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorBottomBtnHighLight);
             } else {
                 enableRotateBtn = true;
                 draggerScrollPane.clickAction = null;
-                IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorHeadButton.invoke());
+                IconfontCreator.setText(pickupColorBtn, "xiguan", 24, Colors.ColorHeadButton);
             }
         });
 
@@ -203,7 +206,7 @@ public final class PictureController extends AbstractController {
         imageView.setImage(imageMgr.getImageWindowSize().getImage());
     }
 
-    private void applyCheckerboardBackground() {
+    private Background createCheckerboardBackground() {
         int cellSize = 12;
         int imageSize = cellSize * 2;
         var image = new WritableImage(imageSize, imageSize);
@@ -218,6 +221,6 @@ public final class PictureController extends AbstractController {
         }
         var backgroundImage = new BackgroundImage(image, BackgroundRepeat.REPEAT, BackgroundRepeat.REPEAT,
                 BackgroundPosition.DEFAULT, BackgroundSize.DEFAULT);
-        outAnchorPane.setBackground(new Background(backgroundImage));
+        return new Background(backgroundImage);
     }
 }

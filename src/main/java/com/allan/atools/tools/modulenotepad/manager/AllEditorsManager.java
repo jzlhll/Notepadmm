@@ -377,6 +377,16 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         if (textFile == null) {
             return;
         }
+        Tab targetTab = reOpenExistTab;
+        if (targetTab == null && checkAlreadyHasFile) {
+            targetTab = isFilePathAlreadyInTabs(textFile);
+            if (targetTab != null) {
+                if (toFront) {
+                    UIContext.context().tabPane.getSelectionModel().select(targetTab);
+                }
+                return;
+            }
+        }
         if (!ignoreAlert && textFile.length() > Util.MAX_ALERT_FILE_SIZE) {
             final var forceEncodingFinal = forceEncoding;
             JfoenixDialogUtils.confirm(Locales.str("notification"), Locales.str("itIsTooBig"), 18, 400,
@@ -388,12 +398,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
 
         Log.d("open file start..... " + textFile);
-        Tab targetTab = null;
-        if (checkAlreadyHasFile || reOpenExistTab != null) {
-            Log.d("check already ");
-            targetTab = reOpenExistTab != null ? reOpenExistTab : isFilePathAlreadyInTabs(textFile);
-        }
-
         var targetTabFinal = targetTab;
         var expectedContentVersion = targetTab == null
                 ? -1L

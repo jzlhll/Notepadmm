@@ -77,15 +77,15 @@ public final class WorkspaceManager implements IWorkspace {
     public static void refreshSize() {
         var c = UIContext.context();
         IconfontCreator.setText(c.workspaceSortBtn, "paixu",
-                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton.invoke());
+                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton);
         IconfontCreator.setText(c.workspaceCreateFileBtn, "add-select",
-                c.getMainWorkspaceIconSize(19), Colors.ColorHeadButton.invoke());
+                c.getMainWorkspaceIconSize(19), Colors.ColorHeadButton);
         IconfontCreator.setText(c.workspaceCreateDirBtn, "xinjianwenjianjia1",
-                c.getMainWorkspaceIconSize(16), Colors.ColorHeadButton.invoke());
+                c.getMainWorkspaceIconSize(16), Colors.ColorHeadButton);
         IconfontCreator.setText(c.workspaceGoUpBtn, "arrowup",
-                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton.invoke());
+                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton);
         IconfontCreator.setText(c.workspaceRefreshBtn, "exchangerate",
-                c.getMainWorkspaceIconSize(17), Colors.ColorHeadButton.invoke());
+                c.getMainWorkspaceIconSize(17), Colors.ColorHeadButton);
     }
 
     private boolean changeSortByFileOrTime() {

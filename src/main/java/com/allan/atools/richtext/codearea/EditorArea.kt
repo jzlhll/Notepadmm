@@ -14,6 +14,8 @@ import javafx.beans.value.ObservableValue
 import javafx.scene.control.Tab
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import java.io.File
 
 class EditorArea @JvmOverloads constructor(
@@ -75,6 +77,20 @@ class EditorArea @JvmOverloads constructor(
 
         //setUseInitialStyleForInsertion(false);
         Highlight.jumpToHead(this)
+
+        addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
+            if (!isMarkdownDocument() || event.button != MouseButton.PRIMARY
+                || !event.isShortcutDown || event.isAltDown || event.isShiftDown
+                || event.clickCount != 1 || !event.isStillSincePress
+            ) {
+                return@addEventFilter
+            }
+            val position = hit(event.x, event.y).characterIndex
+            if (position.isPresent && getStyleOfChar(position.asInt).contains("markdown-link")) {
+                event.consume()
+                (editor as EditorAreaMgrCode).openMarkdownLinkAt(position.asInt)
+            }
+        }
 
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
             if (!isEditable) return@addEventFilter

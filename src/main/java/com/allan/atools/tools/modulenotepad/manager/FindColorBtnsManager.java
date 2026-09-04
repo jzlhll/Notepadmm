@@ -9,6 +9,8 @@ import com.allan.uilibs.controls.MyJFXButton;
 import com.allan.atools.FontTheme;
 import com.allan.atools.SettingPreferences;
 import com.allan.baseparty.ActionR3;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.WeakChangeListener;
 import javafx.scene.control.Button;
 import javafx.scene.paint.Color;
 import org.jetbrains.annotations.NotNull;
@@ -20,6 +22,7 @@ public final class FindColorBtnsManager {
     private Button actioningColorBtn;
 
     private SearchParams actioningSearchParam;
+    private ChangeListener<Boolean> themeChanged;
 
     public static final ActionR3<String, String, String, String> ACTIONINGSTYLE =
             (s1, s2, s3) ->
@@ -103,12 +106,22 @@ public final class FindColorBtnsManager {
 
     public String normalTextColor, normalBgColor;
 
-    public void initColorBtn(@NotNull Button colorBtn) {
+    private void applyNormalColors(Button colorBtn) {
         var colors = getSavedColors();
         normalBgColor = colors[0];
         normalTextColor = colors[1];
-        var style = ACTIONINGSTYLE.invoke(colors[0], colors[1], FontTheme.fontFamily());
-        colorBtn.setStyle(style);
+        colorBtn.setStyle(ACTIONINGSTYLE.invoke(colors[0], colors[1], FontTheme.fontFamily()));
+        if (controller.floatColorsBox.isVisible() && actioningColorBtn == colorBtn) {
+            controller.textColorPicker.setValue(Color.valueOf(normalTextColor));
+            controller.bgColorPicker.setValue(Color.valueOf(normalBgColor));
+        }
+    }
+
+    public void initColorBtn(@NotNull Button colorBtn) {
+        themeChanged = (observable, oldValue, newValue) -> applyNormalColors(colorBtn);
+        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)
+                .addListener(new WeakChangeListener<>(themeChanged));
+        applyNormalColors(colorBtn);
 
         colorBtn.setOnMouseClicked(e -> {
             actioningColorBtn = (Button) e.getSource();

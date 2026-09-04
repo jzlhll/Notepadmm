@@ -16,9 +16,9 @@ public final class BottomEntry {
     public static void refreshSize() {
         var main = UIContext.context();
         IconfontCreator.setText(main.bottomSearchTextUpperBtn, "arrowup",
-                main.getMainBottomSize(17), Colors.ColorBottomBtnNormal.invoke());
+                main.getMainBottomSize(17), Colors.ColorBottomBtnNormal);
         IconfontCreator.setText(main.bottomSearchTextDownBtn, "falling",
-                main.getMainBottomSize(20), Colors.ColorBottomBtnNormal.invoke());
+                main.getMainBottomSize(20), Colors.ColorBottomBtnNormal);
     }
 
     public static void initAfterBottomCreated() {

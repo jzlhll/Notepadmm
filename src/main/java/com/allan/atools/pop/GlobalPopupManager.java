@@ -84,7 +84,7 @@ public final class GlobalPopupManager extends Popup {
             vBox.setAlignment(Pos.CENTER);
             vBox.setMinSize(350, 150);
             vBox.setMaxSize(350, 150);
-            vBox.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:3 3 3 3;-fx-border-color:#aaaaaa; -fx-border-radius:3 3 3 3;");
+            vBox.setStyle("-fx-background-color:-au-popup-bg-color;-fx-background-radius:3 3 3 3;-fx-border-color:-au-main-window-border-color; -fx-border-radius:3 3 3 3;");
             isNew = true;
         }
 

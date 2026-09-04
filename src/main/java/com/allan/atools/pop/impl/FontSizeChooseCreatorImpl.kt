@@ -62,7 +62,7 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
             val previewFontSize = if (fontSize < 22) fontSize else 22
             val label = createLabel(fontSize.toString(), previewFontSize)
             label.alignment = Pos.CENTER_LEFT
-            label.style = "-fx-font-size:$previewFontSize;-fx-text-alignment:left;-fx-text-fill: ${Colors.TextColor.invoke()};"
+            label.style = "-fx-font-size:$previewFontSize;-fx-text-alignment:left;-fx-text-fill: ${Colors.TextColor};"
             list.items.add(label)
         }
 

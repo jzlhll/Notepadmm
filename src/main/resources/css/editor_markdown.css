@@ -18,6 +18,7 @@
     /* ---- 代码块：浅色底 + 深色文字（亮色皮肤，自然融入） ---- */
     -au-md-code-bg: #eef2f5;
     -au-md-code-fill: #1d4d55;
+    -au-md-code-fence: #d9dfe3;
     -au-md-inline-code-bg: #def2f4;
     -au-md-inline-code-fill: #0e7490;
 
@@ -37,7 +38,7 @@
     -au-md-list: #008080;
 
     /* ---- 链接 / 图片 ---- */
-    -au-md-link: #0000ff;
+    -au-md-link: #0969da;
     -au-md-image: #9932cc;
 
     /* ---- 行内图片显示（图片框 / 占位提示，见 MarkdownImageManager） ---- */
@@ -75,6 +76,11 @@
 /* ===== 代码块（``` 围栏与缩进代码块） ===== */
 .markdown-code {
     -fx-fill: -au-md-code-fill;
+}
+
+/* 围栏符号贴近代码块背景，仅保留微弱对比。 */
+.markdown-code.markdown-code-fence {
+    -fx-fill: -au-md-code-fence;
 }
 
 /* ===== 代码块整块圆角矩形背景（段落样式类，见 MarkdownCodeBlockManager） =====
@@ -190,7 +196,12 @@
 /* ===== 链接 ===== */
 .markdown-link {
     -fx-fill: -au-md-link;
+    -fx-underline: false;
+}
+
+.markdown-link:hover {
     -fx-underline: true;
+    -fx-cursor: hand;
 }
 
 /* ===== 图片 ===== */

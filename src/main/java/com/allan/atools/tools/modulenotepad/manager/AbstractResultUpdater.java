@@ -108,6 +108,7 @@ public abstract class AbstractResultUpdater {
                 }
                 TimerCounter.start("show area text");
                 area.replace(0, 0, value);
+                area.refreshTheme();
                 Log.d(TimerCounter.end("show area text"));
             });
         });

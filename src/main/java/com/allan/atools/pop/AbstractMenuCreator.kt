@@ -12,7 +12,7 @@ abstract class AbstractMenuCreator<T> {
 
     internal fun createLabel(text: String, fontSize: Int): Label {
         val label = Label(text)
-        val textColor = Colors.TextColor.invoke()!!
+        val textColor = Colors.TextColor
         label.style = "-fx-font-size:$fontSize;-fx-text-alignment:center;-fx-text-fill: $textColor;"
         return label
     }

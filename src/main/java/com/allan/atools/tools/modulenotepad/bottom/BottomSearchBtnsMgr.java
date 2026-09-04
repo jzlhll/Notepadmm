@@ -123,10 +123,10 @@ public final class BottomSearchBtnsMgr {
         var main = UIContext.context();
         if (val) {
             IconfontCreator.setText(main.bottomSearchTextCaseBtn, "ziti",
-                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight);
         } else {
             IconfontCreator.setText(main.bottomSearchTextCaseBtn, "ziti",
-                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray);
         }
     }
 
@@ -134,10 +134,10 @@ public final class BottomSearchBtnsMgr {
         var main = UIContext.context();
         if (val) {
             IconfontCreator.setText(main.bottomSearchTextWholeWordsBtn, "centerjustified",
-                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight);
         } else {
             IconfontCreator.setText(main.bottomSearchTextWholeWordsBtn, "centerjustified",
-                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray);
         }
     }
 
@@ -145,10 +145,10 @@ public final class BottomSearchBtnsMgr {
         var main = UIContext.context();
         if (type == SearchParams.Type.Normal) {
             IconfontCreator.setText(main.bottomSearchTextRuleBtn, "zhengzeshi",
-                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray.invoke());
+                    main.getMainBottomSize(16), Colors.ColorBottomBtnGray);
         } else {
             IconfontCreator.setText(main.bottomSearchTextRuleBtn, "zhengzeshi",
-                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight.invoke());
+                    main.getMainBottomSize(18), Colors.ColorBottomBtnHighLight);
         }
     }
 

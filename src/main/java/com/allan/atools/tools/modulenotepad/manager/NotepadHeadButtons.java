@@ -27,23 +27,23 @@ public final class NotepadHeadButtons {
     public static void refreshSize() {
         var main = UIContext.context();
         IconfontCreator.setText(main.notepadMainActionBarAToolsBtn, "smile",
-                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(25), Colors.ColorHeadButton);
         IconfontCreator.setTextBold(main.notepadMainAltMultiSelectBtn, "align-vertical-top",
-                main.getMainTopIconSize(21), Colors.ColorBottomBtnHighLight.invoke());
+                main.getMainTopIconSize(21), Colors.ColorBottomBtnHighLight);
         IconfontCreator.setText(main.notepadMainActionBarFontBtn, "font-size",
-                main.getMainTopIconSize(22), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(22), Colors.ColorHeadButton);
         main.notepadMainInsertEmptyLineBtn.setStyle(
                 "-fx-font-size:" + main.getMainTopIconSize(21) + "px;");
         IconfontCreator.setText(main.notepadMainActionBarSettingBtn, "set",
-                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(25), Colors.ColorHeadButton);
         IconfontCreator.setText(main.notepadMainActionBarSearchBtn, "sousuo",
-                main.getMainTopIconSize(21), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(21), Colors.ColorHeadButton);
         IconfontCreator.setText(main.notepadMainActionBarFileOpenBtn, "file",
-                main.getMainTopIconSize(22), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(22), Colors.ColorHeadButton);
         IconfontCreator.setText(main.notepadMainActionBarSaveBtn, "save",
-                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(25), Colors.ColorHeadButton);
         IconfontCreator.setText(main.notepadMainActionBarNewBtn, "add-select",
-                main.getMainTopIconSize(25), Colors.ColorHeadButton.invoke());
+                main.getMainTopIconSize(25), Colors.ColorHeadButton);
     }
 
     void bottomBtns() {

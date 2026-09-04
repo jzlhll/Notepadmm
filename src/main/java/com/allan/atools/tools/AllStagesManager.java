@@ -1,6 +1,7 @@
 package com.allan.atools.tools;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.SettingPreferences;
 import com.allan.atools.bases.SizeAndXySaverImpl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
@@ -21,10 +22,15 @@ import javafx.scene.image.ImageView;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.Window;
 
 import java.net.MalformedURLException;
 import java.util.HashMap;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 public final class AllStagesManager {
     private static AllStagesManager mInstance;
@@ -33,6 +39,8 @@ public final class AllStagesManager {
         for (var n : cssCustomPaths.keySet()) {
             initCustom(n, cssCustomPaths.get(n));
         }
+        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)
+                .addListener((observable, oldValue, newValue) -> applyTheme(newValue));
     }
 
     public static AllStagesManager getInstance(String[] cssPaths, Map<String, String> cssCustomPaths) {
@@ -46,8 +54,40 @@ public final class AllStagesManager {
 
     private String[] cssForms;
     private final Map<String, String> cssCustomForms = new HashMap<>(2);
+    // 包含暂时隐藏的窗口，关闭后的场景可正常回收。
+    private final Set<Scene> scenes = Collections.newSetFromMap(new WeakHashMap<>());
 
     private Stage mainStage;
+
+    private void applyTheme(boolean dark) {
+        try {
+            String lightCss = ResLocation.getURL("css", "colors.css").toExternalForm();
+            String darkCss = ResLocation.getURL("css", "colors_dark.css").toExternalForm();
+            String themeCss = dark ? darkCss : lightCss;
+            for (int i = 0; i < cssForms.length; i++) {
+                if (cssForms[i].equals(lightCss) || cssForms[i].equals(darkCss)) {
+                    cssForms[i] = themeCss;
+                }
+            }
+            var activeScenes = new HashSet<>(scenes);
+            for (Window window : Window.getWindows()) {
+                if (window.getScene() != null) {
+                    activeScenes.add(window.getScene());
+                }
+            }
+            for (Scene scene : activeScenes) {
+                var styles = scene.getStylesheets();
+                for (int i = 0; i < styles.size(); i++) {
+                    if (styles.get(i).equals(lightCss) || styles.get(i).equals(darkCss)) {
+                        styles.set(i, themeCss);
+                    }
+                }
+                scene.getRoot().applyCss();
+            }
+        } catch (MalformedURLException e) {
+            Log.e("Failed to apply theme", e);
+        }
+    }
 
     private void init(String[] cssPaths) {
         try {
@@ -108,6 +148,7 @@ public final class AllStagesManager {
 
         // Create window
         mainStage.setScene(scene);
+        scenes.add(scene);
 
         //图标
         if (info.iconPath != null && info.iconPath.length() > 0) {
@@ -179,6 +220,7 @@ public final class AllStagesManager {
             scene = new Scene(rootView);
 
         stage.setScene(scene);
+        scenes.add(scene);
         stage.setResizable(info.resizable);
 
         //图标

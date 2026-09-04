@@ -1,6 +1,10 @@
 package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.Colors;
+import com.allan.atools.SettingPreferences;
+import com.allan.atools.beans.ResultItemWrap;
+import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.richtext.FoldableTextArea;
 import com.allan.atools.richtext.ParStyle;
 import com.allan.atools.richtext.TextStyle;
@@ -44,6 +48,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
 
     private ChangeListener<Number> fontChanged;
     private ChangeListener<Number> fontThemeChanged;
+    private final ChangeListener<Boolean> themeChanged = (observable, oldValue, newValue) -> refreshTheme();
 
     public ResultAreaImpl() {
         super(NAME_SP);
@@ -61,8 +66,32 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
             Log.d("font changed " + ResultAreaImpl.this);
         };
         UIContext.getFontSizeProperty().addListener(fontChanged);
+        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).addListener(themeChanged);
 
         initArea();
+    }
+
+    public void refreshTheme() {
+        if (mIsDestroyed || getLength() == 0 || !(ex1 instanceof AllFilesSearchResults results)) {
+            return;
+        }
+        int line = 0;
+        for (var file : results.allResults) {
+            if (line >= getParagraphs().size()) {
+                break;
+            }
+            var paragraph = getParagraph(line);
+            setParagraphStyle(line, paragraph.getParagraphStyle()
+                    .updateBackgroundColor(Colors.DescLineBgColor.invoke()));
+            setStyle(line, 0, paragraph.length(), getStyleOfChar(line, 0)
+                    .updateTextColor(Colors.DescLineTextColor.invoke()));
+            line++;
+            for (var item : file.results) {
+                if (item.lineMode == ResultItemWrap.LineMode.Real && item.items != null && item.items.length > 0) {
+                    line++;
+                }
+            }
+        }
     }
 
     private boolean mIsDestroyed = false;
@@ -80,6 +109,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         fontChanged = null;
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged);
         fontThemeChanged = null;
+        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).removeListener(themeChanged);
         ex1 = null;
         clearSelf = null;
         clearOthers = null;

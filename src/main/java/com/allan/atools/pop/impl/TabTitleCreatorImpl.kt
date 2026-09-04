@@ -1,7 +1,6 @@
 package com.allan.atools.pop.impl
 
 import com.allan.atools.pop.AbstractMenuCreator
-import com.allan.atools.Colors
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
 import com.jfoenix.controls.JFXListView
@@ -19,7 +18,7 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
         val vBox = VBox()
         val list: JFXListView<Label>
         list = JFXListView()
-        list.style = "-fx-background-color:" + Colors.SearchBgColor.invoke() + ";"
+        list.style = "-fx-background-color: -au-popup-bg-color;"
         list.maxWidth = 280.0
         list.prefHeight = 181.0
 

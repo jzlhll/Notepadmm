@@ -1,4 +1,12 @@
 .root {
+    /* 菜单与工具栏的主题颜色 */
+    -au-bottom-button-color: #acacac;
+    -au-bottom-button-gray-color: #acacac;
+    -au-button-highlight-color: #4285F5;
+    -au-head-button-color: #cccccc;
+    -au-popup-text-color: #ffffff;
+    -au-popup-bg-color: #323232;
+
     -au-list-view-bg-color: #2f2f33;
     -au-split-pane-divider-color: #404247;
 
@@ -58,6 +66,7 @@
     -au-md-title-5: #a777d4;
     -au-md-code-bg: #1b1f24;
     -au-md-code-fill: #e6edf3;
+    -au-md-code-fence: #30363d;
     -au-md-inline-code-bg: #262b32;
     -au-md-inline-code-fill: #e6edf3;
     /* 代码块内语言 token 色 */

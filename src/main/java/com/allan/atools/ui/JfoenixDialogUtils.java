@@ -59,20 +59,20 @@ public final class JfoenixDialogUtils {
         alert.setOverlayClose(false);
         alert.setAnimation(JFXAlertAnimation.NO_ANIMATION);
         JFXDialogLayout layout = new JFXDialogLayout();
-        layout.setStyle("-fx-background-color:" + Colors.SearchBgColor.invoke() + ";");
+        layout.setStyle("-fx-background-color: -au-popup-bg-color;");
 
         var headLabel = new Label(head);
-        headLabel.setStyle("-fx-font-size:13;-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        headLabel.setStyle("-fx-font-size:13;-fx-text-fill: " + Colors.ColorHeadButton + ";");
         layout.setHeading(headLabel);
         var bod = new Label(body);
-        bod.setStyle("-fx-font-size:16;-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        bod.setStyle("-fx-font-size:16;-fx-text-fill: " + Colors.ColorHeadButton + ";");
         layout.setBody(bod);
 
         if (width > 0) {
             layout.setPrefWidth(width);
         }
         JFXButton closeButton = new JFXButton(Locales.str("sure2"));
-        closeButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight.invoke()));
+        closeButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight));
         closeButton.setOnAction(event -> {
             if (ex != null) {
                 ex.invoke();
@@ -94,13 +94,13 @@ public final class JfoenixDialogUtils {
         alert.setAnimation(JFXAlertAnimation.NO_ANIMATION);
         JFXDialogLayout layout = new JFXDialogLayout();
 
-        layout.setStyle("-fx-background-color:" + Colors.SearchBgColor.invoke() + ";");
+        layout.setStyle("-fx-background-color: -au-popup-bg-color;");
 
         var headLabel = new Label(head);
-        headLabel.setStyle("-fx-font-size:" + (smallBodySize - 3) + ";-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        headLabel.setStyle("-fx-font-size:" + (smallBodySize - 3) + ";-fx-text-fill: " + Colors.ColorHeadButton + ";");
         layout.setHeading(headLabel);
         var bod = new Label(body);
-        bod.setStyle("-fx-font-size:" + smallBodySize + ";-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        bod.setStyle("-fx-font-size:" + smallBodySize + ";-fx-text-fill: " + Colors.ColorHeadButton + ";");
         layout.setBody(bod);
         if(width > 0) layout.setPrefWidth(width);
 
@@ -111,9 +111,9 @@ public final class JfoenixDialogUtils {
             var modeStr = TextUtils.isEmpty(curInfo.str) ? modeToStr(curInfo.mode) : curInfo.str;
             var btn = new JFXButton(modeStr);
             if (curInfo.mode == ConfirmMode.Accept) {
-                btn.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight.invoke()));
+                btn.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight));
             } else {
-                btn.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorHeadButton.invoke()));
+                btn.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorHeadButton));
             }
             final var action = curInfo.action0;
             btn.setOnAction(event -> {
@@ -135,23 +135,23 @@ public final class JfoenixDialogUtils {
         alert.setOverlayClose(false);
         alert.setAnimation(JFXAlertAnimation.NO_ANIMATION);
         JFXDialogLayout layout = new JFXDialogLayout();
-        layout.setStyle("-fx-background-color:" + Colors.SearchBgColor.invoke() + ";");
+        layout.setStyle("-fx-background-color: -au-popup-bg-color;");
 
         var headLabel = new Label(head);
-        headLabel.setStyle("-fx-font-size:13;-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        headLabel.setStyle("-fx-font-size:13;-fx-text-fill: " + Colors.ColorHeadButton + ";");
         layout.setHeading(headLabel);
 
         final var edit = new JFXTextField();
-        edit.setStyle("-fx-font-size:15;-fx-text-fill: " + Colors.ColorHeadButton.invoke() + ";");
+        edit.setStyle("-fx-font-size:15;-fx-text-fill: " + Colors.ColorHeadButton + ";");
         edit.setText(defaultStr);
         edit.setPrefWidth(120);
         layout.setBody(edit);
         JFXButton closeButton = new JFXButton(Locales.str("cancel"));
-        closeButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorHeadButton.invoke()));
+        closeButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorHeadButton));
         closeButton.setOnAction(event -> alert.hideWithAnimation());
 
         JFXButton confirmButton = new JFXButton(Locales.str("sure"));
-        confirmButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight.invoke()));
+        confirmButton.setStyle(String.format("-fx-font-size: 15px;-fx-text-fill: %s;-fx-font-weight: BOLD;-fx-padding: 0.7em 0.8em;", Colors.ColorBottomBtnHighLight));
         confirmButton.setOnAction(event -> {
             if (!edit.getText().equals(defaultStr)) {
                 action.invoke(edit.getText());

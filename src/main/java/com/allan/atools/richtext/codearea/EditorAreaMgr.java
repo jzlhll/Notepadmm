@@ -921,7 +921,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 && sourceFile.length() >= StaticsProf.getMaxFileSizeForStyle();
         programmaticReplace = true;
         try {
-            area.replaceText(text);
+            if (!area.getText().equals(text)) {
+                area.replaceText(text);
+            }
             area.getUndoManager().forgetHistory();
             area.getUndoManager().mark();
             establishUndoBaseline();
