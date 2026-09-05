@@ -183,6 +183,42 @@
     -fx-fill: -au-md-table-mark;
 }
 
+/* ===== 表格单元格预览 ===== */
+.markdown-table-preview-row {
+    -fx-background-color: -au-editor-bg-color;
+}
+
+.markdown-table-preview-header {
+    -fx-background-color: -au-md-code-bg;
+    -fx-border-color: -au-md-table-mark;
+    -fx-border-width: 1 0 0 0;
+}
+
+.markdown-table-preview-alternate {
+    -fx-background-color: derive(-au-editor-bg-color, -3%);
+}
+
+.markdown-table-preview-cell {
+    -fx-border-color: -au-md-table-mark;
+    -fx-border-width: 0 1 1 0;
+}
+
+.markdown-table-preview-first-cell {
+    -fx-border-width: 0 1 1 1;
+}
+
+.markdown-table-preview-content {
+    -fx-fill: -au-editor-text-color;
+}
+
+.markdown-table-preview-content.markdown-link {
+    -fx-fill: -au-md-link;
+}
+
+.markdown-table-preview-content.markdown-inline-code {
+    -fx-fill: -au-md-inline-code-fill;
+}
+
 /* ===== 引用 > ===== */
 .markdown-quote {
     -fx-fill: -au-md-quote;

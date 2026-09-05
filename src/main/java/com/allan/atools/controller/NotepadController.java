@@ -1,5 +1,7 @@
 package com.allan.atools.controller;
 
+import static com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown;
+
 import com.allan.atools.UIContext;
 import com.allan.atools.bases.AbstractMainController;
 import com.allan.atools.bases.XmlPaths;
@@ -18,7 +20,7 @@ import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownCodeBlockManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
-import com.allan.atools.tools.modulenotepad.manager.MarkdownTableOptimizeManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownTablePreviewManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.pop.GlobalPopupManager;
@@ -147,13 +149,13 @@ public final class NotepadController extends AbstractMainController {
 
     private SettingDrawer settingDrawer;
     private MarkdownOutlineManager markdownOutlineManager;
-    private MarkdownTableOptimizeManager markdownTableOptimizeManager;
+    private MarkdownTablePreviewManager markdownTablePreviewManager;
     private MarkdownImageManager markdownImageManager;
     private MarkdownCodeBlockManager markdownCodeBlockManager;
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
             (observable, oldValue, newValue) -> {
                 refreshCurrentDocumentPath();
-                updateMarkdownTableOptimizeManager(newValue);
+                updateMarkdownTablePreviewManager(newValue);
                 updateMarkdownImageManager(newValue);
                 updateMarkdownCodeBlockManager(newValue);
             };
@@ -282,9 +284,9 @@ public final class NotepadController extends AbstractMainController {
             markdownOutlineManager.destroy();
             markdownOutlineManager = null;
         }
-        if (markdownTableOptimizeManager != null) {
-            markdownTableOptimizeManager.destroy();
-            markdownTableOptimizeManager = null;
+        if (markdownTablePreviewManager != null) {
+            markdownTablePreviewManager.destroy();
+            markdownTablePreviewManager = null;
         }
         if (markdownImageManager != null) {
             markdownImageManager.destroy();
@@ -496,7 +498,7 @@ public final class NotepadController extends AbstractMainController {
         });
         refreshCurrentDocumentPath();
         markdownOutlineManager = new MarkdownOutlineManager(this);
-        updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
+        updateMarkdownTablePreviewManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
         getWorkspaceManager().initViewState();
 
@@ -520,28 +522,28 @@ public final class NotepadController extends AbstractMainController {
         if (markdownOutlineManager != null) {
             markdownOutlineManager.refreshCurrentFile();
         }
-        updateMarkdownTableOptimizeManager(UIContext.currentAreaProp.get());
+        updateMarkdownTablePreviewManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
         updateMarkdownCodeBlockManager(UIContext.currentAreaProp.get());
     }
 
-    private void updateMarkdownTableOptimizeManager(EditorArea area) {
-        if (!MarkdownTableOptimizeManager.supports(area)) {
-            if (markdownTableOptimizeManager != null) {
-                markdownTableOptimizeManager.destroy();
-                markdownTableOptimizeManager = null;
+    private void updateMarkdownTablePreviewManager(EditorArea area) {
+        if (!supportsMarkdown(area)) {
+            if (markdownTablePreviewManager != null) {
+                markdownTablePreviewManager.destroy();
+                markdownTablePreviewManager = null;
             }
             return;
         }
-        if (markdownTableOptimizeManager == null) {
-            markdownTableOptimizeManager = new MarkdownTableOptimizeManager(area);
+        if (markdownTablePreviewManager == null) {
+            markdownTablePreviewManager = new MarkdownTablePreviewManager(area);
         } else {
-            markdownTableOptimizeManager.refreshCurrentFile(area);
+            markdownTablePreviewManager.refreshCurrentFile(area);
         }
     }
 
     private void updateMarkdownImageManager(EditorArea area) {
-        if (!MarkdownImageManager.supports(area)) {
+        if (!supportsMarkdown(area)) {
             if (markdownImageManager != null) {
                 markdownImageManager.destroy();
                 markdownImageManager = null;
@@ -556,7 +558,7 @@ public final class NotepadController extends AbstractMainController {
     }
 
     private void updateMarkdownCodeBlockManager(EditorArea area) {
-        if (!MarkdownImageManager.supports(area)) {
+        if (!supportsMarkdown(area)) {
             if (markdownCodeBlockManager != null) {
                 markdownCodeBlockManager.destroy();
                 markdownCodeBlockManager = null;
