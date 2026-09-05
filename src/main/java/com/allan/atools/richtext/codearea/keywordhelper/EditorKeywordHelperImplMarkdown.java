@@ -487,7 +487,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             }
         }
 
-        /** 内侧空格使用等长占位符归一化，再交由 commonmark 解析星号嵌套关系。 */
+        /** 内侧空格使用等长占位符归一化，再交由 commonmark 解析强调和删除线。 */
         private void addRelaxedEmphasisRegions() {
             var normalized = text.toCharArray();
             var adjustedSpaces = new BitSet(text.length());
@@ -521,6 +521,14 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                     visitChildren(emphasis);
                 }
 
+                @Override
+                public void visit(CustomNode customNode) {
+                    if (customNode instanceof Strikethrough strikethrough) {
+                        addRelaxedNodeRegion(strikethrough, STYLE_STRIKETHROUGH, adjustedSpaces);
+                    }
+                    visitChildren(customNode);
+                }
+
                 @Override public void visit(Image image) {}
             });
         }
@@ -533,18 +541,24 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 if ((index & 4095) == 0 && !canContinue.getAsBoolean()) {
                     return;
                 }
-                if (text.charAt(index) != '*' || relaxedEmphasisExcluded.get(index)
+                char marker = text.charAt(index);
+                if ((marker != '*' && marker != '~') || relaxedEmphasisExcluded.get(index)
                         || isEscaped(index)) {
                     index++;
                     continue;
                 }
                 int runStart = index;
-                while (index < lineEnd && text.charAt(index) == '*'
+                while (index < lineEnd && text.charAt(index) == marker
                         && !relaxedEmphasisExcluded.get(index)) {
                     index++;
                 }
                 int runEnd = index;
-                var runs = openers.computeIfAbsent(runEnd - runStart, ignored -> new ArrayDeque<>());
+                int runLength = runEnd - runStart;
+                if (marker == '~' && runLength != 2) {
+                    continue;
+                }
+                var runs = openers.computeIfAbsent(marker == '~' ? -runLength : runLength,
+                        ignored -> new ArrayDeque<>());
                 if (!runs.isEmpty() && hasNonWhitespace(runs.peek(), runStart)) {
                     normalizeInnerSpace(normalized, adjustedSpaces, runs.pop());
                     normalizeInnerSpace(normalized, adjustedSpaces, runStart - 1);
