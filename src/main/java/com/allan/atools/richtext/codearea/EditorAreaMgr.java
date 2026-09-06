@@ -921,6 +921,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 && sourceFile.length() >= StaticsProf.getMaxFileSizeForStyle();
         programmaticReplace = true;
         try {
+            area.getMarkdownTableDocumentState().reset();
             if (!area.getText().equals(text)) {
                 area.replaceText(text);
             }

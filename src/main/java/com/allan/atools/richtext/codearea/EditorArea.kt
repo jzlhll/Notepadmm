@@ -12,6 +12,7 @@ import com.allan.uilibs.richtexts.CodeArea
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.scene.control.Tab
+import javafx.scene.control.TextInputControl
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -30,6 +31,7 @@ class EditorArea @JvmOverloads constructor(
     val bottomSearchBtnsMgr: BottomSearchBtnsMgr
     val fontThemeChanged: ChangeListener<Number>
     val multiSelections: EditorAreaMultiSelectionsMgr
+    val markdownTableDocumentState = MarkdownTableDocumentState()
 
     companion object {
         @JvmStatic
@@ -79,7 +81,7 @@ class EditorArea @JvmOverloads constructor(
         Highlight.jumpToHead(this)
 
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
-            if (!isMarkdownDocument() || event.button != MouseButton.PRIMARY
+            if (event.target is TextInputControl || !isMarkdownDocument() || event.button != MouseButton.PRIMARY
                 || !event.isShortcutDown || event.isAltDown || event.isShiftDown
                 || event.clickCount != 1 || !event.isStillSincePress
             ) {
@@ -93,6 +95,7 @@ class EditorArea @JvmOverloads constructor(
         }
 
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            if (event.target is TextInputControl) return@addEventFilter
             if (!isEditable) return@addEventFilter
             if (event.isAltDown && !event.isControlDown && !event.isMetaDown && !event.isShiftDown
                 && (event.code == KeyCode.UP || event.code == KeyCode.DOWN)
@@ -125,6 +128,7 @@ class EditorArea @JvmOverloads constructor(
 
         // 中文标点模式：本 tab 开启时把 KEY_TYPED 收到的半角标点替换为全角（只读时跳过，与默认输入行为一致）
         addEventFilter(KeyEvent.KEY_TYPED) { e ->
+            if (e.target is TextInputControl) return@addEventFilter
             if (isEditable && editor.getState().isChinesePunctuation()) {
                 val text = e.character
                 if (text.length == 1) {

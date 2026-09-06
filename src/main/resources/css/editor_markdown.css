@@ -175,8 +175,6 @@
 
 .markdown-table-preview-header {
     -fx-background-color: -au-md-code-bg;
-    -fx-border-color: -au-md-table-mark;
-    -fx-border-width: 1 0 0 0;
 }
 
 .markdown-table-preview-alternate {
@@ -192,6 +190,22 @@
     -fx-border-width: 0 1 1 1;
 }
 
+.markdown-table-preview-header > .markdown-table-preview-cell {
+    -fx-border-width: 1 1 1 0;
+}
+
+.markdown-table-preview-header > .markdown-table-preview-first-cell {
+    -fx-border-width: 1;
+}
+
+.markdown-table-selected-cell {
+    -fx-background-color: -au-editor-selection-words-color;
+}
+
+.markdown-table-selection-hit {
+    -fx-background-color: -au-editor-selection-words-color;
+}
+
 .markdown-table-preview-content {
     -fx-fill: -au-editor-text-color;
 }
@@ -202,6 +216,57 @@
 
 .markdown-table-preview-content.markdown-inline-code {
     -fx-fill: -au-md-inline-code-fill;
+}
+
+.markdown-table-cell-editor {
+    -fx-background-color: -au-editor-bg-color;
+    -fx-control-inner-background: -au-editor-bg-color;
+    -fx-text-fill: -au-editor-text-color;
+    -fx-highlight-fill: -au-editor-selection-words-color;
+    -fx-padding: 9 12 9 12;
+    -fx-background-insets: 0;
+    -fx-border-color: -au-md-link;
+    -fx-border-width: 1;
+}
+
+/* 与预览共用内容宽度；清除 TextArea 皮肤额外留白，避免测量和实际换行不一致。 */
+.markdown-table-cell-editor .content,
+.markdown-table-cell-editor .scroll-pane,
+.markdown-table-cell-editor .viewport {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+
+.markdown-table-scroll-bar:horizontal > .increment-button,
+.markdown-table-scroll-bar:horizontal > .decrement-button {
+    -fx-padding: 1px;
+}
+
+.markdown-table-scroll-bar:horizontal > .decrement-button > .decrement-arrow {
+    -fx-shape: "M 4 0 L 0 4 L 4 8 Z";
+}
+
+.markdown-table-scroll-bar:horizontal > .increment-button > .increment-arrow {
+    -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
+}
+
+.markdown-table-toolbar {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-radius: 6;
+    -fx-border-color: -au-md-table-mark;
+    -fx-border-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.22), 7, 0, 0, 2);
+}
+
+.markdown-table-toolbar-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -au-editor-text-color;
+    -fx-padding: 4 8 4 8;
+}
+
+.markdown-table-toolbar-button:hover {
+    -fx-background-color: -au-editor-selection-words-color;
+    -fx-background-radius: 4;
 }
 
 /* ===== 引用 > ===== */
