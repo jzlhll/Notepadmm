@@ -85,58 +85,43 @@
 
 /* ===== 代码块整块圆角矩形背景（段落样式类，见 MarkdownCodeBlockManager） =====
  * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 12px 圆角整块。
- * 左缘 = TextFlow 左缘 + 65px（editor.css .paragraph-text 的左内边距，即正文起始线）；
- * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 65px），
+ * 左缘 = TextFlow 左缘 + 85px（editor.css .paragraph-text 的左内边距，即正文起始线）；
+ * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 85px），
  * 两边均与编辑器的 padding 边缘对齐。 */
 .md-code-block-first {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 12 12 0 0;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-mid {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-last {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 0 0 12 12;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-single {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 12;
-    -fx-background-insets: 0 0 0 65px;
-}
-
-/* 换行模式：editor.css 将 .paragraph-text 左内边距与 .editor-area 右 padding 均加到 105px */
-.styled-text-area.editor-area:wrapped .md-code-block-first,
-.styled-text-area.editor-area:wrapped .md-code-block-mid,
-.styled-text-area.editor-area:wrapped .md-code-block-last,
-.styled-text-area.editor-area:wrapped .md-code-block-single {
-    -fx-background-insets: 0 0 0 105px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 /* 代码块内容内空：在编辑器文本 padding 基础上左右再内缩 10px，文字不贴圆角背景边缘。
- * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则（换行态再高一档）。 */
+ * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则。 */
 .styled-text-area.editor-area .paragraph-text.md-code-block-first,
 .styled-text-area.editor-area .paragraph-text.md-code-block-mid,
 .styled-text-area.editor-area .paragraph-text.md-code-block-last,
 .styled-text-area.editor-area .paragraph-text.md-code-block-single {
-    -fx-padding: 0 10px 0 75px;
+    -fx-padding: 0 10px 0 95px;
 }
 
 .styled-text-area.editor-area .paragraph-text.md-code-block-empty {
     -fx-pref-height: 1.25em;
-}
-
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-first,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-mid,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-last,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-single {
-    -fx-padding: 0 10px 0 115px;
 }
 
 /* ===== 代码块内语言 token（java/kotlin/c/cpp/csharp/xml，叠加在 markdown-code 上） ===== */
