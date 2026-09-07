@@ -89,6 +89,10 @@ public final class MarkdownTablePreviewManager {
     private final AnimationTimer layoutTimer = new AnimationTimer() {
         @Override
         public void handle(long now) {
+            if (composingText || handlingInputMethod) {
+                stop();
+                return;
+            }
             if (layoutPending) {
                 layoutPending = false;
                 refreshLayout();
@@ -112,6 +116,7 @@ public final class MarkdownTablePreviewManager {
     private boolean movingCellEditor;
     private boolean handlingInputMethod;
     private boolean composingText;
+    private long inputMethodRevision;
     private Runnable afterComposition;
     private long toolbarContentVersion = -1;
     private String toolbarContentTableId;
@@ -203,18 +208,22 @@ public final class MarkdownTablePreviewManager {
         cellEditor.textProperty().addListener((observable, oldValue, newValue) -> writeActiveCell(newValue));
         cellEditor.addEventFilter(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED, event -> {
             var area = currentArea;
+            long revision = ++inputMethodRevision;
             handlingInputMethod = true;
             composingText = !event.getComposed().isEmpty();
             Platform.runLater(() -> {
-                if (destroyed || currentArea != area) {
+                if (destroyed || currentArea != area || revision != inputMethodRevision) {
                     return;
                 }
                 handlingInputMethod = false;
-                if (!composingText) {
-                    writeActiveCell(cellEditor.getText());
+                if (composingText) {
+                    return;
                 }
-                updateActiveRowHeight();
-                if (!composingText && afterComposition != null) {
+                writeActiveCell(cellEditor.getText());
+                if (layoutPending || !layoutJobs.isEmpty()) {
+                    layoutTimer.start();
+                }
+                if (afterComposition != null) {
                     var action = afterComposition;
                     afterComposition = null;
                     action.run();
@@ -252,6 +261,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void unbindEditor() {
+        inputMethodRevision++;
         composingText = false;
         handlingInputMethod = false;
         afterComposition = null;
@@ -331,6 +341,10 @@ public final class MarkdownTablePreviewManager {
         if ((writingCell || writingStructure) && activeTable != null) {
             area.getMarkdownTableDocumentState().applyKnownTableChange(
                     activeTable.id(), position, removed, inserted);
+            if (writingStructure) {
+                rebuildLineIndex();
+                updatePresentation();
+            }
         } else {
             area.getMarkdownTableDocumentState().applyTextChange(
                     position, removed, inserted);
@@ -340,7 +354,7 @@ public final class MarkdownTablePreviewManager {
                 updatePresentation();
             }
         }
-        if (!writingCell) {
+        if (!writingCell && !writingStructure) {
             syncEditorFromDocument();
         }
         refreshScheduler.request();
@@ -428,6 +442,7 @@ public final class MarkdownTablePreviewManager {
 
     private void requestLayoutRefresh() {
         if (currentArea != null && !destroyed) {
+            toolbarContentVersion = -1;
             layoutPending = true;
             layoutTimer.start();
         }
@@ -682,28 +697,35 @@ public final class MarkdownTablePreviewManager {
 
     private boolean setPreviewStyle(int line, Double height) {
         var area = currentArea;
-        if (area == null || line < 0 || line >= area.getParagraphs().size()) {
+        if (area == null) {
             return false;
         }
+        if (line < 0 || line >= area.getParagraphs().size()) {
+            previewLines.remove(line);
+            return false;
+        }
+        boolean preview = height != null;
+        boolean wasPreview = previewLines.contains(line);
         var existing = area.getParagraph(line).getParagraphStyle();
         var styles = new ArrayList<>(existing);
         styles.removeIf(style -> style.equals(PREVIEW_CLASS) || style.startsWith(HEIGHT_PREFIX));
-        if (height != null) {
+        if (preview) {
             styles.add(PREVIEW_CLASS);
             styles.add(HEIGHT_PREFIX + height);
             previewLines.add(line);
         } else {
             previewLines.remove(line);
         }
-        if (!styles.equals(existing)) {
-            boolean modeChanged = existing.contains(PREVIEW_CLASS) != (height != null);
+        boolean modeChanged = existing.contains(PREVIEW_CLASS) != preview;
+        boolean presentationChanged = wasPreview != preview;
+        boolean stylesChanged = !styles.equals(existing);
+        if (stylesChanged) {
             area.setParagraphStyle(line, styles);
-            if (modeChanged) {
-                area.recreateParagraphGraphic(line);
-            }
-            return true;
         }
-        return false;
+        if (modeChanged || presentationChanged) {
+            area.recreateParagraphGraphic(line);
+        }
+        return stylesChanged;
     }
 
     private Node createGraphic(int line, Node base) {
@@ -796,9 +818,11 @@ public final class MarkdownTablePreviewManager {
             }
             if (scrollBar != null) {
                 syncingScrollBar = true;
+                double maxOffset = Math.max(0, layout.totalWidth - layout.viewportWidth);
                 scrollBar.setVisible(showBar);
-                scrollBar.setMax(Math.max(0, layout.totalWidth - layout.viewportWidth));
-                scrollBar.setVisibleAmount(layout.viewportWidth);
+                scrollBar.setMax(maxOffset);
+                scrollBar.setVisibleAmount(maxOffset == 0 ? 0
+                        : maxOffset * layout.viewportWidth / layout.totalWidth);
                 scrollBar.setValue(layout.table.horizontalOffset());
                 syncingScrollBar = false;
             }
@@ -869,6 +893,8 @@ public final class MarkdownTablePreviewManager {
             if (column == 0) {
                 getStyleClass().add("markdown-table-preview-first-cell");
             }
+            // 在父节点的冒泡阶段截断，先让 TextArea 皮肤处理，避免外层编辑器重复写入组合文字。
+            addEventHandler(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED, event -> event.consume());
             setOnMousePressed(event -> {
                 var table = graphic.layout.table;
                 if (event.getButton() == MouseButton.PRIMARY) {
@@ -1005,6 +1031,12 @@ public final class MarkdownTablePreviewManager {
             target.getChildren().setAll(cellEditor);
             cellEditor.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
             StackPane.setMargin(cellEditor, new Insets(-10, -13, -10, -13));
+            cellEditor.applyCss();
+            // ScrollPane 默认缓存视口；表格滚动到小数坐标时，缓存插值会使编辑文字发虚。
+            Node viewport = cellEditor.lookup(".scroll-pane > .viewport");
+            if (viewport != null) {
+                viewport.setCache(false);
+            }
         } finally {
             movingCellEditor = false;
         }
@@ -1070,7 +1102,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void updateActiveRowHeight() {
-        if (activeTable == null || activeRow < 0 || font == null) {
+        if (composingText || handlingInputMethod || activeTable == null || activeRow < 0 || font == null) {
             return;
         }
         var layout = layouts.get(activeTable.id());
@@ -1429,7 +1461,7 @@ public final class MarkdownTablePreviewManager {
         long version = area.getEditor().getContentVersion();
         if (toolbarContentVersion != version || !table.id().equals(toolbarContentTableId)) {
             String source = safeTableSource(table);
-            String formatted = source == null ? null : MarkdownTableOptimizeManager.format(source);
+            String formatted = source == null ? null : MarkdownTableOptimizeManager.format(area, source);
             toolbarOptimized = formatted == null || formatted.equals(source);
             toolbarContentVersion = version;
             toolbarContentTableId = table.id();
@@ -1453,17 +1485,18 @@ public final class MarkdownTablePreviewManager {
     private void positionToolbar(MarkdownTableDocumentState.Table table) {
         var area = currentArea;
         Bounds areaBounds = area.localToScreen(area.getBoundsInLocal());
-        if (areaBounds == null) {
+        Point2D textOrigin = area.localToScreen(
+                area.getInsets().getLeft() + graphicWidth + textLeftPadding(area), 0);
+        if (areaBounds == null || textOrigin == null) {
             hideToolbar();
             return;
         }
-        var headerBounds = area.getParagraphBoundsOnScreen(table.firstLine());
-        double x = areaBounds.getMinX() + graphicWidth + textPadding;
+        Bounds headerBounds = visibleHeaderBounds(table);
+        double x = headerBounds == null ? textOrigin.getX() : headerBounds.getMinX();
         double y = areaBounds.getMinY();
-        if (headerBounds.isPresent()) {
-            x = Math.max(areaBounds.getMinX(), headerBounds.get().getMinX() + textPadding);
-            y = Math.max(areaBounds.getMinY(), headerBounds.get().getMinY()
-                    - 34 - addRowButton.prefHeight(-1) / 2);
+        if (headerBounds != null) {
+            y = Math.max(areaBounds.getMinY(), headerBounds.getMinY()
+                    - 42 - addRowButton.prefHeight(-1) / 2);
         }
         x = Math.min(x, Math.max(areaBounds.getMinX(),
                 areaBounds.getMaxX() - toolbar.prefWidth(-1)));
@@ -1475,18 +1508,33 @@ public final class MarkdownTablePreviewManager {
         }
     }
 
+    private Bounds visibleHeaderBounds(MarkdownTableDocumentState.Table table) {
+        var area = currentArea;
+        var layout = layouts.get(table.id());
+        if (area == null || layout == null || layout.table != table) {
+            return null;
+        }
+        for (var graphic : List.copyOf(layout.graphics)) {
+            if (graphic.row != 0 || !graphic.isVisible() || graphic.getScene() != area.getScene()) {
+                continue;
+            }
+            Bounds bounds = graphic.viewport.localToScreen(graphic.viewport.getBoundsInLocal());
+            if (bounds != null) {
+                return bounds;
+            }
+        }
+        return null;
+    }
+
     private boolean isTableVisible(MarkdownTableDocumentState.Table table) {
         var area = currentArea;
-        if (area == null || area.getScene() == null) {
+        if (!hasVisibleParagraph(area) || !tables.contains(table)) {
             return false;
-        }
-        if (hoverTable == table) {
-            return true;
         }
 
         var areaBounds = area.localToScreen(area.getBoundsInLocal());
         var layout = layouts.get(table.id());
-        if (areaBounds != null && layout != null) {
+        if (areaBounds != null && layout != null && layout.table == table) {
             for (var content : List.copyOf(layout.contents)) {
                 if (!content.isVisible() || content.getScene() != area.getScene()) {
                     continue;
@@ -1515,6 +1563,10 @@ public final class MarkdownTablePreviewManager {
                 && node.getScene().getWindow().isShowing();
     }
 
+    private static boolean hasVisibleParagraph(EditorArea area) {
+        return hasShowingWindow(area) && !area.getVisibleParagraphs().isEmpty();
+    }
+
     private void hideToolbar() {
         cancelPendingToolbarVisibility();
         if (toolbarPopup != null) {
@@ -1539,7 +1591,13 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void onAreaMouseMoved(MouseEvent event) {
-        var hit = currentArea.hit(event.getX(), event.getY()).getCharacterIndex();
+        var area = currentArea;
+        if (!hasVisibleParagraph(area)) {
+            hoverTable = null;
+            updateToolbar();
+            return;
+        }
+        var hit = area.hit(event.getX(), event.getY()).getCharacterIndex();
         hoverTable = hit.isPresent() ? tableAtOffset(hit.getAsInt()) : null;
         updateToolbar();
     }
@@ -1561,8 +1619,12 @@ public final class MarkdownTablePreviewManager {
         if (isDescendant(event.getTarget(), cellEditor) || isDescendantOfType(event.getTarget(), ScrollBar.class)) {
             return;
         }
-        Point2D point = currentArea.screenToLocal(event.getScreenX(), event.getScreenY());
-        var hit = currentArea.hit(point.getX(), point.getY()).getCharacterIndex();
+        var area = currentArea;
+        if (!hasVisibleParagraph(area)) {
+            return;
+        }
+        Point2D point = area.screenToLocal(event.getScreenX(), event.getScreenY());
+        var hit = area.hit(point.getX(), point.getY()).getCharacterIndex();
         if (hit.isEmpty()) {
             return;
         }
@@ -1762,7 +1824,7 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         String source = safeTableSource(table);
-        String formatted = source == null ? null : MarkdownTableOptimizeManager.format(source);
+        String formatted = source == null ? null : MarkdownTableOptimizeManager.format(currentArea, source);
         if (formatted != null && !formatted.equals(source)) {
             replaceTable(table, formatted, activeRow, activeColumn);
         }
@@ -1959,7 +2021,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void recreateTableGraphics(MarkdownTableDocumentState.Table table) {
-        if (currentArea == null) {
+        if (!hasVisibleParagraph(currentArea)) {
             return;
         }
         int first = Math.max(table.firstLine(), currentArea.firstVisibleParToAllParIndex());

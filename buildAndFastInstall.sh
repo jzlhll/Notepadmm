@@ -207,13 +207,24 @@ if [ "$current_os" = "macOS" ] && [ -n "$app_path" ]; then
     }
     trap cancel_restart INT TERM
 
-    echo ""
-    echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
-    sleep 3
-    /usr/bin/pkill -x ATools 2>/dev/null || true
+    if /usr/bin/pgrep -x ATools >/dev/null 2>&1; then
+        echo ""
+        echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
+        sleep 3
+        /usr/bin/pkill -x ATools 2>/dev/null || true
+    fi
 
-    echo "3 秒后重新打开 ATools，按 Ctrl+C 取消。"
-    sleep 3
+    echo ""
+    restart_now=""
+    seconds_left=3
+    while [ "$seconds_left" -gt 0 ]; do
+        printf "\r%d 秒后重新打开 ATools，按回车立即执行，按 Ctrl+C 取消。" "$seconds_left"
+        if read -t 1 -r restart_now; then
+            break
+        fi
+        seconds_left=$((seconds_left - 1))
+    done
+    printf "\r%*s\r" 70 ""
     /usr/bin/open "$app_path"
 
     trap - INT TERM

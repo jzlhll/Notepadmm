@@ -24,7 +24,9 @@ public final class FileExtersions {
     }
 
     public static boolean isSupportTxt(String ex) {
-        return MajorExtensionList.contains(ex) || CodingExtensionList.contains(ex);
+        return !ImageExtensionList.contains(ex)
+                && !MediaExtensionList.contains(ex)
+                && !RefuseExtensionList.contains(ex);
     }
 
     public static boolean isSupportPicture(String ex) {
