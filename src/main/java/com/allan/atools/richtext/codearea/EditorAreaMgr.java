@@ -182,15 +182,26 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     public class SelectionChanged extends BaseChanged<Action<String>> {
-        private final ChangeListener<IndexRange> mSelectionChanged = (observable, oldValue, newValue) -> {
-            if (EditorArea.DEBUG_EDITOR) Log.v("selection changed " + newValue.getLength());
+        private boolean notificationPending;
 
-            if (mActions != null) {
-                String s = newValue.getLength() == 0 ? null : area.getSelectedText();
+        private final ChangeListener<IndexRange> mSelectionChanged = (observable, oldValue, newValue) -> {
+            if (mActions == null || notificationPending) {
+                return;
+            }
+            notificationPending = true;
+            // 输入法替换文本时，选区通知可能早于内部状态同步；等当前事件结束后读取最新选区。
+            Platform.runLater(() -> {
+                notificationPending = false;
+                if (isDestroyed() || !isSet || mActions == null) {
+                    return;
+                }
+                var selection = area.getSelection();
+                if (EditorArea.DEBUG_EDITOR) Log.v("selection changed " + selection.getLength());
+                String s = selection.getLength() == 0 ? null : area.getSelectedText();
                 for (var a : mActions) {
                     a.invoke(s);
                 }
-            }
+            });
         };
 
         @Override

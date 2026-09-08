@@ -5,7 +5,7 @@ plugins {
 }
 
 javafx {
-    version = '21.0.6'
+    version = '21.0.12'
     if (rootProject.packagingConfig.javafxPlatform != null) {
         platform = rootProject.packagingConfig.javafxPlatform
     }
@@ -43,12 +43,12 @@ dependencies {
     implementation project(':BaseParty')
     implementation project(':BaseUiLibs')
 
-    implementation 'com.google.code.gson:gson:2.13.0'
+    implementation 'com.google.code.gson:gson:2.14.0'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.21'
     implementation 'com.jfoenix:jfoenix:9.0.10'
-    implementation 'org.fxmisc.richtext:richtextfx:0.11.5'
-    implementation 'org.jetbrains:annotations:26.0.2'
-    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.13.1'
+    implementation 'org.fxmisc.richtext:richtextfx:0.11.7'
+    implementation 'org.jetbrains:annotations:26.1.0'
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.15.0'
 
     implementation 'org.commonmark:commonmark:0.30.0'
     implementation 'org.commonmark:commonmark-ext-gfm-tables:0.30.0'

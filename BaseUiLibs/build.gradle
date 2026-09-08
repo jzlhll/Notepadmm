@@ -4,14 +4,14 @@ plugins {
 }
 
 javafx {
-    version = '21.0.6'
+    version = '21.0.12'
     modules = ['javafx.controls', 'javafx.graphics']
 }
 
 dependencies {
     api project(':BaseParty')
     api 'com.jfoenix:jfoenix:9.0.10'
-    api 'org.fxmisc.richtext:richtextfx:0.11.5'
+    api 'org.fxmisc.richtext:richtextfx:0.11.7'
 }
 
 tasks.named('jar', Jar) {
