@@ -749,7 +749,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 || mSourceFileSizeReachedStyleLimit != styleLimitReached;
         mSourceFileSizeReachedStyleLimit = styleLimitReached;
         documentState.setDisplayName(target.getName());
-        state.saveDocumentOptions();
+        state.setWrap(state.isWrap());
         UIContext.allOpenedFileList.add(target);
         if (tab != null) {
             tab.setUserData(documentState);
@@ -977,7 +977,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             UIContext.allOpenedFileList.remove(oldFile);
         }
         documentState.bindSourceFile(newf);
-        state.saveDocumentOptions();
+        state.setWrap(state.isWrap());
         UIContext.allOpenedFileList.add(newf);
 
         tab.setUserData(documentState);

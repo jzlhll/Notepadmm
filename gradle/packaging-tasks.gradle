@@ -3,7 +3,7 @@ configurations {
 }
 
 dependencies {
-    proguardRuntime 'com.guardsquare:proguard-base:7.8.1'
+    proguardRuntime 'com.guardsquare:proguard-base:7.10.0'
 }
 
 tasks.register('clean', Delete) {

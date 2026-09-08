@@ -519,6 +519,7 @@ public final class NotepadController extends AbstractMainController {
 
     public void refreshCurrentDocumentInfo() {
         refreshCurrentDocumentPath();
+        refreshWrapTextButton(UIContext.currentAreaProp.get());
         if (markdownOutlineManager != null) {
             markdownOutlineManager.refreshCurrentFile();
         }
@@ -585,20 +586,22 @@ public final class NotepadController extends AbstractMainController {
     }
 
     private void initEncodingIndicateClick() {
+        wrapTextCheckBtn.managedProperty().bind(wrapTextCheckBtn.visibleProperty());
+        refreshWrapTextButton(UIContext.currentAreaProp.get());
         if (notepadMainEncodeLabel.getOnMouseClicked() == null) {
             UIContext.currentAreaProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("change wrap check");
                 if (newValue != null) {
                     UIContext.fileEncodeIndicateProp.set(newValue.getEditor().getState().getFileEncoding());
 
-                    changeBottomTextBtnCheckStyle(wrapTextCheckBtn, newValue.getEditor().getState().isWrap());
+                    refreshWrapTextButton(newValue);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
                     changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, newValue.getEditor().getState().isChinesePunctuation());
                     jsonPopBtn.setVisible(true);
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
 
-                    changeBottomTextBtnCheckStyle(wrapTextCheckBtn, null);
+                    refreshWrapTextButton(null);
                     jsonPopBtn.setVisible(false);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
                     changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, null);
@@ -635,7 +638,7 @@ public final class NotepadController extends AbstractMainController {
 
             wrapTextCheckBtn.setOnMouseClicked(ev -> {
                 var curArea = UIContext.currentAreaProp.get();
-                if (curArea != null) {
+                if (curArea != null && !supportsMarkdown(curArea)) {
                     var w = !curArea.getEditor().getState().isWrap();
                     curArea.getEditor().getState().setWrap(w);
                     changeBottomTextBtnCheckStyle(wrapTextCheckBtn, w);
@@ -677,6 +680,13 @@ public final class NotepadController extends AbstractMainController {
                 }
             });
         }
+    }
+
+    private void refreshWrapTextButton(EditorArea area) {
+        boolean available = area != null && !supportsMarkdown(area);
+        wrapTextCheckBtn.setDisable(!available);
+        changeBottomTextBtnCheckStyle(wrapTextCheckBtn,
+                available ? area.getEditor().getState().isWrap() : null);
     }
 
     private void changeBottomTextBtnCheckStyle(Label label, Boolean enable) {

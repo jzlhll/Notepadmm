@@ -24,6 +24,7 @@ final class EditorAreaState implements IEditorAreaState {
         this.area = area;
         this.documentState = documentState;
         restoreDocumentOptions();
+        isWrap = MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || isWrap;
         area.setEditable(!isReadonly);
         area.setWrapText(isWrap);
         if (isWrap) {
@@ -74,8 +75,8 @@ final class EditorAreaState implements IEditorAreaState {
 
     @Override
     public void setWrap(boolean wrap) {
-        isWrap = wrap;
-        area.setWrapText(wrap);
+        isWrap = MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || wrap;
+        area.setWrapText(isWrap);
         // 切换 wrap 后，flowless 缓存的 cell 最小宽度(minBreadth)不会自动失效，导致 totalWidthEstimate
         // 滞后偏大、横向滚动条不消失。反射清除 SizeTracker 的尺寸备忘，强制下次 layout 按新 wrap 重算
         Platform.runLater(this::forgetFlowCellSizes);
