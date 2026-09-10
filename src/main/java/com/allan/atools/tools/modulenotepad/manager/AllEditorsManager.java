@@ -109,8 +109,15 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     public void init() {
         UIContext.context().tabPane.getSelectionModel().selectedItemProperty().addListener((observable, oldTab, newTab) -> {
             Log.d("selected one tab changed: ");
+            if (oldTab != null && oldTab.getContent() instanceof MyVirtualScrollPane<?> pane
+                    && pane.getContent() instanceof EditorArea area) {
+                area.getViewPosition().save();
+            }
             setCurrentTab(newTab);
             setCurrentArea(newTab != null ? codeAreaExInTab(newTab) : null);
+            if (newTab != null) {
+                codeAreaExInTab(newTab).getViewPosition().restoreIfPending();
+            }
             UIContext.bottomIndicateProp.set("");
             EditorSessionManager.getInstance().onCaretOrStructureChanged();
         });

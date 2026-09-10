@@ -506,6 +506,11 @@ public final class NotepadController extends AbstractMainController {
             if (newValue != null && newValue) {
                 FileLog.updateDay();
                 notifyStageFocused();
+            } else {
+                var area = UIContext.currentAreaProp.get();
+                if (area != null) {
+                    area.getViewPosition().save();
+                }
             }
         });
 

@@ -1,5 +1,6 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
+import com.allan.atools.GlobalConfig;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
@@ -105,6 +106,25 @@ final class MarkdownTableLayout {
             total += width;
         }
         double remaining = Math.floor(available) - total;
+        if (remaining < 0) {
+            // 40 字符是长列的期望宽度，不作为硬下限；空间不足时收窄宽列，由单元格换行。
+            // 按全局配置保留阅读宽度（短列维持原宽），连此下限也放不下时才横滑。
+            double readableWidth = Math.ceil(characterWidth * GlobalConfig.MARKDOWN_TABLE_MIN_COLUMN_CHARACTERS
+                    + HORIZONTAL_INSETS);
+            double minimumTotal = 0;
+            for (double width : widths) {
+                minimumTotal += Math.min(width, readableWidth);
+            }
+            double shrinkable = total - minimumTotal;
+            if (shrinkable > 0) {
+                double shrinkRatio = Math.min(1, -remaining / shrinkable);
+                for (int column = 0; column < widths.length; column++) {
+                    double minimum = Math.min(widths[column], readableWidth);
+                    widths[column] = Math.floor(widths[column] - (widths[column] - minimum) * shrinkRatio);
+                }
+            }
+            return widths;
+        }
         if (longColumns.isEmpty() || remaining <= 0) {
             return widths;
         }

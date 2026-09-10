@@ -32,6 +32,7 @@ class EditorArea @JvmOverloads constructor(
     val fontThemeChanged: ChangeListener<Number>
     val multiSelections: EditorAreaMultiSelectionsMgr
     val markdownTableDocumentState = MarkdownTableDocumentState()
+    val viewPosition: EditorViewPosition
 
     companion object {
         @JvmStatic
@@ -79,6 +80,7 @@ class EditorArea @JvmOverloads constructor(
 
         //setUseInitialStyleForInsertion(false);
         Highlight.jumpToHead(this)
+        viewPosition = EditorViewPosition(this)
 
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
             if (event.target is TextInputControl || !isMarkdownDocument() || event.button != MouseButton.PRIMARY
@@ -271,6 +273,7 @@ class EditorArea @JvmOverloads constructor(
 //        } catch (NoSuchFieldException | IllegalAccessException e) {
 //            e.printStackTrace();
 //        }
+        viewPosition.destroy()
         dispose()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()

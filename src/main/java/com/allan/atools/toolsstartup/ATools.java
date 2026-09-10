@@ -4,6 +4,7 @@ import com.allan.atools.UIContext;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.FileOpenSupportsKt;
+import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.tools.modulenotepad.session.FlushResult;
 import com.allan.atools.ui.JfoenixDialogUtils;
@@ -102,6 +103,11 @@ public final class ATools {
     public static void shutdownApplication() {
         if (!sApplicationShutdownStarted.compareAndSet(false, true)) {
             return;
+        }
+        if (UIContext.mainController != null) {
+            for (var area : AllEditorsManager.Instance.getAllAreas()) {
+                area.getViewPosition().save();
+            }
         }
         var sessionManager = EditorSessionManager.getInstance();
         if (sessionManager.flushAndWait(Duration.ofSeconds(30)) == FlushResult.FAILED) {
