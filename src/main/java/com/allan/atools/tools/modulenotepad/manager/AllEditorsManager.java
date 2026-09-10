@@ -460,6 +460,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             targetTab.setUserData(state);
             area.getEditor().getState().setFileEncoding(detectedEncoding);
             var selection = area.getSelection();
+            int topLine = area.getVisibleParagraphs().isEmpty() ? 0 : area.firstVisibleParToAllParIndex();
             area.getEditor().resetText(text);
             int anchor = selection.getStart();
             int caret = selection.getEnd();
@@ -474,6 +475,25 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             if (toFront) {
                 UIContext.context().tabPane.getSelectionModel().select(targetTab);
             }
+            long restoredVersion = area.getEditor().getContentVersion();
+            var restoredTab = targetTab;
+            // 各格式重载后按原顶部行恢复阅读位置；文件缩短到该行之前时显示末尾一屏。
+            // 等选区和标签切换完成布局，避免光标跟随覆盖恢复位置。
+            Platform.runLater(() -> {
+                if (!tabs.contains(restoredTab) || restoredTab.getContent() != pane
+                        || !restoredTab.isSelected()
+                        || area.getEditor().getContentVersion() != restoredVersion) {
+                    return;
+                }
+                area.applyCss();
+                area.layout();
+                int lastLine = area.getParagraphs().size() - 1;
+                if (topLine > lastLine) {
+                    area.showParagraphAtBottom(lastLine);
+                } else {
+                    area.showParagraphAtTop(topLine);
+                }
+            });
             return;
         }
 
