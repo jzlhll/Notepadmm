@@ -174,7 +174,9 @@ public final class MarkdownTablePreviewManager {
                 onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted()));
         viewportChanges = area.viewportDirtyEvents().subscribe(event -> {
             requestLayoutRefresh();
-            updateToolbar();
+            // viewportDirty 仅由 scale 与滚动偏移变化触发：编辑器滚动时立即隐藏悬浮表头。
+            // 不调用 updateToolbar，避免过滤窗口已过期时被同帧重新显示；hideToolbar 不重置过滤时间
+            hideToolbar();
         });
         area.caretPositionProperty().addListener(selectionChanged);
         area.selectionProperty().addListener(selectionChanged);
