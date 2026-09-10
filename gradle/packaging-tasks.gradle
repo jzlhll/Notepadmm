@@ -293,21 +293,22 @@ tasks.register('generateJpackageScripts') {
                     '--mac-sign',
                     '--mac-signing-key-user-name', packagingConfig.macSigningKey
             ])
-            def script = new File(packagingConfig.buildRoot, 'jpackageCmd.sh')
+            def script = new File(packagingConfig.buildRoot, 'pack.sh')
             script.text = '#!/bin/sh\nset -e\ncd "$(dirname "$0")"\n' +
                     baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n' +
                     "mv ${shellQuote("../dist/${originalOutputName}.dmg")} ${shellQuote("../dist/${architectureOutputName}.dmg")}\n"
             script.setExecutable(true, false)
 
-            def copyScript = new File(packagingConfig.buildRoot, 'copyToApplications.sh')
+            def copyScript = new File(packagingConfig.buildRoot, 'fastCopy.sh')
             def installedApp = "/Applications/${packagingConfig.appName}.app"
             def signingKeyQuoted = shellQuote(packagingConfig.macSigningKey)
             copyScript.text = '''#!/bin/sh
+# 日常开发使用：将编译产物快速同步到 /Applications 下的已安装应用
 set -e
 cd "$(dirname "$0")"
 APP_PATH=''' + shellQuote(installedApp) + '''
 
-echo "========== copyToApplications 开始 =========="
+echo "========== fastCopy 开始 =========="
 echo "目标路径: $APP_PATH"
 
 if [ ! -d "$APP_PATH" ]; then
@@ -335,7 +336,7 @@ echo "  签名证书: ''' + packagingConfig.macSigningKey + '''"
     --sign ''' + signingKeyQuoted + ''' "$APP_PATH"
 echo "  codesign 签名完成"
 
-echo "========== copyToApplications 全部完成 =========="
+echo "========== fastCopy 全部完成 =========="
 '''
             copyScript.setExecutable(true, false)
         } else {

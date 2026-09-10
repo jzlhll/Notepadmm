@@ -67,8 +67,8 @@ Before packaging for the first time, copy `local.properties.example` to `local.p
 
 | Gradle task | Purpose |
 | --- | --- |
-| `mainShAllMacArm64` | Prepares a macOS Apple Silicon (ARM64) distribution and generates `buildRoot/jpackageCmd.sh`. |
-| `mainShAllMacX64` | Prepares a macOS Intel (x64) distribution and generates `buildRoot/jpackageCmd.sh`. |
+| `mainShAllMacArm64` | Prepares a macOS Apple Silicon (ARM64) distribution and generates `buildRoot/pack.sh`. |
+| `mainShAllMacX64` | Prepares a macOS Intel (x64) distribution and generates `buildRoot/pack.sh`. |
 | `mainShAllWindowsArm64` | Prepares a Windows ARM64 distribution and generates installer and portable jpackage scripts. The target JDK must include Windows ARM64 JavaFX. |
 | `mainShAllWindowsX64` | Prepares a Windows x64 distribution and generates installer and portable jpackage scripts. |
 
@@ -76,7 +76,7 @@ For example, on an Apple Silicon Mac:
 
 ```shell
 ./gradlew mainShAllMacArm64
-./buildRoot/jpackageCmd.sh
+./buildRoot/pack.sh
 ```
 
 On Windows x64:
@@ -86,7 +86,7 @@ gradlew.bat mainShAllWindowsX64
 buildRoot\jpackageCmdExe.bat
 ```
 
-On Windows, `jpackageCmdExe.bat` creates an `.exe` installer, while `jpackageCmdGreenExe.bat` creates a portable application directory. On macOS, `jpackageCmd.sh` creates a `.dmg`. All final artifacts are written to `dist`. The four `mainShAll...` tasks prepare the module JARs, third-party dependencies, and resources; analyze and create a minimal JRE; obfuscate the main application JAR; and generate the platform-specific jpackage scripts. They do not execute the generated scripts.
+On Windows, `jpackageCmdExe.bat` creates an `.exe` installer, while `jpackageCmdGreenExe.bat` creates a portable application directory. On macOS, `pack.sh` creates a `.dmg`. All final artifacts are written to `dist`. The four `mainShAll...` tasks prepare the module JARs, third-party dependencies, and resources; analyze and create a minimal JRE; obfuscate the main application JAR; and generate the platform-specific jpackage scripts. They do not execute the generated scripts.
 
 The Gradle Wrapper manages dependencies, the module path, and runtime options. The manual Maven, module-path, and VM arguments from the previous documentation are no longer required. When adding a third-party dependency or project module, see the [build notes](docs/编译注意事项.md).
 

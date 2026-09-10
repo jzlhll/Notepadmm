@@ -3,6 +3,33 @@ set -e
 
 cd "$(dirname "$0")"
 
+usage() {
+    echo "用法: $0 [-0 | -f | --fast | -p | --package]"
+    echo ""
+    echo "  -0            只编译，不执行 buildRoot 下的脚本"
+    echo "  -f, --fast    编译后执行 buildRoot/fastCopy.sh（日常开发使用，同步到 /Applications）"
+    echo "  -p, --package 编译后执行 buildRoot/pack.sh（生成 dmg 安装包）"
+    echo "  -h, --help    显示本帮助"
+}
+
+# ---------- 步骤 0：解析参数 ----------
+build_action=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -0) build_action="0" ;;
+        -f|--fast) build_action="1" ;;
+        -p|--package) build_action="2" ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "未知参数: $1"; echo ""; usage; exit 1 ;;
+    esac
+    shift
+done
+
+if [ -z "$build_action" ]; then
+    usage
+    exit 1
+fi
+
 # 检查 Java 17 JDK 编译环境
 java_cmd="java"
 javac_cmd="javac"
@@ -46,18 +73,15 @@ current_os=""
 current_arch=""
 current_task=""
 gradlew_cmd="./gradlew"
-default_build_action="0"   # buildRoot 脚本默认值，按平台设置
 app_path=""
 
 case "$os_name" in
     Darwin)
         current_os="macOS"
-        default_build_action="1"
         app_path='/Applications/ATools.app'
         ;;
     MINGW*|MSYS*|CYGWIN*)
         current_os="Windows"
-        default_build_action="0"
         # Windows 下优先使用 gradlew.bat
         if [ -f "./gradlew.bat" ]; then
             gradlew_cmd="./gradlew.bat"
@@ -156,45 +180,23 @@ echo "========== Gradle 编译完成 =========="
 echo ""
 echo ""
 
-# ---------- 步骤 2：是否执行 buildRoot 脚本（默认值按平台挂钩） ----------
-echo "请选择是否执行 buildRoot 下的脚本："
-echo "0) 不执行"
-echo "1) 执行 copyToApplications.sh"
-echo "2) 执行 jpackageCmd.sh"
-
-build_action_prompt="请输入 0、1 或 2 [默认 ${default_build_action}]（%d 秒后自动执行 ${default_build_action}）："
-build_action=""
-seconds_left=3
-while [ "$seconds_left" -gt 0 ]; do
-    # shellcheck disable=SC2059
-    printf "\r${build_action_prompt}" "$seconds_left"
-    if read -t 1 -r build_action; then
-        break
-    fi
-    seconds_left=$((seconds_left - 1))
-done
-printf "\r%*s\r" 60 ""
-build_action="${build_action:-${default_build_action}}"
-
+# ---------- 步骤 2：按参数执行 buildRoot 脚本 ----------
 case "$build_action" in
     0)
-        echo "已选择：0) 不执行，脚本结束。"
+        echo "已选择：0) 不执行 buildRoot 脚本，脚本结束。"
         ;;
     1)
-        echo "已选择：1) 执行 copyToApplications.sh"
-        ./buildRoot/copyToApplications.sh
+        echo "已选择：1) 执行 fastCopy.sh（日常开发使用）"
+        ./buildRoot/fastCopy.sh
         ;;
     2)
-        echo "已选择：2) 执行 jpackageCmd.sh"
-        ./buildRoot/jpackageCmd.sh
-        ;;
-    *)
-        echo "输入无效，未执行任何脚本。"
+        echo "已选择：2) 执行 pack.sh"
+        ./buildRoot/pack.sh
         ;;
 esac
 
-# ---------- 步骤 3：macOS 下自动结束并重启应用（仅 Darwin 平台执行） ----------
-if [ "$current_os" = "macOS" ] && [ -n "$app_path" ]; then
+# ---------- 步骤 3：macOS 下自动结束并重启应用（仅 fast 模式执行） ----------
+if [ "$build_action" = "1" ] && [ "$current_os" = "macOS" ] && [ -n "$app_path" ]; then
     if [ ! -d "$app_path" ]; then
         echo "警告: 找不到待启动的应用: $app_path，跳过重启步骤。"
         exit 0

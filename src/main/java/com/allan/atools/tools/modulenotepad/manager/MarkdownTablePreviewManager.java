@@ -340,6 +340,10 @@ public final class MarkdownTablePreviewManager {
             tables = List.of();
             rebuildLineIndex();
         }
+        long lineDelta = inserted.chars().filter(character -> character == '\n').count()
+                - removed.chars().filter(character -> character == '\n').count();
+        var shiftedTables = lineDelta == 0 ? List.<MarkdownTableDocumentState.Table>of()
+                : tables.stream().filter(table -> position + removed.length() <= table.startOffset()).toList();
         if ((writingCell || writingStructure) && activeTable != null) {
             area.getMarkdownTableDocumentState().applyKnownTableChange(
                     activeTable.id(), position, removed, inserted);
@@ -354,6 +358,13 @@ public final class MarkdownTablePreviewManager {
             if (removed.indexOf('\n') >= 0 || inserted.indexOf('\n') >= 0
                     || tables.stream().anyMatch(table -> !table.valid())) {
                 updatePresentation();
+            }
+        }
+        // 怀疑表格前方增删换行后，部分复用的行节点未与新行号同步，导致预览看似断成两块。
+        // 暂在行映射和样式更新后重建受影响表格的可见节点；根因尚未复现确认，后续可据此调整。
+        for (var table : shiftedTables) {
+            if (table.valid() && table.mode() == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table)) {
+                recreateTableGraphics(table);
             }
         }
         if (!writingCell && !writingStructure) {
