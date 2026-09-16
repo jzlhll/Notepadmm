@@ -85,58 +85,43 @@
 
 /* ===== 代码块整块圆角矩形背景（段落样式类，见 MarkdownCodeBlockManager） =====
  * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 12px 圆角整块。
- * 左缘 = TextFlow 左缘 + 65px（editor.css .paragraph-text 的左内边距，即正文起始线）；
- * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 65px），
+ * 左缘 = TextFlow 左缘 + 85px（editor.css .paragraph-text 的左内边距，即正文起始线）；
+ * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 85px），
  * 两边均与编辑器的 padding 边缘对齐。 */
 .md-code-block-first {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 12 12 0 0;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-mid {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-last {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 0 0 12 12;
-    -fx-background-insets: 0 0 0 65px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-single {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 12;
-    -fx-background-insets: 0 0 0 65px;
-}
-
-/* 换行模式：editor.css 将 .paragraph-text 左内边距与 .editor-area 右 padding 均加到 105px */
-.styled-text-area.editor-area:wrapped .md-code-block-first,
-.styled-text-area.editor-area:wrapped .md-code-block-mid,
-.styled-text-area.editor-area:wrapped .md-code-block-last,
-.styled-text-area.editor-area:wrapped .md-code-block-single {
-    -fx-background-insets: 0 0 0 105px;
+    -fx-background-insets: 0 0 0 85px;
 }
 
 /* 代码块内容内空：在编辑器文本 padding 基础上左右再内缩 10px，文字不贴圆角背景边缘。
- * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则（换行态再高一档）。 */
+ * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则。 */
 .styled-text-area.editor-area .paragraph-text.md-code-block-first,
 .styled-text-area.editor-area .paragraph-text.md-code-block-mid,
 .styled-text-area.editor-area .paragraph-text.md-code-block-last,
 .styled-text-area.editor-area .paragraph-text.md-code-block-single {
-    -fx-padding: 0 10px 0 75px;
+    -fx-padding: 0 10px 0 95px;
 }
 
 .styled-text-area.editor-area .paragraph-text.md-code-block-empty {
     -fx-pref-height: 1.25em;
-}
-
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-first,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-mid,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-last,
-.styled-text-area.editor-area:wrapped .paragraph-text.md-code-block-single {
-    -fx-padding: 0 10px 0 115px;
 }
 
 /* ===== 代码块内语言 token（java/kotlin/c/cpp/csharp/xml，叠加在 markdown-code 上） ===== */
@@ -181,6 +166,107 @@
 /* ===== 表格分隔符 | ===== */
 .markdown-table-mark {
     -fx-fill: -au-md-table-mark;
+}
+
+/* ===== 表格单元格预览 ===== */
+.markdown-table-preview-row {
+    -fx-background-color: -au-editor-bg-color;
+}
+
+.markdown-table-preview-header {
+    -fx-background-color: -au-md-code-bg;
+}
+
+.markdown-table-preview-alternate {
+    -fx-background-color: derive(-au-editor-bg-color, -3%);
+}
+
+.markdown-table-preview-cell {
+    -fx-border-color: -au-md-table-mark;
+    -fx-border-width: 0 1 1 0;
+}
+
+.markdown-table-preview-first-cell {
+    -fx-border-width: 0 1 1 1;
+}
+
+.markdown-table-preview-header > .markdown-table-preview-cell {
+    -fx-border-width: 1 1 1 0;
+}
+
+.markdown-table-preview-header > .markdown-table-preview-first-cell {
+    -fx-border-width: 1;
+}
+
+.markdown-table-selected-cell {
+    -fx-background-color: -au-editor-selection-words-color;
+}
+
+.markdown-table-selection-hit {
+    -fx-background-color: -au-editor-selection-words-color;
+}
+
+.markdown-table-preview-content {
+    -fx-fill: -au-editor-text-color;
+}
+
+.markdown-table-preview-content.markdown-link {
+    -fx-fill: -au-md-link;
+}
+
+.markdown-table-preview-content.markdown-inline-code {
+    -fx-fill: -au-md-inline-code-fill;
+}
+
+.markdown-table-cell-editor {
+    -fx-background-color: -au-editor-bg-color;
+    -fx-control-inner-background: -au-editor-bg-color;
+    -fx-text-fill: -au-editor-text-color;
+    -fx-highlight-fill: -au-editor-selection-words-color;
+    -fx-padding: 9 12 9 12;
+    -fx-background-insets: 0;
+    -fx-border-color: -au-md-link;
+    -fx-border-width: 1;
+}
+
+/* 与预览共用内容宽度；清除 TextArea 皮肤额外留白，避免测量和实际换行不一致。 */
+.markdown-table-cell-editor .content,
+.markdown-table-cell-editor .scroll-pane,
+.markdown-table-cell-editor .viewport {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+
+.markdown-table-scroll-bar:horizontal > .increment-button,
+.markdown-table-scroll-bar:horizontal > .decrement-button {
+    -fx-padding: 1px;
+}
+
+.markdown-table-scroll-bar:horizontal > .decrement-button > .decrement-arrow {
+    -fx-shape: "M 4 0 L 0 4 L 4 8 Z";
+}
+
+.markdown-table-scroll-bar:horizontal > .increment-button > .increment-arrow {
+    -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
+}
+
+.markdown-table-toolbar {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-radius: 6;
+    -fx-border-color: -au-md-table-mark;
+    -fx-border-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.22), 7, 0, 0, 2);
+}
+
+.markdown-table-toolbar-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -au-editor-text-color;
+    -fx-padding: 4 8 4 8;
+}
+
+.markdown-table-toolbar-button:hover {
+    -fx-background-color: -au-editor-selection-words-color;
+    -fx-background-radius: 4;
 }
 
 /* ===== 引用 > ===== */

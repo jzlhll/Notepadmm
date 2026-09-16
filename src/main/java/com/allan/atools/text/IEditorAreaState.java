@@ -5,6 +5,7 @@ public interface IEditorAreaState {
     void setCurrentReadonly(boolean readonly);
 
     boolean isWrap();
+    boolean supportsWrap();
     void setWrap(boolean wrap);
 
     boolean isChinesePunctuation();

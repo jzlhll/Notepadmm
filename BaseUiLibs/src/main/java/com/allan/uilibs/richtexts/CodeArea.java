@@ -4,6 +4,8 @@ import com.allan.baseparty.Action;
 import com.allan.baseparty.utils.ReflectionUtils;
 import javafx.beans.NamedArg;
 import javafx.beans.binding.Bindings;
+import javafx.beans.value.ChangeListener;
+import javafx.scene.Node;
 import javafx.scene.shape.StrokeType;
 import javafx.scene.text.Font;
 import javafx.scene.transform.Shear;
@@ -20,6 +22,9 @@ import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.function.BiFunction;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
@@ -30,6 +35,53 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private static final String EMOJI_FONT_FAMILY = findEmojiFontFamily();
     /** 段落样式特殊条目前缀：pref-height:240 会转为 ParagraphText 的 -fx-pref-height 内联样式（用于撑高段落，如 markdown 行内图片） */
     public static final String PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:";
+    /** 用段落图形呈现内容时，为原文保留指定高度。 */
+    public static final String PARAGRAPH_PREVIEW_HEIGHT_PREFIX = "preview-height:";
+
+    private final LinkedHashMap<Object, BiFunction<Integer, Node, Node>> graphicDecorators = new LinkedHashMap<>();
+    private IntFunction<? extends Node> baseGraphicFactory;
+    private boolean composingGraphicFactory;
+    private final ChangeListener<IntFunction<? extends Node>> graphicFactoryChanged = (obs, old, now) -> {
+        if (!composingGraphicFactory) {
+            baseGraphicFactory = now;
+            installGraphicFactory();
+        }
+    };
+
+    /** 行号、图片与预览共用一个图形入口，支持各自独立释放。 */
+    public void addParagraphGraphicDecorator(Object owner, BiFunction<Integer, Node, Node> decorator) {
+        if (graphicDecorators.isEmpty()) {
+            baseGraphicFactory = getParagraphGraphicFactory();
+            paragraphGraphicFactoryProperty().addListener(graphicFactoryChanged);
+        }
+        graphicDecorators.put(owner, decorator);
+        installGraphicFactory();
+    }
+
+    public void removeParagraphGraphicDecorator(Object owner) {
+        if (graphicDecorators.remove(owner) == null) {
+            return;
+        }
+        if (graphicDecorators.isEmpty()) {
+            paragraphGraphicFactoryProperty().removeListener(graphicFactoryChanged);
+        }
+        installGraphicFactory();
+    }
+
+    private void installGraphicFactory() {
+        composingGraphicFactory = true;
+        try {
+            setParagraphGraphicFactory(graphicDecorators.isEmpty() ? baseGraphicFactory : index -> {
+                Node graphic = baseGraphicFactory == null ? null : baseGraphicFactory.apply(index);
+                for (var decorator : graphicDecorators.values()) {
+                    graphic = decorator.apply(index, graphic);
+                }
+                return graphic;
+            });
+        } finally {
+            composingGraphicFactory = false;
+        }
+    }
 
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
                      @NamedArg("preserveStyle") boolean preserveStyle,
@@ -62,17 +114,24 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
      * 利用 Region.prefHeight(double) 优先返回该属性的机制撑高行高（ParagraphBox.computePrefHeight 只算文本高度）。
      */
     private static void applyParagraphStyle(javafx.scene.text.TextFlow paragraph, Collection<String> styleClasses) {
-        if (styleClasses == null || styleClasses.isEmpty()) {
-            return;
-        }
-        for (String style : styleClasses) {
-            if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
-                paragraph.setStyle("-fx-pref-height: "
-                        + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;");
+        String inlineStyle = "";
+        String previewHeight = null;
+        for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
+            if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
+                previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
+            } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
+                inlineStyle = "-fx-pref-height: "
+                        + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
             } else {
                 paragraph.getStyleClass().add(style);
             }
         }
+        if (previewHeight != null) {
+            inlineStyle = "-fx-min-height: " + previewHeight + ";-fx-pref-height: " + previewHeight
+                    + ";-fx-max-height: " + previewHeight + ";-fx-pref-width: 0;-fx-opacity: 0;";
+        }
+        paragraph.setStyle(inlineStyle);
+        paragraph.setMouseTransparent(previewHeight != null);
     }
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {

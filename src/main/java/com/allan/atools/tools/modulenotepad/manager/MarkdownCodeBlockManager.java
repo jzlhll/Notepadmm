@@ -1,5 +1,7 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
+import static com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown;
+
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
@@ -72,7 +74,7 @@ public final class MarkdownCodeBlockManager {
     private void bindEditor(EditorArea area) {
         unbindEditor();
         currentArea = area;
-        if (!MarkdownImageManager.supports(area)) {
+        if (!supportsMarkdown(area)) {
             return;
         }
         textChangeSubscription = area.plainTextChanges().subscribe(change ->
@@ -158,7 +160,7 @@ public final class MarkdownCodeBlockManager {
     private void startRefresh(long requestId) {
         var area = currentArea;
         if (destroyed || !runtimeActive
-                || !MarkdownImageManager.supports(area) || isOverLimit(area)) {
+                || !supportsMarkdown(area) || isOverLimit(area)) {
             refreshScheduler.complete(requestId, null);
             return;
         }

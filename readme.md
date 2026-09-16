@@ -67,8 +67,8 @@ gradlew.bat :app:run
 
 | Gradle 任务 | 作用 |
 | --- | --- |
-| `mainShAllMacArm64` | 准备 macOS Apple Silicon（ARM64）发行内容，并生成 `buildRoot/jpackageCmd.sh`。 |
-| `mainShAllMacX64` | 准备 macOS Intel（x64）发行内容，并生成 `buildRoot/jpackageCmd.sh`。 |
+| `mainShAllMacArm64` | 准备 macOS Apple Silicon（ARM64）发行内容，并生成 `buildRoot/pack.sh`。 |
+| `mainShAllMacX64` | 准备 macOS Intel（x64）发行内容，并生成 `buildRoot/pack.sh`。 |
 | `mainShAllWindowsArm64` | 准备 Windows ARM64 发行内容，并生成安装版和绿色版 jpackage 脚本。目标 JDK 需要自带 Windows ARM64 JavaFX。 |
 | `mainShAllWindowsX64` | 准备 Windows x64 发行内容，并生成安装版和绿色版 jpackage 脚本。 |
 
@@ -76,7 +76,7 @@ gradlew.bat :app:run
 
 ```shell
 ./gradlew mainShAllMacArm64
-./buildRoot/jpackageCmd.sh
+./buildRoot/pack.sh
 ```
 
 在 Windows x64 上执行：
@@ -86,7 +86,7 @@ gradlew.bat mainShAllWindowsX64
 buildRoot\jpackageCmdExe.bat
 ```
 
-Windows 的 `jpackageCmdExe.bat` 生成 `.exe` 安装包，`jpackageCmdGreenExe.bat` 生成免安装应用目录；macOS 的 `jpackageCmd.sh` 生成 `.dmg`。最终产物统一输出到 `dist`。四个 `mainShAll...` 任务本身负责整理模块 JAR、第三方依赖和资源，分析并创建最小 JRE，混淆主应用 JAR，最后生成对应平台的 jpackage 脚本，不会直接执行该脚本。
+Windows 的 `jpackageCmdExe.bat` 生成 `.exe` 安装包，`jpackageCmdGreenExe.bat` 生成免安装应用目录；macOS 的 `pack.sh` 生成 `.dmg`。最终产物统一输出到 `dist`。四个 `mainShAll...` 任务本身负责整理模块 JAR、第三方依赖和资源，分析并创建最小 JRE，混淆主应用 JAR，最后生成对应平台的 jpackage 脚本，不会直接执行该脚本。
 
 项目已由 Gradle Wrapper 统一管理依赖、模块路径和运行参数，不需要手动配置旧版文档中的 Maven、module-path 或 VM 参数。新增三方库或项目模块时，参见 [编译注意事项](docs/编译注意事项.md)。
 

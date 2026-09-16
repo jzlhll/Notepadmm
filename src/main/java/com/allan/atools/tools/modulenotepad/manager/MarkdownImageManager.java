@@ -1,5 +1,8 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
+import static com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown;
+import static com.allan.atools.richtext.codearea.MarkdownEditorSupport.textLeftPadding;
+
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
@@ -38,7 +41,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.function.IntFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,9 +68,6 @@ public final class MarkdownImageManager {
     private static final double PLACEHOLDER_WIDTH = 320;
     private static final double PLACEHOLDER_HEIGHT = 48;
     private static final int IMAGE_CACHE_LIMIT = 48;
-    /** 与 editor.css 中 .paragraph-text 左内边距一致（未换行 / 换行），图片水平位置据此与文本对齐 */
-    private static final double TEXT_LEFT_PADDING = 65;
-    private static final double TEXT_LEFT_PADDING_WRAPPED = 105;
     /** 行号区域补偿宽度：不动态测量行号宽度，图片在文本左内边距基础上再右移该值，避免压到行号 */
     private static final double LINE_NO_COMPENSATE = 100;
     private static final String IMAGE_PARA_CLASS = "markdown-image-para";
@@ -83,16 +82,7 @@ public final class MarkdownImageManager {
     /** Typora 风格 style="zoom:40%" */
     private static final Pattern STYLE_ZOOM_PATTERN = Pattern.compile(
             "(?i)zoom\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*%");
-    private boolean composingFactory;
     private final Action0 textChangedAction = this::onTextChanged;
-    /** 外部（行号开关等）更换 graphic 工厂时重新包一层，保证图片与行号共存 */
-    private final ChangeListener<IntFunction<? extends Node>> factoryListener = (obs, old, now) -> {
-        if (composingFactory) {
-            return;
-        }
-        baseGraphicFactory = now;
-        installComposedFactory();
-    };
 
     private final LinkedHashMap<String, Image> imageCache = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
@@ -104,8 +94,6 @@ public final class MarkdownImageManager {
     private EditorArea currentArea;
     private final LatestRefreshScheduler refreshScheduler =
             new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
-    /** 行号等基础 graphic 工厂（可能为 null） */
-    private IntFunction<? extends Node> baseGraphicFactory;
     private Map<Integer, MarkdownImage> imageByLine = Map.of();
     private boolean runtimeActive;
     private boolean destroyed;
@@ -130,7 +118,7 @@ public final class MarkdownImageManager {
     private void bindEditor(EditorArea area) {
         unbindEditor();
         currentArea = area;
-        if (!supports(area)) {
+        if (!supportsMarkdown(area)) {
             return;
         }
         area.getEditor().textChanged.addAction(textChangedAction);
@@ -165,7 +153,7 @@ public final class MarkdownImageManager {
 
     private void startRefresh(long requestId) {
         var area = currentArea;
-        if (destroyed || !runtimeActive || !supports(area) || isOverLimit(area)) {
+        if (destroyed || !runtimeActive || !supportsMarkdown(area) || isOverLimit(area)) {
             refreshScheduler.complete(requestId, null);
             return;
         }
@@ -224,46 +212,24 @@ public final class MarkdownImageManager {
             return;
         }
         runtimeActive = true;
-        baseGraphicFactory = area.paragraphGraphicFactoryProperty().get();
-        area.paragraphGraphicFactoryProperty().addListener(factoryListener);
-        installComposedFactory();
-    }
-
-    private void installComposedFactory() {
-        var area = currentArea;
-        if (area == null) {
-            return;
-        }
-        composingFactory = true;
-        try {
-            area.setParagraphGraphicFactory(this::createGraphic);
-        } finally {
-            composingFactory = false;
-        }
+        area.addParagraphGraphicDecorator(this, this::createGraphic);
     }
 
     private void deactivateRuntime() {
         var area = currentArea;
         if (area != null) {
-            area.paragraphGraphicFactoryProperty().removeListener(factoryListener);
-            composingFactory = true;
-            try {
-                area.setParagraphGraphicFactory(baseGraphicFactory);
-            } finally {
-                composingFactory = false;
-            }
+            area.removeParagraphGraphicDecorator(this);
         }
         runtimeActive = false;
         invalidateRefresh();
     }
 
     /** 段落 graphic：行号节点 + 图片（零宽容器，图片经子节点溢出绘制在标签行下方） */
-    private Node createGraphic(int index) {
+    private Node createGraphic(int index, Node base) {
         var area = currentArea;
         if (area == null) {
-            return null;
+            return base;
         }
-        Node base = baseGraphicFactory != null ? baseGraphicFactory.apply(index) : null;
         MarkdownImage info = imageByLine.get(index);
         if (info == null) {
             return base;
@@ -287,15 +253,14 @@ public final class MarkdownImageManager {
             region.setPrefHeight(reserved);
             region.setMaxHeight(reserved);
         }
-        double textLeft = area.isWrapText() ? TEXT_LEFT_PADDING_WRAPPED : TEXT_LEFT_PADDING;
-        double baseX = textLeft + LINE_NO_COMPENSATE;
+        double baseX = textLeftPadding(area) + LINE_NO_COMPENSATE;
         imageNode.relocate(baseX,
                 Math.max(lineHeight(area) + GAP_TOP, reserved - nodeHeight - GAP_BOTTOM));
         // 行号 graphic 固定在左侧（ParagraphBox.graphicOffset 绑定 scrollX），文本随水平滚动平移；
         // 图片在 graphic 内须反向减去 scrollX 才能与文本保持同步，否则左滑（水平滚动）时图片悬浮不动
         imageNode.layoutXProperty().bind(Bindings.createDoubleBinding(
-                () -> baseX - area.estimatedScrollXProperty().getValue(),
-                area.estimatedScrollXProperty()));
+                () -> textLeftPadding(area) + LINE_NO_COMPENSATE - area.estimatedScrollXProperty().getValue(),
+                area.paddingProperty(), area.estimatedScrollXProperty()));
         box.getChildren().add(imageNode);
         if (base != null) {
             box.getChildren().add(base);
@@ -548,14 +513,6 @@ public final class MarkdownImageManager {
 
     private static boolean isOverLimit(EditorArea area) {
         return area == null || area.getEditor().isRealtimeProcessingLimitReached();
-    }
-
-    public static boolean supports(EditorArea area) {
-        if (area == null || area.getEditor().getSourceFile() == null) {
-            return false;
-        }
-        String name = area.getEditor().getSourceFile().getName().toLowerCase(Locale.ROOT);
-        return name.endsWith(".md") || name.endsWith(".markdown");
     }
 
     private static List<MarkdownImage> parseImages(EditorArea area, String text, File mdFile) {

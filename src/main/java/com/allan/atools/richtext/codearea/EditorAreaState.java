@@ -8,14 +8,13 @@ import com.allan.atools.utils.Log;
 import com.allan.baseparty.utils.ReflectionUtils;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
-import javafx.css.PseudoClass;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 final class EditorAreaState implements IEditorAreaState {
-    private static final PseudoClass WRAPPED = PseudoClass.getPseudoClass("wrapped");
     private static final String KEY_DOCUMENT_OPTIONS = "editorDocumentOptions";
     private static final int MAX_DOCUMENT_OPTIONS = 200;
     private static final TypeToken<List<EditorDocumentOptions>> TYPE_DOCUMENT_OPTIONS = new TypeToken<>() {};
@@ -26,8 +25,8 @@ final class EditorAreaState implements IEditorAreaState {
         this.area = area;
         this.documentState = documentState;
         restoreDocumentOptions();
+        isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || isWrap);
         area.setEditable(!isReadonly);
-        area.pseudoClassStateChanged(WRAPPED, isWrap);
         area.setWrapText(isWrap);
         if (isWrap) {
             Platform.runLater(this::forgetFlowCellSizes);
@@ -65,6 +64,12 @@ final class EditorAreaState implements IEditorAreaState {
     }
 
     @Override
+    public boolean supportsWrap() {
+        var file = documentState.getSourceFile();
+        return file == null || !file.getName().toLowerCase(Locale.ROOT).endsWith(".log");
+    }
+
+    @Override
     public boolean isChinesePunctuation() {
         return isChinesePunctuation;
     }
@@ -77,9 +82,8 @@ final class EditorAreaState implements IEditorAreaState {
 
     @Override
     public void setWrap(boolean wrap) {
-        isWrap = wrap;
-        area.pseudoClassStateChanged(WRAPPED, wrap);
-        area.setWrapText(wrap);
+        isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || wrap);
+        area.setWrapText(isWrap);
         // 切换 wrap 后，flowless 缓存的 cell 最小宽度(minBreadth)不会自动失效，导致 totalWidthEstimate
         // 滞后偏大、横向滚动条不消失。反射清除 SizeTracker 的尺寸备忘，强制下次 layout 按新 wrap 重算
         Platform.runLater(this::forgetFlowCellSizes);
