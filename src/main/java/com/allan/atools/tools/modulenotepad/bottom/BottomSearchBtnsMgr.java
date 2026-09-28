@@ -114,6 +114,15 @@ public final class BottomSearchBtnsMgr {
         updateIndicator(out.resultIndex, out.totalResultSize);
     }
 
+    void refreshIndicator() {
+        if (TextUtils.isEmpty(mSearchParamAndIndicatorParam.searchParams.words)) {
+            updateIndicator(0, 0);
+            return;
+        }
+        var result = handler.cache.getCurrentCachedResultInfo(editorArea);
+        updateIndicator(result.resultIndex, result.totalResultSize);
+    }
+
     void updateIndicator(int resultIndex, int totalResultSize) {
         mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", resultIndex, totalResultSize);
         UIContext.bottomSearchedIndicateProp.set(mSearchParamAndIndicatorParam.indicator);

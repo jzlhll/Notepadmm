@@ -34,7 +34,7 @@ final class StylerActionFull extends StylerAction {
                     if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed77 flag=" + flag);
                     return;
                 }
-                onStyleOver(clickType);
+                onStyleOver(flag, clickType);
             });
         } else {
             //走到这里说明是empty
@@ -43,9 +43,7 @@ final class StylerActionFull extends StylerAction {
                     if(Styler.DEBUG_STYLER) Log.v("StylerFlag changed88 flag=" + flag);
                     return;
                 }
-                if (clickType == BottomHandler.ClickType.Search) {
-                    out.updateIndicator(0, 0);
-                }
+                onStyleOver(flag, clickType);
                 if (isLastEmpty) {
                     if (Styler.DEBUG_STYLER) Log.d("Styler: ignore last is empty!");
                     return;

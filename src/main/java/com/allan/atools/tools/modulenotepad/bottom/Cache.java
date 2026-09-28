@@ -55,6 +55,30 @@ final class Cache {
         public int resultIndex = -1;
     }
 
+    Out getCurrentCachedResultInfo(EditorArea area) {
+        var out = new Out();
+        out.resultIndex = 0;
+        var oneRes = cacheResult;
+        if (oneRes == null || oneRes.results == null) {
+            return out;
+        }
+        int caretPosition = area.getCaretPosition();
+        for (var lineItem : oneRes.results) {
+            if (lineItem.items == null) {
+                continue;
+            }
+            for (var item : lineItem.items) {
+                out.totalResultSize++;
+                int start = item.range.totalOffset;
+                int end = start + item.range.end - item.range.start;
+                if (caretPosition >= start && caretPosition <= end) {
+                    out.resultIndex = out.totalResultSize;
+                }
+            }
+        }
+        return out;
+    }
+
     public ResultItem getNextCachedLineNum(EditorArea area, boolean back, boolean cycleNext, Out out) {
         var resultItem = getNextCachedLineNum(area, back, cycleNext);
         if (resultItem == null) {

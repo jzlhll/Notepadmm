@@ -31,7 +31,7 @@ final class Styler {
         if (DEBUG_STYLER) {
             Log.d("Styler: temporary SearchEndCallback flag=" + flag);
         }
-        if (area.getEditor().disableStylerIfNeeded(() -> mFullAction.onStyleOver(clickType))) {
+        if (area.getEditor().disableStylerIfNeeded(() -> mFullAction.onStyleOver(flag, clickType))) {
             if(DEBUG_STYLER) Log.d("Styler: styling disabled by limit");
             return;
         }

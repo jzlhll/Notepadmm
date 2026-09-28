@@ -16,7 +16,7 @@ final class StylerActionCode extends StylerAction {
             }
             out.editorArea.getEditor().trigger(curTempParams, curParams, () -> {
                 if (isCurrent(flag, contentVersion)) {
-                    onStyleOver(clickType);
+                    onStyleOver(flag, clickType);
                 }
             });
         });

@@ -68,12 +68,18 @@ final class BottomHandler extends Handler {
         if (i == 1) {
             return ClickType.Temp;
         }
+        if (i == 2) {
+            return ClickType.None;
+        }
         return ClickType.Search;
     }
 
     public static int from(ClickType type) {
         if (type == ClickType.Temp) {
             return 1;
+        }
+        if (type == ClickType.None) {
+            return 2;
         }
         return 0;
     }
@@ -169,8 +175,9 @@ final class BottomHandler extends Handler {
             Log.d("Styler: trigger When TextChanged flag " + flag);
         }
         removeMessages(MSG_TRIGGER_SEARCH_TEXT_CHANGE);
+        // 正文变化只刷新匹配和高亮，不能触发搜索跳转。
         sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH_TEXT_CHANGE,
-                from(ClickType.Search), 0, flag), DELAY_TRIGGER_SEARCH_TEXT_CHANGE_TS);
+                from(ClickType.None), 0, flag), DELAY_TRIGGER_SEARCH_TEXT_CHANGE_TS);
     }
 
     private void prepareSearch(ClickType clickType, long flag) {
