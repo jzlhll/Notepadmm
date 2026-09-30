@@ -621,10 +621,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 return true;
             }
             case Find -> {
-                if (curArea != null) {
-                    UIContext.context().bottomSearchTextField.setText(curArea.getSelectedText());
-                    UIContext.context().bottomSearchTextField.requestFocus();
-                }
                 long cur = System.currentTimeMillis();
                 if (cur - mLastClickFind < DOUBLE_CLICK_DELTA_TIME) {
                     accept(ShortCutKeys.CombineKey.FindS);

@@ -6,15 +6,16 @@ import com.allan.atools.UIContext;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.bean.SearchParamsIndicator;
 import com.allan.atools.richtext.codearea.EditorArea;
-import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.modulenotepad.Highlight;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.handler.TextUtils;
+import javafx.animation.PauseTransition;
 import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
+import javafx.util.Duration;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,6 +29,8 @@ public final class BottomSearchBtnsMgr {
 
     final AtomicLong lastChangeSearchFlag = new AtomicLong(0);
     private final BottomHandler handler;
+    private final PauseTransition selectionListenerDelay = new PauseTransition();
+    private boolean pendingSearchJump;
 
     SearchParamsIndicator mSearchParamAndIndicatorParam;
     private String temporaryWord;
@@ -36,9 +39,11 @@ public final class BottomSearchBtnsMgr {
     public BottomSearchBtnsMgr(EditorArea editorImpl) {
         editorArea = editorImpl;
         handler = new BottomHandler(this);
+        selectionListenerDelay.setOnFinished(event -> isEnableSelectionListener = true);
     }
 
     public void destroy() {
+        selectionListenerDelay.stop();
         handler.destroy();
     }
 
@@ -49,6 +54,7 @@ public final class BottomSearchBtnsMgr {
         mSearchParamAndIndicatorParam = pair;
 
         editorArea.getEditor().textChanged.addAction(() -> {
+            pendingSearchJump = false;
             if(EditorArea.DEBUG_EDITOR) Log.d("code area text changed refresh search！");
             var flag = lastChangeSearchFlag.incrementAndGet();
             if(Styler.DEBUG_STYLER) Log.d("Styler: bottom text changed 11 flag=" + flag);
@@ -74,9 +80,20 @@ public final class BottomSearchBtnsMgr {
 
     public void disableSelectionListenerTemporary(long disableTs) {
         isEnableSelectionListener = false;
-        ThreadUtils.globalHandler().postDelayed(()->{
-            isEnableSelectionListener = true;
-        }, disableTs);
+        selectionListenerDelay.setDuration(Duration.millis(disableTs));
+        selectionListenerDelay.playFromStart();
+    }
+
+    public void cancelPendingSearchJump() {
+        pendingSearchJump = false;
+    }
+
+    boolean consumePendingSearchJump() {
+        boolean pending = pendingSearchJump;
+        pendingSearchJump = false;
+        var scene = editorArea.getScene();
+        return pending && UIContext.currentAreaProp.get() == editorArea
+                && scene != null && scene.getWindow() != null && scene.getWindow().isFocused();
     }
 
     void bottomSearchTextChanged(String newStr) {
@@ -88,11 +105,18 @@ public final class BottomSearchBtnsMgr {
         mSearchParamAndIndicatorParam.searchParams.words = newStr;
         temporaryWord = null;
         var flag = lastChangeSearchFlag.incrementAndGet();
+        pendingSearchJump = true;
         if(Styler.DEBUG_STYLER) Log.d("Styler: bottomSearchTextChanged 33 flag=" + flag);
         handler.triggerSearchParamsChanged(flag);
     }
 
     void jumpToNext(EditorArea area, boolean back, boolean forceWrap) {
+        cancelPendingSearchJump();
+        if (area.getEditor().isDestroyed()
+                || UIContext.currentAreaProp.get() != area
+                || handler.cache.contentVersion != area.getEditor().getContentVersion()) {
+            return;
+        }
         Log.d("jump to next");
         var out = new Cache.Out();
         var cycleNext = SettingPreferences.getBoolean(SettingPreferences.cycleNextKey);
@@ -106,9 +130,6 @@ public final class BottomSearchBtnsMgr {
         }
         Highlight.JumpMode mode = back ? Highlight.JumpMode.GoUp : Highlight.JumpMode.GoDown;
         disableSelectionListenerTemporary(400);
-        if (area.getEditor().isDestroyed()) {
-            Log.e("jump to next but edior is destroyed!");
-        }
         Highlight.jumpToLineAndSelectWord(area, mode, out.lineNum, item.range.start, item.range.end);
 
         updateIndicator(out.resultIndex, out.totalResultSize);
@@ -125,7 +146,9 @@ public final class BottomSearchBtnsMgr {
 
     void updateIndicator(int resultIndex, int totalResultSize) {
         mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", resultIndex, totalResultSize);
-        UIContext.bottomSearchedIndicateProp.set(mSearchParamAndIndicatorParam.indicator);
+        if (UIContext.currentAreaProp.get() == editorArea) {
+            UIContext.bottomSearchedIndicateProp.set(mSearchParamAndIndicatorParam.indicator);
+        }
     }
 
     static void changeSearchTextCaseBtn(boolean val) {
@@ -184,6 +207,7 @@ public final class BottomSearchBtnsMgr {
         changeSearchTextCaseBtn(newValue);
         Log.d("#1 changed case button " + newValue);
         var flag = lastChangeSearchFlag.incrementAndGet();
+        pendingSearchJump = true;
         if(Styler.DEBUG_STYLER) Log.d("Styler: caseBtnReal 44 flag=" + flag);
         handler.triggerSearchParamsChanged(flag);
     }
@@ -196,6 +220,7 @@ public final class BottomSearchBtnsMgr {
         changeWholeWordBtn(newValue);
         Log.d("#1 changed whole word button " + newValue);
         var flag = lastChangeSearchFlag.incrementAndGet();
+        pendingSearchJump = true;
         if(Styler.DEBUG_STYLER) Log.d("Styler: wholeWordReal 55 flag=" + flag);
         handler.triggerSearchParamsChanged(flag);
     }
@@ -209,6 +234,7 @@ public final class BottomSearchBtnsMgr {
         changeRuleBtn(newValue);
         Log.d("#1 changed rule button " + newValue);
         var flag = lastChangeSearchFlag.incrementAndGet();
+        pendingSearchJump = true;
         if(Styler.DEBUG_STYLER) Log.d("Styler: ruleReal 66 flag=" + flag);
         handler.triggerSearchParamsChanged(flag);
     }

@@ -182,10 +182,6 @@ final class BottomHandler extends Handler {
 
     private void prepareSearch(ClickType clickType, long flag) {
         var area = out.editorArea;
-        if (!area.getEditor().isEditorCodeMode()) {
-            searchInThread(clickType, flag, null, -1);
-            return;
-        }
         Platform.runLater(() -> {
             if (destroyed || area.getEditor().isDestroyed()
                     || flag != out.lastChangeSearchFlag.get()) {
@@ -203,9 +199,8 @@ final class BottomHandler extends Handler {
         if (area == null) {
             return;
         }
-        boolean isCode = area.getEditor().isEditorCodeMode();
-        if (destroyed || isCode && (flag != out.lastChangeSearchFlag.get()
-                || contentVersion != area.getEditor().getContentVersion())) {
+        if (destroyed || area.getEditor().isDestroyed() || flag != out.lastChangeSearchFlag.get()
+                || contentVersion != area.getEditor().getContentVersion()) {
             return;
         }
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread start....");
@@ -239,7 +234,7 @@ final class BottomHandler extends Handler {
             }
         }
 
-        var t = isCode ? textSnapshot : area.getText();
+        var t = textSnapshot;
         OneFileSearchResults newCacheResult;
         if (t == null || t.length() == 0) {
             newCacheResult = new OneFileSearchResults();
@@ -252,11 +247,12 @@ final class BottomHandler extends Handler {
             //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
             newCacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
         }
-        if (isCode && (flag != out.lastChangeSearchFlag.get()
-                || contentVersion != area.getEditor().getContentVersion())) {
+        if (destroyed || area.getEditor().isDestroyed() || flag != out.lastChangeSearchFlag.get()
+                || contentVersion != area.getEditor().getContentVersion()) {
             return;
         }
         cache.cacheResult = newCacheResult;
+        cache.contentVersion = contentVersion;
         if(EditorArea.DEBUG_EDITOR) Log.v("search In Thread end..temporary SearchEndCallback..");
 
         if (area.getEditor().isEditorCodeMode()) {

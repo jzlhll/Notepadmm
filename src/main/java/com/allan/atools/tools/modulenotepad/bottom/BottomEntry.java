@@ -3,7 +3,6 @@ package com.allan.atools.tools.modulenotepad.bottom;
 import com.allan.atools.Colors;
 import com.allan.atools.UIContext;
 import com.allan.atools.richtext.codearea.EditorArea;
-import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.utils.Log;
 import javafx.event.WeakEventHandler;
@@ -28,6 +27,12 @@ public final class BottomEntry {
                 curArea.getBottomSearchBtnsMgr().bottomSearchTextChanged(newValue);
             }
         });
+        UIContext.context().bottomSearchTextField.focusedProperty().addListener((observable, oldValue, newValue) -> {
+            var curArea = UIContext.currentAreaProp.get();
+            if (!newValue && curArea != null) {
+                curArea.getBottomSearchBtnsMgr().cancelPendingSearchJump();
+            }
+        });
 
         UIContext.context().bottomSearchTextUpperBtn.setOnMouseClicked(mouseEvent -> {
             var ar = UIContext.currentAreaProp.get();
@@ -47,6 +52,9 @@ public final class BottomEntry {
 
         //tab发生变化。可能是切换，可能是删除。
         UIContext.currentAreaProp.addListener((observable, oldValue, newValue) -> {
+            if (oldValue != null) {
+                oldValue.getBottomSearchBtnsMgr().cancelPendingSearchJump();
+            }
             Log.d("change when current area; reset bottom visible");
             changeTo(newValue);
             boolean isNotExistArea = newValue == null;
@@ -81,13 +89,12 @@ public final class BottomEntry {
         }
 
         UIContext.bottomSearchedIndicateProp.set(area == null ? "" : bottom.mSearchParamAndIndicatorParam.indicator);
-        //设置状态文字 切换tab的时候，要先禁用一小会儿；监听底部文字变化；重新设置到新tab的文字内容。
+        // setText 同步通知监听器，只在同步当前 tab 的搜索词期间禁用。
         isBottomSearchTextListenerSendIt = false;
-        UIContext.context().bottomSearchTextField.setText(area == null ? "" : bottom.mSearchParamAndIndicatorParam.searchParams.words);
-        //Log.d("BottomManager change tab setText...");
-        ThreadUtils.globalHandler().postDelayed(() -> {
+        try {
+            UIContext.context().bottomSearchTextField.setText(area == null ? "" : bottom.mSearchParamAndIndicatorParam.searchParams.words);
+        } finally {
             isBottomSearchTextListenerSendIt = true;
-            //Log.d("BottomManager change tab setText reset");
-        }, 500);
+        }
     }
 }

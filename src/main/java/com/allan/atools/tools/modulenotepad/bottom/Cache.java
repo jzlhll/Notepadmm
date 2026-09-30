@@ -10,6 +10,7 @@ import java.util.List;
 
 final class Cache {
     OneFileSearchResults cacheResult;
+    volatile long contentVersion = -1;
 
     /**
      * 通过二分法快速的定位到当前行，在items里面的index

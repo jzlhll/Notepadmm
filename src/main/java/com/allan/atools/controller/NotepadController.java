@@ -43,6 +43,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -715,12 +716,19 @@ public final class NotepadController extends AbstractMainController {
     @Override
     public void notifyStageFocused() {
         super.notifyStageFocused();
+        var scene = getStage().getScene();
+        var focusOwner = scene == null ? null : scene.getFocusOwner();
+        // 窗口重新激活时保留用户选择的输入位置，包括底部搜索框。
+        if (focusOwner != null && focusOwner.isVisible() && !focusOwner.isDisabled()
+                && (focusOwner == UIContext.currentAreaProp.get() || focusOwner instanceof TextInputControl)) {
+            return;
+        }
         requestFocus4Jfoenix();
     }
 
     /**
-     * 窗口重新聚焦、隐藏工作区、tab 全部关闭等场景下归还焦点：
-     * 有当前编辑器时交给编辑器（保证切回窗口可直接键入），否则回退到主面板。
+     * 隐藏工作区、tab 全部关闭或窗口没有可恢复的输入焦点时归还焦点：
+     * 有当前编辑器时交给编辑器，否则回退到主面板。
      */
     public void requestFocus4Jfoenix() {
         EditorArea area = UIContext.currentAreaProp.get();

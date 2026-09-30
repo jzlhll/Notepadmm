@@ -4,7 +4,9 @@ import com.allan.atools.KeyEventDispatchCenter;
 import com.allan.atools.utils.Log;
 import javafx.scene.Parent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 
 /**
@@ -22,9 +24,12 @@ public final class KeyEventDispatcher {
     public static final int LEVEL_0_ROOT = 0;
     public static final int LEVEL_1_CHILD = 1;
 
-    private void dispatch(String[] event) {
+    private boolean dispatch(String[] event) {
         boolean isAccepted = false;
         var key = ShortCutKeys.parse(event);
+        if (key == ShortCutKeys.CombineKey.NotAccept) {
+            return false;
+        }
         for (IKeyDispatcherLeaf owner : KeyEventDispatchCenter.mKeyListeners) {
             if (owner.level() == LEVEL_1_CHILD) {
                 isAccepted = owner.accept(key);
@@ -44,41 +49,50 @@ public final class KeyEventDispatcher {
                 }
             }
         }
+        return isAccepted;
     }
 
-    private static final HashSet<String> pressedKeyCodes = new HashSet<>(4);
     private static final String[] STR_TO_ARR = new String[0];
 
     public void init(Parent root) {
-        root.setOnKeyReleased(event -> {
-            String[] sb;
-            StringBuilder stringBuilder = new StringBuilder();
-            var n = event.getCode().getName();
-            synchronized (pressedKeyCodes) {
-                pressedKeyCodes.add(n);
-                pressedKeyCodes.forEach(s -> stringBuilder.append(s).append("+"));
-                sb = pressedKeyCodes.toArray(STR_TO_ARR);
-                pressedKeyCodes.remove(n);
-                log("%%pressed clr: " + stringBuilder + " ,size: " + pressedKeyCodes.size());
+        // 仅记录当前窗口已处理的快捷键，用于阻止长按重复触发；修饰键状态以当前事件为准。
+        var pressedKeyCodes = new HashSet<KeyCode>(4);
+        root.addEventFilter(KeyEvent.KEY_RELEASED, event -> pressedKeyCodes.remove(event.getCode()));
+        var scene = root.getScene();
+        if (scene != null) {
+            var window = scene.getWindow();
+            if (window != null) {
+                window.focusedProperty().addListener((observable, oldValue, newValue) -> pressedKeyCodes.clear());
             }
-
-            dispatch(sb);
-        });
-
-//        root.setOnKeyTyped(event -> {
-//            dispatch(event, KeyMode.Typed);
-//        });
+        }
 
         root.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.UNDEFINED) {
+            if (event.isConsumed() || event.getCode() == KeyCode.UNDEFINED
+                    || !event.isControlDown() && !event.isMetaDown()) {
                 return;
             }
-
-            synchronized (pressedKeyCodes) {
-                pressedKeyCodes.add(event.getCode().getName());
-                log("%%pressed add: " + event.getCode().getName() + " ,size: " + pressedKeyCodes.size());
+            if (pressedKeyCodes.contains(event.getCode())) {
+                event.consume();
+                return;
             }
-            //dispatch(event, KeyMode.Pressed);
+            var keys = new ArrayList<String>(4);
+            if (event.isControlDown()) {
+                keys.add("Ctrl");
+            }
+            if (event.isMetaDown()) {
+                keys.add("Command");
+            }
+            if (event.isShiftDown()) {
+                keys.add("Shift");
+            }
+            if (event.isAltDown()) {
+                keys.add("Alt");
+            }
+            keys.add(event.getCode().getName());
+            if (dispatch(keys.toArray(STR_TO_ARR))) {
+                pressedKeyCodes.add(event.getCode());
+                event.consume();
+            }
         });
     }
 }

@@ -16,6 +16,7 @@ import javafx.scene.control.TextInputControl
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
+import javafx.scene.input.InputMethodEvent
 import javafx.scene.input.MouseEvent
 import java.io.File
 
@@ -96,7 +97,21 @@ class EditorArea @JvmOverloads constructor(
             }
         }
 
+        addEventFilter(MouseEvent.MOUSE_PRESSED) {
+            bottomSearchBtnsMgr.cancelPendingSearchJump()
+        }
+        focusedProperty().addListener { _, _, focused ->
+            if (focused) bottomSearchBtnsMgr.cancelPendingSearchJump()
+        }
+        caretPositionProperty().addListener { _, _, _ ->
+            if (isFocused) bottomSearchBtnsMgr.cancelPendingSearchJump()
+        }
+        addEventFilter(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED) {
+            bottomSearchBtnsMgr.cancelPendingSearchJump()
+        }
+
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            bottomSearchBtnsMgr.cancelPendingSearchJump()
             if (event.target is TextInputControl) return@addEventFilter
             if (!isEditable) return@addEventFilter
             if (event.isAltDown && !event.isControlDown && !event.isMetaDown && !event.isShiftDown

@@ -14,7 +14,7 @@ abstract class StylerAction {
         if (flag != out.lastChangeSearchFlag.get() || out.editorArea.getEditor().isDestroyed()) {
             return;
         }
-        if (clickType == BottomHandler.ClickType.Search) {
+        if (clickType == BottomHandler.ClickType.Search && out.consumePendingSearchJump()) {
             if(Styler.DEBUG_STYLER) Log.w(">>>>>>jump To Next<<<<");
             out.jumpToNext(out.editorArea, false, true);
         } else {
