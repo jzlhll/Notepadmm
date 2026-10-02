@@ -14,7 +14,8 @@ javafx {
             'javafx.controls',
             'javafx.fxml',
             'javafx.graphics',
-            'javafx.swing'
+            'javafx.swing',
+            'javafx.web'
     ]
 }
 

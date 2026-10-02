@@ -13,6 +13,7 @@ import javafx.beans.value.ChangeListener
 import javafx.event.EventHandler
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.web.WebView
 import org.fxmisc.richtext.SelectionImpl
 import org.fxmisc.richtext.SelectionPath
 
@@ -39,6 +40,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     private fun addEventFilter() {
         if (eventFilter == null) {
             eventFilter = EventHandler { event: KeyEvent ->
+                if (event.target is WebView) return@EventHandler
                 val keyArea = event.source as EditorArea
                 if (keyArea.multiSelections.isMultiSelected) {
                     when (event.code) {

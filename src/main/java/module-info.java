@@ -11,6 +11,7 @@ module atools {
     requires javafx.controls;
     requires javafx.graphics;
     requires javafx.swing;
+    requires javafx.web;
 
     requires com.twelvemonkeys.imageio.webp;
     requires org.commonmark;

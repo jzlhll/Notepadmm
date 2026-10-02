@@ -15,6 +15,7 @@ Notepadmm 是一款面向大文本和日志分析的桌面编辑器，起因是 
 - 大文本浏览与编辑：支持自动换行、字体和字号调整、文本编码切换、插入空行等常用操作。
 - 工作区：支持从左侧目录树浏览文件。
 - 代码高亮和简单的图片预览。
+- Markdown Mermaid 流程图与时序图：离线显示，通过图表头部的悬浮按钮切换“显示源码”和“显示图形”。
 
 ![多条件搜索着色](previews/advance_search.png)
 
@@ -23,6 +24,34 @@ Notepadmm 是一款面向大文本和日志分析的桌面编辑器，起因是 
 ![常规搜索](previews/normal_search.png)
 
 ![代码高亮](previews/colors.png)
+
+## Markdown 图表
+
+在 `.md` / `.markdown` 文件中使用 `mermaid` 围栏代码块，支持 `flowchart`（含 `graph` 写法）和 `sequenceDiagram`。完整代码块默认显示图形；鼠标悬停或选中图表区域时显示悬浮按钮，通过“显示源码”或“显示图形”切换。未闭合的代码块保留源码，语法错误会展开源码并在悬浮条中提示原因。切换显示方式不会修改文档内容。
+
+图形模式支持拖选文字，再通过 `Cmd+C`（macOS）或 `Ctrl+C`（Windows）复制所选内容。点击节点不会自动复制。
+
+流程图：
+
+```mermaid
+flowchart TD
+    A[开始] --> B{是否通过?}
+    B -->|是| C[完成]
+    B -->|否| D[修改]
+    D --> B
+```
+
+时序图：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant E as 编辑器
+    U->>E: 打开 Markdown
+    E-->>U: 显示图表
+    U->>E: 点击显示源码
+    E-->>U: 展开源码
+```
 
 ## 命令行打开文件
 

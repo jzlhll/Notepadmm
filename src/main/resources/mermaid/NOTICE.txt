@@ -1,0 +1,7 @@
+Mermaid 12.0.0 — MIT License
+来源：https://registry.npmjs.org/mermaid/-/mermaid-12.0.0.tgz
+上游：https://github.com/mermaid-js/mermaid
+mermaid.min.js 为上游发布包 dist/mermaid.min.js 的原始文件，包含其捆绑依赖的许可注释。
+SHA-256: 28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073
+完整 Mermaid 许可证见同目录 LICENSE。
+更新时同时替换脚本与许可证，并确认 JavaFX WebView 的兼容性。

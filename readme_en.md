@@ -15,6 +15,8 @@ Notepadmm is a desktop editor for large text files and log analysis. It was crea
 - Large-text viewing and editing: supports word wrapping, font and font-size adjustments, text encoding selection, blank-line insertion, and other common operations.
 - Workspace: browse files from the directory tree on the left.
 - Syntax highlighting and simple image previews.
+- Offline Markdown Mermaid flowcharts (`flowchart` / `graph`) and sequence diagrams (`sequenceDiagram`). Hover over or select a diagram to access its floating toolbar, then choose **Show source** or **Show diagram**. See the [examples](readme.md#markdown-图表).
+- Select text in a diagram and press **Cmd+C** (macOS) or **Ctrl+C** (Windows) to copy the selection. Clicking a node does not copy it automatically.
 
 ![Multi-pattern search highlighting](previews/advance_search.png)
 

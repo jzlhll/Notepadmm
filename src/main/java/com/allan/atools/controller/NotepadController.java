@@ -18,6 +18,7 @@ import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownCodeBlockManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownMermaidManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownTablePreviewManager;
@@ -153,12 +154,16 @@ public final class NotepadController extends AbstractMainController {
     private MarkdownTablePreviewManager markdownTablePreviewManager;
     private MarkdownImageManager markdownImageManager;
     private MarkdownCodeBlockManager markdownCodeBlockManager;
+    private MarkdownMermaidManager markdownMermaidManager;
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
             (observable, oldValue, newValue) -> {
                 refreshCurrentDocumentPath();
                 updateMarkdownTablePreviewManager(newValue);
                 updateMarkdownImageManager(newValue);
                 updateMarkdownCodeBlockManager(newValue);
+                if (markdownMermaidManager != null) {
+                    markdownMermaidManager.refreshCurrentFile(newValue);
+                }
             };
 
     private int getMainUiSizeMode() {
@@ -292,6 +297,10 @@ public final class NotepadController extends AbstractMainController {
         if (markdownImageManager != null) {
             markdownImageManager.destroy();
             markdownImageManager = null;
+        }
+        if (markdownMermaidManager != null) {
+            markdownMermaidManager.destroy();
+            markdownMermaidManager = null;
         }
         UIContext.currentAreaProp.removeListener(currentDocumentAreaChanged);
         AllEditorsManager.Instance.removeKeyListener();
@@ -502,6 +511,7 @@ public final class NotepadController extends AbstractMainController {
         updateMarkdownTablePreviewManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
         getWorkspaceManager().initViewState();
+        markdownMermaidManager = new MarkdownMermaidManager(UIContext.currentAreaProp.get());
 
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null && newValue) {
@@ -532,6 +542,9 @@ public final class NotepadController extends AbstractMainController {
         updateMarkdownTablePreviewManager(UIContext.currentAreaProp.get());
         updateMarkdownImageManager(UIContext.currentAreaProp.get());
         updateMarkdownCodeBlockManager(UIContext.currentAreaProp.get());
+        if (markdownMermaidManager != null) {
+            markdownMermaidManager.refreshCurrentFile(UIContext.currentAreaProp.get());
+        }
     }
 
     private void updateMarkdownTablePreviewManager(EditorArea area) {

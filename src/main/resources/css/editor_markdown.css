@@ -321,3 +321,11 @@
 .markdown-image-placeholder {
     -fx-text-fill: -au-md-image-placeholder-fill;
 }
+
+/* Mermaid 预览在段落图形中呈现，使用悬浮按钮切换原始围栏代码块。 */
+.markdown-mermaid-frame {
+    -fx-background-color: -au-editor-bg-color;
+    -fx-border-color: -au-md-image-frame-border;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}

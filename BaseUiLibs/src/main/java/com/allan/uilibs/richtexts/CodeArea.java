@@ -37,6 +37,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     public static final String PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:";
     /** 用段落图形呈现内容时，为原文保留指定高度。 */
     public static final String PARAGRAPH_PREVIEW_HEIGHT_PREFIX = "preview-height:";
+    /** Mermaid 独立维护预览高度，避免与表格、图片的段落样式相互清理。 */
+    public static final String MERMAID_PREVIEW_HEIGHT_PREFIX = "mermaid-preview-height:";
 
     private final LinkedHashMap<Object, BiFunction<Integer, Node, Node>> graphicDecorators = new LinkedHashMap<>();
     private IntFunction<? extends Node> baseGraphicFactory;
@@ -119,6 +121,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
             if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
+            } else if (style.startsWith(MERMAID_PREVIEW_HEIGHT_PREFIX)) {
+                previewHeight = style.substring(MERMAID_PREVIEW_HEIGHT_PREFIX.length()) + "px";
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
