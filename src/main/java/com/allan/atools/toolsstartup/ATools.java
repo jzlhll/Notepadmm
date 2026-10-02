@@ -132,6 +132,7 @@ public final class ATools {
     }
 
     private static void completeShutdown() {
+        StartupDelayManager.getInstance().shutdown();
         var mainController = UIContext.mainController;
         if (mainController != null) {
             mainController.destroy();
@@ -230,6 +231,7 @@ public final class ATools {
         }
 
         Log.e("startup: background thread shutdown begin");
+        StartupDelayManager.getInstance().shutdown();
         ThreadUtils.shutdown();
     }
 }

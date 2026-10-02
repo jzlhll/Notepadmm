@@ -57,6 +57,7 @@ public final class AToolsApplication extends Application{
             Log.e("startup: main view created");
             stage.show();
             Log.e("startup: main stage shown");
+            StartupDelayManager.getInstance().start();
         } catch (RuntimeException | Error e) {
             Log.e("startup: JavaFX application start failed", e);
             throw e;

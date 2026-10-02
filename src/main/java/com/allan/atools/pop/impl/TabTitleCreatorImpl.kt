@@ -5,7 +5,6 @@ import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
 import com.jfoenix.controls.JFXListView
 import javafx.beans.value.ObservableValue
-import javafx.event.ActionEvent
 import javafx.event.EventHandler
 import javafx.scene.control.*
 import javafx.scene.layout.Region
@@ -14,13 +13,13 @@ import javafx.scene.layout.VBox
 class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
     override fun createPop(action: Action<String>?): Region = createPop(action, false)
 
-    fun createPop(action: Action<String>?, pinnedFile: Boolean): Region {
+    @JvmOverloads
+    fun createPop(action: Action<String>?, pinnedFile: Boolean, canOpenInTypora: Boolean = false): Region {
         val vBox = VBox()
         val list: JFXListView<Label>
         list = JFXListView()
         list.style = "-fx-background-color: -au-popup-bg-color;"
         list.maxWidth = 280.0
-        list.prefHeight = 181.0
 
         var label: Label = createLabel(Locales.str("modifyName"))
         list.items.add(label)
@@ -37,6 +36,11 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
         label = createLabel(Locales.str(if (pinnedFile) "editor.unpinRecentFile" else "editor.pinRecentFile"))
         list.items.add(label)
 
+        if (canOpenInTypora) {
+            list.items.add(createLabel(Locales.str("editor.openInTypora")))
+        }
+        list.prefHeight = list.items.size * 36.0 + 1.0
+
         list.selectionModel.selectedIndexProperty()
             .addListener { observable: ObservableValue<out Number>?, oldValue: Number?, newValue: Number ->
                 if (newValue.toInt() == 0) {
@@ -49,6 +53,8 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
                     action?.invoke(EVENT_COPY_FULL_PATH)
                 } else if (newValue.toInt() == 4) {
                     action?.invoke(EVENT_PIN_RECENT_FILE)
+                } else if (newValue.toInt() == 5 && canOpenInTypora) {
+                    action?.invoke(EVENT_OPEN_IN_TYPORA)
                 }
             }
 
@@ -102,6 +108,9 @@ class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
 
         @kotlin.jvm.JvmField
         var EVENT_PIN_RECENT_FILE: String = "pinRecentFile"
+
+        @kotlin.jvm.JvmField
+        val EVENT_OPEN_IN_TYPORA: String = "openInTypora"
     }
 
 }

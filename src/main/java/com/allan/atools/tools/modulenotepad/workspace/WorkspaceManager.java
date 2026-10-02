@@ -17,6 +17,7 @@ import com.allan.atools.Colors;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
+import com.allan.atools.tools.modulenotepad.manager.TyporaManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.baseparty.Action0;
 import com.allan.baseparty.handler.TextUtils;
@@ -664,8 +665,21 @@ public final class WorkspaceManager implements IWorkspace {
             }
         });
 
+        MenuItem openInTypora = new MenuItem(Locales.str("editor.openInTypora"));
+        openInTypora.setOnAction(event -> {
+            if (currentItem == null || !(currentItem.ex instanceof File file)) {
+                return;
+            }
+            TyporaManager.getInstance().openFile(file);
+        });
+
         var menu = new ContextMenu();
-        menu.getItems().addAll(deleteMenu, modifyNameMenu, openToDir);
+        menu.getItems().addAll(deleteMenu, modifyNameMenu, openToDir, openInTypora);
+        // 菜单会缓存，显示时重新读取异步检测结果及当前右键目标。
+        menu.setOnShowing(event -> openInTypora.setVisible(
+                TyporaManager.getInstance().isAvailable()
+                        && currentItem != null && currentItem.ex instanceof File file
+                        && TyporaManager.getInstance().supports(file) && file.isFile()));
         rightClickContextMenu = menu;
         return menu;
     }

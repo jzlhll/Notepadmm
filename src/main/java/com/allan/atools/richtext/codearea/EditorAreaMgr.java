@@ -17,6 +17,7 @@ import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
+import com.allan.atools.tools.modulenotepad.manager.TyporaManager;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.tools.modulenotepad.session.SaveResult;
 import com.allan.atools.tools.modulenotepad.session.SessionCommitResult;
@@ -855,6 +856,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                             var pinned = sourceFile != null
                                     && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
                             var region = new TabTitleCreatorImpl().createPop(ev -> {
+                                GlobalPopupManager.instance().hide();
                                 Log.d("ev " + ev);
                                 if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
                                     rename();
@@ -873,9 +875,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                         var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
                                         SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
                                     }
+                                } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(ev)) {
+                                    TyporaManager.getInstance().openEditor(this);
                                 }
-                                GlobalPopupManager.instance().hide();
-                            }, pinned);
+                            }, pinned, TyporaManager.getInstance().isAvailable()
+                                    && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile)));
 
                             GlobalPopupManager.instance().setContent(region).setHeight(300).show(tabLabel, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
                         }

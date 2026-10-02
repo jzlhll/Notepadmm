@@ -2,6 +2,8 @@
 
 JavaFX + Gradle 多模块笔记编辑器（Java 17 / JavaFX 21 / richtextfx 0.11.5）。
 
+- 凡是新增代码，能使用 Kotlin 就使用 Kotlin；不因此改写已有代码。
+
 ## 模块
 
 | 模块 | 职责 |
