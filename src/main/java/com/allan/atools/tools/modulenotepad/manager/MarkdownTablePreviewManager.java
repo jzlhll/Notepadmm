@@ -1296,16 +1296,18 @@ public final class MarkdownTablePreviewManager {
         var redo = new MenuItem(Locales.str("markdownTableRedo"));
         var cut = new MenuItem(Locales.str("markdownTableCut"));
         var copy = new MenuItem(Locales.str("markdownTableCopy"));
+        var copyRow = new MenuItem(Locales.str("markdownTableCopyRow"));
         var paste = new MenuItem(Locales.str("markdownTablePaste"));
         var selectAll = new MenuItem(Locales.str("markdownTableSelectAll"));
         var deleteRow = new MenuItem(Locales.str("markdownTableDeleteRow"));
         var deleteColumn = new MenuItem(Locales.str("markdownTableDeleteColumn"));
-        var menu = new ContextMenu(undo, redo, cut, copy, paste, selectAll, deleteRow, deleteColumn);
+        var menu = new ContextMenu(undo, redo, cut, copy, copyRow, paste, selectAll, deleteRow, deleteColumn);
         cellMenu = menu;
         undo.setOnAction(event -> runUndo(false));
         redo.setOnAction(event -> runUndo(true));
         cut.setOnAction(event -> cellEditor.cut());
         copy.setOnAction(event -> cellEditor.copy());
+        copyRow.setOnAction(event -> MarkdownTableClipboardKt.copyMarkdownTableRow(area, table.id(), row));
         paste.setOnAction(event -> cellEditor.paste());
         selectAll.setOnAction(event -> cellEditor.selectAll());
         deleteRow.setOnAction(event -> deleteRow(table, row));
@@ -1505,7 +1507,13 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         Bounds headerBounds = visibleHeaderBounds(table);
-        double x = headerBounds == null ? textOrigin.getX() : headerBounds.getMinX();
+        if (headerBounds == null && table.firstLine() >= area.firstVisibleParToAllParIndex()) {
+            // 表头尚未布局时不回退到编辑区顶部；仅在表头滚出视口上方时吸顶。
+            hideToolbar();
+            return;
+        }
+        double x = headerBounds == null || table.mode() == MarkdownTableDocumentState.Mode.SOURCE
+                ? textOrigin.getX() : headerBounds.getMinX();
         double y = areaBounds.getMinY();
         if (headerBounds != null) {
             y = Math.max(areaBounds.getMinY(), headerBounds.getMinY()
@@ -1523,8 +1531,15 @@ public final class MarkdownTablePreviewManager {
 
     private Bounds visibleHeaderBounds(MarkdownTableDocumentState.Table table) {
         var area = currentArea;
+        if (area == null) {
+            return null;
+        }
+        if (table.mode() == MarkdownTableDocumentState.Mode.SOURCE) {
+            // 源码模式没有 RowGraphic，直接使用首行段落的屏幕边界。
+            return area.getParagraphBoundsOnScreen(table.firstLine()).orElse(null);
+        }
         var layout = layouts.get(table.id());
-        if (area == null || layout == null || layout.table != table) {
+        if (layout == null || layout.table != table) {
             return null;
         }
         for (var graphic : List.copyOf(layout.graphics)) {
