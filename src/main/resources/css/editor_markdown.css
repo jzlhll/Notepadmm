@@ -269,23 +269,29 @@
     -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
 }
 
+/* 优先级高于 editor.css 的段落样式；顶部与 MarkdownTableToolbar.HEIGHT 一致，左侧保留正文留白。 */
+.styled-text-area.editor-area .paragraph-text.markdown-table-source-header {
+    -fx-padding: 28px 0 0 85px;
+}
+
 .markdown-table-toolbar {
-    -fx-background-color: -au-md-code-bg;
-    -fx-background-radius: 6;
-    -fx-border-color: -au-md-table-mark;
-    -fx-border-radius: 6;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.22), 7, 0, 0, 2);
+    -fx-background-color: transparent;
+    -fx-padding: 2 0 2 0;
 }
 
 .markdown-table-toolbar-button {
+    -fx-font-size: 11px;
+    -fx-font-weight: normal;
     -fx-background-color: transparent;
     -fx-text-fill: -au-editor-text-color;
-    -fx-padding: 4 8 4 8;
+    -fx-opacity: 0.65;
+    -fx-padding: 3 6 3 6;
+    -fx-background-radius: 3;
 }
 
 .markdown-table-toolbar-button:hover {
+    -fx-opacity: 1;
     -fx-background-color: -au-editor-selection-words-color;
-    -fx-background-radius: 4;
 }
 
 /* ===== 引用 > ===== */

@@ -181,6 +181,20 @@
    -fx-background-color: -au-main-bg-color2;
 }
 
+.markdown-zoom-button {
+   -fx-background-color: transparent;
+   -fx-padding: 2;
+   -fx-min-width: 30;
+   -fx-pref-width: 30;
+   -fx-min-height: 28;
+   -fx-pref-height: 28;
+   -fx-cursor: hand;
+}
+
+.markdown-zoom-button:hover {
+   -fx-background-color: -au-editor-selection-words-color;
+}
+
 .workspace-bottom-extension {
    -fx-background-color: -au-workspace-bg-color;
    -fx-border-color: transparent -au-split-pane-divider-color transparent transparent;

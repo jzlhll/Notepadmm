@@ -4,6 +4,7 @@ import com.allan.atools.Colors
 import com.allan.atools.SettingPreferences
 import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.EditorArea
+import com.allan.atools.richtext.codearea.EditorScrollPane
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport
 import com.allan.atools.threads.ThreadUtils
@@ -87,6 +88,10 @@ class MarkdownMermaidManager(area: EditorArea?) {
     }
     private val scheduler = LatestRefreshScheduler(250, 600, ::parse)
     private val layoutChanged = InvalidationListener { requestLayout() }
+    private val viewportTransformChanged = InvalidationListener {
+        hoverDiagram = null
+        hideToolbar()
+    }
     private val themeChanged = InvalidationListener {
         saved.values.forEach { list -> list.forEach { it.rendered = null } }
         diagrams.forEach { it.rendered = null }
@@ -146,6 +151,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         diagrams = saved[area].orEmpty()
         area.addParagraphGraphicDecorator(this, ::createGraphic)
         area.widthProperty().addListener(layoutChanged)
+        area.localToSceneTransformProperty().addListener(viewportTransformChanged)
         area.paddingProperty().addListener(layoutChanged)
         area.caretPositionProperty().addListener(caretChanged)
         area.focusedProperty().addListener(caretChanged)
@@ -198,6 +204,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         clearPresentation()
         area.removeParagraphGraphicDecorator(this)
         area.widthProperty().removeListener(layoutChanged)
+        area.localToSceneTransformProperty().removeListener(viewportTransformChanged)
         area.paddingProperty().removeListener(layoutChanged)
         area.caretPositionProperty().removeListener(caretChanged)
         area.focusedProperty().removeListener(caretChanged)
@@ -454,7 +461,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
             hideToolbar()
             return
         }
-        val areaBounds = area.localToScreen(area.boundsInLocal)
+        val areaBounds = EditorScrollPane.viewportBoundsOnScreen(area)
         val origin = area.localToScreen(area.insets.left +
             (area.lookup(".lineno")?.prefWidth(-1.0) ?: 0.0) + MarkdownEditorSupport.textLeftPadding(area), 0.0)
         if (areaBounds == null || origin == null) {

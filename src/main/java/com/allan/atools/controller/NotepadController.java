@@ -16,6 +16,7 @@ import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
+import com.allan.atools.tools.modulenotepad.bottom.BottomMarkdownZoom;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownCodeBlockManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownMermaidManager;
@@ -43,6 +44,7 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ListView;
@@ -93,6 +95,11 @@ public final class NotepadController extends AbstractMainController {
     public Label bottomSearchTextRuleBtn;
     public Label bottomSearchTextUpperBtn;
     public Label bottomSearchTextDownBtn;
+    public HBox markdownZoomBox;
+    public Button markdownZoomOutBtn;
+    public Button markdownZoomInBtn;
+    public Label markdownZoomOutIcon;
+    public Label markdownZoomInIcon;
     public JFXTextField bottomSearchTextField;
 
     public HBox notepadMainHeadBox;
@@ -535,6 +542,7 @@ public final class NotepadController extends AbstractMainController {
 
     public void refreshCurrentDocumentInfo() {
         refreshCurrentDocumentPath();
+        BottomMarkdownZoom.refresh();
         refreshWrapTextButton(UIContext.currentAreaProp.get());
         if (markdownOutlineManager != null) {
             markdownOutlineManager.refreshCurrentFile();

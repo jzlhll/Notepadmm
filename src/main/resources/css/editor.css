@@ -7,6 +7,10 @@
   -fx-background-color: -au-editor-bg-color;
 }
 
+.editor-zoom-viewport {
+  -fx-background-color: -au-editor-bg-color;
+}
+
 .styled-text-area.editor-area {
   -fx-padding: 0 85px 0 0;
 }

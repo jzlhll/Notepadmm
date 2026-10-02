@@ -35,6 +35,8 @@ class EditorArea @JvmOverloads constructor(
     val multiSelections: EditorAreaMultiSelectionsMgr
     val markdownTableDocumentState = MarkdownTableDocumentState()
     val viewPosition: EditorViewPosition
+    private var followZoomCaretRequested = false
+    private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
 
     companion object {
         @JvmStatic
@@ -161,6 +163,24 @@ class EditorArea @JvmOverloads constructor(
 
         RefWatcher.watchs(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
         EditorSessionManager.getInstance().track(this)
+    }
+
+    override fun requestFollowCaret() {
+        followZoomCaretRequested = true
+        super.requestFollowCaret()
+    }
+
+    override fun layoutChildren() {
+        val followZoomCaret = followZoomCaretRequested
+        followZoomCaretRequested = false
+        val wrapMarkdown = isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached
+        paragraphWrapping.refresh(wrapMarkdown)
+        super.layoutChildren()
+        paragraphWrapping.refresh(wrapMarkdown)
+        // 等原有光标跟随完成布局，再处理缩放视口的横向裁剪。
+        if (followZoomCaret) {
+            (parent as? EditorZoomViewport)?.followCaret()
+        }
     }
 
     private fun isMarkdownDocument(): Boolean {
@@ -290,6 +310,7 @@ class EditorArea @JvmOverloads constructor(
 //            e.printStackTrace();
 //        }
         viewPosition.destroy()
+        paragraphWrapping.clear()
         dispose()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()

@@ -12,6 +12,7 @@ import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.keyevent.ShortCutKeys;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorDocumentState;
+import com.allan.atools.richtext.codearea.EditorScrollPane;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.tools.modulenotepad.session.SessionTab;
 import com.allan.atools.text.beans.AllFilesSearchResults;
@@ -22,7 +23,6 @@ import com.allan.atools.utils.*;
 import com.allan.baseparty.Action;
 import com.allan.baseparty.exception.UnImplementException;
 import com.allan.baseparty.memory.RefWatcher;
-import com.allan.uilibs.richtexts.MyVirtualScrollPane;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.scene.control.Tab;
@@ -68,7 +68,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     private int tabSize;
 
     private EditorArea codeAreaExInTab(Tab tab) {
-        return (EditorArea) ((MyVirtualScrollPane<?>)tab.getContent()).getContent();
+        return ((EditorScrollPane) tab.getContent()).getEditorArea();
     }
 
     private AllEditorsManager() {
@@ -109,9 +109,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     public void init() {
         UIContext.context().tabPane.getSelectionModel().selectedItemProperty().addListener((observable, oldTab, newTab) -> {
             Log.d("selected one tab changed: ");
-            if (oldTab != null && oldTab.getContent() instanceof MyVirtualScrollPane<?> pane
-                    && pane.getContent() instanceof EditorArea area) {
-                area.getViewPosition().save();
+            if (oldTab != null && oldTab.getContent() instanceof EditorScrollPane pane) {
+                pane.getEditorArea().getViewPosition().save();
             }
             setCurrentTab(newTab);
             setCurrentArea(newTab != null ? codeAreaExInTab(newTab) : null);
@@ -357,7 +356,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                     state.getSourceFile(), newTab, text, state);
             editorCodeArea.getEditor().getState().setFileEncoding(state.getEncoding());
             editorCodeArea.getBottomSearchBtnsMgr().init();
-            var vpane = new MyVirtualScrollPane<>(editorCodeArea);
+            var vpane = new EditorScrollPane(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
@@ -448,10 +447,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             targetTab = isFilePathAlreadyInTabs(textFile);
         }
         if (targetTab != null) {
-            if (!(targetTab.getContent() instanceof MyVirtualScrollPane<?> pane)
-                    || !(pane.getContent() instanceof EditorArea area)) {
+            if (!(targetTab.getContent() instanceof EditorScrollPane pane)) {
                 return;
             }
+            var area = pane.getEditorArea();
             if (expectedContentVersion < 0L) {
                 if (toFront) {
                     UIContext.context().tabPane.getSelectionModel().select(targetTab);
@@ -518,7 +517,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             editorCodeArea.getEditor().getState().setFileEncoding(detectedEncoding);
             editorCodeArea.getBottomSearchBtnsMgr().init();
             Log.d("change encoding " + detectedEncoding);
-            var vpane = new MyVirtualScrollPane<>(editorCodeArea);
+            var vpane = new EditorScrollPane(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
             UIContext.context().tabPane.getTabs().add(newTab);
@@ -543,12 +542,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     //private ObservableBase<?,?> CaretNode_ALWAYS_TRUE;
 
     private void onTabCloseAction(Tab tab) {
-        if (tab.getContent() instanceof MyVirtualScrollPane vpane) {
-            if (vpane.getContent() instanceof EditorArea editorCodeAreaEx) {
-                editorCodeAreaEx.destroy();
-                vpane.removeContent();
-                tab.setContent(null);
-            }
+        if (tab.getContent() instanceof EditorScrollPane vpane) {
+            vpane.getEditorArea().destroy();
+            vpane.removeContent();
+            tab.setContent(null);
         }
 
         Log.d("on tab closed!! " + tab);

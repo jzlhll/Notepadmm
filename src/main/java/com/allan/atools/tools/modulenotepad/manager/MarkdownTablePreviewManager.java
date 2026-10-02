@@ -6,24 +6,22 @@ import com.allan.atools.UIContext;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState;
 import com.allan.atools.richtext.codearea.MarkdownTableParser;
+import com.allan.atools.richtext.codearea.MarkdownParagraphWrapSupport;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.uilibs.richtexts.CodeArea;
-import javafx.animation.PauseTransition;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.binding.Bindings;
 import javafx.event.EventHandler;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
-import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Menu;
@@ -32,7 +30,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.Tooltip;
 import javafx.scene.control.skin.TextAreaSkin;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.KeyCode;
@@ -49,8 +46,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextFlow;
-import javafx.stage.Popup;
-import javafx.util.Duration;
 import org.reactfx.Subscription;
 
 import java.util.ArrayList;
@@ -69,10 +64,9 @@ import java.util.concurrent.Future;
 public final class MarkdownTablePreviewManager {
     private static final String PREVIEW_CLASS = "markdown-table-preview-para";
     private static final String HEIGHT_PREFIX = CodeArea.PARAGRAPH_PREVIEW_HEIGHT_PREFIX;
-    private static final long TOOLBAR_VISIBILITY_WINDOW_NANOS = 3_000_000_000L;
+    private static final String SOURCE_HEADER_CLASS = "markdown-table-source-header";
     private final LatestRefreshScheduler refreshScheduler =
             new LatestRefreshScheduler(180, 420, this::startRefresh);
-    private final PauseTransition toolbarVisibilityDelay = new PauseTransition();
     private final InvalidationListener layoutChanged = observable -> requestLayoutRefresh();
     private final InvalidationListener selectionChanged = observable -> {
         hideCellMenu();
@@ -82,8 +76,6 @@ public final class MarkdownTablePreviewManager {
         this.cellEditor.setEditable(this.currentArea != null && this.currentArea.isEditable() && !this.structurePending);
         updateToolbar();
     };
-    private final EventHandler<MouseEvent> areaMouseMoved = this::onAreaMouseMoved;
-    private final EventHandler<MouseEvent> areaMouseExited = this::onAreaMouseExited;
     private final EventHandler<MouseEvent> areaMouseDragged = this::onAreaMouseDragged;
     private final TextArea cellEditor = new TextArea() {
         @Override
@@ -92,7 +84,7 @@ public final class MarkdownTablePreviewManager {
         }
     };
     private final Map<Integer, MarkdownTableDocumentState.Table> tableByLine = new HashMap<>();
-    private final Set<Integer> previewLines = new HashSet<>();
+    private final Set<Integer> presentationLines = new HashSet<>();
     private final Map<Integer, Integer> rowIndexByLine = new HashMap<>();
     private Map<String, List<MarkdownTableLayout.Run>> inlineContents = Map.of();
     private final TextFlow measureFlow = new TextFlow();
@@ -140,14 +132,7 @@ public final class MarkdownTablePreviewManager {
     private Future<?> parseTask;
     private List<MarkdownTableDocumentState.Table> tables = List.of();
     private ContextMenu cellMenu;
-    private Popup toolbarPopup;
-    private HBox toolbar;
-    private Button optimizeButton;
-    private Button modeButton;
-    private Button exitButton;
-    private MarkdownTableDocumentState.Table toolbarTable;
-    private MarkdownTableDocumentState.Table pendingToolbarTable;
-    private MarkdownTableDocumentState.Table hoverTable;
+    private final Set<MarkdownTableToolbar> toolbars = Collections.newSetFromMap(new WeakHashMap<>());
     private MarkdownTableDocumentState.Table activeTable;
     private int activeRow = -1;
     private int activeColumn = -1;
@@ -162,16 +147,12 @@ public final class MarkdownTablePreviewManager {
     private MarkdownTableDocumentState.Row writingRow;
     private boolean writingStructure;
     private boolean layoutPending;
-    private boolean toolbarVisibilityPending;
-    private boolean toolbarVisibilityChanged;
-    private long lastToolbarVisibilityChangeNanos;
     private double graphicWidth;
     private double textPadding;
     private double layoutWidth = -1;
     private Font font;
 
     public MarkdownTablePreviewManager(EditorArea area) {
-        toolbarVisibilityDelay.setOnFinished(event -> applyPendingToolbarVisibility());
         configureCellEditor();
         refreshCurrentFile(area);
     }
@@ -184,12 +165,7 @@ public final class MarkdownTablePreviewManager {
         }
         textChanges = area.plainTextChanges().subscribe(change ->
                 onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted()));
-        viewportChanges = area.viewportDirtyEvents().subscribe(event -> {
-            requestLayoutRefresh();
-            // viewportDirty 仅由 scale 与滚动偏移变化触发：编辑器滚动时立即隐藏悬浮表头。
-            // 不调用 updateToolbar，避免过滤窗口已过期时被同帧重新显示；hideToolbar 不重置过滤时间
-            hideToolbar();
-        });
+        viewportChanges = area.viewportDirtyEvents().subscribe(event -> requestLayoutRefresh());
         area.caretPositionProperty().addListener(selectionChanged);
         area.selectionProperty().addListener(selectionChanged);
         area.editableProperty().addListener(editableChanged);
@@ -200,8 +176,6 @@ public final class MarkdownTablePreviewManager {
         area.paragraphGraphicFactoryProperty().addListener(layoutChanged);
         UIContext.getFontSizeProperty().addListener(layoutChanged);
         UIContext.getFontThemeProperty().addListener(layoutChanged);
-        area.addEventHandler(MouseEvent.MOUSE_MOVED, areaMouseMoved);
-        area.addEventHandler(MouseEvent.MOUSE_EXITED_TARGET, areaMouseExited);
         area.addEventFilter(MouseEvent.MOUSE_DRAGGED, areaMouseDragged);
         area.addParagraphGraphicDecorator(this, this::createGraphic);
         refreshScheduler.startNow();
@@ -211,7 +185,6 @@ public final class MarkdownTablePreviewManager {
         destroyed = true;
         unbindEditor();
         refreshScheduler.dispose();
-        disposeToolbar();
     }
 
     private void configureCellEditor() {
@@ -312,16 +285,13 @@ public final class MarkdownTablePreviewManager {
             area.paragraphGraphicFactoryProperty().removeListener(layoutChanged);
             UIContext.getFontSizeProperty().removeListener(layoutChanged);
             UIContext.getFontThemeProperty().removeListener(layoutChanged);
-            area.removeEventHandler(MouseEvent.MOUSE_MOVED, areaMouseMoved);
-            area.removeEventHandler(MouseEvent.MOUSE_EXITED_TARGET, areaMouseExited);
             area.removeEventFilter(MouseEvent.MOUSE_DRAGGED, areaMouseDragged);
             clearPresentation();
             area.removeParagraphGraphicDecorator(this);
         }
         currentArea = null;
         endCellEditing(false);
-        hideToolbar();
-        toolbarVisibilityChanged = false;
+        toolbars.clear();
         currentArea = null;
         layoutTimer.stop();
         layoutJobs.clear();
@@ -351,7 +321,7 @@ public final class MarkdownTablePreviewManager {
             rebuildLineIndex();
             updatePresentation();
             endCellEditing(false);
-            hideToolbar();
+            toolbars.clear();
             return;
         }
         if (area.getMarkdownTableDocumentState().getTables().isEmpty() && !tables.isEmpty()) {
@@ -474,9 +444,6 @@ public final class MarkdownTablePreviewManager {
             }
         }
         layouts.keySet().removeIf(id -> !ids.contains(id));
-        hoverTable = latestTable(hoverTable);
-        toolbarTable = latestTable(toolbarTable);
-        pendingToolbarTable = latestTable(pendingToolbarTable);
     }
 
     private void requestLayoutRefresh() {
@@ -685,11 +652,13 @@ public final class MarkdownTablePreviewManager {
                         for (int line = table.firstLine(); line <= table.lastLine(); line++) {
                             wantedLines.add(line);
                         }
+                    } else if (table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE) {
+                        for (int line = table.firstLine(); line <= table.lastLine(); line++) wantedLines.add(line);
                     }
                 }
-                for (int line : List.copyOf(previewLines)) {
+                for (int line : List.copyOf(presentationLines)) {
                     if (!wantedLines.contains(line)) {
-                        setPreviewStyle(line, null);
+                        setPreviewStyle(line, null, false);
                     }
                 }
                 for (var table : tables) {
@@ -700,7 +669,7 @@ public final class MarkdownTablePreviewManager {
                         if (preview) {
                             height = paragraphHeight(table, line);
                         }
-                        setPreviewStyle(line, height);
+                        setPreviewStyle(line, height, table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE);
                     }
                 }
             });
@@ -719,7 +688,8 @@ public final class MarkdownTablePreviewManager {
             currentArea.suspendVisibleParsWhileInvoke(() -> {
                 boolean preview = table.valid() && table.mode() == MarkdownTableDocumentState.Mode.TABLE;
                 for (int line = table.firstLine(); line <= table.lastLine(); line++) {
-                    setPreviewStyle(line, preview ? paragraphHeight(table, line) : null);
+                    setPreviewStyle(line, preview ? paragraphHeight(table, line) : null,
+                            table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE);
                 }
             });
         } finally {
@@ -728,35 +698,41 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void clearPresentation() {
-        for (int line : List.copyOf(previewLines)) {
-            setPreviewStyle(line, null);
+        for (int line : List.copyOf(presentationLines)) {
+            setPreviewStyle(line, null, false);
         }
-        previewLines.clear();
+        presentationLines.clear();
     }
 
-    private boolean setPreviewStyle(int line, Double height) {
+    private boolean setPreviewStyle(int line, Double height, boolean sourceLine) {
         var area = currentArea;
         if (area == null) {
             return false;
         }
         if (line < 0 || line >= area.getParagraphs().size()) {
-            previewLines.remove(line);
+            presentationLines.remove(line);
             return false;
         }
+        var table = tableByLine.get(line);
+        boolean sourceHeader = sourceLine && table != null && line == table.firstLine();
         boolean preview = height != null;
-        boolean wasPreview = previewLines.contains(line);
+        boolean wasPresented = presentationLines.contains(line);
         var existing = area.getParagraph(line).getParagraphStyle();
         var styles = new ArrayList<>(existing);
-        styles.removeIf(style -> style.equals(PREVIEW_CLASS) || style.startsWith(HEIGHT_PREFIX));
+        styles.removeIf(style -> style.equals(PREVIEW_CLASS) || style.equals(SOURCE_HEADER_CLASS)
+                || style.equals(MarkdownParagraphWrapSupport.TABLE_SOURCE_CLASS) || style.startsWith(HEIGHT_PREFIX));
         if (preview) {
             styles.add(PREVIEW_CLASS);
             styles.add(HEIGHT_PREFIX + height);
-            previewLines.add(line);
-        } else {
-            previewLines.remove(line);
         }
-        boolean modeChanged = existing.contains(PREVIEW_CLASS) != preview;
-        boolean presentationChanged = wasPreview != preview;
+        if (sourceHeader) styles.add(SOURCE_HEADER_CLASS);
+        if (sourceLine) styles.add(MarkdownParagraphWrapSupport.TABLE_SOURCE_CLASS);
+        boolean presented = preview || sourceLine;
+        if (presented) presentationLines.add(line);
+        else presentationLines.remove(line);
+        boolean modeChanged = existing.contains(PREVIEW_CLASS) != preview
+                || existing.contains(SOURCE_HEADER_CLASS) != sourceHeader;
+        boolean presentationChanged = wasPresented != presented;
         boolean stylesChanged = !styles.equals(existing);
         if (stylesChanged) {
             area.setParagraphStyle(line, styles);
@@ -770,6 +746,10 @@ public final class MarkdownTablePreviewManager {
     private Node createGraphic(int line, Node base) {
         var table = tableByLine.get(line);
         var layout = table == null ? null : layouts.get(table.id());
+        if (table != null && table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE
+                && line == table.firstLine()) {
+            return new MarkdownTableSourceHeader(currentArea, base, createToolbar(table), () -> layoutWidth);
+        }
         if (table == null || !table.valid() || table.mode() != MarkdownTableDocumentState.Mode.TABLE
                 || layout == null || layout.widths == null || layout.table != table) {
             return base;
@@ -788,6 +768,7 @@ public final class MarkdownTablePreviewManager {
         private final Rectangle clip = new Rectangle();
         private ScrollBar scrollBar;
         private boolean syncingScrollBar;
+        private final MarkdownTableToolbar header;
 
         RowGraphic(TableLayout layout, int row, Node base) {
             this.layout = layout;
@@ -801,6 +782,12 @@ public final class MarkdownTablePreviewManager {
                             - currentArea.estimatedScrollXProperty().getValue(),
                     widthProperty(), currentArea.paddingProperty(), currentArea.estimatedScrollXProperty()));
             getChildren().add(viewport);
+            header = row == 0 ? createToolbar(layout.table) : null;
+            if (header != null) {
+                header.setManaged(false);
+                header.layoutXProperty().bind(viewport.layoutXProperty());
+                getChildren().add(header);
+            }
             layout.contents.add(content);
             layout.graphics.add(this);
             if (row >= 0) {
@@ -814,11 +801,6 @@ public final class MarkdownTablePreviewManager {
                     content.getChildren().add(new CellGraphic(this, column));
                 }
             }
-            setOnMouseEntered(event -> {
-                hoverTable = layout.table;
-                updateToolbar();
-            });
-            setOnMouseExited(event -> clearHoverLater(layout.table));
             addEventFilter(ScrollEvent.SCROLL, event -> scrollTable(layout.table, event));
             if (base != null) {
                 base.setOpacity(0);
@@ -836,6 +818,7 @@ public final class MarkdownTablePreviewManager {
                 return;
             }
             content.setTranslateX(-layout.table.horizontalOffset());
+            if (header != null) refreshToolbar(header, layout.table);
             for (var node : content.getChildren()) {
                 ((CellGraphic) node).refresh();
             }
@@ -904,11 +887,14 @@ public final class MarkdownTablePreviewManager {
             }
             clip.setWidth(Math.min(layout.viewportWidth, layout.totalWidth));
             clip.setHeight(height);
+            double top = header == null ? 0 : MarkdownTableToolbar.HEIGHT;
+            viewport.setLayoutY(top);
             viewport.resize(clip.getWidth(), height);
             content.resize(layout.totalWidth, height);
+            if (header != null) header.resize(layout.viewportWidth, top);
             if (scrollBar != null) {
                 scrollBar.resize(layout.viewportWidth, MarkdownTableLayout.SCROLL_HEIGHT);
-                scrollBar.setLayoutY(height);
+                scrollBar.setLayoutY(top + height);
             }
         }
     }
@@ -1220,7 +1206,7 @@ public final class MarkdownTablePreviewManager {
         int line = table.rows().get(row).line();
         layout.rowHeights.put(row, Math.ceil(height));
         if (present && currentArea != null && table.mode() == MarkdownTableDocumentState.Mode.TABLE) {
-            setPreviewStyle(line, paragraphHeight(table, line));
+            setPreviewStyle(line, paragraphHeight(table, line), false);
             refreshRowGraphics(table, row);
         }
     }
@@ -1239,6 +1225,7 @@ public final class MarkdownTablePreviewManager {
     private double paragraphHeight(MarkdownTableDocumentState.Table table, int line) {
         var layout = tableLayout(table);
         double height = layout.rowHeights.getOrDefault(rowIndexByLine.getOrDefault(line, -1), 2.0);
+        if (line == table.firstLine()) height += MarkdownTableToolbar.HEIGHT;
         if (line == table.lastLine() && layout.totalWidth > layout.viewportWidth) {
             height += MarkdownTableLayout.SCROLL_HEIGHT;
         }
@@ -1588,215 +1575,25 @@ public final class MarkdownTablePreviewManager {
         refreshScheduler.startNow();
     }
 
-    private void ensureToolbar() {
-        if (toolbarPopup != null) {
-            return;
-        }
-        optimizeButton = toolbarButton("markdownTableOptimize", event -> optimize(toolbarTable));
-        modeButton = toolbarButton("markdownTableShowSource", event -> toggleMode(toolbarTable));
-        exitButton = toolbarButton("markdownTableExitAfter", event -> exitTable(toolbarTable, 1));
-        toolbar = new HBox(4, optimizeButton, modeButton, exitButton);
-        toolbar.getStyleClass().add("markdown-table-toolbar");
-        toolbar.setPadding(new Insets(4));
-        toolbar.setOnMouseEntered(event -> updateToolbar());
-        toolbar.setOnMouseExited(event -> {
-            hoverTable = null;
-            updateToolbar();
-        });
-        toolbarPopup = new Popup();
-        toolbarPopup.setAutoFix(true);
-        toolbarPopup.setAutoHide(false);
-        toolbarPopup.getContent().add(toolbar);
-        if (currentArea != null && currentArea.getScene() != null) {
-            toolbar.getStylesheets().setAll(currentArea.getScene().getStylesheets());
-        }
+    private MarkdownTableToolbar createToolbar(MarkdownTableDocumentState.Table table) {
+        var bar = new MarkdownTableToolbar(table.id(), () -> optimize(table),
+                () -> toggleMode(table), () -> exitTable(table, 1));
+        toolbars.add(bar);
+        refreshToolbar(bar, table);
+        return bar;
     }
 
-    private Button toolbarButton(String key, javafx.event.EventHandler<javafx.event.ActionEvent> action) {
-        var button = new Button(Locales.str(key));
-        button.setOnAction(action);
-        button.getStyleClass().add("markdown-table-toolbar-button");
-        return button;
+    private void refreshToolbar(MarkdownTableToolbar bar, MarkdownTableDocumentState.Table table) {
+        bar.refresh(currentArea != null && currentArea.isEditable(), table != null && table.valid(),
+                structurePending, table != null && table.mode() == MarkdownTableDocumentState.Mode.SOURCE);
     }
 
     private void updateToolbar() {
-        var area = currentArea;
-        if (!hasShowingWindow(area)) {
-            hideToolbar();
-            return;
+        for (var bar : List.copyOf(toolbars)) {
+            if (bar.getScene() == null) continue;
+            var table = tables.stream().filter(value -> value.id().equals(bar.getTableId())).findFirst().orElse(null);
+            refreshToolbar(bar, table);
         }
-        var table = hoverTable;
-        if (table == null && cellEditor.isFocused()) {
-            table = activeTable;
-        }
-        if (table == null && area.isFocused()) {
-            table = tableAtOffset(area.getCaretPosition());
-        }
-        if (table == null || !isTableVisible(table)) {
-            if (toolbar != null && toolbar.isHover()) {
-                cancelPendingToolbarVisibility();
-            } else {
-                requestToolbarVisibility(null);
-            }
-            return;
-        }
-        requestToolbarVisibility(table);
-    }
-
-    private void requestToolbarVisibility(MarkdownTableDocumentState.Table table) {
-        boolean shouldShow = table != null;
-        boolean showing = toolbarPopup != null && toolbarPopup.isShowing();
-        if (shouldShow == showing) {
-            cancelPendingToolbarVisibility();
-            if (shouldShow) {
-                showToolbar(table);
-            }
-            return;
-        }
-
-        long now = System.nanoTime();
-        long remaining = TOOLBAR_VISIBILITY_WINDOW_NANOS - (now - lastToolbarVisibilityChangeNanos);
-        if (!toolbarVisibilityChanged || remaining <= 0) {
-            cancelPendingToolbarVisibility();
-            applyToolbarVisibility(table);
-            return;
-        }
-        pendingToolbarTable = table;
-        toolbarVisibilityPending = true;
-        toolbarVisibilityDelay.setDuration(Duration.millis(remaining / 1_000_000.0));
-        toolbarVisibilityDelay.playFromStart();
-    }
-
-    private void applyPendingToolbarVisibility() {
-        if (!toolbarVisibilityPending) {
-            return;
-        }
-        var table = pendingToolbarTable;
-        toolbarVisibilityPending = false;
-        pendingToolbarTable = null;
-        applyToolbarVisibility(table);
-    }
-
-    private void applyToolbarVisibility(MarkdownTableDocumentState.Table table) {
-        toolbarVisibilityChanged = true;
-        lastToolbarVisibilityChangeNanos = System.nanoTime();
-        if (table == null) {
-            hideToolbar();
-        } else if (hasShowingWindow(currentArea) && isTableVisible(table)) {
-            showToolbar(table);
-        } else {
-            hideToolbar();
-        }
-    }
-
-    private void showToolbar(MarkdownTableDocumentState.Table table) {
-        var area = currentArea;
-        ensureToolbar();
-        if (!toolbar.getStylesheets().equals(area.getScene().getStylesheets())) {
-            toolbar.getStylesheets().setAll(area.getScene().getStylesheets());
-        }
-        toolbarTable = table;
-        boolean editable = area.isEditable() && table.valid() && !structurePending;
-        optimizeButton.setDisable(!editable);
-        exitButton.setDisable(!table.valid() || structurePending);
-        modeButton.setDisable(structurePending || table.mode() == MarkdownTableDocumentState.Mode.SOURCE && !table.valid());
-        modeButton.setText(Locales.str(table.mode() == MarkdownTableDocumentState.Mode.TABLE
-                ? "markdownTableShowSource" : "markdownTableShowTable"));
-        String reason = !area.isEditable() ? Locales.str("markdownTableReadonly")
-                : !table.valid() ? Locales.str("markdownTableInvalid")
-                : null;
-        optimizeButton.setTooltip(reason == null ? null : new Tooltip(reason));
-        modeButton.setTooltip(table.valid() ? null : new Tooltip(Locales.str("markdownTableInvalid")));
-        positionToolbar(table);
-    }
-
-    private void positionToolbar(MarkdownTableDocumentState.Table table) {
-        var area = currentArea;
-        Bounds areaBounds = area.localToScreen(area.getBoundsInLocal());
-        Point2D textOrigin = area.localToScreen(
-                area.getInsets().getLeft() + graphicWidth + textLeftPadding(area), 0);
-        if (areaBounds == null || textOrigin == null) {
-            hideToolbar();
-            return;
-        }
-        Bounds headerBounds = visibleHeaderBounds(table);
-        if (headerBounds == null && table.firstLine() >= area.firstVisibleParToAllParIndex()) {
-            // 表头尚未布局时不回退到编辑区顶部；仅在表头滚出视口上方时吸顶。
-            hideToolbar();
-            return;
-        }
-        double x = headerBounds == null || table.mode() == MarkdownTableDocumentState.Mode.SOURCE
-                ? textOrigin.getX() : headerBounds.getMinX();
-        double y = areaBounds.getMinY();
-        if (headerBounds != null) {
-            y = Math.max(areaBounds.getMinY(), headerBounds.getMinY()
-                    - 42 - optimizeButton.prefHeight(-1) / 2);
-        }
-        x = Math.min(x, Math.max(areaBounds.getMinX(),
-                areaBounds.getMaxX() - toolbar.prefWidth(-1)));
-        if (toolbarPopup.isShowing()) {
-            toolbarPopup.setX(x);
-            toolbarPopup.setY(y);
-        } else {
-            toolbarPopup.show(area, x, y);
-        }
-    }
-
-    private Bounds visibleHeaderBounds(MarkdownTableDocumentState.Table table) {
-        var area = currentArea;
-        if (area == null) {
-            return null;
-        }
-        if (table.mode() == MarkdownTableDocumentState.Mode.SOURCE) {
-            // 源码模式没有 RowGraphic，直接使用首行段落的屏幕边界。
-            return area.getParagraphBoundsOnScreen(table.firstLine()).orElse(null);
-        }
-        var layout = layouts.get(table.id());
-        if (layout == null || layout.table != table) {
-            return null;
-        }
-        for (var graphic : List.copyOf(layout.graphics)) {
-            if (graphic.row != 0 || !graphic.isVisible() || graphic.getScene() != area.getScene()) {
-                continue;
-            }
-            Bounds bounds = graphic.viewport.localToScreen(graphic.viewport.getBoundsInLocal());
-            if (bounds != null) {
-                return bounds;
-            }
-        }
-        return null;
-    }
-
-    private boolean isTableVisible(MarkdownTableDocumentState.Table table) {
-        var area = currentArea;
-        if (!hasVisibleParagraph(area) || !tables.contains(table)) {
-            return false;
-        }
-
-        var areaBounds = area.localToScreen(area.getBoundsInLocal());
-        var layout = layouts.get(table.id());
-        if (areaBounds != null && layout != null && layout.table == table) {
-            for (var content : List.copyOf(layout.contents)) {
-                if (!content.isVisible() || content.getScene() != area.getScene()) {
-                    continue;
-                }
-                var contentBounds = content.localToScreen(content.getBoundsInLocal());
-                if (contentBounds != null
-                        && contentBounds.getMaxX() >= areaBounds.getMinX()
-                        && contentBounds.getMinX() <= areaBounds.getMaxX()
-                        && contentBounds.getMaxY() >= areaBounds.getMinY()
-                        && contentBounds.getMinY() <= areaBounds.getMaxY()) {
-                    return true;
-                }
-            }
-        }
-
-        int first = area.firstVisibleParToAllParIndex();
-        int last = area.lastVisibleParToAllParIndex();
-        if (first >= 0 && last >= first && table.firstLine() <= last && table.lastLine() >= first) {
-            return true;
-        }
-        return false;
     }
 
     private static boolean hasShowingWindow(Node node) {
@@ -1808,56 +1605,9 @@ public final class MarkdownTablePreviewManager {
         return hasShowingWindow(area) && !area.getVisibleParagraphs().isEmpty();
     }
 
-    private void hideToolbar() {
-        cancelPendingToolbarVisibility();
-        if (toolbarPopup != null) {
-            toolbarPopup.hide();
-        }
-        toolbarTable = null;
-    }
-
-    private void cancelPendingToolbarVisibility() {
-        toolbarVisibilityDelay.stop();
-        toolbarVisibilityPending = false;
-        pendingToolbarTable = null;
-    }
-
-    private void disposeToolbar() {
-        hideToolbar();
-        if (toolbarPopup != null) {
-            toolbarPopup.getContent().clear();
-        }
-        toolbarPopup = null;
-        toolbar = null;
-    }
-
-    private void onAreaMouseMoved(MouseEvent event) {
-        var area = currentArea;
-        if (!hasVisibleParagraph(area)) {
-            hoverTable = null;
-            updateToolbar();
-            return;
-        }
-        var hit = area.hit(event.getX(), event.getY()).getCharacterIndex();
-        hoverTable = hit.isPresent() ? tableAtOffset(hit.getAsInt()) : null;
-        updateToolbar();
-    }
-
-    private void onAreaMouseExited(MouseEvent event) {
-        clearHoverLater(hoverTable);
-    }
-
-    private void clearHoverLater(MarkdownTableDocumentState.Table expected) {
-        Platform.runLater(() -> {
-            if (hoverTable == expected && (toolbar == null || !toolbar.isHover())) {
-                hoverTable = null;
-                updateToolbar();
-            }
-        });
-    }
-
     private void onAreaMouseDragged(MouseEvent event) {
-        if (isDescendant(event.getTarget(), cellEditor) || isDescendantOfType(event.getTarget(), ScrollBar.class)) {
+        if (isDescendant(event.getTarget(), cellEditor) || isDescendantOfType(event.getTarget(), ScrollBar.class)
+                || isDescendantOfType(event.getTarget(), MarkdownTableToolbar.class)) {
             return;
         }
         var area = currentArea;

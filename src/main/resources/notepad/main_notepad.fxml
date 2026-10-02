@@ -253,6 +253,20 @@
             </HBox.margin>
         </Label>
         <Pane HBox.hgrow="ALWAYS"/>
+        <HBox fx:id="markdownZoomBox" alignment="CENTER" spacing="2" visible="false" managed="false">
+            <Button fx:id="markdownZoomOutBtn" styleClass="markdown-zoom-button" focusTraversable="false"
+                    contentDisplay="GRAPHIC_ONLY">
+                <graphic>
+                    <Label fx:id="markdownZoomOutIcon" mouseTransparent="true"/>
+                </graphic>
+            </Button>
+            <Button fx:id="markdownZoomInBtn" styleClass="markdown-zoom-button" focusTraversable="false"
+                    contentDisplay="GRAPHIC_ONLY">
+                <graphic>
+                    <Label fx:id="markdownZoomInIcon" mouseTransparent="true"/>
+                </graphic>
+            </Button>
+        </HBox>
         <Label fx:id="indicateLabel" HBox.hgrow="NEVER" styleClass="small-desc-label">
             <HBox.margin>
                 <Insets right="2"/>
