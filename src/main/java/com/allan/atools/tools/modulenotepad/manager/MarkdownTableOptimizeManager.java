@@ -71,7 +71,7 @@ public final class MarkdownTableOptimizeManager {
     private static void appendRow(StringBuilder out, MarkdownTableDocumentState.Table table,
                                   MarkdownTableDocumentState.Row row, double[] widths,
                                   double spaceWidth, Text measure) {
-        out.append(table.indent());
+        out.append(row.prefix());
         double widthError = 0;
         for (int column = 0; column < widths.length; column++) {
             String value = row.cells().get(column).source().strip();
@@ -98,6 +98,7 @@ public final class MarkdownTableOptimizeManager {
             out.append("| ").append(padded).append(' ');
             widthError += width(measure, padded) - widths[column];
         }
+        for (String extra : row.extraCells()) out.append("| ").append(extra).append(' ');
         out.append('|');
     }
 

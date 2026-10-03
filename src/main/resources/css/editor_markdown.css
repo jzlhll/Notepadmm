@@ -237,6 +237,25 @@
     -fx-background-color: transparent;
 }
 
+/* 隐藏格内滚动条并取消占位，保留 TextArea 的滚动及光标跟随能力。 */
+.markdown-table-cell-editor .scroll-bar,
+.markdown-table-cell-editor .corner {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.markdown-table-cell-editor .scroll-bar:vertical {
+    -fx-min-width: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+}
+
+.markdown-table-cell-editor .scroll-bar:horizontal {
+    -fx-min-height: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+}
+
 .markdown-table-scroll-bar:horizontal > .increment-button,
 .markdown-table-scroll-bar:horizontal > .decrement-button {
     -fx-padding: 1px;

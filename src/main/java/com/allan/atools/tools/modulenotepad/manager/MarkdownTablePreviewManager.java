@@ -5,7 +5,7 @@ import static com.allan.atools.richtext.codearea.MarkdownEditorSupport.textLeftP
 import com.allan.atools.UIContext;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState;
-import com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache;
+import com.allan.atools.richtext.codearea.MarkdownTableParser;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
@@ -26,6 +26,10 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.Menu;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
@@ -74,11 +78,19 @@ public final class MarkdownTablePreviewManager {
         hideCellMenu();
         updateSelection();
     };
-    private final InvalidationListener editableChanged = observable -> updateToolbar();
+    private final InvalidationListener editableChanged = observable -> {
+        this.cellEditor.setEditable(this.currentArea != null && this.currentArea.isEditable() && !this.structurePending);
+        updateToolbar();
+    };
     private final EventHandler<MouseEvent> areaMouseMoved = this::onAreaMouseMoved;
     private final EventHandler<MouseEvent> areaMouseExited = this::onAreaMouseExited;
     private final EventHandler<MouseEvent> areaMouseDragged = this::onAreaMouseDragged;
-    private final TextArea cellEditor = new TextArea();
+    private final TextArea cellEditor = new TextArea() {
+        @Override
+        public void paste() {
+            pasteClipboard(false);
+        }
+    };
     private final Map<Integer, MarkdownTableDocumentState.Table> tableByLine = new HashMap<>();
     private final Set<Integer> previewLines = new HashSet<>();
     private final Map<Integer, Integer> rowIndexByLine = new HashMap<>();
@@ -118,9 +130,9 @@ public final class MarkdownTablePreviewManager {
     private boolean composingText;
     private long inputMethodRevision;
     private Runnable afterComposition;
-    private long toolbarContentVersion = -1;
-    private String toolbarContentTableId;
-    private boolean toolbarOptimized;
+    private boolean structurePending;
+    private final ArrayDeque<Boolean> pendingUndo = new ArrayDeque<>();
+    private long cellActivationRevision;
 
     private EditorArea currentArea;
     private Subscription textChanges;
@@ -130,10 +142,9 @@ public final class MarkdownTablePreviewManager {
     private ContextMenu cellMenu;
     private Popup toolbarPopup;
     private HBox toolbar;
-    private Button addRowButton;
-    private Button addColumnButton;
     private Button optimizeButton;
     private Button modeButton;
+    private Button exitButton;
     private MarkdownTableDocumentState.Table toolbarTable;
     private MarkdownTableDocumentState.Table pendingToolbarTable;
     private MarkdownTableDocumentState.Table hoverTable;
@@ -148,6 +159,7 @@ public final class MarkdownTablePreviewManager {
     private boolean updatingPresentation;
     private boolean updatingCellEditor;
     private boolean writingCell;
+    private MarkdownTableDocumentState.Row writingRow;
     private boolean writingStructure;
     private boolean layoutPending;
     private boolean toolbarVisibilityPending;
@@ -253,7 +265,7 @@ public final class MarkdownTablePreviewManager {
         cellEditor.focusedProperty().addListener((observable, oldValue, focused) -> {
             if (!focused && !movingCellEditor) {
                 Platform.runLater(() -> {
-                    if (currentArea != null && currentArea.isFocused() && !cellEditor.isFocused()) {
+                    if (currentArea != null && currentArea.isFocused() && !cellEditor.isFocused() && !structurePending) {
                         endCellEditing(false);
                     }
                     updateToolbar();
@@ -266,6 +278,10 @@ public final class MarkdownTablePreviewManager {
         inputMethodRevision++;
         composingText = false;
         handlingInputMethod = false;
+        structurePending = false;
+        pendingUndo.clear();
+        writingRow = null;
+        cellActivationRevision++;
         afterComposition = null;
         layoutTimer.stop();
         layoutJobs.clear();
@@ -327,6 +343,8 @@ public final class MarkdownTablePreviewManager {
         }
         if (area.getEditor().isRealtimeProcessingLimitReached()) {
             layoutJobs.clear();
+            structurePending = false;
+            pendingUndo.clear();
             inlineContents = Map.of();
             area.getMarkdownTableDocumentState().reset();
             tables = List.of();
@@ -344,12 +362,16 @@ public final class MarkdownTablePreviewManager {
                 - removed.chars().filter(character -> character == '\n').count();
         var shiftedTables = lineDelta == 0 ? List.<MarkdownTableDocumentState.Table>of()
                 : tables.stream().filter(table -> position + removed.length() <= table.startOffset()).toList();
-        if ((writingCell || writingStructure) && activeTable != null) {
-            area.getMarkdownTableDocumentState().applyKnownTableChange(
-                    activeTable.id(), position, removed, inserted);
-            if (writingStructure) {
+        if ((writingCell || writingStructure || writingRow != null) && activeTable != null) {
+            if (writingRow != null) {
+                area.getMarkdownTableDocumentState().applyRowChange(activeTable.id(), activeRow, writingRow);
+            } else if (writingCell) {
+                area.getMarkdownTableDocumentState().applyCellChange(
+                        activeTable.id(), activeRow, activeColumn, position, removed, inserted);
+            } else {
+                area.getMarkdownTableDocumentState().applyKnownTableChange(
+                        activeTable.id(), position, removed, inserted);
                 rebuildLineIndex();
-                updatePresentation();
             }
         } else {
             area.getMarkdownTableDocumentState().applyTextChange(
@@ -367,7 +389,7 @@ public final class MarkdownTablePreviewManager {
                 recreateTableGraphics(table);
             }
         }
-        if (!writingCell && !writingStructure) {
+        if (!writingCell && !writingStructure && writingRow == null) {
             syncEditorFromDocument();
         }
         refreshScheduler.request();
@@ -382,51 +404,52 @@ public final class MarkdownTablePreviewManager {
         }
         long version = area.getEditor().getContentVersion();
         String text = area.getText();
-        var previousContents = inlineContents;
         parseTask = ThreadUtils.submit(() -> {
             List<MarkdownTableDocumentState.Table> parsed = null;
             var contents = new HashMap<String, List<MarkdownTableLayout.Run>>();
             try {
-                parsed = MarkdownTableDocumentState.parse(text);
-                if (parsed != null) {
-                    var parser = new MarkdownAstCache();
-                    for (var table : parsed) {
-                        for (var row : table.rows()) {
-                            for (var cell : row.cells()) {
-                                if (Thread.currentThread().isInterrupted()) {
-                                    return;
-                                }
-                                String source = cell.source();
-                                if (!contents.containsKey(source)) {
-                                    var runs = previousContents.get(source);
-                                    contents.put(source, runs == null
-                                            ? MarkdownTableLayout.parse(parser.parse(source)) : runs);
-                                }
-                            }
-                        }
-                    }
-                }
+                parsed = MarkdownTableParser.parse(text, (source, node) ->
+                        contents.put(source, MarkdownTableLayout.parse(node)));
             } catch (RuntimeException exception) {
                 Log.e("parse markdown tables failed", exception);
             }
             var result = parsed;
             Platform.runLater(() -> refreshScheduler.complete(requestId, () -> {
                 parseTask = null;
-                if (destroyed || area != currentArea || result == null
+                if (destroyed || area != currentArea
                         || version != area.getEditor().getContentVersion()
                         || area.getEditor().isRealtimeProcessingLimitReached()) {
                     return;
                 }
+                if (result == null) {
+                    structurePending = false;
+                    pendingUndo.clear();
+                    endCellEditingAtFallback();
+                    return;
+                }
+                if (pendingTableId == null) structurePending = false;
+                cellEditor.setEditable(area.isEditable() && !structurePending);
                 area.getMarkdownTableDocumentState().reconcile(result);
                 tables = area.getMarkdownTableDocumentState().getTables();
                 inlineContents = Map.copyOf(contents);
                 rebuildLineIndex();
+                if (pendingTableId != null && tables.stream().noneMatch(table -> table.id().equals(pendingTableId) && table.valid())) {
+                    structurePending = false;
+                    endCellEditingAtFallback();
+                }
                 if (pendingTableId == null) {
                     syncActiveCellAfterParse();
                 }
                 applyParsedLayout();
+                if (!structurePending) resumePendingUndo();
             }));
         });
+    }
+
+    private MarkdownTableDocumentState.Table latestTable(MarkdownTableDocumentState.Table previous) {
+        if (previous == null) return null;
+        for (var table : tables) if (table.id().equals(previous.id())) return table;
+        return null;
     }
 
     private void rebuildLineIndex() {
@@ -451,11 +474,13 @@ public final class MarkdownTablePreviewManager {
             }
         }
         layouts.keySet().removeIf(id -> !ids.contains(id));
+        hoverTable = latestTable(hoverTable);
+        toolbarTable = latestTable(toolbarTable);
+        pendingToolbarTable = latestTable(pendingToolbarTable);
     }
 
     private void requestLayoutRefresh() {
         if (currentArea != null && !destroyed) {
-            toolbarContentVersion = -1;
             layoutPending = true;
             layoutTimer.start();
         }
@@ -622,6 +647,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void updateSelection() {
+        if (structurePending || writingStructure) return;
         if (!cellEditor.isFocused()) {
             var selectedCell = selectedCell();
             if (selectedCell != null && currentArea.isFocused()) {
@@ -991,7 +1017,12 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void activateCell(MarkdownTableDocumentState.Table table, int row, int column, double clickX) {
-        if (deferWhileComposing(() -> activateCell(table, row, column, clickX))) {
+        if (structurePending || deferWhileComposing(() -> activateCell(table, row, column, clickX))) {
+            return;
+        }
+        var latest = latestTable(table);
+        if (latest != table) {
+            if (latest != null) activateCell(latest, row, column, clickX);
             return;
         }
         var layout = layouts.get(table.id());
@@ -1002,7 +1033,7 @@ public final class MarkdownTablePreviewManager {
         hideCellMenu();
         var previousTable = activeTable;
         int previousRow = activeRow;
-        boolean sameCell = previousTable != null && previousTable.id().equals(table.id())
+        boolean sameCell = previousTable == table
                 && activeRow == row && activeColumn == column;
         if (!sameCell) {
             currentArea.getUndoManager().preventMerge();
@@ -1014,7 +1045,7 @@ public final class MarkdownTablePreviewManager {
             updatingCellEditor = false;
             cellEditor.positionCaret(clickX == Double.MAX_VALUE ? cellEditor.getLength() : 0);
         }
-        cellEditor.setEditable(currentArea.isEditable());
+        cellEditor.setEditable(currentArea.isEditable() && !structurePending);
         if (previousTable != null && (previousTable != table || previousRow != row)) {
             updateRowHeight(previousTable, previousRow, true);
         }
@@ -1023,8 +1054,23 @@ public final class MarkdownTablePreviewManager {
         if (previousTable != null && !previousTable.id().equals(table.id())) {
             queueLayouts(false);
         }
+        currentArea.showParagraphInViewport(table.rows().get(row).line());
+        double left = 0;
+        for (int index = 0; index < column; index++) left += layout.widths[index];
+        double right = left + layout.widths[column];
+        double offset = table.horizontalOffset();
+        if (left < offset) offset = left;
+        else if (right > offset + layout.viewportWidth) offset = right - layout.viewportWidth;
+        offset = Math.max(0, Math.min(offset, Math.max(0, layout.totalWidth - layout.viewportWidth)));
+        table.setHorizontalOffset(offset);
+        layout.applyOffset(offset);
+        long activation = ++cellActivationRevision;
         Platform.runLater(() -> {
-            if (currentArea != null && activeTable == table && activeRow == row && activeColumn == column) {
+            if (currentArea != null && activation == cellActivationRevision && activeTable != null
+                    && activeTable.id().equals(table.id()) && activeRow == row && activeColumn == column) {
+                currentArea.applyCss();
+                currentArea.layout();
+                refreshRowGraphics(activeTable, row);
                 cellEditor.requestFocus();
             }
         });
@@ -1060,6 +1106,7 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         hideCellMenu();
+        cellActivationRevision++;
         var previousTable = activeTable;
         int previousRow = activeRow;
         activeTable = null;
@@ -1085,7 +1132,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void writeActiveCell(String value) {
-        if (updatingCellEditor || handlingInputMethod || composingText
+        if (updatingCellEditor || handlingInputMethod || composingText || structurePending
                 || activeTable == null || currentArea == null || !currentArea.isEditable()
                 || !activeTable.valid() || activeRow < 0 || activeRow >= activeTable.rows().size()) {
             return;
@@ -1095,7 +1142,21 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         var cell = row.cells().get(activeColumn);
-        String encoded = encodeCell(value);
+        String encoded = MarkdownTableCellText.encode(value, cell.source());
+        if (cell.synthetic()) {
+            var replacement = MarkdownTableParser.materializeRow(row, activeColumn, encoded);
+            writingRow = replacement.getRow();
+            try {
+                currentArea.replaceText(row.startOffset(), row.endOffset(), replacement.getSource());
+            } finally {
+                writingRow = null;
+            }
+            updateActiveRowHeight();
+            return;
+        }
+        // 紧邻分隔符时保留空白，末尾反斜线不能转义列分隔符。
+        if (encoded.endsWith("\\") && cell.endOffset() < currentArea.getLength()
+                && currentArea.getText(cell.endOffset(), cell.endOffset() + 1).equals("|")) encoded += " ";
         if (cell.startOffset() > currentArea.getLength() || cell.endOffset() > currentArea.getLength()) {
             endCellEditing(true);
             return;
@@ -1185,7 +1246,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void syncEditorFromDocument() {
-        if (composingText || handlingInputMethod || activeTable == null
+        if (composingText || handlingInputMethod || structurePending || activeTable == null || !activeTable.valid()
                 || activeRow < 0 || activeRow >= activeTable.rows().size()) {
             return;
         }
@@ -1212,14 +1273,36 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void onCellKeyPressed(KeyEvent event) {
-        if (event.getCode() == KeyCode.TAB) {
-            event.consume();
-            moveCell(event.isShiftDown() ? -1 : 1);
-            return;
-        }
+        if (composingText || handlingInputMethod) return;
         if (event.isShortcutDown() && (event.getCode() == KeyCode.Z || event.getCode() == KeyCode.Y)) {
             event.consume();
             performUndoRedo(event.isShiftDown() || event.getCode() == KeyCode.Y);
+            return;
+        }
+        if (structurePending) {
+            event.consume();
+            return;
+        }
+        if (event.getCode() == KeyCode.ESCAPE) {
+            event.consume();
+            exitTable(activeTable, 1);
+            return;
+        }
+        if (event.isShortcutDown() && event.getCode() == KeyCode.V && event.isShiftDown()) {
+            event.consume();
+            pastePlainText();
+            return;
+        }
+        if (event.isShortcutDown() && event.getCode() == KeyCode.ENTER) {
+            event.consume();
+            int row = activeRow;
+            int column = activeColumn;
+            applyTableEdit(activeTable, table -> MarkdownTableEdits.insertRow(table, row + 1, column));
+            return;
+        }
+        if (event.getCode() == KeyCode.TAB) {
+            event.consume();
+            moveCell(event.isShiftDown() ? -1 : 1);
             return;
         }
         if (event.isShortcutDown() && !event.isShiftDown() && event.getCode() == KeyCode.B) {
@@ -1232,6 +1315,10 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void onCellKeyTyped(KeyEvent event) {
+        if (structurePending) {
+            event.consume();
+            return;
+        }
         if (currentArea == null || !currentArea.isEditable()
                 || !currentArea.getEditor().getState().isChinesePunctuation()
                 || event.getCharacter().length() != 1) {
@@ -1257,6 +1344,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void wrapCellSelection(String mark) {
+        if (currentArea == null || !currentArea.isEditable() || structurePending || composingText || handlingInputMethod) return;
         int start = cellEditor.getSelection().getStart();
         int end = cellEditor.getSelection().getEnd();
         String selected = cellEditor.getSelectedText();
@@ -1273,13 +1361,44 @@ public final class MarkdownTablePreviewManager {
         int index = activeRow * columns + activeColumn + direction;
         currentArea.getUndoManager().preventMerge();
         if (index < 0 || index >= table.rows().size() * columns) {
-            int target = direction < 0 ? table.startOffset() : table.endOffset();
-            endCellEditing(false);
-            currentArea.moveTo(target);
-            currentArea.requestFocus();
+            leaveTable(table, direction);
             return;
         }
         activateCell(table, index / columns, index % columns, direction < 0 ? Double.MAX_VALUE : 12);
+    }
+
+    private void exitTable(MarkdownTableDocumentState.Table table, int direction) {
+        if (deferWhileComposing(() -> exitTable(table, direction)) || structurePending) return;
+        var target = latestTable(table);
+        if (target != null && target.valid() && currentArea != null) leaveTable(target, direction);
+    }
+
+    private void leaveTable(MarkdownTableDocumentState.Table table, int direction) {
+        var area = currentArea;
+        int target;
+        int adjacent = direction > 0 ? table.lastLine() + 1 : table.firstLine() - 1;
+        int paragraph = adjacent + direction;
+        boolean reusable = adjacent >= 0 && adjacent < area.getParagraphs().size()
+                && paragraph >= 0 && paragraph < area.getParagraphs().size()
+                && area.getParagraph(adjacent).length() == 0 && !tableByLine.containsKey(paragraph);
+        if (reusable) {
+            target = area.getAbsolutePosition(paragraph, direction > 0 ? 0 : area.getParagraph(paragraph).length());
+        } else if (area.isEditable()) {
+            int position = direction > 0 ? table.endOffset() : table.startOffset();
+            // 留下永久空白分隔行；在紧邻表格的空行打字仍会被 GFM 当作表体或表头段落。
+            target = direction > 0 ? position + table.lineEnding().length() * 2 : position;
+            endCellEditing(false);
+            area.getUndoManager().preventMerge();
+            area.insertText(position, table.lineEnding() + table.lineEnding());
+            area.getUndoManager().preventMerge();
+        } else {
+            target = direction > 0 ? Math.min(area.getLength(), table.endOffset() + table.lineEnding().length())
+                    : Math.max(0, table.startOffset() - 1);
+        }
+        endCellEditing(false);
+        area.moveTo(target);
+        area.requestFollowCaret();
+        area.requestFocus();
     }
 
     private void showCellMenu(MarkdownTableDocumentState.Table table, int row, int column,
@@ -1299,9 +1418,53 @@ public final class MarkdownTablePreviewManager {
         var copyRow = new MenuItem(Locales.str("markdownTableCopyRow"));
         var paste = new MenuItem(Locales.str("markdownTablePaste"));
         var selectAll = new MenuItem(Locales.str("markdownTableSelectAll"));
+        var pasteCells = new MenuItem(Locales.str("markdownTablePasteCells"));
+        var pasteText = new MenuItem(Locales.str("markdownTablePasteText"));
+        var insertAbove = new MenuItem(Locales.str("markdownTableInsertAbove"));
+        var insertBelow = new MenuItem(Locales.str("markdownTableInsertBelow"));
+        var insertLeft = new MenuItem(Locales.str("markdownTableInsertLeft"));
+        var insertRight = new MenuItem(Locales.str("markdownTableInsertRight"));
+        var duplicateRow = new MenuItem(Locales.str("markdownTableDuplicateRow"));
+        var moveUp = new MenuItem(Locales.str("markdownTableMoveUp"));
+        var moveDown = new MenuItem(Locales.str("markdownTableMoveDown"));
+        var moveLeft = new MenuItem(Locales.str("markdownTableMoveLeft"));
+        var moveRight = new MenuItem(Locales.str("markdownTableMoveRight"));
+        var copyAs = new Menu(Locales.str("markdownTableCopyData"));
+        copyAs.getItems().addAll(copyRow,
+                tableCopyItem("markdownTableCopyRowTsv", table, MarkdownTableCopyScope.ROW, row, column, true),
+                tableCopyItem("markdownTableCopyColumnMarkdown", table, MarkdownTableCopyScope.COLUMN, row, column, false),
+                tableCopyItem("markdownTableCopyColumnTsv", table, MarkdownTableCopyScope.COLUMN, row, column, true),
+                tableCopyItem("markdownTableCopyTableMarkdown", table, MarkdownTableCopyScope.TABLE, row, column, false),
+                tableCopyItem("markdownTableCopyTableTsv", table, MarkdownTableCopyScope.TABLE, row, column, true));
+        var exitBefore = new MenuItem(Locales.str("markdownTableExitBefore"));
+        var exitAfter = new MenuItem(Locales.str("markdownTableExitAfter"));
+        var alignment = new Menu(Locales.str("markdownTableAlignment"));
+        var alignmentGroup = new ToggleGroup();
+        for (var value : new MarkdownTableDocumentState.Alignment[]{MarkdownTableDocumentState.Alignment.LEFT,
+                MarkdownTableDocumentState.Alignment.CENTER, MarkdownTableDocumentState.Alignment.RIGHT}) {
+            String key = switch (value) {
+                case LEFT -> "markdownTableAlignLeft";
+                case CENTER -> "markdownTableAlignCenter";
+                default -> "markdownTableAlignRight";
+            };
+            var item = new RadioMenuItem(Locales.str(key));
+            item.setToggleGroup(alignmentGroup);
+            var currentAlignment = table.alignments().get(column);
+            item.setSelected(currentAlignment == value || value == MarkdownTableDocumentState.Alignment.LEFT
+                    && currentAlignment == MarkdownTableDocumentState.Alignment.DEFAULT);
+            item.setOnAction(event -> applyTableEdit(table,
+                    target -> MarkdownTableEdits.alignColumn(target, row, column, value)));
+            alignment.getItems().add(item);
+        }
         var deleteRow = new MenuItem(Locales.str("markdownTableDeleteRow"));
         var deleteColumn = new MenuItem(Locales.str("markdownTableDeleteColumn"));
-        var menu = new ContextMenu(undo, redo, cut, copy, copyRow, paste, selectAll, deleteRow, deleteColumn);
+        var rowActions = new Menu(Locales.str("markdownTableRowActions"));
+        rowActions.getItems().addAll(insertAbove, insertBelow, duplicateRow, moveUp, moveDown, new SeparatorMenuItem(), deleteRow);
+        var columnActions = new Menu(Locales.str("markdownTableColumnActions"));
+        columnActions.getItems().addAll(insertLeft, insertRight, moveLeft, moveRight, alignment, new SeparatorMenuItem(), deleteColumn);
+        var menu = new ContextMenu(undo, redo, new SeparatorMenuItem(), cut, copy, copyAs,
+                paste, pasteCells, pasteText, selectAll, new SeparatorMenuItem(), rowActions, columnActions,
+                new SeparatorMenuItem(), exitBefore, exitAfter);
         cellMenu = menu;
         undo.setOnAction(event -> runUndo(false));
         redo.setOnAction(event -> runUndo(true));
@@ -1309,16 +1472,45 @@ public final class MarkdownTablePreviewManager {
         copy.setOnAction(event -> cellEditor.copy());
         copyRow.setOnAction(event -> MarkdownTableClipboardKt.copyMarkdownTableRow(area, table.id(), row));
         paste.setOnAction(event -> cellEditor.paste());
+        pasteCells.setOnAction(event -> pasteClipboard(true));
+        pasteText.setOnAction(event -> pastePlainText());
+        insertAbove.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.insertRow(target, row, column)));
+        insertBelow.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.insertRow(target, row + 1, column)));
+        insertLeft.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.insertColumn(target, column, row)));
+        insertRight.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.insertColumn(target, column + 1, row)));
+        duplicateRow.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.duplicateRow(target, row, column)));
+        moveUp.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.moveRow(target, row, column, -1)));
+        moveDown.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.moveRow(target, row, column, 1)));
+        moveLeft.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.moveColumn(target, row, column, -1)));
+        moveRight.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.moveColumn(target, row, column, 1)));
+        exitBefore.setOnAction(event -> exitTable(table, -1));
+        exitAfter.setOnAction(event -> exitTable(table, 1));
         selectAll.setOnAction(event -> cellEditor.selectAll());
-        deleteRow.setOnAction(event -> deleteRow(table, row));
-        deleteColumn.setOnAction(event -> deleteColumn(table, column));
+        deleteRow.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.deleteRow(target, row, column)));
+        deleteColumn.setOnAction(event -> applyTableEdit(table, target -> MarkdownTableEdits.deleteColumn(target, row, column)));
         menu.setOnShowing(event -> {
-            boolean editable = area.isEditable();
+            boolean editable = area.isEditable() && !structurePending;
             undo.setDisable(!editable || !area.getUndoManager().isUndoAvailable());
             redo.setDisable(!editable || !area.getUndoManager().isRedoAvailable());
             cut.setDisable(!editable || cellEditor.getSelectedText().isEmpty());
             copy.setDisable(cellEditor.getSelectedText().isEmpty());
-            paste.setDisable(!editable || !Clipboard.getSystemClipboard().hasString());
+            var clipboard = Clipboard.getSystemClipboard();
+            paste.setDisable(!editable || (!clipboard.hasString() && !MarkdownTableClipboardKt.hasTableCells(clipboard)));
+            pasteCells.setDisable(paste.isDisable());
+            pasteText.setDisable(!editable || !clipboard.hasString());
+            insertAbove.setDisable(!editable || row == 0);
+            insertBelow.setDisable(!editable);
+            insertLeft.setDisable(!editable);
+            insertRight.setDisable(!editable);
+            alignment.setDisable(!editable);
+            copyAs.setDisable(structurePending);
+            duplicateRow.setDisable(!editable);
+            moveUp.setDisable(!editable || row <= 1);
+            moveDown.setDisable(!editable || row == 0 || row == table.rows().size() - 1);
+            moveLeft.setDisable(!editable || column == 0);
+            moveRight.setDisable(!editable || column == table.alignments().size() - 1);
+            exitBefore.setDisable(structurePending);
+            exitAfter.setDisable(structurePending);
             deleteRow.setDisable(!editable || row == 0);
             deleteColumn.setDisable(!editable || table.alignments().size() == 1);
         });
@@ -1328,6 +1520,17 @@ public final class MarkdownTablePreviewManager {
             }
         });
         menu.show(area, screenX, screenY);
+    }
+
+    private MenuItem tableCopyItem(String key, MarkdownTableDocumentState.Table table,
+                                   MarkdownTableCopyScope scope, int row, int column, boolean tsv) {
+        var item = new MenuItem(Locales.str(key));
+        item.setOnAction(event -> {
+            if (currentArea != null) {
+                MarkdownTableClipboardKt.copyMarkdownTableData(currentArea, table.id(), scope, row, column, tsv);
+            }
+        });
+        return item;
     }
 
     private void hideCellMenu() {
@@ -1342,11 +1545,35 @@ public final class MarkdownTablePreviewManager {
         performUndoRedo(redo);
     }
 
+    private void resumePendingUndo() {
+        if (structurePending || pendingUndo.isEmpty() || currentArea == null) return;
+        var area = currentArea;
+        Platform.runLater(() -> {
+            if (currentArea == area && !structurePending && !pendingUndo.isEmpty()) {
+                performUndoRedo(pendingUndo.removeFirst());
+                if (!structurePending) resumePendingUndo();
+            }
+        });
+    }
+
     private void performUndoRedo(boolean redo) {
+        if (currentArea == null || !currentArea.isEditable()) return;
+        if (structurePending) {
+            pendingUndo.addLast(redo);
+            return;
+        }
+        if (!(redo ? currentArea.getUndoManager().isRedoAvailable() : currentArea.getUndoManager().isUndoAvailable())) return;
         if (deferWhileComposing(() -> performUndoRedo(redo))) {
             return;
         }
         currentArea.getUndoManager().preventMerge();
+        if (activeTable != null) {
+            pendingTableId = activeTable.id();
+            pendingRow = activeRow;
+            pendingColumn = activeColumn;
+        }
+        structurePending = true;
+        cellEditor.setEditable(false);
         writingStructure = true;
         try {
             if (redo) {
@@ -1365,11 +1592,10 @@ public final class MarkdownTablePreviewManager {
         if (toolbarPopup != null) {
             return;
         }
-        addRowButton = toolbarButton("markdownTableAddRow", event -> addRow(toolbarTable));
-        addColumnButton = toolbarButton("markdownTableAddColumn", event -> addColumn(toolbarTable));
         optimizeButton = toolbarButton("markdownTableOptimize", event -> optimize(toolbarTable));
         modeButton = toolbarButton("markdownTableShowSource", event -> toggleMode(toolbarTable));
-        toolbar = new HBox(4, addRowButton, addColumnButton, optimizeButton, modeButton);
+        exitButton = toolbarButton("markdownTableExitAfter", event -> exitTable(toolbarTable, 1));
+        toolbar = new HBox(4, optimizeButton, modeButton, exitButton);
         toolbar.getStyleClass().add("markdown-table-toolbar");
         toolbar.setPadding(new Insets(4));
         toolbar.setOnMouseEntered(event -> updateToolbar());
@@ -1470,29 +1696,16 @@ public final class MarkdownTablePreviewManager {
             toolbar.getStylesheets().setAll(area.getScene().getStylesheets());
         }
         toolbarTable = table;
-        boolean editable = area.isEditable() && table.valid();
-        addRowButton.setDisable(!editable);
-        addColumnButton.setDisable(!editable);
-        long version = area.getEditor().getContentVersion();
-        if (toolbarContentVersion != version || !table.id().equals(toolbarContentTableId)) {
-            String source = safeTableSource(table);
-            String formatted = source == null ? null : MarkdownTableOptimizeManager.format(area, source);
-            toolbarOptimized = formatted == null || formatted.equals(source);
-            toolbarContentVersion = version;
-            toolbarContentTableId = table.id();
-        }
-        optimizeButton.setDisable(!editable || toolbarOptimized);
-        modeButton.setDisable(table.mode() == MarkdownTableDocumentState.Mode.SOURCE && !table.valid());
+        boolean editable = area.isEditable() && table.valid() && !structurePending;
+        optimizeButton.setDisable(!editable);
+        exitButton.setDisable(!table.valid() || structurePending);
+        modeButton.setDisable(structurePending || table.mode() == MarkdownTableDocumentState.Mode.SOURCE && !table.valid());
         modeButton.setText(Locales.str(table.mode() == MarkdownTableDocumentState.Mode.TABLE
                 ? "markdownTableShowSource" : "markdownTableShowTable"));
         String reason = !area.isEditable() ? Locales.str("markdownTableReadonly")
                 : !table.valid() ? Locales.str("markdownTableInvalid")
-                : toolbarOptimized ? Locales.str("markdownTableOptimized") : null;
+                : null;
         optimizeButton.setTooltip(reason == null ? null : new Tooltip(reason));
-        String modifyReason = !area.isEditable() ? Locales.str("markdownTableReadonly")
-                : !table.valid() ? Locales.str("markdownTableInvalid") : null;
-        addRowButton.setTooltip(modifyReason == null ? null : new Tooltip(modifyReason));
-        addColumnButton.setTooltip(modifyReason == null ? null : new Tooltip(modifyReason));
         modeButton.setTooltip(table.valid() ? null : new Tooltip(Locales.str("markdownTableInvalid")));
         positionToolbar(table);
     }
@@ -1517,7 +1730,7 @@ public final class MarkdownTablePreviewManager {
         double y = areaBounds.getMinY();
         if (headerBounds != null) {
             y = Math.max(areaBounds.getMinY(), headerBounds.getMinY()
-                    - 42 - addRowButton.prefHeight(-1) / 2);
+                    - 42 - optimizeButton.prefHeight(-1) / 2);
         }
         x = Math.min(x, Math.max(areaBounds.getMinX(),
                 areaBounds.getMaxX() - toolbar.prefWidth(-1)));
@@ -1750,36 +1963,19 @@ public final class MarkdownTablePreviewManager {
     }
 
     private static int sourceOffsetToEditor(String source, int sourceOffset) {
-        int sourceIndex = 0;
-        int editorIndex = 0;
-        int limit = Math.min(source.length(), Math.max(0, sourceOffset));
-        while (sourceIndex < limit) {
-            int breakLength = htmlBreakLength(source, sourceIndex);
-            if (breakLength > 0 && sourceIndex + breakLength <= limit) {
-                sourceIndex += breakLength;
-            } else {
-                sourceIndex++;
-            }
-            editorIndex++;
-        }
-        return editorIndex;
-    }
-
-    private static int htmlBreakLength(String source, int index) {
-        for (String value : new String[]{"<br>", "<br/>", "<br />"}) {
-            if (index + value.length() <= source.length()
-                    && source.regionMatches(true, index, value, 0, value.length())) {
-                return value.length();
-            }
-        }
-        return 0;
+        return MarkdownTableCellText.sourceOffset(source, sourceOffset);
     }
 
     private void toggleMode(MarkdownTableDocumentState.Table table) {
         if (deferWhileComposing(() -> toggleMode(table))) {
             return;
         }
-        if (table == null) {
+        if (table == null || structurePending) {
+            return;
+        }
+        var latest = latestTable(table);
+        if (latest != table) {
+            if (latest != null) toggleMode(latest);
             return;
         }
         if (table.mode() == MarkdownTableDocumentState.Mode.SOURCE && !table.valid()) {
@@ -1795,57 +1991,57 @@ public final class MarkdownTablePreviewManager {
         updatePresentation();
     }
 
-    private void addRow(MarkdownTableDocumentState.Table table) {
-        if (deferWhileComposing(() -> addRow(table))) {
-            return;
+    private void applyTableEdit(MarkdownTableDocumentState.Table table,
+                                java.util.function.Function<MarkdownTableDocumentState.Table, MarkdownTableEdits.Edit> operation) {
+        if (deferWhileComposing(() -> applyTableEdit(table, operation))) return;
+        var target = latestTable(table);
+        if (!canModify(target)) return;
+        var edit = operation.apply(target);
+        if (edit != null && !edit.getSource().equals(safeTableSource(target))) {
+            replaceTable(target, edit.getSource(), edit.getRow(), edit.getColumn());
         }
-        if (!canModify(table)) {
-            return;
-        }
-        String source = safeTableSource(table);
-        if (source == null) {
-            return;
-        }
-        String row = emptyRow(table.alignments().size(), table.indent());
-        replaceTable(table, source + table.lineEnding() + row,
-                table.rows().size(), 0);
     }
 
-    private void addColumn(MarkdownTableDocumentState.Table table) {
-        if (deferWhileComposing(() -> addColumn(table))) {
-            return;
+    private void pastePlainText() {
+        if (deferWhileComposing(this::pastePlainText)) return;
+        if (canModify(activeTable) && Clipboard.getSystemClipboard().hasString()) {
+            cellEditor.replaceSelection(Clipboard.getSystemClipboard().getString());
         }
-        if (!canModify(table)) {
-            return;
-        }
-        int columns = table.alignments().size() + 1;
-        replaceTable(table, serializeTable(table, table.rows(), columns, -1, -1), 0, columns - 1);
     }
 
-    private void deleteRow(MarkdownTableDocumentState.Table table, int row) {
-        if (deferWhileComposing(() -> deleteRow(table, row))) {
+    private void pasteClipboard(boolean forceCells) {
+        if (deferWhileComposing(() -> pasteClipboard(forceCells))) return;
+        if (!canModify(activeTable)) return;
+        var clipboard = Clipboard.getSystemClipboard();
+        var markdownCells = MarkdownTableClipboardKt.markdownClipboardCells(clipboard);
+        if (markdownCells != null) {
+            int row = activeRow;
+            int column = activeColumn;
+            applyTableEdit(activeTable, table -> MarkdownTableEdits.pasteMarkdown(table, row, column, markdownCells));
             return;
         }
-        if (!canModify(table) || row <= 0 || row >= table.rows().size()) {
-            return;
+        String tsv = MarkdownTableClipboardKt.tableClipboardTsv(clipboard);
+        String value = tsv != null ? tsv : clipboard.getString();
+        if (value == null) return;
+        if (forceCells || tsv != null || value.indexOf('\t') >= 0) {
+            var matrix = MarkdownTableEdits.parseTsv(value);
+            if (matrix != null) {
+                int row = activeRow;
+                int column = activeColumn;
+                applyTableEdit(activeTable, table -> MarkdownTableEdits.paste(table, row, column, matrix));
+                return;
+            }
         }
-        replaceTable(table, serializeTable(table, table.rows(), table.alignments().size(), row, -1),
-                Math.min(row, table.rows().size() - 2), activeColumn);
-    }
-
-    private void deleteColumn(MarkdownTableDocumentState.Table table, int column) {
-        if (deferWhileComposing(() -> deleteColumn(table, column))) {
-            return;
-        }
-        if (!canModify(table) || table.alignments().size() <= 1) {
-            return;
-        }
-        replaceTable(table, serializeTable(table, table.rows(), table.alignments().size() - 1, -1, column),
-                activeRow, Math.min(column, table.alignments().size() - 2));
+        cellEditor.replaceSelection(value);
     }
 
     private void optimize(MarkdownTableDocumentState.Table table) {
         if (deferWhileComposing(() -> optimize(table))) {
+            return;
+        }
+        var latest = latestTable(table);
+        if (latest != table) {
+            if (latest != null) optimize(latest);
             return;
         }
         if (!canModify(table)) {
@@ -1859,7 +2055,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private boolean canModify(MarkdownTableDocumentState.Table table) {
-        return table != null && table.valid() && currentArea != null && currentArea.isEditable();
+        return table != null && table.valid() && currentArea != null && currentArea.isEditable() && !structurePending;
     }
 
     private boolean deferWhileComposing(Runnable action) {
@@ -1871,9 +2067,11 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void replaceTable(MarkdownTableDocumentState.Table table, String replacement, int row, int column) {
-        if (replacement == null) {
+        if (replacement == null || !canModify(table)) {
             return;
         }
+        structurePending = true;
+        cellEditor.setEditable(false);
         pendingTableId = table.id();
         pendingRow = row;
         pendingColumn = column;
@@ -1891,76 +2089,6 @@ public final class MarkdownTablePreviewManager {
         refreshScheduler.startNow();
     }
 
-    private String serializeTable(MarkdownTableDocumentState.Table table,
-                                  List<MarkdownTableDocumentState.Row> rows, int columns,
-                                  int skippedRow, int skippedColumn) {
-        var out = new StringBuilder();
-        int sourceColumns = table.alignments().size();
-        int writtenRows = 0;
-        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
-            if (rowIndex == skippedRow) {
-                continue;
-            }
-            if (writtenRows > 0) {
-                out.append(table.lineEnding());
-            }
-            appendSerializedRow(out, table.indent(), rows.get(rowIndex), sourceColumns, columns, skippedColumn);
-            writtenRows++;
-            if (rowIndex == 0) {
-                out.append(table.lineEnding());
-                appendSerializedSeparator(out, table, sourceColumns, columns, skippedColumn);
-            }
-        }
-        return out.toString();
-    }
-
-    private void appendSerializedRow(StringBuilder out, String indent, MarkdownTableDocumentState.Row row,
-                                     int sourceColumns, int columns, int skippedColumn) {
-        out.append(indent);
-        int written = 0;
-        for (int source = 0; source < sourceColumns && written < columns; source++) {
-            if (source == skippedColumn) {
-                continue;
-            }
-            out.append("| ").append(row.cells().get(source).source().strip()).append(' ');
-            written++;
-        }
-        while (written++ < columns) {
-            out.append("|   ");
-        }
-        out.append('|');
-    }
-
-    private void appendSerializedSeparator(StringBuilder out, MarkdownTableDocumentState.Table table,
-                                           int sourceColumns, int columns, int skippedColumn) {
-        out.append(table.indent());
-        int written = 0;
-        for (int source = 0; source < sourceColumns && written < columns; source++) {
-            if (source == skippedColumn) {
-                continue;
-            }
-            out.append("| ").append(separator(table.alignments().get(source))).append(' ');
-            written++;
-        }
-        while (written++ < columns) {
-            out.append("| --- ");
-        }
-        out.append('|');
-    }
-
-    private static String separator(MarkdownTableDocumentState.Alignment alignment) {
-        return switch (alignment) {
-            case DEFAULT -> "---";
-            case LEFT -> ":---";
-            case RIGHT -> "---:";
-            case CENTER -> ":---:";
-        };
-    }
-
-    private static String emptyRow(int columns, String indent) {
-        return indent + "|   ".repeat(columns) + '|';
-    }
-
     private void restorePendingCell() {
         if (pendingTableId == null) {
             syncActiveCellAfterParse();
@@ -1975,6 +2103,9 @@ public final class MarkdownTablePreviewManager {
                     && (layout == null || layout.table != table || layout.cells == null)) {
                 return;
             }
+            structurePending = false;
+            cellEditor.setEditable(currentArea.isEditable());
+            resumePendingUndo();
             int row = pendingRow;
             int column = pendingColumn;
             pendingTableId = null;
@@ -2011,7 +2142,9 @@ public final class MarkdownTablePreviewManager {
         pendingRow = -1;
         pendingColumn = -1;
         pendingSourceOffset = -1;
+        structurePending = false;
         endCellEditingAtFallback();
+        resumePendingUndo();
     }
 
     private void syncActiveCellAfterParse() {
@@ -2074,27 +2207,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private static String decodeCell(String source) {
-        return source.replaceAll("(?i)<br\\s*/?>", "\n");
-    }
-
-    private static String encodeCell(String value) {
-        String normalized = value.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>");
-        var result = new StringBuilder(normalized.length());
-        int slashes = 0;
-        for (int index = 0; index < normalized.length(); index++) {
-            char character = normalized.charAt(index);
-            if (character == '|') {
-                if (slashes % 2 == 0) {
-                    result.append('\\');
-                }
-                result.append(character);
-                slashes = 0;
-            } else {
-                result.append(character);
-                slashes = character == '\\' ? slashes + 1 : 0;
-            }
-        }
-        return result.toString();
+        return MarkdownTableCellText.decode(source);
     }
 
     /** 当前布局数值和可见行的弱引用，不持有离屏单元格节点。 */
