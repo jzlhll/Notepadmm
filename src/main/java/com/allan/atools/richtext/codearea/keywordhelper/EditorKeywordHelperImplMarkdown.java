@@ -52,9 +52,13 @@ import java.util.regex.Pattern;
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
     private final Parser relaxedParser = Parser.builder()
-            .extensions(List.of(TablesExtension.create(), StrikethroughExtension.builder().requireTwoTildes(true).build()))
+            .extensions(MarkdownExtensions.all())
             .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
             .build();
+    private volatile boolean previewEnabled = true;
+
+    public void setPreviewEnabled(boolean enabled) { previewEnabled = enabled; }
+
     private MarkdownAstCache astCache = new MarkdownAstCache();
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
@@ -90,7 +94,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_CODE_ATTRIBUTE_VALUE = 24;
     private static final int STYLE_EMOJI = 25;
     private static final int STYLE_CODE_FENCE = 26;
-    private static final int STYLE_COUNT = 27;
+    private static final int STYLE_SYNTAX = 27;
+    private static final int STYLE_HEADING_SIX = 28;
+    private static final int STYLE_COUNT = 29;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -101,7 +107,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "temporary", "search",
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
             "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value",
-            "markdown-emoji", "markdown-code-fence"
+            "markdown-emoji", "markdown-code-fence", "markdown-syntax-marker", "markdown-title-6"
     };
     private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
@@ -204,14 +210,19 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     @Override
     protected StyleSpans<Collection<String>> computeHighlighting(
             String text, BooleanSupplier canContinue) {
-        var root = astCache.parse(text);
+        var snapshot = astCache.snapshot(text);
+        var root = snapshot.getRoot();
         if (!canContinue.getAsBoolean()) {
             return null;
         }
         var events = new EventBuffer();
         var visitor = new MarkdownRegionVisitor(text, events, canContinue);
-        root.accept(visitor);
-        visitor.addRelaxedEmphasisRegions();
+        if (previewEnabled) {
+            root.accept(visitor);
+            for (var marker : snapshot.getMarkers()) {
+                events.addRegion(marker.getStart(), marker.getEnd(), STYLE_SYNTAX);
+            }
+        }
         if (!canContinue.getAsBoolean()) {
             return null;
         }
@@ -306,7 +317,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             for (int styleId = 0; styleId < STYLE_COUNT; styleId++) {
                 if ((mask & (1 << styleId)) != 0) {
                     styles.add(STYLE_CLASSES[styleId]);
-                    if (styleId <= STYLE_IMAGE
+                    if (styleId == STYLE_SYNTAX || styleId == STYLE_HEADING_SIX || styleId <= STYLE_IMAGE
                             || styleId >= STYLE_CODE_KEYWORD && styleId <= STYLE_CODE_ATTRIBUTE_VALUE) {
                         hasTextColorStyle = true;
                     }
@@ -333,7 +344,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(Heading heading) {
-            addNodeRegions(heading, Math.min(heading.getLevel(), 5) - 1);
+            addNodeRegions(heading, heading.getLevel() == 6 ? STYLE_HEADING_SIX : heading.getLevel() - 1);
             visitChildren(heading);
         }
 
@@ -394,6 +405,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(Link link) {
             addNodeRegions(link, STYLE_LINK);
+            visitChildren(link);
         }
 
         @Override

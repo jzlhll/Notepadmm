@@ -343,6 +343,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             if (shouldClearStyle && isRealtimeProcessingLimitReached()
                     && area != null && area.getLength() > 0) {
                 area.setStyle(0, area.getLength(), area.getInitialTextStyle());
+                area.getMarkdownPresentation().clear();
             }
             if (endAction != null) {
                 endAction.invoke();

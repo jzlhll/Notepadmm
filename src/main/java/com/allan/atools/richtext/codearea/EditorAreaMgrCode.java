@@ -5,6 +5,7 @@ import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown;
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache;
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot;
 import com.allan.atools.threads.ClosedDroppedHandler;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
@@ -78,6 +79,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
 
     public void bindKeywordHelper(File sourceFile) {
         resetStyleScheduler();
+        if (getArea() instanceof EditorArea editorArea) editorArea.getMarkdownPresentation().clear();
         mKeywordHelper = createKeywordHelper(sourceFile);
         ensureKeywordStylesheet(mKeywordHelper);
         bindStyleTextChanges();
@@ -109,7 +111,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     }
 
     private EditorKeywordHelperAbstract createKeywordHelper(File sourceFile) {
-        var helper = EditorKeywordHelperFactory.create(sourceFile);
+        var helper = EditorKeywordHelperFactory.create(sourceFile != null ? sourceFile : new File(getDocumentState().getDisplayName()));
         if (helper instanceof EditorKeywordHelperImplMarkdown markdownHelper) {
             markdownHelper.setAstCache(markdownAstCache);
         }
@@ -120,17 +122,23 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return markdownAstCache.parse(text);
     }
 
+    public MarkdownStructureSnapshot markdownSnapshot(String text) {
+        return markdownAstCache.snapshot(text);
+    }
+
     public void openMarkdownLinkAt(int position) {
-        if (!(mKeywordHelper instanceof EditorKeywordHelperImplMarkdown helper) || isDestroyed()) {
-            return;
-        }
+        if (!(mKeywordHelper instanceof EditorKeywordHelperImplMarkdown helper) || isDestroyed()) return;
         String text = getArea().getText();
         ThreadUtils.execute(() -> {
+            String destination = helper.findLinkDestination(text, position);
+            if (destination != null) openMarkdownDestination(destination);
+        });
+    }
+
+    public void openMarkdownDestination(String destination) {
+        if (isDestroyed()) return;
+        ThreadUtils.execute(() -> {
             try {
-                String destination = helper.findLinkDestination(text, position);
-                if (destination == null) {
-                    return;
-                }
                 var bytes = destination.getBytes(StandardCharsets.UTF_8);
                 var encoded = new StringBuilder(bytes.length);
                 // 保留 URL 分隔符与已有百分号编码，其余字符按 UTF-8 编码。
@@ -149,6 +157,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
                     }
                 }
                 var uri = new URI(encoded.toString());
+                if ("mailto".equalsIgnoreCase(uri.getScheme())) {
+                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.MAIL)) Desktop.getDesktop().mail(uri);
+                    return;
+                }
                 if ((!"http".equalsIgnoreCase(uri.getScheme())
                         && !"https".equalsIgnoreCase(uri.getScheme())) || uri.getRawAuthority() == null) {
                     return;
@@ -246,6 +258,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         var endCallback = latestEndCallback;
         latestEndCallback = null;
         var helper = mKeywordHelper;
+        if (helper instanceof EditorKeywordHelperImplMarkdown markdownHelper) {
+            markdownHelper.setPreviewEnabled(area.getMarkdownPreviewEnabled());
+        }
 
         Runnable task = () -> {
             EditorKeywordHelperAbstract.StyleUpdate update = null;
@@ -282,8 +297,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         if (alive && update != null && update.spans() != null) {
             if (contentCurrent) {
                 area.setStyleSpans(update.start(), update.spans());
-            } else if (helper instanceof EditorKeywordHelperImplMarkdown) {
-                applyStablePrefix(area, text, stablePrefixLimit, update);
+                if (helper instanceof EditorKeywordHelperImplMarkdown) {
+                    area.getMarkdownPresentation().apply(markdownAstCache.snapshot(text));
+                }
             }
         }
         if (alive && contentCurrent && endCallback != null) {
@@ -292,33 +308,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         if (styleDirty) {
             scheduleLatestStyle(false);
         }
-    }
-
-    private void applyStablePrefix(EditorArea area, String text, int prefixLimit,
-                                   EditorKeywordHelperAbstract.StyleUpdate update) {
-        int stableEnd = stableMarkdownBoundary(text, prefixLimit);
-        int applyEnd = Math.min(stableEnd, update.start() + update.spans().length());
-        if (applyEnd > update.start()) {
-            area.setStyleSpans(update.start(),
-                    update.spans().subView(0, applyEnd - update.start()));
-        }
-    }
-
-    private static int stableMarkdownBoundary(String text, int prefixLimit) {
-        int end = Math.min(prefixLimit, text.length());
-        for (int index = end - 1; index > 0; index--) {
-            if (text.charAt(index) != '\n') {
-                continue;
-            }
-            int previous = index - 1;
-            if (text.charAt(previous) == '\r') {
-                previous--;
-            }
-            if (previous >= 0 && text.charAt(previous) == '\n') {
-                return index + 1;
-            }
-        }
-        return 0;
     }
 
     private boolean isStyleTaskAlive(long requestId, long optionsVersion,

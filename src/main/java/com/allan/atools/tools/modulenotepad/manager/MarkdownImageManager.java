@@ -512,7 +512,7 @@ public final class MarkdownImageManager {
     }
 
     private static boolean isOverLimit(EditorArea area) {
-        return area == null || area.getEditor().isRealtimeProcessingLimitReached();
+        return area == null || !area.getMarkdownPreviewEnabled() || area.getEditor().isRealtimeProcessingLimitReached();
     }
 
     private static List<MarkdownImage> parseImages(EditorArea area, String text, File mdFile) {

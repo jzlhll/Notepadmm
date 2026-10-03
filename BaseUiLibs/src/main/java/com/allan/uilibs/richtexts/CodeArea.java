@@ -116,8 +116,11 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
      * 利用 Region.prefHeight(double) 优先返回该属性的机制撑高行高（ParagraphBox.computePrefHeight 只算文本高度）。
      */
     private static void applyParagraphStyle(javafx.scene.text.TextFlow paragraph, Collection<String> styleClasses) {
+        // 虚拟段落节点会复用，先移除上一轮的 Markdown 类，避免源码模式残留排版。
+        paragraph.getStyleClass().removeIf(style -> style.startsWith("md-") || style.startsWith("markdown-"));
         String inlineStyle = "";
         String previewHeight = null;
+        String markdownLayout = "";
         for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
             if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
@@ -126,6 +129,30 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
+            } else if (style.startsWith("md-layout:")) {
+                var fields = style.split(":");
+                if (fields.length == 6) {
+                    int quote = Integer.parseInt(fields[1]);
+                    int list = Integer.parseInt(fields[2]);
+                    int left = 85 + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
+                    markdownLayout = "-fx-padding: " + fields[3] + " 10 " + fields[4] + " " + left + ";";
+                    if (quote > 0) {
+                        var colors = new java.util.ArrayList<String>();
+                        var widths = new java.util.ArrayList<String>();
+                        var insets = new java.util.ArrayList<String>();
+                        for (int depth = 0; depth < quote; depth++) {
+                            colors.add("transparent transparent transparent -au-md-quote-border");
+                            widths.add("0 0 0 2");
+                            insets.add("0 0 0 " + (85 + depth * 12));
+                        }
+                        markdownLayout += "-fx-border-color:" + String.join(",", colors)
+                                + ";-fx-border-width:" + String.join(",", widths)
+                                + ";-fx-border-insets:" + String.join(",", insets) + ";";
+                        if (!Boolean.parseBoolean(fields[5])) {
+                            markdownLayout += "-fx-background-color:-au-md-quote-bg;-fx-background-insets:0 0 0 85;";
+                        }
+                    }
+                }
             } else {
                 paragraph.getStyleClass().add(style);
             }
@@ -134,7 +161,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
             inlineStyle = "-fx-min-height: " + previewHeight + ";-fx-pref-height: " + previewHeight
                     + ";-fx-max-height: " + previewHeight + ";-fx-pref-width: 0;-fx-opacity: 0;";
         }
-        paragraph.setStyle(inlineStyle);
+        paragraph.setStyle(markdownLayout + inlineStyle);
         paragraph.setMouseTransparent(previewHeight != null);
     }
 

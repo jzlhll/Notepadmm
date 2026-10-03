@@ -8,7 +8,9 @@ public final class MarkdownEditorSupport {
     private MarkdownEditorSupport() {}
 
     public static boolean supportsMarkdown(EditorArea area) {
-        return area != null && isMarkdownFile(area.getEditor().getSourceFile());
+        if (area == null) return false;
+        String name = area.getEditor().getDocumentState().getDisplayName().toLowerCase(Locale.ROOT);
+        return name.endsWith(".md") || name.endsWith(".markdown");
     }
 
     public static boolean isMarkdownFile(File file) {

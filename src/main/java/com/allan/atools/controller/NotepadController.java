@@ -293,6 +293,7 @@ public final class NotepadController extends AbstractMainController {
     @Override
     public void destroy() {
         Log.d("DESTROY: notepad controller");
+        com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.close();
         if (markdownOutlineManager != null) {
             markdownOutlineManager.destroy();
             markdownOutlineManager = null;
@@ -300,6 +301,10 @@ public final class NotepadController extends AbstractMainController {
         if (markdownTablePreviewManager != null) {
             markdownTablePreviewManager.destroy();
             markdownTablePreviewManager = null;
+        }
+        if (markdownCodeBlockManager != null) {
+            markdownCodeBlockManager.destroy();
+            markdownCodeBlockManager = null;
         }
         if (markdownImageManager != null) {
             markdownImageManager.destroy();

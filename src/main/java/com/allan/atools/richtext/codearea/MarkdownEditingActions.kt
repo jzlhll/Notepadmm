@@ -1,0 +1,399 @@
+package com.allan.atools.richtext.codearea
+
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.utils.Locales
+import javafx.scene.control.Menu
+import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.control.TextInputDialog
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseEvent
+
+/** Markdown 结构操作只修改主文档，每个用户操作形成独立的撤销边界。 */
+class MarkdownEditingActions(private val area: EditorArea) {
+    private val quote = Regex("^[ \\t]*(?:>[ \\t]?)+[ \\t]*")
+    private val item = Regex("^([ \\t]*)([-+*]|[0-9]{1,9}[.)])([ \\t]+)(\\[[ xX]][ \\t]+)?")
+
+    private fun snapshot(): MarkdownStructureSnapshot =
+        (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
+
+    private fun change(start: Int, end: Int, replacement: String, selectStart: Int, selectEnd: Int = selectStart) {
+        if (!area.isEditable) return
+        area.undoManager.preventMerge()
+        area.replaceText(start, end, replacement)
+        area.selectRange(selectStart, selectEnd)
+        area.undoManager.preventMerge()
+        area.requestFollowCaret()
+    }
+
+    fun handleKey(event: KeyEvent): Boolean {
+        if (!MarkdownEditorSupport.supportsMarkdown(area) || area.editor.isRealtimeProcessingLimitReached
+            || area.markdownComposing || !area.isEditable) return false
+        if (event.isShortcutDown && !event.isAltDown) {
+            if (!event.isShiftDown) when (event.code) {
+                KeyCode.B -> { wrap("**"); return true }
+                KeyCode.I -> { wrap("*"); return true }
+                KeyCode.BACK_QUOTE -> { wrap("`"); return true }
+                KeyCode.K -> { editLink(); return true }
+                else -> Unit
+            }
+            if (event.isShiftDown) when (event.code) {
+                KeyCode.X -> { wrap("~~"); return true }
+                KeyCode.M -> { area.toggleMarkdownPreview(); return true }
+                KeyCode.Q -> { prefixLines("> "); return true }
+                KeyCode.L -> { prefixLines("- "); return true }
+                else -> Unit
+            }
+            return false
+        }
+        if (event.isAltDown || event.isControlDown || event.isMetaDown) return false
+        if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
+        val state = snapshot()
+        val line = state.lines[state.lineAt(area.caretPosition)]
+        if (state.isLiteral(area.caretPosition) && !line.code && event.code != KeyCode.TAB) return false
+        when (event.code) {
+            KeyCode.ENTER -> {
+                if (event.isShiftDown && !line.code) {
+                    val prefix = quote.find(area.getText(line.start, line.end))?.value.orEmpty()
+                    change(area.selection.start, area.selection.end, "  \n$prefix", area.selection.start + 3 + prefix.length)
+                    return true
+                }
+                if (!event.isShiftDown) return enter(state, line)
+            }
+            KeyCode.TAB -> { indent(event.isShiftDown); return true }
+            KeyCode.BACK_SPACE -> if (area.selection.length == 0 && !line.code) {
+                val content = area.getText(line.start, line.end)
+                val quotes = quote.find(content)?.value.orEmpty()
+                val marker = if (line.listDepth > 0) item.find(content.substring(quotes.length)) else null
+                val end = quotes.length + (marker?.value?.length ?: 0)
+                if (end > 0 && area.caretPosition == line.start + end) {
+                    val from = if (marker != null) line.start + quotes.length else line.start + quotes.lastIndexOf('>')
+                    change(from, line.start + end, "", from)
+                    return true
+                }
+            }
+            else -> Unit
+        }
+        return false
+    }
+
+    private fun enter(state: MarkdownStructureSnapshot, line: MarkdownStructureSnapshot.Line): Boolean {
+        val content = area.getText(line.start, line.end)
+        val quotes = if (line.quoteDepth > 0) quote.find(content)?.value.orEmpty() else ""
+        if (line.code) {
+            val indentation = Regex("^[ \\t]*").find(content.substring(quotes.length))!!.value
+            val prefix = quotes + indentation
+            change(area.selection.start, area.selection.end, "\n$prefix", area.selection.start + prefix.length + 1)
+            return true
+        }
+        if (area.markdownPreviewEnabled && line.heading > 0 && area.selection.length == 0 && area.caretPosition == line.end) {
+            val heading = state.elements.firstOrNull { it.node is org.commonmark.node.Heading && it.ranges.any { range -> line.end in range.start..range.end } }
+            val spans = heading?.node?.sourceSpans
+            if (spans != null && spans.last().lineIndex > state.lineAt(line.end)) {
+                val end = state.lines[spans.last().lineIndex].end
+                val openingLine = state.lines[spans.first().lineIndex]
+                val openingSource = area.getText(openingLine.start, openingLine.end)
+                val container = quote.find(openingSource)?.value.orEmpty()
+                val prefix = container + " ".repeat(Math.max(0, spans.first().inputIndex - openingLine.start - container.length))
+                change(end, end, "\n$prefix", end + prefix.length + 1)
+                return true
+            }
+        }
+        val direct = if (line.listDepth > 0) item.find(content.substring(quotes.length)) else null
+        val owner = if (line.listDepth > 0) state.elements.lastOrNull {
+            it.node is org.commonmark.node.ListItem && it.ranges.any { range -> area.caretPosition in range.start..range.end }
+        }?.node else null
+        val opening = owner?.sourceSpans?.firstOrNull()?.lineIndex?.let { state.lines[it] }
+            ?.let { area.getText(it.start, it.end) }
+        val marker = direct ?: opening?.let { item.find(it.substring(quote.find(it)?.value.orEmpty().length)) }
+        if (marker != null) {
+            val start = line.start + quotes.length
+            val bodyStart = start + (direct?.value?.length ?: Regex("^[ \t]*").find(content.substring(quotes.length))!!.value.length)
+            if (content.substring(bodyStart - line.start).isBlank()) {
+                var parent = owner?.parent
+                while (parent != null && parent !is org.commonmark.node.ListItem) parent = parent.parent
+                val parentLine = parent?.sourceSpans?.firstOrNull()?.lineIndex?.let { state.lines[it] }
+                    ?.let { area.getText(it.start, it.end) }
+                val parentContainer = parentLine?.let { quote.find(it)?.value }.orEmpty()
+                val parentMarker = parentLine?.let { item.find(it.substring(parentContainer.length)) }
+                if (parentMarker == null) change(start, line.end, "", start)
+                else {
+                    val token = parentMarker.groupValues[2]
+                    val number = if (token[0].isDigit()) token.dropLast(1).toLong() + 1 else 0
+                    val next = if (number in 1..999_999_999) "$number${token.last()}" else token
+                    val prefix = parentContainer + parentMarker.groupValues[1] + next + parentMarker.groupValues[3] +
+                        if (parentMarker.groupValues[4].isEmpty()) "" else "[ ] "
+                    change(line.start, line.end, prefix, line.start + prefix.length)
+                }
+            } else {
+                val token = marker.groupValues[2]
+                val next = if (token[0].isDigit()) {
+                    val number = token.dropLast(1).toLong() + 1
+                    if (number <= 999_999_999) "$number${token.last()}" else token
+                } else token
+                val container = if (quotes.isNotEmpty() || line.quoteDepth == 0) quotes else opening?.let { quote.find(it)?.value }.orEmpty()
+                val prefix = container + marker.groupValues[1] + next + marker.groupValues[3] +
+                    if (marker.groupValues[4].isEmpty()) "" else "[ ] "
+                if (area.selection.start < bodyStart) return false
+                change(area.selection.start, area.selection.end, "\n$prefix", area.selection.start + 1 + prefix.length)
+            }
+            return true
+        }
+        if (line.quoteDepth > 0) {
+            val prefix = if (quotes.isEmpty()) "> ".repeat(line.quoteDepth) else quotes
+            if (content.substring(quotes.length).isBlank()) {
+                val from = line.start + quotes.lastIndexOf('>')
+                if (from >= line.start) change(from, line.end, "", from)
+            } else change(area.selection.start, area.selection.end, "\n$prefix", area.selection.start + prefix.length + 1)
+            return true
+        }
+        return false
+    }
+
+    fun toggleTask(event: MouseEvent): Boolean {
+        if (!area.isEditable || area.markdownComposing || !area.markdownPreviewEnabled
+            || !MarkdownEditorSupport.supportsMarkdown(area) || area.editor.isRealtimeProcessingLimitReached) return false
+        val hit = area.hit(event.x, event.y).characterIndex
+        if (!hit.isPresent) return false
+        val state = snapshot()
+        val offset = state.lines[state.lineAt(hit.asInt)].taskOffset
+        if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false
+        val start = area.selection.start
+        val end = area.selection.end
+        change(offset, offset + 1, if (area.getText(offset, offset + 1) == " ") "x" else " ", start, end)
+        return true
+    }
+
+    fun wrap(mark: String) {
+        if (!area.isEditable || area.markdownComposing) return
+        val start = area.selection.start
+        val end = area.selection.end
+        if (mark != "`") {
+            wrapEmphasis(mark)
+            return
+        }
+        val edit = MarkdownInlineCode.toggle(area.text, start, end)
+        change(edit.start, edit.end, edit.text, edit.selectionStart, edit.selectionEnd)
+    }
+
+    private fun wrapEmphasis(mark: String) {
+        val start = area.selection.start
+        val end = area.selection.end
+        if (start == end) {
+            val length = mark.length
+            if (start >= length && end + length <= area.length && area.getText(start - length, start) == mark && area.getText(end, end + length) == mark)
+                change(start - length, end + length, "", start - length)
+            else change(start, end, mark + mark, start + length)
+            return
+        }
+        val state = snapshot()
+        val wrappers = state.elements.filter {
+            when (mark) {
+                "**" -> it.node is org.commonmark.node.StrongEmphasis
+                "*" -> it.node is org.commonmark.node.Emphasis
+                "~~" -> it.node is org.commonmark.ext.gfm.strikethrough.Strikethrough
+                else -> false
+            }
+        }.mapNotNull { entry ->
+            val first = entry.ranges.firstOrNull() ?: return@mapNotNull null
+            val last = entry.ranges.last()
+            MarkdownStructureSnapshot.Range(first.start, last.end)
+        }
+        fun wrapper(from: Int, to: Int) = wrappers.firstOrNull {
+            from in it.start..(it.start + mark.length) && to in (it.end - mark.length)..it.end
+        }
+        // 已有跨行强调只解除自身分隔符，保留容器前缀和原有换行。
+        wrapper(start, end)?.let {
+            val body = state.text.substring(it.start + mark.length, it.end - mark.length)
+            change(it.start, it.end, body, it.start, it.start + body.length)
+            return
+        }
+        val parts = ArrayList<Pair<MarkdownStructureSnapshot.Range, MarkdownStructureSnapshot.Range?>>()
+        for (entry in state.elements) {
+            if (entry.node !is org.commonmark.node.Paragraph && entry.node !is org.commonmark.node.Heading) continue
+            val spans = ArrayList<org.commonmark.node.SourceSpan>()
+            var child = entry.node.firstChild
+            while (child != null) { spans.addAll(child.sourceSpans); child = child.next }
+            if (spans.isEmpty()) continue
+            val contentStart = spans.first().inputIndex
+            val contentEnd = spans.last().let { it.inputIndex + it.length }
+            for (span in entry.node.sourceSpans) {
+                var from = Math.max(start, Math.max(contentStart, span.inputIndex))
+                val line = state.lines[span.lineIndex]
+                if (line.taskOffset >= 0) from = Math.max(from, line.taskOffset + 2)
+                var to = Math.min(end, Math.min(contentEnd, span.inputIndex + span.length))
+                while (from < to && state.text[from].isWhitespace()) from++
+                while (to > from && state.text[to - 1].isWhitespace()) to--
+                if (from < to) parts.add(MarkdownStructureSnapshot.Range(from, to) to wrapper(from, to))
+            }
+        }
+        if (parts.isEmpty()) return
+        val remove = parts.all { it.second != null }
+        val edits = parts.mapNotNull { (range, existing) ->
+            if (remove && existing != null) Triple(existing.start, existing.end,
+                state.text.substring(existing.start + mark.length, existing.end - mark.length))
+            else if (existing == null) Triple(range.start, range.end, mark + state.text.substring(range.start, range.end) + mark)
+            else null
+        }.sortedBy { it.first }
+        if (edits.isEmpty()) return
+        val from = Math.min(start, edits.first().first)
+        val to = Math.max(end, edits.last().second)
+        val result = StringBuilder(state.text.substring(from, to))
+        edits.asReversed().forEach { (begin, finish, value) -> result.replace(begin - from, finish - from, value) }
+        if (parts.size == 1) {
+            val edit = edits.first()
+            val selectedStart = edit.first + if (remove) 0 else mark.length
+            val selectedEnd = edit.first + edit.third.length - if (remove) 0 else mark.length
+            change(from, to, result.toString(), selectedStart, selectedEnd)
+        } else change(from, to, result.toString(), from, from + result.length)
+    }
+
+    private fun lineRange(): Pair<Int, Int> {
+        val source = area.text
+        val start = area.selection.start
+        val end = area.selection.end
+        val effective = if (end > start && source[end - 1] == '\n') end - 1 else end
+        val from = source.lastIndexOf('\n', start - 1) + 1
+        val next = source.indexOf('\n', effective)
+        return from to if (next < 0) source.length else next
+    }
+
+    fun prefixLines(prefix: String) {
+        val (start, end) = lineRange()
+        val state = snapshot()
+        val original = area.getText(start, end).split('\n')
+        if (prefix == "> ") {
+            val remove = original.withIndex().all { (index, source) -> source.isBlank() || state.lines[state.lineAt(start) + index].quoteDepth > 0 && quote.find(source) != null }
+            val result = original.joinToString("\n") { source ->
+                if (remove) source.replaceFirst(Regex("^([ \\t]*)>[ \\t]?"), "$1") else prefix + source
+            }
+            change(start, end, result, start, start + result.length)
+            return
+        }
+        val markers = original.mapIndexed { index, source ->
+            val line = state.lines[state.lineAt(start) + index]
+            val container = quote.find(source)?.value.orEmpty()
+            if (line.listDepth > 0 && !line.code) item.find(source.substring(container.length)) else null
+        }
+        fun matches(marker: MatchResult?): Boolean = marker != null && when (prefix) {
+            "1. " -> marker.groupValues[2][0].isDigit() && marker.groupValues[4].isEmpty()
+            "- [ ] " -> marker.groupValues[4].isNotEmpty()
+            else -> !marker.groupValues[2][0].isDigit() && marker.groupValues[4].isEmpty()
+        }
+        val remove = original.indices.all { original[it].isBlank() || matches(markers[it]) }
+        val result = original.mapIndexed { index, source ->
+            val container = quote.find(source)?.value.orEmpty()
+            val rest = source.substring(container.length)
+            val marker = markers[index]
+            val indentation = marker?.groupValues?.get(1) ?: Regex("^[ \\t]*").find(rest)!!.value
+            val body = if (marker != null) rest.substring(marker.value.length) else rest.substring(indentation.length)
+            val token = when {
+                remove -> ""
+                prefix == "1. " && marker != null && marker.groupValues[2][0].isDigit() -> marker.groupValues[2] + " "
+                prefix == "- [ ] " && marker != null && marker.groupValues[4].isNotEmpty() -> "- " + marker.groupValues[4]
+                else -> prefix
+            }
+            container + indentation + token + body
+        }.joinToString("\n")
+        change(start, end, result, start, start + result.length)
+    }
+
+    fun heading(level: Int) {
+        var (start, end) = lineRange()
+        val state = snapshot()
+        val entries = state.elements.filter { it.node is org.commonmark.node.Heading }
+        val setext = entries.filter { entry ->
+            val spans = entry.node.sourceSpans
+            spans.size > 1 && entry.ranges.any { it.start <= end && it.end >= start } &&
+                area.getText(spans.last().inputIndex, spans.last().inputIndex + spans.last().length).trim().matches(Regex("[=-]+"))
+        }
+        for (entry in setext) {
+            start = Math.min(start, state.lines[entry.node.sourceSpans.first().lineIndex].start)
+            end = Math.max(end, state.lines[entry.node.sourceSpans.last().lineIndex].end)
+        }
+        val result = area.getText(start, end).split('\n').mapIndexedNotNull { index, content ->
+            val line = state.lines[state.lineAt(start) + index]
+            if (line.code || content.isBlank()) content else {
+                val container = quote.find(content)?.value.orEmpty()
+                val rest = content.substring(container.length)
+                if (line.heading > 0 && rest.trim().matches(Regex("[=-]+"))) null else {
+                    val body = rest.replace(Regex("^ {0,3}#{1,6}(?:[ \\t]+|$)"), "")
+                    container + if (level == 0) body else "#".repeat(level) + " " + body
+                }
+            }
+        }.joinToString("\n")
+        change(start, end, result, start, start + result.length)
+    }
+
+    fun indent(outdent: Boolean) {
+        val (start, end) = lineRange()
+        val hadSelection = area.selection.length > 0
+        val caret = area.caretPosition
+        val original = area.getText(start, end)
+        val transformed = original.split('\n').joinToString("\n") { content ->
+            val prefix = quote.find(content)?.value.orEmpty()
+            val rest = content.substring(prefix.length)
+            prefix + if (outdent) rest.replace(Regex("^(?: {1,4}|\\t)"), "") else "    $rest"
+        }
+        if (!hadSelection && !outdent && snapshot().lines[snapshot().lineAt(caret)].listDepth == 0) {
+            change(caret, caret, "    ", caret + 4)
+        } else change(start, end, transformed, if (hadSelection) start else Math.max(start, caret + transformed.length - original.length),
+            if (hadSelection) start + transformed.length else Math.max(start, caret + transformed.length - original.length))
+    }
+
+    fun editLink() {
+        val sourceBeforeDialog = area.text
+        val state = snapshot()
+        val existing = state.linkAt(area.caretPosition)
+        val dialog = TextInputDialog(existing?.destination ?: "https://")
+        dialog.title = Locales.str("markdown.editLink")
+        dialog.headerText = Locales.str("markdown.linkAddress")
+        val destination = dialog.showAndWait().orElse(null) ?: return
+        if (area.text != sourceBeforeDialog || !area.isEditable) return
+        val start = existing?.sourceSpans?.firstOrNull()?.inputIndex ?: area.selection.start
+        val end = existing?.sourceSpans?.lastOrNull()?.let { it.inputIndex + it.length } ?: area.selection.end
+        val label = if (existing != null) {
+            val first = existing.firstChild?.sourceSpans?.firstOrNull()
+            val last = existing.lastChild?.sourceSpans?.lastOrNull()
+            if (first != null && last != null) sourceBeforeDialog.substring(first.inputIndex, last.inputIndex + last.length)
+            else org.commonmark.renderer.text.TextContentRenderer.builder().build().render(existing).trim()
+        } else area.selectedText.ifEmpty { Locales.str("markdown.linkLabel") }.replace("[", "\\[").replace("]", "\\]")
+        val escaped = destination.trim().replace("<", "%3C").replace(">", "%3E").replace("\n", "").replace("\r", "")
+        val title = existing?.title?.takeIf { it.isNotEmpty() }?.let { " \"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" }.orEmpty()
+        val result = if (escaped.isEmpty()) label else "[$label](<$escaped>$title)"
+        change(start, end, result, start, start + result.length)
+    }
+
+    fun installMenu() {
+        val menu = Menu(Locales.str("markdown.format"))
+        fun add(key: String, action: () -> Unit) {
+            menu.items.add(MenuItem(Locales.str(key)).apply { setOnAction { if (area.isEditable && !area.markdownComposing) action() } })
+        }
+        val headings = Menu(Locales.str("markdown.heading"))
+        for (level in 1..6) headings.items.add(MenuItem("H$level").apply { setOnAction { heading(level) } })
+        menu.items.add(headings)
+        add("markdown.paragraph") { heading(0) }
+        add("markdown.bold") { wrap("**") }
+        add("markdown.italic") { wrap("*") }
+        add("markdown.strike") { wrap("~~") }
+        add("markdown.inlineCode") { wrap("`") }
+        add("markdown.quote") { prefixLines("> ") }
+        add("markdown.list") { prefixLines("- ") }
+        add("markdown.orderedList") { prefixLines("1. ") }
+        add("markdown.task") { prefixLines("- [ ] ") }
+        add("markdown.editLink") { editLink() }
+        val preview = MenuItem(Locales.str("markdown.toggleSource"))
+        preview.setOnAction { area.toggleMarkdownPreview() }
+        val fullPreview = MenuItem(Locales.str("markdown.preview"))
+        fullPreview.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.show(area) }
+        area.contextMenu.items.addAll(SeparatorMenuItem(), menu, preview, fullPreview)
+        area.contextMenu.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWING) {
+            val enabled = MarkdownEditorSupport.supportsMarkdown(area)
+            menu.isVisible = enabled
+            menu.isDisable = !area.isEditable || area.editor.isRealtimeProcessingLimitReached
+            preview.isVisible = enabled
+            fullPreview.isVisible = enabled
+        }
+    }
+}

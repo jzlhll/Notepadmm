@@ -160,7 +160,7 @@ public final class MarkdownTablePreviewManager {
     public void refreshCurrentFile(EditorArea area) {
         unbindEditor();
         currentArea = area;
-        if (!supportsMarkdown(area)) {
+        if (!supportsMarkdown(area) || !area.getMarkdownPreviewEnabled()) {
             return;
         }
         textChanges = area.plainTextChanges().subscribe(change ->

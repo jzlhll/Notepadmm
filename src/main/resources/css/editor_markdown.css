@@ -14,6 +14,10 @@
     -au-md-title-3: #884090;
     -au-md-title-4: #9850a0;
     -au-md-title-5: #a860ad;
+    -au-md-title-6: #99639e;
+    -au-md-syntax: #b9bcc1;
+    -au-md-quote-border: #c7cbd0;
+    -au-md-quote-bg: #f6f7f8;
 
     /* ---- 代码块：浅色底 + 深色文字（亮色皮肤，自然融入） ---- */
     -au-md-code-bg: #eef2f5;
@@ -73,6 +77,18 @@
     -fx-font-size: 1.1em;
 }
 
+.markdown-title-6 { -fx-fill: -au-md-title-6; -fx-font-size: 1em; -fx-font-weight: bold; }
+.markdown-title-1 { -fx-font-size: 1.8em; }
+.markdown-title-2 { -fx-font-size: 1.5em; -fx-font-weight: bold; }
+.markdown-title-3, .markdown-title-4, .markdown-title-5 { -fx-font-weight: bold; }
+.styled-text-area.editor-area .paragraph-text.md-body-paragraph { -fx-line-spacing: 3px; }
+.styled-text-area.editor-area .paragraph-text.md-thematic-break {
+    -fx-border-color: -au-md-quote-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-insets: 0 0 0 85px;
+}
+.markdown-code, .markdown-inline-code { -fx-font-family: monospace; }
+
 /* ===== 代码块（``` 围栏与缩进代码块） ===== */
 .markdown-code {
     -fx-fill: -au-md-code-fill;
@@ -112,11 +128,13 @@
 }
 
 /* 代码块内容内空：在编辑器文本 padding 基础上左右再内缩 10px，文字不贴圆角背景边缘。
+ * RichTextFX 会在 TextFlow 背景外增加行距，代码块须清零以免各行之间露出底色。
  * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则。 */
 .styled-text-area.editor-area .paragraph-text.md-code-block-first,
 .styled-text-area.editor-area .paragraph-text.md-code-block-mid,
 .styled-text-area.editor-area .paragraph-text.md-code-block-last,
 .styled-text-area.editor-area .paragraph-text.md-code-block-single {
+    -fx-line-spacing: 0;
     -fx-padding: 0 10px 0 95px;
 }
 
@@ -354,3 +372,10 @@
     -fx-border-width: 1;
     -fx-cursor: hand;
 }
+
+/* 语法标记保留真实字符和占宽，仅降低与所在区域背景的对比。 */
+.text.markdown-syntax-marker,
+.text.markdown-code.markdown-syntax-marker,
+.text.markdown-inline-code.markdown-syntax-marker { -fx-fill: -au-md-syntax; }
+.text.markdown-syntax-marker.search { -fx-fill: -au-editor-text-color; }
+.text.markdown-syntax-marker.temporary { -fx-fill: -au-editor-text-color; }

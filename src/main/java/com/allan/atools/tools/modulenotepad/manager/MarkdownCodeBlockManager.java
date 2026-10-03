@@ -274,7 +274,7 @@ public final class MarkdownCodeBlockManager {
     }
 
     private static boolean isOverLimit(EditorArea area) {
-        return area == null || area.getEditor().isRealtimeProcessingLimitReached();
+        return area == null || !area.getMarkdownPreviewEnabled() || area.getEditor().isRealtimeProcessingLimitReached();
     }
 
     /** 收集代码块行区间 [firstLine, lastLine]（sourceSpans 每行一个 span） */

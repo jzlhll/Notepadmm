@@ -143,9 +143,9 @@ class MarkdownMermaidManager(area: EditorArea?) {
     }
 
     fun refreshCurrentFile(area: EditorArea?) {
-        if (area === currentArea && MarkdownEditorSupport.supportsMarkdown(area)) return
+        if (area === currentArea && MarkdownEditorSupport.supportsMarkdown(area) && area?.markdownPreviewEnabled == true) return
         unbind()
-        if (destroyed || !MarkdownEditorSupport.supportsMarkdown(area)) return
+        if (destroyed || !MarkdownEditorSupport.supportsMarkdown(area) || area?.markdownPreviewEnabled != true) return
         currentArea = area
         area ?: return
         diagrams = saved[area].orEmpty()

@@ -37,6 +37,23 @@ class EditorArea @JvmOverloads constructor(
     val viewPosition: EditorViewPosition
     private var followZoomCaretRequested = false
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
+    val markdownPresentation = MarkdownPresentation(this)
+    val markdownEditing: MarkdownEditingActions
+    var markdownComposing = false
+        private set
+    var markdownPreviewEnabled = true
+        private set
+
+    fun toggleMarkdownPreview() {
+        val top = if (visibleParagraphs.isEmpty()) -1 else firstVisibleParToAllParIndex()
+        markdownPreviewEnabled = !markdownPreviewEnabled
+        markdownPresentation.snapshot?.let { if (it.text == text) markdownPresentation.apply(it) }
+        (editor as EditorAreaMgrCode).trigger(null, null, null)
+        UIContext.context().refreshCurrentDocumentInfo()
+        if (top >= 0) javafx.application.Platform.runLater {
+            if (!editor.isDestroyed && top < paragraphs.size) showParagraphAtTop(top)
+        }
+    }
 
     companion object {
         @JvmStatic
@@ -53,8 +70,6 @@ class EditorArea @JvmOverloads constructor(
             '[' to '【', ']' to '】'
         )
 
-        private val MARKDOWN_HEADING = Regex("^( {0,3})#{1,6}(?:[ \\t]+|$)")
-        private val MARKDOWN_INDENT = Regex("^ {0,3}(?! )")
     }
 
     private fun createEditorAreaMgr(
@@ -69,6 +84,8 @@ class EditorArea @JvmOverloads constructor(
     init {
         styleClass.add("editor-area")
         editor = createEditorAreaMgr(this, sourceFile, tab, documentState)
+        markdownEditing = MarkdownEditingActions(this)
+        markdownEditing.installMenu()
         multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)
         Highlight.initGenericAreaFont(this)
@@ -87,6 +104,11 @@ class EditorArea @JvmOverloads constructor(
         viewPosition = EditorViewPosition(this)
 
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
+            if (event.target !is TextInputControl && event.button == MouseButton.PRIMARY && !event.isShortcutDown
+                && event.clickCount == 1 && event.isStillSincePress && markdownEditing.toggleTask(event)) {
+                event.consume()
+                return@addEventFilter
+            }
             if (event.target is TextInputControl || !isMarkdownDocument() || event.button != MouseButton.PRIMARY
                 || !event.isShortcutDown || event.isAltDown || event.isShiftDown
                 || event.clickCount != 1 || !event.isStillSincePress
@@ -110,13 +132,18 @@ class EditorArea @JvmOverloads constructor(
             if (isFocused) bottomSearchBtnsMgr.cancelPendingSearchJump()
         }
         addEventFilter(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED) {
+            if (it.target !is TextInputControl) markdownComposing = it.composed.isNotEmpty()
             bottomSearchBtnsMgr.cancelPendingSearchJump()
         }
 
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
             bottomSearchBtnsMgr.cancelPendingSearchJump()
             if (event.target is TextInputControl || event.target is WebView) return@addEventFilter
-            if (!isEditable) return@addEventFilter
+            if (!isEditable || markdownComposing) return@addEventFilter
+            if (markdownEditing.handleKey(event)) {
+                event.consume()
+                return@addEventFilter
+            }
             if (event.isAltDown && !event.isControlDown && !event.isMetaDown && !event.isShiftDown
                 && (event.code == KeyCode.UP || event.code == KeyCode.DOWN)
             ) {
@@ -132,16 +159,16 @@ class EditorArea @JvmOverloads constructor(
             when (event.code) {
                 KeyCode.B -> {
                     event.consume()
-                    toggleMarkdownWrap("**")
+                    markdownEditing.wrap("**")
                 }
                 KeyCode.BACK_QUOTE -> {
                     event.consume()
-                    toggleMarkdownWrap("`")
+                    markdownEditing.wrap("`")
                 }
                 else -> {
                     val level = markdownHeadingLevel(event.code) ?: return@addEventFilter
                     event.consume()
-                    setMarkdownHeading(level)
+                    markdownEditing.heading(level)
                 }
             }
         }
@@ -188,43 +215,6 @@ class EditorArea @JvmOverloads constructor(
         return name.endsWith(".md", true) || name.endsWith(".markdown", true)
     }
 
-    private fun toggleMarkdownWrap(mark: String) {
-        val start = selection.start
-        val end = selection.end
-        val markLength = mark.length
-        if (start == end) {
-            if (start >= markLength && start + markLength <= length
-                && getText(start - markLength, start) == mark
-                && getText(start, start + markLength) == mark
-            ) {
-                replaceText(start - markLength, start + markLength, "")
-                moveTo(start - markLength)
-            } else {
-                replaceText(start, start, mark + mark)
-                moveTo(start + markLength)
-            }
-            return
-        }
-
-        val selected = getText(start, end)
-        if (start >= markLength && end + markLength <= length
-            && getText(start - markLength, start) == mark
-            && getText(end, end + markLength) == mark
-        ) {
-            replaceText(start - markLength, end + markLength, selected)
-            selectRange(start - markLength, end - markLength)
-        } else if (selected.length >= markLength * 2
-            && selected.startsWith(mark) && selected.endsWith(mark)
-        ) {
-            val inner = selected.substring(markLength, selected.length - markLength)
-            replaceText(start, end, inner)
-            selectRange(start, start + inner.length)
-        } else {
-            replaceText(start, end, mark + selected + mark)
-            selectRange(start + markLength, end + markLength)
-        }
-    }
-
     private fun markdownHeadingLevel(code: KeyCode): Int? {
         return when (code) {
             KeyCode.DIGIT0, KeyCode.NUMPAD0 -> 0
@@ -235,27 +225,6 @@ class EditorArea @JvmOverloads constructor(
             KeyCode.DIGIT5, KeyCode.NUMPAD5 -> 5
             KeyCode.DIGIT6, KeyCode.NUMPAD6 -> 6
             else -> null
-        }
-    }
-
-    private fun setMarkdownHeading(level: Int) {
-        val contentText = text
-        val range = selectedLineRange(contentText)
-        val block = contentText.substring(range.first, range.second)
-        val hadSelection = selection.length > 0
-        val caretOffset = selection.start - range.first
-        val replaced = block.split("\n").joinToString("\n") { line ->
-            val match = MARKDOWN_HEADING.find(line)
-            val indent = match?.groupValues?.get(1) ?: MARKDOWN_INDENT.find(line)?.value.orEmpty()
-            val content = match?.let { line.substring(it.value.length) } ?: line.substring(indent.length)
-            if (level == 0) indent + content else indent + "#".repeat(level) + " " + content
-        }
-        replaceText(range.first, range.second, replaced)
-        if (hadSelection) {
-            selectRange(range.first, range.first + replaced.length)
-        } else {
-            val target = range.first + caretOffset + replaced.length - block.length
-            moveTo(if (target < range.first) range.first else target)
         }
     }
 
@@ -311,6 +280,7 @@ class EditorArea @JvmOverloads constructor(
 //        }
         viewPosition.destroy()
         paragraphWrapping.clear()
+        markdownPresentation.clear()
         dispose()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()

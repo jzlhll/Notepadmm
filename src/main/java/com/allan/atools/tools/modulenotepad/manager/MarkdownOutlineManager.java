@@ -44,6 +44,7 @@ public final class MarkdownOutlineManager {
     private boolean destroyed;
     private long shownContentVersion = -1;
     private Future<?> parseTask;
+    private final ChangeListener<Number> caretChanged = (observable, old, value) -> followCaret();
 
     public MarkdownOutlineManager(NotepadController controller) {
         this.controller = controller;
@@ -78,6 +79,7 @@ public final class MarkdownOutlineManager {
         }
 
         area.getEditor().textChanged.addAction(textChangedAction);
+        area.caretPositionProperty().addListener(caretChanged);
         outlineDirty = true;
         if (isOverLimit(area)) {
             outlineDirty = false;
@@ -91,6 +93,7 @@ public final class MarkdownOutlineManager {
     private void unbindEditor() {
         if (currentArea != null) {
             currentArea.getEditor().textChanged.removeAction(textChangedAction);
+            currentArea.caretPositionProperty().removeListener(caretChanged);
             currentArea = null;
         }
     }
@@ -135,7 +138,7 @@ public final class MarkdownOutlineManager {
         parseTask = ThreadUtils.submit(() -> {
             List<MarkdownHeading> headings = null;
             try {
-                headings = parseHeadings(text);
+                headings = parseHeadings(area, text);
             } catch (RuntimeException e) {
                 Log.e("parse markdown outline failed", e);
             }
@@ -167,6 +170,21 @@ public final class MarkdownOutlineManager {
         }
         shownContentVersion = contentVersion;
         outlineDirty = false;
+        followCaret();
+    }
+
+    private void followCaret() {
+        var area = currentArea;
+        if (area == null || !isOutlineShown() || shownContentVersion != area.getEditor().getContentVersion()) return;
+        int index = -1;
+        for (int i = 0; i < shownHeadings.size(); i++) {
+            if (shownHeadings.get(i).lineIndex() <= area.getCurrentParagraph()) index = i;
+            else break;
+        }
+        if (index >= 0 && controller.currentDocumentOutlineList.getSelectionModel().getSelectedIndex() != index) {
+            controller.currentDocumentOutlineList.getSelectionModel().select(index);
+            controller.currentDocumentOutlineList.scrollTo(index);
+        }
     }
 
     public void refreshCurrentFile() {
@@ -198,11 +216,7 @@ public final class MarkdownOutlineManager {
     }
 
     private static boolean isMarkdown(EditorArea area) {
-        if (area == null || area.getEditor().getSourceFile() == null) {
-            return false;
-        }
-        String name = area.getEditor().getSourceFile().getName().toLowerCase(Locale.ROOT);
-        return name.endsWith(".md") || name.endsWith(".markdown");
+        return com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown(area);
     }
 
     private void invalidateRefresh() {
@@ -220,126 +234,10 @@ public final class MarkdownOutlineManager {
         shownContentVersion = -1;
     }
 
-    private static List<MarkdownHeading> parseHeadings(String text) {
-        var headings = new ArrayList<MarkdownHeading>();
-        boolean inFence = false;
-        char fenceCharacter = 0;
-        int fenceLength = 0;
-        int lineIndex = 0;
-        int lineStart = 0;
-
-        while (lineStart < text.length()) {
-            if (Thread.currentThread().isInterrupted()) {
-                return null;
-            }
-            int nextLineStart = text.indexOf('\n', lineStart);
-            int lineEnd = nextLineStart >= 0 ? nextLineStart : text.length();
-            if (lineEnd > lineStart && text.charAt(lineEnd - 1) == '\r') {
-                lineEnd--;
-            }
-
-            int contentStart = skipLeadingSpaces(text, lineStart, lineEnd);
-            int currentFenceLength = countFenceCharacters(text, contentStart, lineEnd);
-            if (currentFenceLength >= 3) {
-                char currentFenceCharacter = text.charAt(contentStart);
-                if (!inFence) {
-                    inFence = true;
-                    fenceCharacter = currentFenceCharacter;
-                    fenceLength = currentFenceLength;
-                } else if (currentFenceCharacter == fenceCharacter && currentFenceLength >= fenceLength
-                        && isOnlyHorizontalWhitespace(text, contentStart + currentFenceLength, lineEnd)) {
-                    inFence = false;
-                }
-            } else if (!inFence) {
-                addHeading(text, contentStart, lineEnd, lineIndex, headings);
-            }
-
-            if (nextLineStart < 0) {
-                break;
-            }
-            lineStart = nextLineStart + 1;
-            lineIndex++;
-        }
-        return List.copyOf(headings);
-    }
-
-    private static int skipLeadingSpaces(String text, int start, int end) {
-        int index = start;
-        int count = 0;
-        while (index < end && count < 3 && text.charAt(index) == ' ') {
-            index++;
-            count++;
-        }
-        return index;
-    }
-
-    private static int countFenceCharacters(String text, int start, int end) {
-        if (start >= end) {
-            return 0;
-        }
-        char character = text.charAt(start);
-        if (character != '`' && character != '~') {
-            return 0;
-        }
-        int index = start;
-        while (index < end && text.charAt(index) == character) {
-            index++;
-        }
-        return index - start;
-    }
-
-    private static boolean isOnlyHorizontalWhitespace(String text, int start, int end) {
-        for (int index = start; index < end; index++) {
-            char character = text.charAt(index);
-            if (character != ' ' && character != '\t') {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static void addHeading(String text, int start, int end, int lineIndex,
-                                   List<MarkdownHeading> headings) {
-        int markerEnd = start;
-        while (markerEnd < end && markerEnd - start < 6 && text.charAt(markerEnd) == '#') {
-            markerEnd++;
-        }
-        int level = markerEnd - start;
-        if (level == 0 || markerEnd < end && text.charAt(markerEnd) == '#') {
-            return;
-        }
-        if (markerEnd < end && !isHorizontalWhitespace(text.charAt(markerEnd))) {
-            return;
-        }
-
-        int titleStart = markerEnd;
-        while (titleStart < end && isHorizontalWhitespace(text.charAt(titleStart))) {
-            titleStart++;
-        }
-        int titleEnd = end;
-        while (titleEnd > titleStart && isHorizontalWhitespace(text.charAt(titleEnd - 1))) {
-            titleEnd--;
-        }
-
-        int closingStart = titleEnd;
-        while (closingStart > titleStart && text.charAt(closingStart - 1) == '#') {
-            closingStart--;
-        }
-        boolean hasClosingSpace = closingStart > titleStart
-                ? isHorizontalWhitespace(text.charAt(closingStart - 1))
-                : titleStart > markerEnd;
-        if (closingStart < titleEnd && hasClosingSpace) {
-            titleEnd = closingStart > titleStart ? closingStart - 1 : closingStart;
-            while (titleEnd > titleStart && isHorizontalWhitespace(text.charAt(titleEnd - 1))) {
-                titleEnd--;
-            }
-        }
-
-        headings.add(new MarkdownHeading(level, text.substring(titleStart, titleEnd), lineIndex));
-    }
-
-    private static boolean isHorizontalWhitespace(char character) {
-        return character == ' ' || character == '\t';
+    private static List<MarkdownHeading> parseHeadings(EditorArea area, String text) {
+        var state = ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) area.getEditor()).markdownSnapshot(text);
+        return state.getHeadings().stream().map(heading ->
+                new MarkdownHeading(heading.getLevel(), heading.getTitle(), heading.getLine())).toList();
     }
 
     public record MarkdownHeading(int level, String title, int lineIndex) {
