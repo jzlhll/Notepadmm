@@ -43,6 +43,8 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 when (value) {
                     is Text -> append(value.literal)
                     is Code -> append(value.literal)
+                    is MarkdownMath -> append(value.literal)
+                    is MarkdownMathBlock -> append(value.literal)
                     is SoftLineBreak, is HardLineBreak -> append(' ')
                 }
                 var child = value.firstChild
@@ -56,7 +58,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
             nodes.add(Element(node, parent, ranges))
             val quoteDepth = quote + if (node is BlockQuote) 1 else 0
             val listDepth = list + if (node is ListItem) 1 else 0
-            val literal = node is Code || node is FencedCodeBlock || node is IndentedCodeBlock || node is HtmlBlock
+            val literal = node is Code || node is FencedCodeBlock || node is IndentedCodeBlock || node is HtmlBlock || node is MarkdownMath || node is MarkdownMathBlock || node is org.commonmark.ext.front.matter.YamlFrontMatterBlock
             if (literal) protectedRanges.addAll(ranges)
             if (node is Block) {
                 val first = node.sourceSpans.firstOrNull()?.lineIndex
@@ -81,6 +83,21 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 val begin = first.inputIndex
                 val end = last.inputIndex + last.length
                 when (node) {
+                    is MarkdownMathBlock -> {
+                        val opening = text.substring(begin, begin + first.length).indexOf("$$")
+                        if (opening >= 0) mark(begin + opening, begin + opening + 2)
+                        if (node.closed) {
+                            val closing = Regex("\\$\\$[ \t]*$").find(text.substring(last.inputIndex, end))
+                            if (closing != null) mark(last.inputIndex + closing.range.first, last.inputIndex + closing.range.first + 2)
+                        }
+                    }
+                    is MarkdownMath -> {
+                        val count = if (node.display) 2 else 1
+                        mark(begin, begin + count); mark(end - count, end)
+                    }
+                    is MarkdownDecoration -> {
+                        mark(begin, begin + node.delimiter.length); mark(end - node.delimiter.length, end)
+                    }
                     is Heading -> {
                         val title = descendants(node)
                         val base = title.lowercase(java.util.Locale.ROOT).trim()

@@ -1,12 +1,9 @@
 package com.allan.atools.richtext.codearea.keywordhelper;
 
-import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
-import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.Node;
 import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
 
-import java.util.List;
 
 /** 在同一文档版本的 Markdown 功能之间复用 AST。 */
 public final class MarkdownAstCache {

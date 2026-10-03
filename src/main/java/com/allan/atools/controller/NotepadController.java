@@ -547,6 +547,7 @@ public final class NotepadController extends AbstractMainController {
 
     public void refreshCurrentDocumentInfo() {
         refreshCurrentDocumentPath();
+        com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.refreshCurrentFile(UIContext.currentAreaProp.get());
         BottomMarkdownZoom.refresh();
         refreshWrapTextButton(UIContext.currentAreaProp.get());
         if (markdownOutlineManager != null) {

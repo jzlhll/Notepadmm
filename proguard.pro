@@ -64,6 +64,7 @@
 -keeppackagenames com.allan.atools.tools.modulenotepad.manager
 -keepclassmembers class com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow$PreviewBridge {
     public void edit(int);
+    public void copy(java.lang.String);
     public void open(java.lang.String);
     public void task(int, boolean);
 }

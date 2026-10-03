@@ -14,3 +14,16 @@ pre code { white-space:pre; padding:0; } img { max-width:100%; height:auto; } ta
 th,td { border:1px solid var(--border); padding:8px 12px; min-width:3em; } th { background:var(--code); }
 input[type=checkbox] { margin-right:.55em; vertical-align:middle; } .task-list-item { list-style:none; }
 ::selection { background:#8bb8ec88; } [data-source-start].current-block { outline:1px solid var(--border); outline-offset:4px; }
+.md-math[data-display=true] { display:block; overflow-x:auto; margin:1em 0; text-align:center; }
+.math-error { border-bottom:1px dashed #d45b5b; color:#d45b5b; white-space:pre-wrap; }
+.front-matter { color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:8px 12px; }
+.token-keyword { color:#a626a4; } .token-string { color:#297a34; } .token-comment { color:#7b8793; } .token-punct { color:var(--muted); }
+.dark .token-keyword { color:#ff7b72; } .dark .token-string { color:#a5d6ff; } .dark .token-comment { color:#8b949e; }
+.toc-level-2 { margin-left:1em; } .toc-level-3 { margin-left:2em; } .toc-level-4 { margin-left:3em; } .toc-level-5 { margin-left:4em; } .toc-level-6 { margin-left:5em; }
+.mermaid-diagram { overflow-x:auto; } .mermaid-diagram svg { max-width:100%; height:auto; }
+button { color:var(--foreground); background:var(--code); border:1px solid var(--border); border-radius:4px; padding:3px 8px; cursor:pointer; }
+
+.code-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.8em;color:#697386;margin-top:1em}
+.code-tools + pre{margin-top:.3em}
+.code-tools button,.image-retry{font:inherit;border:1px solid #aab3bd;border-radius:4px;padding:3px 9px;background:transparent;color:inherit;cursor:pointer}
+.diagram-error{color:#ba3333;white-space:pre-wrap;font-size:.85em}

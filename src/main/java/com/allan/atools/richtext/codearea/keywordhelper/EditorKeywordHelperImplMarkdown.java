@@ -96,7 +96,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_CODE_FENCE = 26;
     private static final int STYLE_SYNTAX = 27;
     private static final int STYLE_HEADING_SIX = 28;
-    private static final int STYLE_COUNT = 29;
+    private static final int STYLE_MATH = 29;
+    private static final int STYLE_HIGHLIGHT = 30;
+    private static final int STYLE_COUNT = 31;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -107,7 +109,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "temporary", "search",
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
             "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value",
-            "markdown-emoji", "markdown-code-fence", "markdown-syntax-marker", "markdown-title-6"
+            "markdown-emoji", "markdown-code-fence", "markdown-syntax-marker", "markdown-title-6", "markdown-math", "markdown-highlight"
     };
     private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
@@ -473,6 +475,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         public void visit(CustomBlock customBlock) {
             if (customBlock instanceof TableBlock tableBlock) {
                 addTableRegions(tableBlock);
+            } else if (customBlock instanceof MarkdownMathBlock) {
+                addLiteralRegions(customBlock);
+                addNodeRegions(customBlock, STYLE_MATH);
             }
             visitChildren(customBlock);
         }
@@ -481,6 +486,11 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         public void visit(CustomNode customNode) {
             if (customNode instanceof Strikethrough strikethrough) {
                 addNodeRegions(strikethrough, STYLE_STRIKETHROUGH);
+            } else if (customNode instanceof MarkdownMath) {
+                addLiteralRegions(customNode);
+                addNodeRegions(customNode, STYLE_MATH);
+            } else if (customNode instanceof MarkdownDecoration decoration && "mark".equals(decoration.getTag())) {
+                addNodeRegions(customNode, STYLE_HIGHLIGHT);
             }
             visitChildren(customNode);
         }
@@ -633,74 +643,68 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             }
         }
 
-        /**
-         * 代码块内容按 info 语言（java/kotlin/c/cpp/csharp/xml 等）做 token 高亮，样式叠加在 markdown-code 上。
-         * literal 首字符对齐 spans[1]（内容首行行首）；列表项内代码块的 literal 已剥离列表缩进，
-         * 起点对不上时放弃 token 高亮（整块仍为 markdown-code）。
-         */
+        /** 逐行记录 literal 与原文的对应位置，保留引用前缀和列表缩进。 */
         private void addFencedCodeTokenRegions(FencedCodeBlock block) {
-            CodeBlockLanguages.CodeLanguage language = CodeBlockLanguages.of(block.getInfo());
+            var language = CodeBlockLanguages.of(block.getInfo());
             String literal = block.getLiteral();
-            if (language == null || literal.isEmpty()) {
-                return;
-            }
+            if (language == null || literal.isEmpty()) return;
+            var offsets = new int[literal.length()];
+            java.util.Arrays.fill(offsets, -1);
+            int cursor = 0;
             var spans = block.getSourceSpans();
-            if (spans.size() < 2) {
-                return;
-            }
-            int base = spans.get(1).getInputIndex();
-            int lineEnd = literal.indexOf('\n');
-            String firstLine = lineEnd >= 0 ? literal.substring(0, lineEnd) : literal;
-            if (firstLine.isEmpty() || !text.regionMatches(base, firstLine, 0, firstLine.length())) {
-                return;
+            int contentLines = spans.size() - (block.getClosingFenceLength() == null ? 1 : 2);
+            for (int line = 0; line < contentLines && cursor < literal.length(); line++) {
+                int next = literal.indexOf('\n', cursor);
+                int end = next < 0 ? literal.length() : next;
+                var span = spans.get(line + 1);
+                var source = text.substring(span.getInputIndex(), span.getInputIndex() + span.getLength());
+                String value = literal.substring(cursor, end);
+                // CommonMark 展开 Tab 时无法逐字符映射，该行保留整块样式。
+                if (!value.isEmpty() && source.endsWith(value)) {
+                    int base = span.getInputIndex() + source.length() - value.length();
+                    for (int index = cursor; index < end; index++) offsets[index] = base + index - cursor;
+                }
+                cursor = end + 1;
             }
             Matcher matcher = language.pattern().matcher(literal);
-            int matchCount = 0;
+            int count = 0;
             while (matcher.find()) {
-                if ((matchCount++ & 255) == 0 && !canContinue.getAsBoolean()) {
-                    return;
-                }
-                if (language.xml()) {
-                    addXmlTokenRegions(matcher, base);
-                } else {
-                    addJavaTokenRegion(matcher, base);
+                if ((count++ & 255) == 0 && !canContinue.getAsBoolean()) return;
+                if (language.xml()) addMappedXmlRegions(matcher, offsets);
+                else {
+                    int style = matcher.group("KEYWORD") != null ? STYLE_CODE_KEYWORD
+                            : matcher.group("STRING") != null ? STYLE_CODE_STRING
+                            : matcher.group("COMMENT") != null ? STYLE_CODE_COMMENT : STYLE_CODE_PUNCT;
+                    addMappedRegion(offsets, matcher.start(), matcher.end(), style);
                 }
             }
         }
 
-        /** Java 系语言（含 kotlin/c/cpp/csharp）：PAREN/BRACE/BRACKET/SEMICOLON 统一为标点色 */
-        private void addJavaTokenRegion(Matcher matcher, int base) {
-            int styleId = matcher.group("KEYWORD") != null ? STYLE_CODE_KEYWORD
-                    : matcher.group("STRING") != null ? STYLE_CODE_STRING
-                    : matcher.group("COMMENT") != null ? STYLE_CODE_COMMENT
-                    : STYLE_CODE_PUNCT;
-            events.addRegion(base + matcher.start(), base + matcher.end(), styleId);
+        private void addMappedRegion(int[] offsets, int start, int end, int style) {
+            for (int index = start; index < end; ) {
+                if (index >= offsets.length || offsets[index] < 0) { index++; continue; }
+                int source = offsets[index++];
+                int length = 1;
+                while (index < end && offsets[index] == source + length) { index++; length++; }
+                events.addRegion(source, source + length, style);
+            }
         }
 
-        /** XML/HTML：ELEMENT 组内再按 开闭尖括号/标签名/属性名/等号/属性值 细分 */
-        private void addXmlTokenRegions(Matcher matcher, int base) {
+        private void addMappedXmlRegions(Matcher matcher, int[] offsets) {
             if (matcher.group("COMMENT") != null) {
-                events.addRegion(base + matcher.start(), base + matcher.end(), STYLE_CODE_COMMENT);
+                addMappedRegion(offsets, matcher.start(), matcher.end(), STYLE_CODE_COMMENT);
                 return;
             }
-            addTokenRegion(base, matcher, 2, STYLE_CODE_TAG_MARK);
-            addTokenRegion(base, matcher, 3, STYLE_CODE_TAG);
-            int attributesStart = matcher.start(4);
-            Matcher attrMatcher = XML_ATTRIBUTE_PATTERN.matcher(matcher.group(4));
-            while (attrMatcher.find()) {
-                addTokenRegion(base + attributesStart, attrMatcher, 1, STYLE_CODE_ATTRIBUTE);
-                addTokenRegion(base + attributesStart, attrMatcher, 2, STYLE_CODE_TAG_MARK);
-                addTokenRegion(base + attributesStart, attrMatcher, 3, STYLE_CODE_ATTRIBUTE_VALUE);
+            addMappedRegion(offsets, matcher.start(2), matcher.end(2), STYLE_CODE_TAG_MARK);
+            addMappedRegion(offsets, matcher.start(3), matcher.end(3), STYLE_CODE_TAG);
+            int start = matcher.start(4);
+            var attributes = XML_ATTRIBUTE_PATTERN.matcher(matcher.group(4));
+            while (attributes.find()) {
+                addMappedRegion(offsets, start + attributes.start(1), start + attributes.end(1), STYLE_CODE_ATTRIBUTE);
+                addMappedRegion(offsets, start + attributes.start(2), start + attributes.end(2), STYLE_CODE_TAG_MARK);
+                addMappedRegion(offsets, start + attributes.start(3), start + attributes.end(3), STYLE_CODE_ATTRIBUTE_VALUE);
             }
-            addTokenRegion(base, matcher, 5, STYLE_CODE_TAG_MARK);
-        }
-
-        private void addTokenRegion(int base, Matcher matcher, int group, int styleId) {
-            int start = matcher.start(group);
-            int end = matcher.end(group);
-            if (end > start) {
-                events.addRegion(base + start, base + end, styleId);
-            }
+            addMappedRegion(offsets, matcher.start(5), matcher.end(5), STYLE_CODE_TAG_MARK);
         }
 
         private void addTableRegions(TableBlock tableBlock) {
@@ -810,6 +814,13 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 case "c", "cpp", "c++", "cc", "h", "hpp" -> "c";
                 case "csharp", "cs", "c#" -> "csharp";
                 case "xml", "html", "htm" -> "xml";
+                case "javascript", "js", "jsx" -> "javascript";
+                case "typescript", "ts", "tsx" -> "typescript";
+                case "python", "py" -> "python";
+                case "json", "jsonc" -> "json";
+                case "shell", "sh", "bash", "zsh" -> "shell";
+                case "sql" -> "sql";
+                case "yaml", "yml" -> "yaml";
                 default -> null;
             };
         }
@@ -824,7 +835,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 default -> null;
             };
             // getPattern(null, null) 不含 temporary/search 组，返回纯语言 token pattern
-            return helper == null ? null
+            return helper == null ? new CodeLanguage(MarkdownCodeLanguages.pattern(language), false)
                     : new CodeLanguage(helper.getPattern(null, null), "xml".equals(language));
         }
     }

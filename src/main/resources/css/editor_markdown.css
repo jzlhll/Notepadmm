@@ -379,3 +379,6 @@
 .text.markdown-inline-code.markdown-syntax-marker { -fx-fill: -au-md-syntax; }
 .text.markdown-syntax-marker.search { -fx-fill: -au-editor-text-color; }
 .text.markdown-syntax-marker.temporary { -fx-fill: -au-editor-text-color; }
+
+.markdown-math { -fx-font-family: monospace; -rtfx-background-color: -au-md-inline-code-bg; }
+.markdown-highlight { -rtfx-background-color: #e5c95b77; }

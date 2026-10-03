@@ -174,8 +174,8 @@ public final class MarkdownCodeBlockManager {
                 Log.e("parse markdown code blocks failed", e);
             }
             var result = blocks;
-            Platform.runLater(() -> finishRefresh(
-                    area, contentVersion, requestId, result));
+            Platform.runLater(() -> area.runAfterMarkdownComposition(() -> finishRefresh(
+                    area, contentVersion, requestId, result)));
         });
     }
 

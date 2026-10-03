@@ -654,7 +654,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void prepareSave(File target, CompletableFuture<SaveResult> result) {
-        String sourceCode = area.getText();
+        String sourceCode = MarkdownAttachments.rebaseForSaveAs(area, getSourceFile(), target);
         String encoding = state.getFileEncoding();
         if (encoding == null) {
             encoding = StandardCharsets.UTF_8.name();
@@ -686,14 +686,18 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                            CompletableFuture<SaveResult> result) {
         var undoManager = area.getUndoManager();
         undoManager.preventMerge();
-        UndoManager.UndoPosition savedPosition = undoManager.getCurrentPosition();
+        UndoManager.UndoPosition savedPosition = area.getText().equals(sourceCode) ? undoManager.getCurrentPosition() : null;
+        File referenceSourceFile = getSourceFile();
+        boolean rebasedSave = referenceSourceFile != null
+                && !java.util.Objects.equals(referenceSourceFile.getParentFile(), target.getParentFile())
+                && MarkdownEditorSupport.isMarkdownFile(referenceSourceFile);
         CompletableFuture<Boolean> write;
         synchronized (saveLock) {
             write = saveChain.handle((ignored, throwable) -> null)
                     .thenApplyAsync(ignored -> writeSourceFile(target, sourceCode, encoding), SAVE_EXECUTOR);
             saveChain = write.handle((ignored, throwable) -> null);
         }
-        write.whenComplete((success, throwable) -> Platform.runLater(() -> {
+        write.whenComplete((success, throwable) -> Platform.runLater(() -> area.runAfterMarkdownComposition(() -> {
             if (throwable != null || !Boolean.TRUE.equals(success) || isDestroyed()) {
                 if (throwable != null) {
                     Log.e("save content failed: " + target, throwable);
@@ -704,11 +708,20 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 result.complete(SaveResult.FAILED);
                 return;
             }
+            if (rebasedSave && java.util.Objects.equals(referenceSourceFile, getSourceFile())) {
+                MarkdownAttachments.applyRebaseForSaveAs(area, referenceSourceFile, target);
+            }
             bindSavedFile(target);
             documentState.updateBaseFileMetadata();
             documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
             documentState.setSavedText(sourceCode);
-            if (savedPosition.isValid()) {
+            if (rebasedSave) {
+                if (sourceCode.equals(area.getText())) {
+                    var currentPosition = undoManager.getCurrentPosition();
+                    currentPosition.mark();
+                    documentState.setSavedUndoPosition(currentPosition);
+                } else documentState.invalidateSavedUndoPosition();
+            } else if (savedPosition != null && savedPosition.isValid()) {
                 savedPosition.mark();
                 documentState.setSavedUndoPosition(savedPosition);
             } else {
@@ -722,7 +735,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             AllEditorsManager.delayToSaveRecentFile(target.getAbsolutePath());
             notifyWorkspaceRefreshDelayed(target);
             result.complete(saveResult);
-        }));
+        })));
     }
 
     private boolean writeSourceFile(File target, String sourceCode, String encoding) {

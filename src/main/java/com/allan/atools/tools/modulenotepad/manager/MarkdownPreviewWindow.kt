@@ -6,7 +6,6 @@ import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport
-import com.allan.atools.richtext.codearea.keywordhelper.MarkdownExtensions
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.Locales
@@ -22,7 +21,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.web.WebView
 import javafx.stage.Stage
 import netscape.javascript.JSObject
-import org.commonmark.renderer.html.HtmlRenderer
 import org.reactfx.Subscription
 import java.util.concurrent.Future
 
@@ -33,6 +31,8 @@ class MarkdownPreviewWindow private constructor() {
     private val hint = Label(Locales.str("markdown.previewHint"))
     private val bridge = PreviewBridge()
     private var area: EditorArea? = null
+    private var boundFile: java.io.File? = null
+    private var boundMarkdown = false
     private var changes: Subscription? = null
     private var task: Future<*>? = null
     private var renderedVersion = -1L
@@ -41,6 +41,7 @@ class MarkdownPreviewWindow private constructor() {
     private val scheduler = LatestRefreshScheduler(200, 450, ::render)
     private val currentChanged = ChangeListener<EditorArea> { _, _, value -> bind(value) }
     private val themeChanged = ChangeListener<Boolean> { _, _, _ -> scheduler.request() }
+    private val fontChanged = javafx.beans.InvalidationListener { scheduler.request() }
     private val editableChanged = ChangeListener<Boolean> { _, _, _ -> scheduler.request() }
     private val caretChanged = ChangeListener<Number> { _, _, value ->
         if (stage.isShowing && renderedVersion == area?.editor?.contentVersion) {
@@ -67,6 +68,8 @@ class MarkdownPreviewWindow private constructor() {
         stage.setOnHidden {
             UIContext.currentAreaProp.removeListener(currentChanged)
             SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).removeListener(themeChanged)
+            UIContext.getFontSizeProperty().removeListener(fontChanged)
+            UIContext.getFontThemeProperty().removeListener(fontChanged)
             bind(null)
             view.engine.load(null)
         }
@@ -82,17 +85,19 @@ class MarkdownPreviewWindow private constructor() {
         area?.caretPositionProperty()?.removeListener(caretChanged)
         area?.editableProperty()?.removeListener(editableChanged)
         area = value
+        boundFile = value?.editor?.sourceFile
+        boundMarkdown = MarkdownEditorSupport.supportsMarkdown(value)
         renderedSnapshot = null
         renderedVersion = -1
-        if (!MarkdownEditorSupport.supportsMarkdown(value)) {
-            view.engine.loadContent("<html><body></body></html>")
-            return
-        }
+        // 解绑后立刻移除旧页面及其桥接，路径相同的版本号也不能复用旧页面。
+        view.engine.loadContent("<html><body></body></html>")
+        stage.title = value?.editor?.documentState?.displayName?.let { "$it · ${Locales.str("markdown.preview")}" }
+            ?: Locales.str("markdown.preview")
+        if (!boundMarkdown) return
         value ?: return
         changes = value.plainTextChanges().subscribe { scheduler.request() }
         value.caretPositionProperty().addListener(caretChanged)
         value.editableProperty().addListener(editableChanged)
-        stage.title = value.editor.documentState.displayName + " · " + Locales.str("markdown.preview")
         scheduler.startNow()
     }
 
@@ -112,15 +117,21 @@ class MarkdownPreviewWindow private constructor() {
         val source = current.text
         val revision = generation
         val dark = Colors.isDark()
+        val fontSize = UIContext.getFontSizeProperty().get().toDouble()
+        val fontFamily = com.allan.atools.FontTheme.fontFamily().replace("\"", "")
+        val readonly = !current.isEditable
+        val file = current.editor.sourceFile
+        val base = file?.parentFile?.toURI()?.toASCIIString()
         task = ThreadUtils.submit {
             try {
                 val state = (current.editor as EditorAreaMgrCode).markdownSnapshot(source)
-                val html = renderDocument(state, current.editor.sourceFile?.parentFile?.toURI()?.toASCIIString(), dark)
-                    .replace("<body class=", "<body data-readonly=\"${!current.isEditable}\" class=")
+                val html = renderDocument(state, base, dark)
+                    .replace("<body ", "<body data-readonly=\"$readonly\" style=\"font-size:${fontSize}px;font-family:${escape(fontFamily)}\" ")
                 Platform.runLater {
                     scheduler.complete(requestId) {
                         task = null
-                        if (revision == generation && area === current && version == current.editor.contentVersion && stage.isShowing) {
+                        if (revision == generation && area === current && version == current.editor.contentVersion
+                            && file == current.editor.sourceFile && stage.isShowing) {
                             renderedSnapshot = state
                             renderedVersion = version
                             hint.text = Locales.str("markdown.previewHint")
@@ -145,8 +156,12 @@ class MarkdownPreviewWindow private constructor() {
             UIContext.mainWindow?.requestFocus()
             current.requestFocus()
         }
+        fun copy(value: String) {
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(value) })
+        }
         fun open(destination: String) {
             val current = area ?: return
+            if (current.editor.contentVersion != renderedVersion) return
             (current.editor as EditorAreaMgrCode).openMarkdownDestination(destination)
         }
         fun task(position: Int, checked: Boolean) {
@@ -167,11 +182,22 @@ class MarkdownPreviewWindow private constructor() {
         private var instance: MarkdownPreviewWindow? = null
 
         @JvmStatic
+        fun refreshCurrentFile(area: EditorArea?) {
+            val window = instance ?: return
+            if (window.stage.isShowing && window.area === area &&
+                (window.boundFile != area?.editor?.sourceFile || window.boundMarkdown != MarkdownEditorSupport.supportsMarkdown(area))) {
+                window.bind(area)
+            }
+        }
+
+        @JvmStatic
         fun show(area: EditorArea) {
             val window = instance ?: MarkdownPreviewWindow().also { instance = it }
             if (!window.stage.isShowing) {
                 UIContext.currentAreaProp.addListener(window.currentChanged)
                 SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).addListener(window.themeChanged)
+                UIContext.getFontSizeProperty().addListener(window.fontChanged)
+                UIContext.getFontThemeProperty().addListener(window.fontChanged)
                 window.stage.show()
             }
             window.bind(area)
@@ -182,29 +208,31 @@ class MarkdownPreviewWindow private constructor() {
         fun close() { instance?.stage?.close(); instance = null }
 
         fun renderBody(state: MarkdownStructureSnapshot): String {
-            val renderer = HtmlRenderer.builder().extensions(MarkdownExtensions.all())
-                .escapeHtml(true).sanitizeUrls(true).softbreak("<br>\n")
-                .attributeProviderFactory {
-                    org.commonmark.renderer.html.AttributeProvider { node, tag, attributes ->
-                        node.sourceSpans.firstOrNull()?.let { span ->
-                            attributes["data-source-start"] = span.inputIndex.toString()
-                            attributes["data-source-line"] = span.lineIndex.toString()
-                        }
-                        if (node is org.commonmark.node.Heading) {
-                            state.headings.firstOrNull { it.line == node.sourceSpans.firstOrNull()?.lineIndex }
-                                ?.let { attributes["id"] = it.anchor }
-                        }
-                    }
-                }.build()
-            return renderer.render(state.root)
+            return MarkdownHtmlRenderer.body(state)
         }
+
+        private val katexLibrary by lazy { MarkdownPreviewWindow::class.java.getResource("/markdown/katex/katex.min.js")!!.readText() }
+        private val katexCss by lazy {
+            val source = MarkdownPreviewWindow::class.java.getResource("/markdown/katex/katex.min.css")!!.readText()
+            Regex("url\\((?:\"|')?(fonts/[^)\"']+)(?:\"|')?\\)").replace(source) { match ->
+                val name = match.groupValues[1]
+                val bytes = MarkdownPreviewWindow::class.java.getResourceAsStream("/markdown/katex/$name")!!.use { it.readAllBytes() }
+                val type = when { name.endsWith(".woff2") -> "font/woff2"; name.endsWith(".woff") -> "font/woff"; else -> "font/ttf" }
+                "url(data:$type;base64,${java.util.Base64.getEncoder().encodeToString(bytes)})"
+            }
+        }
+        private val mermaidLibrary by lazy { MarkdownPreviewWindow::class.java.getResource("/mermaid/mermaid.min.js")!!.readText() }
 
         fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean): String {
             val style = MarkdownPreviewWindow::class.java.getResource("/markdown/preview.css")!!.readText()
             val script = MarkdownPreviewWindow::class.java.getResource("/markdown/preview.js")!!.readText()
             val baseTag = if (base == null) "" else "<base href=\"${escape(base)}\">"
-            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$style</style></head>" +
-                "<body class=\"${if (dark) "dark" else "light"}\"><article>${renderBody(state)}</article><script>$script</script></body></html>"
+            val formula = state.elements.any { it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath || it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMathBlock }
+            val diagram = state.elements.any { it.node is org.commonmark.node.FencedCodeBlock && it.node.info.trim() == "mermaid" }
+            val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
+                (if (diagram) "<script>$mermaidLibrary</script>" else "")
+            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$style</style>$libraries</head>" +
+                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>${MarkdownHtmlRenderer.body(state, base)}</article><script>$script</script></body></html>"
         }
 
         fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

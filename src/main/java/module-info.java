@@ -20,6 +20,9 @@ module atools {
     requires org.commonmark.ext.gfm.strikethrough;
     requires org.commonmark.ext.autolink;
     requires org.commonmark.ext.task.list.items;
+    requires org.commonmark.ext.footnotes;
+    requires org.commonmark.ext.front.matter;
+    requires org.jsoup;
     requires org.fxmisc.richtext;
     requires org.fxmisc.flowless;
     requires wellbehavedfx;

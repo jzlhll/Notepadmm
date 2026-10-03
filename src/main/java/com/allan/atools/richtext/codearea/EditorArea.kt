@@ -39,10 +39,18 @@ class EditorArea @JvmOverloads constructor(
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
     val markdownEditing: MarkdownEditingActions
+    val markdownAttachments by lazy { MarkdownAttachments(this) }
+    val markdownClipboard by lazy { MarkdownClipboard(this) }
+    val markdownCodeActions by lazy { MarkdownCodeActions(this) }
+    private val afterMarkdownComposition = ArrayDeque<Runnable>()
     var markdownComposing = false
         private set
     var markdownPreviewEnabled = true
         private set
+
+    fun runAfterMarkdownComposition(action: Runnable) {
+        if (markdownComposing) afterMarkdownComposition.add(action) else action.run()
+    }
 
     fun toggleMarkdownPreview() {
         val top = if (visibleParagraphs.isEmpty()) -1 else firstVisibleParToAllParIndex()
@@ -132,7 +140,10 @@ class EditorArea @JvmOverloads constructor(
             if (isFocused) bottomSearchBtnsMgr.cancelPendingSearchJump()
         }
         addEventFilter(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED) {
-            if (it.target !is TextInputControl) markdownComposing = it.composed.isNotEmpty()
+            markdownComposing = it.composed.isNotEmpty()
+            if (!markdownComposing) javafx.application.Platform.runLater {
+                if (!markdownComposing) while (afterMarkdownComposition.isNotEmpty()) afterMarkdownComposition.removeFirst().run()
+            }
             bottomSearchBtnsMgr.cancelPendingSearchJump()
         }
 
@@ -188,8 +199,29 @@ class EditorArea @JvmOverloads constructor(
             }
         }
 
+        addEventFilter(javafx.scene.input.DragEvent.DRAG_OVER) { event ->
+            if (isEditable && isMarkdownDocument() && event.dragboard.hasFiles()
+                && event.dragboard.files.all(MarkdownAttachments::isImage)) {
+                event.acceptTransferModes(javafx.scene.input.TransferMode.COPY)
+                event.consume()
+            }
+        }
+        addEventFilter(javafx.scene.input.DragEvent.DRAG_DROPPED) { event ->
+            if (isEditable && isMarkdownDocument() && event.dragboard.hasFiles()
+                && event.dragboard.files.all(MarkdownAttachments::isImage)) {
+                markdownAttachments.importFiles(event.dragboard.files)
+                event.isDropCompleted = true
+                event.consume()
+            }
+        }
+
         RefWatcher.watchs(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
         EditorSessionManager.getInstance().track(this)
+    }
+
+    override fun paste() {
+        if (!isEditable || markdownComposing) return
+        if (!MarkdownEditorSupport.supportsMarkdown(this) || !markdownClipboard.paste()) super.paste()
     }
 
     override fun requestFollowCaret() {
@@ -285,6 +317,7 @@ class EditorArea @JvmOverloads constructor(
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()
         editor.destroy()
+        while (afterMarkdownComposition.isNotEmpty()) afterMarkdownComposition.removeFirst().run()
         bottomSearchBtnsMgr.destroy()
     }
 }

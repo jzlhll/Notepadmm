@@ -375,9 +375,18 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
     }
 
+    public void openMarkdownDocument(File file, java.util.function.Consumer<EditorArea> opened) {
+        openFile(file, true, true, null, null, false, opened);
+    }
+
     private void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert) {
+        openFile(textFile, checkAlreadyHasFile, toFront, forceEncoding, reOpenExistTab, ignoreAlert, null);
+    }
+
+    private void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert,
+                          java.util.function.Consumer<EditorArea> opened) {
         if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> openFile(textFile, checkAlreadyHasFile, toFront, forceEncoding, reOpenExistTab, ignoreAlert));
+            Platform.runLater(() -> openFile(textFile, checkAlreadyHasFile, toFront, forceEncoding, reOpenExistTab, ignoreAlert, opened));
             return;
         }
         if (textFile == null) {
@@ -390,6 +399,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 if (toFront) {
                     UIContext.context().tabPane.getSelectionModel().select(targetTab);
                 }
+                if (opened != null) opened.accept(codeAreaExInTab(targetTab));
                 return;
             }
         }
@@ -397,7 +407,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             final var forceEncodingFinal = forceEncoding;
             JfoenixDialogUtils.confirm(Locales.str("notification"), Locales.str("itIsTooBig"), 18, 400,
                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("sure"), ()->{
-                        openFile(textFile, checkAlreadyHasFile, toFront, forceEncodingFinal, reOpenExistTab, true);
+                        openFile(textFile, checkAlreadyHasFile, toFront, forceEncodingFinal, reOpenExistTab, true, opened);
                     }),
                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, Locales.str("cancle"), null));
             return;
@@ -422,8 +432,11 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                     saveLastFileEncodingMapping(textFile.getAbsolutePath(), forceEncoding);
                 }
                 if (!ThreadUtils.sBeClosing) {
-                    Platform.runLater(() -> applyOpenedFile(textFile, checkAlreadyHasFile, toFront,
-                            targetTabFinal, text, detectedEncoding, expectedContentVersion));
+                    Platform.runLater(() -> {
+                        var area = applyOpenedFile(textFile, checkAlreadyHasFile, toFront,
+                                targetTabFinal, text, detectedEncoding, expectedContentVersion);
+                        if (area != null && opened != null) opened.accept(area);
+                    });
                 }
             } catch (Exception e) {
                 Log.e("open file failed: " + textFile.getAbsolutePath(), e);
@@ -435,31 +448,31 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         });
     }
 
-    private void applyOpenedFile(File textFile, boolean checkAlreadyHasFile, boolean toFront,
+    private EditorArea applyOpenedFile(File textFile, boolean checkAlreadyHasFile, boolean toFront,
                                  Tab reOpenExistTab, String text, String detectedEncoding,
                                  long expectedContentVersion) {
         var tabs = UIContext.context().tabPane.getTabs();
         Tab targetTab = reOpenExistTab;
         if (targetTab != null && !tabs.contains(targetTab)) {
-            return;
+            return null;
         }
         if (targetTab == null && checkAlreadyHasFile) {
             targetTab = isFilePathAlreadyInTabs(textFile);
         }
         if (targetTab != null) {
             if (!(targetTab.getContent() instanceof EditorScrollPane pane)) {
-                return;
+                return null;
             }
             var area = pane.getEditorArea();
             if (expectedContentVersion < 0L) {
                 if (toFront) {
                     UIContext.context().tabPane.getSelectionModel().select(targetTab);
                 }
-                return;
+                return area;
             }
             if (area.getEditor().getContentVersion() != expectedContentVersion) {
                 Log.d("ignore stale opened file: " + textFile.getAbsolutePath());
-                return;
+                return null;
             }
             var state = area.getEditor().getDocumentState();
             state.bindSourceFile(textFile);
@@ -500,7 +513,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                     area.showParagraphAtTop(topLine);
                 }
             });
-            return;
+            return area;
         }
 
         Tab newTab = new Tab();
@@ -529,11 +542,13 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
             delayToSaveRecentFile(textFile.getAbsolutePath());
             changeNotHasFileText(false);
+            return editorCodeArea;
         } catch (Exception e) {
             e.printStackTrace();
             String warnMessage = Locales.str("openTabFailed");
             Log.e("openTextIn Tab open failed: " + warnMessage, e);
             JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
+            return null;
         }
     }
 

@@ -44,7 +44,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     private boolean styleRunning;
     private long runningStyleRequestId;
     private volatile long styleOptionsVersion;
-    private int runningStablePrefixLimit;
     private long lastStyleStartedAt;
 
     EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab,
@@ -101,9 +100,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         var area = getArea();
         if (mKeywordHelper != null && area != null) {
             styleTextSubscription = area.plainTextChanges().subscribe(change -> {
-                if (styleRunning && change.getPosition() < runningStablePrefixLimit) {
-                    runningStablePrefixLimit = change.getPosition();
-                }
                 styleDirty = true;
                 scheduleLatestStyle(false);
             });
@@ -157,6 +153,13 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
                     }
                 }
                 var uri = new URI(encoded.toString());
+                if (uri.getScheme() == null || "file".equalsIgnoreCase(uri.getScheme())
+                        || ResLocation.isWindow && uri.getScheme().length() == 1) {
+                    Platform.runLater(() -> {
+                        if (!isDestroyed() && getArea() instanceof EditorArea area) MarkdownNavigation.open(area, uri);
+                    });
+                    return;
+                }
                 if ("mailto".equalsIgnoreCase(uri.getScheme())) {
                     if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.MAIL)) Desktop.getDesktop().mail(uri);
                     return;
@@ -251,7 +254,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         long optionsVersion = styleOptionsVersion;
         long contentVersion = getContentVersion();
         String text = area.getText();
-        runningStablePrefixLimit = text.length();
         var currentSpans = area.getStyleSpans(0, text.length());
         var temporaryText = latestTemporaryText;
         var searchText = latestSearchText;
@@ -273,9 +275,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
                 Log.e("Code styler failed", e);
             }
             var result = update;
-            Platform.runLater(() -> finishStyle(
+            Platform.runLater(() -> area.runAfterMarkdownComposition(() -> finishStyle(
                     requestId, optionsVersion, contentVersion, text,
-                    helper, area, result, endCallback));
+                    helper, area, result, endCallback)));
         };
         pendingStyleTask = task;
         stylerHandler().post(task);
@@ -287,11 +289,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         if (requestId != runningStyleRequestId) {
             return;
         }
-        int stablePrefixLimit = runningStablePrefixLimit;
         pendingStyleTask = null;
         styleRunning = false;
         runningStyleRequestId = 0;
-        runningStablePrefixLimit = 0;
         boolean alive = isStyleTaskAlive(requestId, optionsVersion, helper);
         boolean contentCurrent = contentVersion == getContentVersion();
         if (alive && update != null && update.spans() != null) {
@@ -342,7 +342,6 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         styleRunning = false;
         runningStyleRequestId = 0;
         styleOptionsVersion++;
-        runningStablePrefixLimit = 0;
         lastStyleStartedAt = 0;
     }
 
