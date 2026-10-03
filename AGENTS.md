@@ -1,16 +1,16 @@
 # AGENTS.md
 
-JavaFX + Gradle 多模块笔记编辑器（Java 17 / JavaFX 21 / richtextfx 0.11.5）。
+专业日志分析与 Markdown 编辑并重的桌面工具，项目名 Notepadmm，应用名 ATools；支持 Windows 与 macOS。使用 Java 17、Kotlin、JavaFX 21、RichTextFX 0.11.7 和 Gradle。
 
 - 凡是新增代码，能使用 Kotlin 就使用 Kotlin；不因此改写已有代码。
 
-## 模块
+## 架构概览
 
-| 模块 | 职责 |
-|---|---|
-| `BaseParty` | 基础工具库（Handler、Action、反射等） |
-| `BaseUiLibs` | UI 基础库（CodeArea、行号工厂等） |
-| `src` | 主应用 `atools`，源码在 `src/main/java/com/allan/atools/` |
+- `app`（目录 `src`）是主应用；`BaseUiLibs` 提供编辑器与 UI 基础能力，`BaseParty` 提供线程、回调和通用工具。
+- 主应用以 JavaFX Controller／FXML 组织界面，功能管理器负责多标签、工作区、搜索结果、Markdown 展示与会话恢复。编辑器基于 RichTextFX `CodeArea`，文档内容、保存状态与视图位置分别管理。
+- 日志分析由文本搜索、底部定位、高级多条件着色及结果窗口协作完成；Markdown 使用 commonmark-java AST（GFM table、strikethrough），大纲、图片、表格、代码块与离线 Mermaid 由各自管理器提供。
+- 会话快照与文件保存由后台任务处理，UI 更新回到 JavaFX 线程；高亮与预览按文档版本调度，并保留大文档降级逻辑。
+- 主应用源码在 `src/main/java/com/allan/atools/`，资源在 `src/main/resources/`；Markdown 样式位于 `css/editor_markdown.css`，主题颜色由 `css/colors*.css` 提供。
 
 ## Skills
 
@@ -26,19 +26,3 @@ JavaFX + Gradle 多模块笔记编辑器（Java 17 / JavaFX 21 / richtextfx 0.11
 - `image-picker-camera`、`input-method`、`koin-di`、`layout-xml-fragment`
 - `livedata-usage`、`mmkv-usage`、`recycler-view-framework`、`room-database`
 - `uri-parse-info`、`viewmodel-flow-framework`
-
-## 编辑器 / Markdown
-
-- 编辑器基于 RichTextFX `CodeArea`。
-- Markdown 语法使用 commonmark-java AST 解析，支持 GFM table 与 strikethrough。
-- Markdown 样式位于 `src/main/resources/css/editor_markdown.css`，主题颜色由 `colors*.css` 提供。
-
-### 关键文件
-
-| 文件 | 职责 |
-|---|---|
-| `src/main/java/com/allan/atools/richtext/codearea/EditorArea.kt` | 编辑器入口 |
-| `src/main/java/com/allan/atools/richtext/codearea/keywordhelper/EditorKeywordHelperImplMarkdown.java` | Markdown 语法高亮 |
-| `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownImageManager.java` | Markdown 行内图片 |
-| `src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownCodeBlockManager.java` | Markdown 代码块背景 |
-| `BaseUiLibs/src/main/java/com/allan/uilibs/richtexts/CodeArea.java` | 编辑器基础能力 |
