@@ -32,7 +32,11 @@ object MarkdownTableParser {
 
     @JvmStatic
     fun parse(text: String, inline: BiConsumer<String, Node>?): List<Table>? {
-        val root = MarkdownAstCache().parse(text)
+        return parse(text, MarkdownAstCache().parse(text), inline)
+    }
+
+    @JvmStatic
+    fun parse(text: String, root: Node, inline: BiConsumer<String, Node>?): List<Table>? {
         val starts = ArrayList<Int>().apply {
             add(0)
             text.forEachIndexed { index, c -> if (c == '\n') add(index + 1) }

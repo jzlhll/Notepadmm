@@ -33,8 +33,6 @@ import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -168,8 +166,8 @@ public final class MarkdownImageManager {
                 Log.e("parse markdown images failed", e);
             }
             var result = images;
-            Platform.runLater(() -> finishRefresh(
-                    area, contentVersion, requestId, result));
+            Platform.runLater(() -> area.runAfterMarkdownComposition(() -> finishRefresh(
+                    area, contentVersion, requestId, result)));
         });
     }
 
@@ -304,6 +302,14 @@ public final class MarkdownImageManager {
         var frame = new StackPane(label);
         frame.getStyleClass().add("markdown-image-frame");
         frame.setPrefSize(PLACEHOLDER_WIDTH, PLACEHOLDER_HEIGHT);
+        frame.setOnMouseClicked(event -> {
+            var area = currentArea;
+            if (area == null || destroyed || imageByLine.get(info.lineIndex) != info) return;
+            synchronized (imageCache) { imageCache.remove(info.key); }
+            info.loading = false;
+            beginLoad(area, info.lineIndex, info);
+            area.recreateParagraphGraphic(info.lineIndex);
+        });
         return frame;
     }
 
@@ -320,6 +326,7 @@ public final class MarkdownImageManager {
         // 加载完成后 onImageLoaded 会重算段落高度并刷新 graphic
         double height = info.imageHeight > 0
                 ? info.imageHeight * info.styleZoom : PLACEHOLDER_IMAGE_HEIGHT;
+        if (info.width > 0) height = info.width / aspect;
         double maxWidth = Math.max(160.0, area.getWidth() - 48);
         if (height * aspect > maxWidth) {
             height = maxWidth / aspect;
@@ -404,6 +411,10 @@ public final class MarkdownImageManager {
     }
 
     private void onImageLoaded(EditorArea area, int index, MarkdownImage info, Image image) {
+        if (area.getMarkdownComposing()) {
+            area.runAfterMarkdownComposition(() -> onImageLoaded(area, index, info, image));
+            return;
+        }
         info.loading = false;
         if (destroyed || area != currentArea
                 || shownContentVersion != area.getEditor().getContentVersion()
@@ -527,7 +538,7 @@ public final class MarkdownImageManager {
             if (resolved == null) {
                 continue;
             }
-            images.add(new MarkdownImage(found.lineIndex(), found.alt(), resolved, found.styleZoom()));
+            images.add(new MarkdownImage(found.lineIndex(), found.alt(), resolved, found.styleZoom(), found.width()));
         }
         return List.copyOf(images);
     }
@@ -547,7 +558,7 @@ public final class MarkdownImageManager {
                 var spans = image.getSourceSpans();
                 if (!spans.isEmpty()) {
                     found.add(new FoundImage(spans.get(0).getLineIndex(),
-                            image.getDestination(), altOf(image), 1.0));
+                            image.getDestination(), altOf(image), 1.0, 0));
                 }
             } else if (first instanceof HtmlInline inline && inline.getNext() == null) {
                 addHtmlImgs(inline.getLiteral(), firstLine(inline), found);
@@ -575,7 +586,7 @@ public final class MarkdownImageManager {
                 var parsed = parseImgTag(matcher.group(1));
                 if (parsed != null) {
                     found.add(new FoundImage(startLine + countNewlines(literal, 0, matcher.start()),
-                            parsed.src(), parsed.alt(), parsed.zoom()));
+                            parsed.src(), parsed.alt(), parsed.zoom(), parsed.width()));
                 }
             }
         }
@@ -606,6 +617,7 @@ public final class MarkdownImageManager {
         String src = null;
         String alt = null;
         double zoom = 1.0;
+        double width = 0;
         Matcher matcher = HTML_IMG_ATTR.matcher(attributes);
         while (matcher.find()) {
             String name = matcher.group(1).toLowerCase(Locale.ROOT);
@@ -617,6 +629,9 @@ public final class MarkdownImageManager {
             switch (name) {
                 case "src" -> src = value;
                 case "alt" -> alt = value;
+                case "width" -> {
+                    try { width = Math.max(0, Math.min(10000, Double.parseDouble(value))); } catch (NumberFormatException ignored) { }
+                }
                 case "style" -> {
                     Matcher zoomMatcher = STYLE_ZOOM_PATTERN.matcher(value);
                     if (zoomMatcher.find()) {
@@ -629,10 +644,10 @@ public final class MarkdownImageManager {
         if (src == null || src.isBlank()) {
             return null;
         }
-        return new ImgAttr(src.trim(), alt, zoom);
+        return new ImgAttr(src.trim(), alt, zoom, width);
     }
 
-    private record ImgAttr(String src, String alt, double zoom) {
+    private record ImgAttr(String src, String alt, double zoom, double width) {
     }
 
     private static Resolved resolve(File mdFile, String destination) {
@@ -663,18 +678,17 @@ public final class MarkdownImageManager {
         if (mdFile != null && mdFile.getParentFile() != null) {
             File relative = new File(mdFile.getParentFile(), path);
             if (!relative.isFile()) {
-                File decoded = new File(mdFile.getParentFile(),
-                        URLDecoder.decode(path, StandardCharsets.UTF_8));
-                if (decoded.isFile()) {
-                    relative = decoded;
-                }
+                try {
+                    File decoded = new File(mdFile.getParentFile(), new URI(path.replace(" ", "%20")).getPath());
+                    if (decoded.isFile()) relative = decoded;
+                } catch (java.net.URISyntaxException ignored) { }
             }
             return new Resolved(relative.toURI().toString(), relative, false);
         }
         return null;
     }
 
-    private record FoundImage(int lineIndex, String destination, String alt, double styleZoom) {
+    private record FoundImage(int lineIndex, String destination, String alt, double styleZoom, double width) {
     }
 
     private record Resolved(String url, File file, boolean remote) {
@@ -687,16 +701,18 @@ public final class MarkdownImageManager {
         final Resolved resolved;
         /** {@code <img style="zoom:xx%">} 的显示缩放系数（1.0 = 不缩放） */
         final double styleZoom;
+        final double width;
         double imageWidth = -1;
         double imageHeight = -1;
         boolean loading;
 
-        MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom) {
+        MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom, double width) {
             this.lineIndex = lineIndex;
             this.alt = alt;
             this.key = resolved.url();
             this.resolved = resolved;
             this.styleZoom = styleZoom;
+            this.width = width;
         }
     }
 }

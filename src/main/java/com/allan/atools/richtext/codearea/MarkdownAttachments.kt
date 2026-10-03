@@ -157,10 +157,12 @@ class MarkdownAttachments(private val area: EditorArea) {
         chooser.showOpenMultipleDialog(UIContext.mainWindow)?.let { importFiles(it) }
     }
 
-    fun importFiles(files: List<File>) = import(files.filter(::isImage), null)
-    fun importClipboardImage(image: Image) = import(emptyList(), image)
+    @JvmOverloads
+    fun importFiles(files: List<File>, insertion: java.util.function.Consumer<String>? = null) = import(files.filter(::isImage), null, insertion)
+    @JvmOverloads
+    fun importClipboardImage(image: Image, insertion: java.util.function.Consumer<String>? = null) = import(emptyList(), image, insertion)
 
-    private fun import(files: List<File>, image: Image?) {
+    private fun import(files: List<File>, image: Image?, insertion: java.util.function.Consumer<String>?) {
         if (!area.isEditable || area.markdownComposing || (files.isEmpty() && image == null)) return
         val document = area.editor.sourceFile
         if (document == null) { SnackbarUtils.show(Locales.str("markdown.saveBeforeImage")); return }
@@ -195,8 +197,11 @@ class MarkdownAttachments(private val area: EditorArea) {
                     if (!area.editor.isDestroyed && area.isEditable && !area.markdownComposing
                         && area.editor.contentVersion == version && area.editor.sourceFile == document) {
                         area.undoManager.preventMerge()
-                        area.replaceText(start, end, markdown)
-                        area.moveTo(start + markdown.length)
+                        if (insertion != null) insertion.accept(markdown)
+                        else {
+                            area.replaceText(start, end, markdown)
+                            area.moveTo(start + markdown.length)
+                        }
                         area.undoManager.preventMerge()
                         area.requestFollowCaret()
                     } else {

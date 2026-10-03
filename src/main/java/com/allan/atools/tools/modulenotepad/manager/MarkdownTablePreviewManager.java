@@ -88,6 +88,7 @@ public final class MarkdownTablePreviewManager {
     private final Map<Integer, Integer> rowIndexByLine = new HashMap<>();
     private Map<String, List<MarkdownTableLayout.Run>> inlineContents = Map.of();
     private final TextFlow measureFlow = new TextFlow();
+    private final MarkdownTableImageCache tableImages = new MarkdownTableImageCache();
     private final Text editorMeasureText = new Text();
     private final ArrayDeque<LayoutJob> layoutJobs = new ArrayDeque<>();
     private final AnimationTimer layoutTimer = new AnimationTimer() {
@@ -299,6 +300,7 @@ public final class MarkdownTablePreviewManager {
         tableByLine.clear();
         rowIndexByLine.clear();
         inlineContents = Map.of();
+        tableImages.clear();
         measureFlow.getChildren().clear();
         editorMeasureText.setText("");
         cellEditor.clear();
@@ -378,7 +380,7 @@ public final class MarkdownTablePreviewManager {
             List<MarkdownTableDocumentState.Table> parsed = null;
             var contents = new HashMap<String, List<MarkdownTableLayout.Run>>();
             try {
-                parsed = MarkdownTableParser.parse(text, (source, node) ->
+                parsed = MarkdownTableParser.parse(text, ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) area.getEditor()).parseMarkdown(text), (source, node) ->
                         contents.put(source, MarkdownTableLayout.parse(node)));
             } catch (RuntimeException exception) {
                 Log.e("parse markdown tables failed", exception);
@@ -923,6 +925,15 @@ public final class MarkdownTablePreviewManager {
             setOnMousePressed(event -> {
                 var table = graphic.layout.table;
                 if (event.getButton() == MouseButton.PRIMARY) {
+                    if (event.isShortcutDown() && event.getTarget() instanceof Node target) {
+                        for (var value = target; value != null && value != this; value = value.getParent()) {
+                            if (value.getUserData() instanceof String destination) {
+                                event.consume();
+                                ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) currentArea.getEditor()).openMarkdownDestination(destination);
+                                return;
+                            }
+                        }
+                    }
                     if (isDescendant(event.getTarget(), cellEditor)) {
                         return;
                     }
@@ -956,7 +967,7 @@ public final class MarkdownTablePreviewManager {
             var cell = layout.cells[graphic.row][column];
             if (displayed == null || !displayed.runs.equals(cell.runs)
                     || !displayed.font.equals(cell.font) || displayed.header != cell.header) {
-                MarkdownTableLayout.fill(text, cell.runs, cell.font, cell.header);
+                MarkdownTableLayout.fill(text, cell.runs, cell.font, cell.header, run -> tableImages.node(run.image(), run.text(), currentArea.getEditor().getSourceFile()));
             }
             displayed = cell;
             text.setTextAlignment(switch (layout.table.alignments().get(column)) {
@@ -1295,6 +1306,12 @@ public final class MarkdownTablePreviewManager {
         if (event.isShortcutDown() && !event.isShiftDown() && event.getCode() == KeyCode.B) {
             event.consume();
             wrapCellSelection("**");
+        } else if (event.isShortcutDown() && event.getCode() == KeyCode.I) {
+            event.consume();
+            wrapCellSelection("*");
+        } else if (event.isShortcutDown() && event.isShiftDown() && event.getCode() == KeyCode.X) {
+            event.consume();
+            wrapCellSelection("~~");
         } else if (event.isShortcutDown() && event.getCode() == KeyCode.BACK_QUOTE) {
             event.consume();
             wrapCellSelection("`");
@@ -1335,8 +1352,29 @@ public final class MarkdownTablePreviewManager {
         int start = cellEditor.getSelection().getStart();
         int end = cellEditor.getSelection().getEnd();
         String selected = cellEditor.getSelectedText();
-        cellEditor.replaceText(start, end, mark + selected + mark);
-        cellEditor.selectRange(start + mark.length(), end + mark.length());
+        currentArea.getUndoManager().preventMerge();
+        var source = cellEditor.getText();
+        if (mark.equals("`")) {
+            var edit = com.allan.atools.richtext.codearea.MarkdownInlineCode.toggle(source, start, end);
+            cellEditor.replaceText(edit.getStart(), edit.getEnd(), edit.getText());
+            cellEditor.selectRange(edit.getSelectionStart(), edit.getSelectionEnd());
+            currentArea.getUndoManager().preventMerge();
+            return;
+        }
+        if (selected.startsWith(mark) && selected.endsWith(mark) && selected.length() >= mark.length() * 2) {
+            var value = selected.substring(mark.length(), selected.length() - mark.length());
+            cellEditor.replaceText(start, end, value);
+            cellEditor.selectRange(start, start + value.length());
+        } else if (start >= mark.length() && end + mark.length() <= source.length()
+                && source.substring(start - mark.length(), start).equals(mark)
+                && source.substring(end, end + mark.length()).equals(mark)) {
+            cellEditor.replaceText(start - mark.length(), end + mark.length(), selected);
+            cellEditor.selectRange(start - mark.length(), end - mark.length());
+        } else {
+            cellEditor.replaceText(start, end, mark + selected + mark);
+            cellEditor.selectRange(start + mark.length(), end + mark.length());
+        }
+        currentArea.getUndoManager().preventMerge();
     }
 
     private void moveCell(int direction) {
@@ -1449,8 +1487,18 @@ public final class MarkdownTablePreviewManager {
         rowActions.getItems().addAll(insertAbove, insertBelow, duplicateRow, moveUp, moveDown, new SeparatorMenuItem(), deleteRow);
         var columnActions = new Menu(Locales.str("markdownTableColumnActions"));
         columnActions.getItems().addAll(insertLeft, insertRight, moveLeft, moveRight, alignment, new SeparatorMenuItem(), deleteColumn);
+        var formats = new Menu(Locales.str("markdown.format"));
+        var names = new String[]{"markdown.bold", "markdown.italic", "markdown.strike", "markdown.inlineCode"};
+        var marks = new String[]{"**", "*", "~~", "`"};
+        for (int index = 0; index < marks.length; index++) {
+            var item = new MenuItem(Locales.str(names[index]));
+            var mark = marks[index];
+            item.setOnAction(event -> wrapCellSelection(mark));
+            formats.getItems().add(item);
+        }
+        formats.setDisable(!area.isEditable() || structurePending);
         var menu = new ContextMenu(undo, redo, new SeparatorMenuItem(), cut, copy, copyAs,
-                paste, pasteCells, pasteText, selectAll, new SeparatorMenuItem(), rowActions, columnActions,
+                paste, pasteCells, pasteText, selectAll, new SeparatorMenuItem(), formats, rowActions, columnActions,
                 new SeparatorMenuItem(), exitBefore, exitAfter);
         cellMenu = menu;
         undo.setOnAction(event -> runUndo(false));
@@ -1482,7 +1530,7 @@ public final class MarkdownTablePreviewManager {
             cut.setDisable(!editable || cellEditor.getSelectedText().isEmpty());
             copy.setDisable(cellEditor.getSelectedText().isEmpty());
             var clipboard = Clipboard.getSystemClipboard();
-            paste.setDisable(!editable || (!clipboard.hasString() && !MarkdownTableClipboardKt.hasTableCells(clipboard)));
+            paste.setDisable(!editable || (!clipboard.hasString() && !clipboard.hasHtml() && !clipboard.hasImage() && !clipboard.hasFiles() && !MarkdownTableClipboardKt.hasTableCells(clipboard)));
             pasteCells.setDisable(paste.isDisable());
             pasteText.setDisable(!editable || !clipboard.hasString());
             insertAbove.setDisable(!editable || row == 0);
@@ -1759,6 +1807,23 @@ public final class MarkdownTablePreviewManager {
         }
     }
 
+    private void importCellImages(java.util.function.Consumer<java.util.function.Consumer<String>> importer) {
+        var area = currentArea;
+        var table = activeTable;
+        int row = activeRow;
+        int column = activeColumn;
+        long activation = cellActivationRevision;
+        var selection = cellEditor.getSelection();
+        importer.accept(markdown -> {
+            if (currentArea == area && activeTable != null && activeTable.id().equals(table.id())
+                    && activeRow == row && activeColumn == column && cellActivationRevision == activation
+                    && canModify(activeTable) && !composingText && !handlingInputMethod) {
+                cellEditor.replaceText(selection.getStart(), selection.getEnd(), markdown);
+                cellEditor.positionCaret(selection.getStart() + markdown.length());
+            } else com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.imageInsertChanged"));
+        });
+    }
+
     private void pasteClipboard(boolean forceCells) {
         if (deferWhileComposing(() -> pasteClipboard(forceCells))) return;
         if (!canModify(activeTable)) return;
@@ -1772,16 +1837,35 @@ public final class MarkdownTablePreviewManager {
         }
         String tsv = MarkdownTableClipboardKt.tableClipboardTsv(clipboard);
         String value = tsv != null ? tsv : clipboard.getString();
-        if (value == null) return;
-        if (forceCells || tsv != null || value.indexOf('\t') >= 0) {
+        if (value != null && (forceCells || tsv != null || value.indexOf('\t') >= 0)) {
             var matrix = MarkdownTableEdits.parseTsv(value);
             if (matrix != null) {
                 int row = activeRow;
                 int column = activeColumn;
                 applyTableEdit(activeTable, table -> MarkdownTableEdits.paste(table, row, column, matrix));
+            } else cellEditor.replaceSelection(value);
+            return;
+        }
+        if (!forceCells) {
+            if (clipboard.hasImage()) {
+                importCellImages(insert -> currentArea.getMarkdownAttachments().importClipboardImage(clipboard.getImage(), insert));
+                return;
+            }
+            if (clipboard.hasFiles() && clipboard.getFiles().stream().allMatch(com.allan.atools.richtext.codearea.MarkdownAttachments::isImage)) {
+                importCellImages(insert -> currentArea.getMarkdownAttachments().importFiles(clipboard.getFiles(), insert));
+                return;
+            }
+            if (clipboard.hasHtml() && clipboard.getHtml().length() <= 2 * 1024 * 1024) {
+                var cells = com.allan.atools.richtext.codearea.MarkdownClipboard.htmlTableCells(clipboard.getHtml());
+                if (cells != null) {
+                    int row = activeRow;
+                    int column = activeColumn;
+                    applyTableEdit(activeTable, table -> MarkdownTableEdits.pasteMarkdown(table, row, column, cells));
+                } else cellEditor.replaceSelection(com.allan.atools.richtext.codearea.MarkdownClipboard.fromHtml(clipboard.getHtml()));
                 return;
             }
         }
+        if (value == null) return;
         cellEditor.replaceSelection(value);
     }
 

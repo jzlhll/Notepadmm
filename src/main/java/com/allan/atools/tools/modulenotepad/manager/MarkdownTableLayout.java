@@ -16,11 +16,16 @@ final class MarkdownTableLayout {
     static final double VERTICAL_INSETS = 20;
     static final double SCROLL_HEIGHT = 12;
 
-    record Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code) {}
+    record Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code,
+               String destination, String image) {
+        Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code) {
+            this(text, bold, italic, strike, link, code, null, null);
+        }
+    }
 
     static List<Run> parse(Node root) {
         var runs = new ArrayList<Run>();
-        append(runs, root, false, false, false, false);
+        append(runs, root, false, false, false, null);
         if (runs.isEmpty()) {
             runs.add(new Run(" ", false, false, false, false, false));
         }
@@ -28,11 +33,16 @@ final class MarkdownTableLayout {
     }
 
     private static void append(List<Run> runs, Node node, boolean bold, boolean italic,
-                               boolean strike, boolean link) {
+                               boolean strike, String destination) {
         bold |= node instanceof StrongEmphasis;
         italic |= node instanceof Emphasis;
         strike |= node instanceof Strikethrough;
-        link |= node instanceof Link;
+        if (node instanceof Link value) destination = value.getDestination();
+        if (node instanceof Image value) {
+            String alt = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(value);
+            runs.add(new Run(alt, bold, italic, strike, destination != null, false, destination, value.getDestination()));
+            return;
+        }
         String literal = null;
         boolean code = node instanceof Code;
         if (node instanceof org.commonmark.node.Text text) {
@@ -41,27 +51,51 @@ final class MarkdownTableLayout {
             literal = value.getLiteral();
         } else if (node instanceof SoftLineBreak || node instanceof HardLineBreak) {
             literal = "\n";
+        } else if (node instanceof com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath math) {
+            literal = math.getLiteral();
         } else if (node instanceof HtmlInline html) {
+            var image = org.jsoup.Jsoup.parseBodyFragment(html.getLiteral()).selectFirst("img[src]");
+            if (image != null) {
+                runs.add(new Run(image.attr("alt"), bold, italic, strike, destination != null, false, destination, image.attr("src")));
+                return;
+            }
             literal = html.getLiteral().matches("(?i)<br\\s*/?>") ? "\n" : html.getLiteral();
         }
         if (literal != null) {
-            runs.add(new Run(literal, bold, italic, strike, link, code));
+            runs.add(new Run(literal, bold, italic, strike, destination != null, code, destination, null));
         }
         for (var child = node.getFirstChild(); child != null; child = child.getNext()) {
-            append(runs, child, bold, italic, strike, link);
+            append(runs, child, bold, italic, strike, destination);
         }
     }
 
     static void fill(TextFlow flow, List<Run> runs, Font font, boolean header) {
+        fill(flow, runs, font, header, null);
+    }
+
+    static void fill(TextFlow flow, List<Run> runs, Font font, boolean header,
+                     java.util.function.Function<Run, javafx.scene.Node> images) {
         while (flow.getChildren().size() > runs.size()) {
             flow.getChildren().remove(flow.getChildren().size() - 1);
         }
         for (int index = 0; index < runs.size(); index++) {
             var run = runs.get(index);
-            if (index == flow.getChildren().size()) {
-                flow.getChildren().add(new Text());
+            if (run.image() != null) {
+                var picture = images == null ? new javafx.scene.layout.Region() : images.apply(run);
+                if (images == null) {
+                    var region = (javafx.scene.layout.Region) picture;
+                    region.setMinSize(120, 80); region.setPrefSize(120, 80); region.setMaxSize(120, 80);
+                }
+                picture.setUserData(run.destination());
+                if (index == flow.getChildren().size()) flow.getChildren().add(picture);
+                else flow.getChildren().set(index, picture);
+                continue;
             }
+            if (index == flow.getChildren().size()) flow.getChildren().add(new Text());
+            else if (!(flow.getChildren().get(index) instanceof Text)) flow.getChildren().set(index, new Text());
             var text = (Text) flow.getChildren().get(index);
+            text.setUserData(run.destination());
+            text.setUnderline(run.link());
             text.setText(run.text());
             text.setFont(font);
             text.getStyleClass().setAll("markdown-table-preview-content");

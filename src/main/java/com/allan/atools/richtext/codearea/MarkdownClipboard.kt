@@ -32,6 +32,53 @@ class MarkdownClipboard(private val area: EditorArea) {
             return htmlToMarkdown(document.body()).trim()
         }
 
+        @JvmStatic
+        fun htmlTableCells(html: String): List<List<String>>? {
+            val document = Jsoup.parseBodyFragment(html)
+            document.select("script,style,iframe,object").remove()
+            val tables = document.select("table")
+            if (tables.size != 1) return null
+            val table = tables.first() ?: return null
+            // 只有独立表格可覆盖目标矩阵；表外文字、图片及其他可见内容整段保留。
+            val remainder = document.body().clone()
+            remainder.select("table").remove()
+            if (htmlToMarkdown(remainder).isNotBlank() || table.select("caption").isNotEmpty()) return null
+            return tableCells(table)
+        }
+
+        private fun tableCells(table: Element): List<List<String>>? {
+            val rows = table.select("tr").filter { it.closest("table") === table }
+            if (rows.isEmpty() || rows.size > 1000) return null
+            val matrix = MutableList(rows.size) { ArrayList<String?>() }
+            var occupied = 0
+            rows.forEachIndexed { rowIndex, row ->
+                var column = 0
+                var groupEnd = rowIndex + 1
+                while (groupEnd < rows.size && rows[groupEnd].parent() === row.parent()) groupEnd++
+                for (cell in row.children().filter { it.tagName() == "td" || it.tagName() == "th" }) {
+                    while (column < matrix[rowIndex].size && matrix[rowIndex][column] != null) column++
+                    val width = cell.attr("colspan").ifEmpty { "1" }.toIntOrNull() ?: return null
+                    val declaredHeight = cell.attr("rowspan").ifEmpty { "1" }.toIntOrNull() ?: return null
+                    if (width !in 1..100 || column + width > 100 || declaredHeight !in 0..1000) return null
+                    val height = if (declaredHeight == 0) groupEnd - rowIndex else Math.min(declaredHeight, groupEnd - rowIndex)
+                    occupied += width * height
+                    if (occupied > 10000) return null
+                    for (y in rowIndex until rowIndex + height) {
+                        while (matrix[y].size < column + width) matrix[y].add(null)
+                        for (x in column until column + width) {
+                            if (matrix[y][x] != null) return null
+                            matrix[y][x] = ""
+                        }
+                    }
+                    matrix[rowIndex][column] = com.allan.atools.tools.modulenotepad.manager.MarkdownTableCellText.encode(htmlToMarkdown(cell).trim(), "")
+                    column += width
+                }
+            }
+            val columns = matrix.map { it.size }.maxOrNull() ?: return null
+            if (columns == 0 || rows.size * columns > 10000) return null
+            return matrix.map { row -> List(columns) { row.getOrNull(it).orEmpty() } }
+        }
+
         private fun absoluteHtml(html: String, base: String?): String {
             if (base == null) return html
             val document = Jsoup.parseBodyFragment(html, base)
@@ -85,11 +132,16 @@ class MarkdownClipboard(private val area: EditorArea) {
                 "hr" -> "\n\n---\n\n"
                 "input" -> ""
                 "table" -> {
-                    val rows = node.select("tr").map { row -> row.children().filter { it.tagName() in listOf("th", "td") }.map { htmlToMarkdown(it).trim().replace("|", "\\|").replace("\n", "<br>") } }
+                    val caption = node.children().filter { it.tagName() == "caption" }.joinToString("\n\n") { htmlToMarkdown(it) }
+                    val prefix = "\n\n" + if (caption.isBlank()) "" else "$caption\n\n"
+                    val rows = tableCells(node) ?: return prefix + node.select("tr").filter { it.closest("table") === node }.joinToString("\n\n") { row ->
+                        row.children().filter { it.tagName() == "td" || it.tagName() == "th" }.joinToString(" | ") { htmlToMarkdown(it).trim() }
+                    } + "\n\n"
                     val columns = rows.map { it.size }.maxOrNull() ?: 0
                     if (columns == 0) "" else {
                         fun row(values: List<String>) = "| " + (values + List(columns - values.size) { "" }).joinToString(" | ") + " |"
-                        "\n\n" + (listOf(row(rows.first()), row(List(columns) { "---" })) + rows.drop(1).map(::row)).joinToString("\n") + "\n\n"
+                        prefix +
+                            (listOf(row(rows.first()), row(List(columns) { "---" })) + rows.drop(1).map(::row)).joinToString("\n") + "\n\n"
                     }
                 }
                 else -> contents()

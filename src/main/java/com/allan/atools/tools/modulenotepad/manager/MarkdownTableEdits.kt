@@ -135,20 +135,7 @@ object MarkdownTableEdits {
     // TSV 是显示文字，必须转义 Markdown，避免粘贴后变成样式、链接或 HTML。
     private fun encodePlainText(value: String): String =
         value.replace("\r\n", "\n").replace('\r', '\n').split('\n').joinToString("<br>") { line ->
-            val first = line.indexOfFirst { it != ' ' }
-            val last = line.indexOfLast { it != ' ' }
-            buildString {
-                line.forEachIndexed { index, c ->
-                    when (c) {
-                        '&' -> append("&amp;")
-                        '<' -> append("&lt;")
-                        '\t' -> append("&#9;")
-                        ' ' -> if (index < first || index > last) append("&#32;") else append(c)
-                        '\\', '*', '_', '`', '[', ']', '~', '!', '|' -> append('\\').append(c)
-                        else -> append(c)
-                    }
-                }
-            }
+            com.allan.atools.richtext.codearea.MarkdownSourceText.escape(line, preserveEdgeSpaces = true)
         }
 
     /** 支持电子表格中的引号、双引号转义和格内换行；行尾换行不额外生成空行。 */

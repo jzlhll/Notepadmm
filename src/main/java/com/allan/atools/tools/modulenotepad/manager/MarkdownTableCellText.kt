@@ -143,7 +143,10 @@ object MarkdownTableCellText {
                 when (c) {
                     '\n' -> append(tags[index] ?: "<br>")
                     '|' -> {
-                        if (lastOrNull() != '\\') append('\\')
+                        var slashes = 0
+                        var cursor = length - 1
+                        while (cursor >= 0 && this[cursor] == '\\') { slashes++; cursor-- }
+                        if (slashes % 2 == 0) append('\\')
                         append(c)
                     }
                     else -> append(c)
