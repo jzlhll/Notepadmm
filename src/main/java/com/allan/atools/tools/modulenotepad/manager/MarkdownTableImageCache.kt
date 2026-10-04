@@ -15,10 +15,11 @@ import java.util.concurrent.Future
 
 /** 表格缩略图固定尺寸，最多四个后台请求与六十四份缩略图，退出文档即释放。 */
 class MarkdownTableImageCache {
-    private class Entry(val url: URI) {
+    private class Entry(val url: URI, val document: File?) {
         var image: Image? = null
         var failed = false
         var task: Future<*>? = null
+        var diagnostic: MarkdownImageLoadLog? = null
         val views = ArrayList<Pair<WeakReference<StackPane>, String>>()
     }
     private val entries = LinkedHashMap<String, Entry>(16, 0.75f, true)
@@ -37,7 +38,7 @@ class MarkdownTableImageCache {
         if (uri == null || uri.scheme.lowercase(java.util.Locale.ROOT) !in setOf("http", "https", "file")) {
             box.children.setAll(Label(alt.ifEmpty { "Image" })); return box
         }
-        val entry = entries.getOrPut(uri.toString()) { Entry(uri).also { queue.add(it) } }
+        val entry = entries.getOrPut(uri.toString()) { Entry(uri, document).also { queue.add(it) } }
         entry.views.removeAll { it.first.get() == null }
         entry.views.add(WeakReference(box) to alt)
         show(entry, box, alt)
@@ -59,6 +60,7 @@ class MarkdownTableImageCache {
             box.setOnMousePressed { event ->
                 if (entry.failed) {
                     event.consume()
+                    entry.diagnostic?.event("retry requested")
                     entry.failed = false
                     queue.add(entry)
                     pump()
@@ -73,16 +75,27 @@ class MarkdownTableImageCache {
             if (entry.task != null) continue
             active++
             val revision = generation
+            val diagnostic = MarkdownImageLoadLog("table", entry.url.toString(), entry.document, 0)
+            entry.diagnostic = diagnostic
             entry.task = ThreadUtils.submit {
+                var stage = "connect"
                 val image = try {
-                    val connection = entry.url.toURL().openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }
-                    if (connection.contentLengthLong > 20L * 1024 * 1024) throw java.io.IOException("Table image exceeds byte limit")
-                    connection.getInputStream().use { input ->
-                        val bytes = input.readNBytes(20 * 1024 * 1024 + 1)
+                    val loaded = if (entry.url.scheme.equals("file", true)) {
+                        stage = "read"
+                        val bytes = entry.url.toURL().openStream().use { it.readNBytes(20 * 1024 * 1024 + 1) }
+                        diagnostic.event("read bytes=${bytes.size}")
                         if (bytes.size > 20 * 1024 * 1024) throw java.io.IOException("Table image exceeds byte limit")
-                        Image(bytes.inputStream(), 120.0, 80.0, true, true).takeIf { !it.isError && it.width > 0 }
+                        stage = "decode"
+                        Image(bytes.inputStream(), 120.0, 80.0, true, true)
+                    } else {
+                        MarkdownRemoteImageLoader.load(entry.url.toString(), diagnostic, 120.0, 80.0)
                     }
-                } catch (_: Exception) { null }
+                    diagnostic.complete(loaded)
+                    loaded.takeIf { !it.isError && it.width > 0 }
+                } catch (error: Exception) {
+                    diagnostic.fail("$stage threw exception", error)
+                    null
+                }
                 Platform.runLater {
                     if (revision == generation) {
                         active--
@@ -94,6 +107,8 @@ class MarkdownTableImageCache {
                             entry.views.forEach { (reference, alt) -> reference.get()?.let { show(entry, it, alt) } }
                         }
                         pump()
+                    } else {
+                        diagnostic.event("result skipped stale document generation")
                     }
                 }
             }
@@ -103,6 +118,9 @@ class MarkdownTableImageCache {
 
     fun clear() {
         generation++
+        entries.values.forEach { entry ->
+            if (entry.task != null) entry.diagnostic?.event("cancel requested document cleared")
+        }
         running.forEach { it.cancel(true) }
         running.clear()
         entries.clear()

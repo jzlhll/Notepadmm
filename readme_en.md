@@ -29,8 +29,9 @@ A typical workflow: open a log, assign separate conditions and colors to `ERROR`
 Open a `.md` / `.markdown` file to use Markdown styling and inline previews alongside source editing:
 
 - **Syntax styling**: headings, block quotes, lists, bold, italics, strikethrough, links, and inline code. Fenced code blocks have a background and syntax highlighting for selected languages.
-- **Document outline**: the sidebar lists `#`-style headings by level, updates as you edit, and lets you jump to a heading.
-- **Image previews**: standalone Markdown images and HTML `<img>` tags display directly in the editor. Relative paths and `style="zoom:40%"` scaling are supported; wide images fit the visible area.
+- **Document outline**: the sidebar lists ATX (`#`) and Setext headings by level, updates as you edit, and lets you jump to a heading.
+- **Image previews**: standalone Markdown images and HTML `<img>` tags display directly in the editor. Local relative paths, HTTP/HTTPS images, and `style="zoom:40%"` scaling are supported; wide images fit the visible area.
+- **Formatting and full preview**: shortcuts for bold, italics, and six heading levels, clickable task checkboxes, and collapsible details. Full preview supports math, footnotes, and a table of contents, with HTML export. See [Markdown features and operations](docs/Markdown.md) for scope and shortcuts.
 - **Editable GFM tables**: switch between table and source views, edit cells directly, insert/delete/move rows and columns, duplicate data rows, change column alignment, and explicitly format table source. Tab/Shift+Tab navigate between cells; edits support undo and redo.
 - **Table data exchange**: copy rows, columns, or entire tables as Markdown or TSV. Pasting TSV fills multiple cells and expands the table as needed for exchange with spreadsheets.
 - **Offline Mermaid diagrams**: built-in flowchart, sequence-diagram, and Gantt-chart rendering with source/diagram switching for documenting processes, interactions, and project schedules.
@@ -160,6 +161,6 @@ The Gradle Wrapper manages dependencies, the module path, and runtime options. W
 ## Current scope
 
 - Log analysis focuses on search, highlighting, and result navigation within open documents. Cross-file full-text search is not yet available.
-- Markdown combines source editing with inline previews. Full WYSIWYG editing of ordinary text, math, footnotes, and HTML/PDF export remain planned; see the [Markdown editing and preview plan](docs/TODO_Markdown成熟编辑与预览.md).
+- Markdown provides source editing, native inline presentation, and a full document preview. Math, footnotes, and HTML export are implemented in the full-preview workflow; native presentation still has gaps, and PDF/printing is not implemented. See [Markdown features, shortcuts, and TODOs](docs/Markdown.md).
 - Mermaid currently supports `flowchart` / `graph`, `sequenceDiagram`, and `gantt`.
 - Some highlighting, outline, and preview features are disabled when documents reach size or line-count limits. Performance depends on the document and available system resources.

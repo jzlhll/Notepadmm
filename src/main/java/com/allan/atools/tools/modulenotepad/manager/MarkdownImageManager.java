@@ -17,7 +17,6 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Font;
@@ -274,36 +273,26 @@ public final class MarkdownImageManager {
             return base;
         }
 
-        double baseWidth = base != null ? base.prefWidth(-1) : 0;
-        var box = new Pane();
-        box.setMinWidth(baseWidth);
-        box.setPrefWidth(baseWidth);
-        box.setMaxWidth(baseWidth);
-
-        // 图片放底层、行号放顶层：水平滚动时图片会滚过行号区域，图片背景横条不能盖住行号
+        // 图片放底层、行号放顶层；图片布局使用当前源码段落的实际文字下沿。
         Node imageNode = createImageNode(area, info);
-        double nodeHeight = imageNode.prefHeight(-1);
-        double reserved = totalParagraphHeight(area, info);
-        // 行号背景撑满图片段落整个高度：ParagraphBox 只把 graphic（本容器）拉伸到段落高，
-        // 容器内的行号 Label 仍保持单行高度，行号列会透出编辑器背景形成"白条"；
-        // 撑高后不透明行号背景铺满行号列，水平滚动时也能遮住滑入行号列的图片
-        if (base instanceof Region region) {
-            region.setMinHeight(reserved);
-            region.setPrefHeight(reserved);
-            region.setMaxHeight(reserved);
-        }
-        double baseX = textLeftPadding(area) + LINE_NO_COMPENSATE;
-        imageNode.relocate(baseX,
-                Math.max(lineHeight(area) + GAP_TOP, reserved - nodeHeight - GAP_BOTTOM));
+        var box = new MarkdownImageGraphic(base, imageNode,
+                info.sourceHeight > 0 ? info.sourceHeight : lineHeight(area), GAP_TOP, GAP_BOTTOM, height -> {
+            if (Math.abs(info.sourceHeight - height) >= 0.5) {
+                info.sourceHeight = height;
+                // 下一次脉冲再回填样式，避免在段落布局过程中修改文档样式。
+                Platform.runLater(() -> {
+                    if (!destroyed && area == currentArea && !isOverLimit(area)
+                            && imageByLine.get(info.lineIndex) == info) {
+                        applyImageParagraphStyle(area, info.lineIndex, info);
+                    }
+                });
+            }
+        });
         // 行号 graphic 固定在左侧（ParagraphBox.graphicOffset 绑定 scrollX），文本随水平滚动平移；
         // 图片在 graphic 内须反向减去 scrollX 才能与文本保持同步，否则左滑（水平滚动）时图片悬浮不动
         imageNode.layoutXProperty().bind(Bindings.createDoubleBinding(
                 () -> textLeftPadding(area) + LINE_NO_COMPENSATE - area.estimatedScrollXProperty().getValue(),
                 area.paddingProperty(), area.estimatedScrollXProperty()));
-        box.getChildren().add(imageNode);
-        if (base != null) {
-            box.getChildren().add(base);
-        }
         return box;
     }
 
@@ -321,7 +310,7 @@ public final class MarkdownImageManager {
         }
         if (image.getProgress() < 1.0) {
             // 远程图片后台加载中
-            trackProgress(area, info, image);
+            trackProgress(area, info, image, info.loadLog);
             return createPlaceholder(info, Locales.str("markdownImageLoading"));
         }
 
@@ -346,6 +335,7 @@ public final class MarkdownImageManager {
         frame.setOnMouseClicked(event -> {
             var area = currentArea;
             if (area == null || destroyed || imageByLine.get(info.lineIndex) != info) return;
+            if (info.loadLog != null) info.loadLog.event("retry requested");
             synchronized (imageCache) { imageCache.remove(info.key); }
             info.loading = false;
             beginLoad(area, info);
@@ -377,7 +367,8 @@ public final class MarkdownImageManager {
 
     private int totalParagraphHeight(EditorArea area, MarkdownImage info) {
         double nodeHeight = isFailedImage(info) ? PLACEHOLDER_HEIGHT : displaySize(area, info)[0] + FRAME_BORDER * 2;
-        return (int) Math.ceil(lineHeight(area) + GAP_TOP + nodeHeight + GAP_BOTTOM);
+        double sourceHeight = info.sourceHeight > 0 ? info.sourceHeight : lineHeight(area);
+        return (int) Math.ceil(sourceHeight + GAP_TOP + nodeHeight + GAP_BOTTOM);
     }
 
     private void applyImageParagraphStyle(EditorArea area, int index, MarkdownImage info) {
@@ -436,25 +427,32 @@ public final class MarkdownImageManager {
             return;
         }
         info.loading = true;
+        var diagnostic = new MarkdownImageLoadLog("body", info.key,
+                area.getEditor().getSourceFile(), info.lineIndex + 1);
+        info.loadLog = diagnostic;
         ThreadUtils.submit(() -> {
             Image image;
             try {
-                image = loadImage(info);
+                image = loadImage(info, diagnostic);
             } catch (Exception e) {
-                Log.e("load markdown image failed: " + info.key, e);
+                diagnostic.fail("load threw exception", e);
                 image = null;
             }
+            diagnostic.complete(image);
             cacheImage(info.key, image);
             Image loaded = image;
             if (!ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                Platform.runLater(() -> onImageLoaded(area, info, loaded));
+                Platform.runLater(() -> onImageLoaded(area, info, loaded, diagnostic));
+            } else {
+                diagnostic.event("result skipped application closing or worker interrupted");
             }
         });
     }
 
-    private void onImageLoaded(EditorArea area, MarkdownImage info, Image image) {
+    private void onImageLoaded(EditorArea area, MarkdownImage info, Image image, MarkdownImageLoadLog diagnostic) {
+        if (diagnostic != null) diagnostic.complete(image);
         if (area.getMarkdownComposing()) {
-            area.runAfterMarkdownComposition(() -> onImageLoaded(area, info, image));
+            area.runAfterMarkdownComposition(() -> onImageLoaded(area, info, image, diagnostic));
             return;
         }
         info.loading = false;
@@ -462,7 +460,11 @@ public final class MarkdownImageManager {
         if (destroyed || area != currentArea
                 || isOverLimit(area)
                 || imageByLine.get(index) != info) {
+            if (diagnostic != null) diagnostic.event("result skipped stale image or inactive document");
             return;
+        }
+        if (image != null && !image.isError() && image.getProgress() < 1.0) {
+            trackProgress(area, info, image, diagnostic);
         }
         if (image != null && !image.isError() && image.getWidth() > 0) {
             info.imageWidth = image.getWidth();
@@ -473,12 +475,12 @@ public final class MarkdownImageManager {
     }
 
     /** 每张图片只注册一次完成监听，完成、换源或离开文档时同时解除两个属性的监听。 */
-    private void trackProgress(EditorArea area, MarkdownImage info, Image image) {
+    private void trackProgress(EditorArea area, MarkdownImage info, Image image, MarkdownImageLoadLog diagnostic) {
         if (info.stopTracking != null) return;
         InvalidationListener listener = observable -> {
             if (image.getProgress() < 1.0 && !image.isError()) return;
             if (info.stopTracking != null) info.stopTracking.run();
-            onImageLoaded(area, info, image);
+            onImageLoaded(area, info, image, diagnostic);
         };
         info.stopTracking = () -> {
             image.progressProperty().removeListener(listener);
@@ -489,13 +491,14 @@ public final class MarkdownImageManager {
         image.errorProperty().addListener(listener);
     }
 
-    private Image loadImage(MarkdownImage info) {
+    private Image loadImage(MarkdownImage info, MarkdownImageLoadLog diagnostic) {
         var resolved = info.resolved;
         if (resolved.remote()) {
-            return new Image(resolved.url(), true);
+            return MarkdownRemoteImageLoader.load(resolved.url(), diagnostic, 0, 0);
         }
         File file = resolved.file();
         if (file == null || !file.isFile()) {
+            diagnostic.fail("local file missing or not a regular file", null);
             return null;
         }
         Image image = new Image(resolved.url(), false);
@@ -503,14 +506,16 @@ public final class MarkdownImageManager {
             return image;
         }
         // JavaFX 不支持的格式（webp 等）走 ImageIO + twelvemonkeys
+        diagnostic.event("JavaFX decode failed; trying ImageIO causes=" + image.getException());
         try {
             var bufferedImage = ImageIO.read(file);
             if (bufferedImage != null) {
                 return SwingFXUtils.toFXImage(bufferedImage, null);
             }
         } catch (IOException | RuntimeException e) {
-            Log.e("decode markdown image failed: " + file, e);
+            diagnostic.fail("ImageIO decode threw exception", e);
         }
+        diagnostic.fail("no ImageIO decoder accepted image", image.getException());
         return null;
     }
 
@@ -742,8 +747,10 @@ public final class MarkdownImageManager {
         final double width;
         double imageWidth = -1;
         double imageHeight = -1;
+        double sourceHeight = -1;
         boolean loading;
         Runnable stopTracking;
+        MarkdownImageLoadLog loadLog;
 
         MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom, double width) {
             this.lineIndex = lineIndex;

@@ -1,5 +1,7 @@
 # Markdown 主题
 
+功能、操作和验收待办统一见 [Markdown 文档](Markdown.md)。内置明暗主题及以下自定义 CSS 功能已有实现，不属于待实现的第三批功能。
+
 ATools 内置 GitHub 浅色与 GitHub Dark 深色两套 Markdown 主题。设置中点击“Markdown 主题”旁的主题名称打开选择对话框，点击主题即时应用。总黑暗模式关闭时只能选择浅色主题，开启时只能选择深色主题；另一类仍显示，并说明不可选原因。两种模式分别保存选择，切换总开关或重启应用后恢复对应主题。
 
 主题只作用于 Markdown 编辑器；普通文本、日志编辑器和应用整体界面保持自己的配色。Markdown 排版预览和 HTML 导出同步主题配色，JavaFX 专用的布局和控件样式只作用于编辑器。
@@ -57,7 +59,7 @@ ATools 内置 GitHub 浅色与 GitHub Dark 深色两套 Markdown 主题。设置
 
 ## 参考资料与适配
 
-2026-10-04 下载并分析：
+内置主题配色参考：
 
 - [Typora 官方 GitHub 主题](https://github.com/typora/typora-default-themes/blob/master/themes/github.css)：正文 `#333333`、链接 `#4183c4`、浅灰代码底色、六级标题比例、一级和二级标题分隔线、表格交替行。
 - [GitHub Night 0.6.2](https://github.com/kinoute/typora-github-night-theme/blob/master/github-night.css)：背景 `#0d1117`、正文 `#c9d1d9`、链接 `#58a6ff`、代码背景 `#161b22`、低饱和引用色及 CodeMirror token 配色。

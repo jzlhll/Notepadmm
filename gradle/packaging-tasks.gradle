@@ -94,10 +94,17 @@ tasks.register('analyzeJreModules') {
                 }
             }
         }
-        modules = modules.sort()
         if (modules.isEmpty()) {
             throw new GradleException('jdeps did not return any JDK modules.')
         }
+        // HTTPS 的 SunEC 通过安全服务加载，jdeps 静态分析不会保留该提供者。
+        ['jdk.crypto.ec'].each { moduleName ->
+            if (!new File(jmodsDir, "${moduleName}.jmod").isFile()) {
+                throw new GradleException("Required HTTPS runtime module is missing: ${moduleName}")
+            }
+            modules.add(moduleName)
+        }
+        modules = modules.sort()
         packagingConfig.jreDepsFile.parentFile.mkdirs()
         packagingConfig.jreDepsFile.text = modules.join(System.lineSeparator()) + System.lineSeparator()
         logger.lifecycle("JRE modules: ${modules.join(',')}")
@@ -313,6 +320,11 @@ echo "目标路径: $APP_PATH"
 
 if [ ! -d "$APP_PATH" ]; then
     echo "错误: 目标应用不存在: $APP_PATH"
+    exit 1
+fi
+
+if ! cmp -s minijre/release "$APP_PATH/Contents/runtime/Contents/Home/release"; then
+    echo "错误: Java 运行时已变化，请使用 pack.sh 重新打包并安装应用；fastCopy 不更新运行时。"
     exit 1
 fi
 
