@@ -51,6 +51,8 @@ final class MarkdownTableLayout {
             literal = value.getLiteral();
         } else if (node instanceof SoftLineBreak || node instanceof HardLineBreak) {
             literal = "\n";
+        } else if (node instanceof com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmoji emoji) {
+            literal = emoji.getLiteral();
         } else if (node instanceof com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath math) {
             literal = math.getLiteral();
         } else if (node instanceof HtmlInline html) {

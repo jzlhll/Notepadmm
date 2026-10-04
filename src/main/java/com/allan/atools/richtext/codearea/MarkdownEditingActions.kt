@@ -51,6 +51,10 @@ class MarkdownEditingActions(private val area: EditorArea) {
         }
         if (event.isAltDown || event.isControlDown || event.isMetaDown) return false
         if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
+        if (event.code == KeyCode.TAB) {
+            indent(event.isShiftDown)
+            return true
+        }
         // 普通退格不依赖全文结构，只有命中列表或引用前缀边界时才查询 AST。
         if (event.code == KeyCode.BACK_SPACE) {
             if (area.selection.length > 0) return false
@@ -62,7 +66,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         }
         val state = snapshot()
         val line = state.lines[state.lineAt(area.caretPosition)]
-        if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code && event.code != KeyCode.TAB) return false
+        if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code) return false
         when (event.code) {
             KeyCode.ENTER -> {
                 if (event.isShiftDown && !line.code) {
@@ -72,7 +76,6 @@ class MarkdownEditingActions(private val area: EditorArea) {
                 }
                 if (!event.isShiftDown) return enter(state, line)
             }
-            KeyCode.TAB -> { indent(event.isShiftDown); return true }
             KeyCode.BACK_SPACE -> if (area.selection.length == 0 && !line.code) {
                 val content = area.getText(line.start, line.end)
                 val quotes = quote.find(content)?.value.orEmpty()
@@ -361,7 +364,11 @@ class MarkdownEditingActions(private val area: EditorArea) {
             val rest = content.substring(prefix.length)
             prefix + if (outdent) rest.replace(Regex("^(?: {1,4}|\\t)"), "") else "    $rest"
         }
-        if (!hadSelection && !outdent && snapshot().lines[snapshot().lineAt(caret)].listDepth == 0) {
+        val insertAtCaret = if (!hadSelection && !outdent) {
+            val state = snapshot()
+            state.lines[state.lineAt(caret)].listDepth == 0
+        } else false
+        if (insertAtCaret) {
             change(caret, caret, "    ", caret + 4)
         } else change(start, end, transformed, if (hadSelection) start else Math.max(start, caret + transformed.length - original.length),
             if (hadSelection) start + transformed.length else Math.max(start, caret + transformed.length - original.length))

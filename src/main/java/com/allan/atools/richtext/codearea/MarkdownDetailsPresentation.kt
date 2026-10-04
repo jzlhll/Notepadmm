@@ -76,7 +76,8 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
             nextSaved[key] = state
             old ?: Entry(block, state)
         }
-        val removed = entries.filter { it !in next }
+        val retained = next.toHashSet()
+        val removed = entries.filterNot { it in retained }
         entries = next
         clearStyles(removed.flatMap { it.block.firstLine..it.block.lastLine })
         saved.clear()

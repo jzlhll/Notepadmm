@@ -56,9 +56,12 @@ object MarkdownHtmlRenderer {
             val writer = context.writer
             when (node) {
                 is org.commonmark.node.HtmlBlock -> {
-                    writer.tag("section", context.extendAttributes(node, "section", mapOf("class" to "md-html-block")))
-                    writer.raw(node.literal)
-                    writer.tag("/section")
+                    // HTML 容器可能跨越多个 AST 块；包装单个片段会提前关闭 details 等容器。
+                    val opening = Regex("^(\\s*<[a-zA-Z][\\w:-]*)(?=[\\s/>])").find(node.literal)
+                    val span = node.sourceSpans.firstOrNull()
+                    val literal = if (opening != null && span != null) node.literal.replaceRange(opening.range,
+                        "${opening.value} data-source-start=\"${span.inputIndex}\" data-source-line=\"${span.lineIndex}\"") else node.literal
+                    writer.raw(literal)
                 }
                 is YamlFrontMatterBlock -> {
                     val spans = node.sourceSpans

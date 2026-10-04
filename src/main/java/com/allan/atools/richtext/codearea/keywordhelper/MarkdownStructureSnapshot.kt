@@ -216,7 +216,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 }
                 // 列表保留可见项目符号；未闭合代码和未原生渲染的公式仍显示完整源码。
                 val collapsible = node is Heading || node is BlockQuote || node is Code || node is Emphasis || node is MarkdownEmoji ||
-                    node is StrongEmphasis || node is Strikethrough || node is MarkdownDecoration ||
+                    node is StrongEmphasis || node is Strikethrough || node is MarkdownDecoration && node.tag == "mark" ||
                     node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null || closedMetadata
                 if (collapsible && syntax.size > markerStart) {
                     groups.add(SyntaxGroup(begin, end, syntax.subList(markerStart, syntax.size).toList()))

@@ -11,6 +11,7 @@ import com.allan.atools.richtext.codearea.keywordhelper.MarkdownMermaidSupport
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
+import com.google.gson.Gson
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.concurrent.Worker
@@ -39,6 +40,11 @@ class MarkdownPreviewWindow private constructor() {
     private var renderedVersion = -1L
     private var renderedSnapshot: MarkdownStructureSnapshot? = null
     private var generation = 0L
+    private var pageReady = false
+    private var pageRevision = -1L
+    private var pageFormula = false
+    private var pageDiagram = false
+    private var readingState: String? = null
     private val scheduler = LatestRefreshScheduler(200, 450, ::render)
     private val currentChanged = ChangeListener<EditorArea> { _, _, value -> bind(value) }
     private val themeChanged = javafx.beans.InvalidationListener { generation++; scheduler.request() }
@@ -61,9 +67,13 @@ class MarkdownPreviewWindow private constructor() {
         view.isContextMenuEnabled = true
         view.engine.setCreatePopupHandler { null }
         view.engine.loadWorker.stateProperty().addListener { _, _, value ->
-            if (value == Worker.State.SUCCEEDED && stage.isShowing && renderedVersion == area?.editor?.contentVersion) {
+            if (value == Worker.State.SUCCEEDED && stage.isShowing &&
+                view.engine.executeScript("typeof updatePreview === 'function'") == true) {
+                pageReady = true
                 (view.engine.executeScript("window") as JSObject).setMember("editorBridge", bridge)
                 view.engine.executeScript("installPreviewBridge()")
+                readingState?.let { view.engine.executeScript("restorePreviewReadingState(${gson.toJson(it)})") }
+                readingState = null
             }
         }
         stage.setOnHidden {
@@ -90,6 +100,9 @@ class MarkdownPreviewWindow private constructor() {
         boundMarkdown = MarkdownEditorSupport.supportsMarkdown(value)
         renderedSnapshot = null
         renderedVersion = -1
+        pageReady = false
+        pageRevision = -1
+        readingState = null
         // 解绑后立刻移除旧页面及其桥接，路径相同的版本号也不能复用旧页面。
         view.engine.loadContent("<html><body></body></html>")
         stage.title = value?.editor?.documentState?.displayName?.let { "$it · ${Locales.str("markdown.preview")}" }
@@ -109,6 +122,7 @@ class MarkdownPreviewWindow private constructor() {
             if (current?.editor?.isRealtimeProcessingLimitReached == true) {
                 renderedVersion = -1
                 renderedSnapshot = null
+                pageReady = false
                 hint.text = Locales.str("markdown.previewLimit")
                 view.engine.loadContent("<html><body>${escape(hint.text)}</body></html>")
             }
@@ -124,10 +138,18 @@ class MarkdownPreviewWindow private constructor() {
         val readonly = !current.isEditable
         val file = current.editor.sourceFile
         val base = file?.parentFile?.toURI()?.toASCIIString()
+        val canUpdate = pageReady && pageRevision == revision
+        val formulaLoaded = pageFormula
+        val diagramLoaded = pageDiagram
         task = ThreadUtils.submit {
             try {
                 val state = (current.editor as EditorAreaMgrCode).markdownSnapshot(source)
-                val html = renderDocument(state, base, dark, themeCss)
+                val formula = hasFormula(state)
+                val diagram = hasDiagram(state)
+                val update = canUpdate && (!formula || formulaLoaded) && (!diagram || diagramLoaded)
+                val content = if (update) gson.toJson(mapOf("body" to MarkdownHtmlRenderer.body(state, base),
+                    "fontSize" to fontSize, "fontFamily" to fontFamily, "readonly" to readonly))
+                else renderDocument(state, base, dark, themeCss)
                     .replace("<body ", "<body data-readonly=\"$readonly\" style=\"font-size:${fontSize}px;font-family:${escape(fontFamily)}\" ")
                 Platform.runLater {
                     scheduler.complete(requestId) {
@@ -137,7 +159,16 @@ class MarkdownPreviewWindow private constructor() {
                             renderedSnapshot = state
                             renderedVersion = version
                             hint.text = Locales.str("markdown.previewHint")
-                            view.engine.loadContent(html)
+                            if (update) {
+                                view.engine.executeScript("updatePreview($content)")
+                            } else {
+                                if (pageReady) readingState = view.engine.executeScript("previewReadingState()") as String
+                                pageReady = false
+                                pageRevision = revision
+                                pageFormula = formula
+                                pageDiagram = diagram
+                                view.engine.loadContent(content)
+                            }
                         }
                     }
                 }
@@ -182,6 +213,7 @@ class MarkdownPreviewWindow private constructor() {
 
     companion object {
         private var instance: MarkdownPreviewWindow? = null
+        private val gson = Gson()
 
         @JvmStatic
         fun refreshCurrentFile(area: EditorArea?) {
@@ -224,17 +256,26 @@ class MarkdownPreviewWindow private constructor() {
             }
         }
         private val mermaidLibrary by lazy { MarkdownPreviewWindow::class.java.getResource("/mermaid/mermaid.min.js")!!.readText() }
+        private val previewStyle by lazy { MarkdownPreviewWindow::class.java.getResource("/markdown/preview.css")!!.readText() }
+        private val previewScript by lazy { MarkdownPreviewWindow::class.java.getResource("/markdown/preview.js")!!.readText() }
+
+        private fun hasFormula(state: MarkdownStructureSnapshot) = state.elements.any {
+            it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath ||
+                it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMathBlock
+        }
+
+        private fun hasDiagram(state: MarkdownStructureSnapshot) = state.elements.any {
+            it.node is org.commonmark.node.FencedCodeBlock && MarkdownMermaidSupport.isSupported(it.node)
+        }
 
         fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = MarkdownThemes.previewCss(dark)): String {
-            val style = MarkdownPreviewWindow::class.java.getResource("/markdown/preview.css")!!.readText()
-            val script = MarkdownPreviewWindow::class.java.getResource("/markdown/preview.js")!!.readText()
             val baseTag = if (base == null) "" else "<base href=\"${escape(base)}\">"
-            val formula = state.elements.any { it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath || it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMathBlock }
-            val diagram = state.elements.any { it.node is org.commonmark.node.FencedCodeBlock && MarkdownMermaidSupport.isSupported(it.node) }
+            val formula = hasFormula(state)
+            val diagram = hasDiagram(state)
             val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
                 (if (diagram) "<script>$mermaidLibrary</script>" else "")
-            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$style$themeCss</style>$libraries</head>" +
-                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>${MarkdownHtmlRenderer.body(state, base)}</article><script>$script</script></body></html>"
+            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$previewStyle$themeCss</style>$libraries</head>" +
+                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>${MarkdownHtmlRenderer.body(state, base)}</article><script>$previewScript</script></body></html>"
         }
 
         fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

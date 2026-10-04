@@ -104,7 +104,16 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
             // 测量原节点实际着墨位置，保留混排和换行后的真实基线与大小。
             val measurement = Measurement(key, text.font, text.boundsInLocal, flow!!.baselineOffset)
             if (current.measurement != measurement) {
-                current.ink = measureInk(text, current.opacity)
+                val bounds = text.boundsInLocal
+                val inkKey = InkKey(key, text.font, bounds.width, bounds.height, flow.baselineOffset)
+                if (!inkCache.containsKey(inkKey)) {
+                    val ink = measureInk(text, current.opacity)
+                    inkCache[inkKey] = ink?.let { BoundingBox(it.minX - bounds.minX, it.minY - bounds.minY, it.width, it.height) }
+                    if (inkCache.size > 512) inkCache.remove(inkCache.keys.first())
+                }
+                current.ink = inkCache[inkKey]?.let {
+                    BoundingBox(it.minX + bounds.minX, it.minY + bounds.minY, it.width, it.height)
+                }
                 current.measurement = measurement
             }
             val ink = current.ink
@@ -191,6 +200,7 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
 
     private data class Key(val fontName: String, val glyph: String, val fill: Paint?, val underline: Boolean,
                            val strikethrough: Boolean)
+    private data class InkKey(val key: Key, val font: Font, val width: Double, val height: Double, val baseline: Double)
     private class Raster(val image: Image, val ink: Bounds)
 
     companion object {
@@ -199,6 +209,8 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
         private const val MAX_CACHE_PIXELS = 4_194_304.0
         private val cache = LinkedHashMap<Key, Raster?>(128, 0.75f, true)
         private var cachePixels = 0.0
+        // 着墨范围与节点身份无关，滚回已读段落时不再重复截图扫描。
+        private val inkCache = LinkedHashMap<InkKey, Bounds?>(128, 0.75f, true)
 
         // 在 FX 线程生成并跨标签共享缓存；使用大字号重新栅格化，不能仅放大小字号快照。
         private fun raster(key: Key): Raster? {
