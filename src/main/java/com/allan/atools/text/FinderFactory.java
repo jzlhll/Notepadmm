@@ -24,4 +24,11 @@ public final class FinderFactory {
             mCurrentFindImpl.cancel();
         }
     }
+
+    public static List<ResultItemWrap> find(java.io.Reader reader, boolean lineNum, SearchParams[] searchParams, int[] totalFileLineCount) {
+        AbstractFinder finder = new FinderRegexImpl(reader, lineNum, searchParams, totalFileLineCount);
+        mCurrentFindImpl = finder;
+        try { return finder.find(); }
+        finally { if (mCurrentFindImpl == finder) mCurrentFindImpl = null; }
+    }
 }

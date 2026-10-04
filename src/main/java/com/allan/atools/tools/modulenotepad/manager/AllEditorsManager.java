@@ -13,6 +13,8 @@ import com.allan.atools.keyevent.ShortCutKeys;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.richtext.codearea.EditorDocumentState;
 import com.allan.atools.richtext.codearea.EditorScrollPane;
+import com.allan.atools.tools.modulenotepad.log.LargeLogController;
+import com.allan.atools.tools.modulenotepad.log.LogMemoryBudget;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.tools.modulenotepad.session.SessionTab;
 import com.allan.atools.text.beans.AllFilesSearchResults;
@@ -29,7 +31,6 @@ import javafx.scene.control.Tab;
 
 import java.io.File;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -111,11 +112,14 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             Log.d("selected one tab changed: ");
             if (oldTab != null && oldTab.getContent() instanceof EditorScrollPane pane) {
                 pane.getEditorArea().getViewPosition().save();
+                if (pane.getEditorArea().getLargeLog() != null) pane.getEditorArea().getLargeLog().setActive(false);
             }
             setCurrentTab(newTab);
             setCurrentArea(newTab != null ? codeAreaExInTab(newTab) : null);
             if (newTab != null) {
-                codeAreaExInTab(newTab).getViewPosition().restoreIfPending();
+                var selectedArea = codeAreaExInTab(newTab);
+                if (selectedArea.getLargeLog() != null) selectedArea.getLargeLog().setActive(true);
+                else selectedArea.getViewPosition().restoreIfPending();
             }
             UIContext.bottomIndicateProp.set("");
             EditorSessionManager.getInstance().onCaretOrStructureChanged();
@@ -328,8 +332,16 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 || sourceFile.length() != entry.baseFileSize)) {
             state.setExternalState(EditorDocumentState.ExternalState.MODIFIED);
         }
-        var area = createEditorTab(state, hasSavedState ? savedText : restoredText, false, false);
+        var area = createEditorTab(state, entry.chunkedLog && !entry.dirty ? null
+                : hasSavedState ? savedText : restoredText, false, false);
         if (area != null) {
+            if (entry.chunkedLog) {
+                if (area.getLargeLog() != null) area.getLargeLog().close();
+                var logState = entry.dirty && entry.loadedByteOffset > 0 ? new com.allan.atools.tools.modulenotepad.log.LogReadState(
+                        new com.allan.atools.tools.modulenotepad.log.LogPosition(entry.loadedByteOffset, 1L, 0L),
+                        entry.pendingBytes == null ? new byte[0] : entry.pendingBytes, entry.afterCr) : null;
+                new LargeLogController(area, logState, entry.dirty ? 0L : entry.loadedByteOffset, entry.caretPosition);
+            }
             if (hasUnsavedDifference) {
                 area.getEditor().restoreUnsavedText(restoredText);
             }
@@ -353,9 +365,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
         try {
             EditorArea editorCodeArea = new EditorArea(
-                    state.getSourceFile(), newTab, text, state);
+                    state.getSourceFile(), newTab, text == null ? "" : text, state);
             editorCodeArea.getEditor().getState().setFileEncoding(state.getEncoding());
             editorCodeArea.getBottomSearchBtnsMgr().init();
+            if (text == null) new LargeLogController(editorCodeArea, null, 0L, 0);
             var vpane = new EditorScrollPane(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
@@ -424,10 +437,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                         ? forceEncoding
                         : readLastFileEncoding(textFile.getAbsolutePath());
                 var encodingInfo = encoding == null
-                        ? EncodingUtil.ultimateEncodeDetect(textFile.getAbsolutePath())
+                        ? EncodingUtil.forceEncoding(com.allan.atools.tools.modulenotepad.log.LogEncoding.detect(textFile.toPath()))
                         : EncodingUtil.forceEncoding(encoding);
                 var detectedEncoding = encodingInfo.encoding;
-                var text = Files.readString(textFile.toPath(), Charset.forName(detectedEncoding));
+                var text = LogMemoryBudget.readEditable(textFile.toPath(), Charset.forName(detectedEncoding));
                 if (forceEncoding != null) {
                     saveLastFileEncodingMapping(textFile.getAbsolutePath(), forceEncoding);
                 }
@@ -475,12 +488,22 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 return null;
             }
             var state = area.getEditor().getDocumentState();
+            if (area.getLargeLog() != null) {
+                area.getLargeLog().close();
+                area.setLargeLog(null);
+            }
             state.bindSourceFile(textFile);
             targetTab.setUserData(state);
             area.getEditor().getState().setFileEncoding(detectedEncoding);
             var selection = area.getSelection();
             int topLine = area.getVisibleParagraphs().isEmpty() ? 0 : area.firstVisibleParToAllParIndex();
-            area.getEditor().resetText(text);
+            area.getEditor().resetText(text == null ? "" : text);
+            if (text == null) {
+                new LargeLogController(area, null, 0L, selection.getEnd());
+                if (toFront) UIContext.context().tabPane.getSelectionModel().select(targetTab);
+                area.getLargeLog().setActive(targetTab.isSelected());
+                return area;
+            }
             int anchor = selection.getStart();
             int caret = selection.getEnd();
             if (anchor > area.getLength()) {
@@ -521,14 +544,16 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
         newTab.setOnClosed(event -> onTabCloseAction(newTab));
 
-        Log.e(textFile.getAbsolutePath() + " : openTextIn Tab open encode " + detectedEncoding + " " + text.length());
+        Log.d("open file encoding " + detectedEncoding + ", chunked " + (text == null));
         Log.d("open file: " + textFile);
 
         try {
-            EditorArea editorCodeArea = new EditorArea(textFile, newTab, text);
+            var documentState = EditorDocumentState.named(textFile, detectedEncoding);
+            EditorArea editorCodeArea = new EditorArea(textFile, newTab, text == null ? "" : text, documentState);
 
             editorCodeArea.getEditor().getState().setFileEncoding(detectedEncoding);
             editorCodeArea.getBottomSearchBtnsMgr().init();
+            if (text == null) new LargeLogController(editorCodeArea, null, 0L, 0);
             Log.d("change encoding " + detectedEncoding);
             var vpane = new EditorScrollPane(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");

@@ -189,12 +189,14 @@ final class BottomHandler extends Handler {
             }
             long contentVersion = area.getEditor().getContentVersion();
             String text = area.getText();
-            post(() -> searchInThread(clickType, flag, text, contentVersion));
+            var snapshot = area.getLargeLog() == null ? null : area.getLargeLog().snapshot(text);
+            post(() -> searchInThread(clickType, flag, text, contentVersion, snapshot));
         });
     }
 
     private void searchInThread(ClickType clickType, final long flag, String textSnapshot,
-                                long contentVersion) {
+                                long contentVersion,
+                                com.allan.atools.tools.modulenotepad.log.LogDocumentSnapshot snapshot) {
         var area = out.editorArea;// UIContext.currentAreaProp.get();
         if (area == null) {
             return;
@@ -236,14 +238,32 @@ final class BottomHandler extends Handler {
 
         var t = textSnapshot;
         OneFileSearchResults newCacheResult;
-        if (t == null || t.length() == 0) {
+        if (snapshot == null && (t == null || t.length() == 0)) {
             newCacheResult = new OneFileSearchResults();
         } else if (searchParams == null) {
             newCacheResult = new OneFileSearchResults().addTotalLen(t.length());
         } else {
             int[] totalLines = {0};
             //TimerCounter.start("bottom_search_in_thread");
-            var lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
+            java.util.List<com.allan.atools.beans.ResultItemWrap> lastResultItems;
+            try {
+                if (snapshot == null) lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
+                else try (var reader = snapshot.openReader(() -> destroyed || area.getEditor().isDestroyed()
+                        || flag != out.lastChangeSearchFlag.get()
+                        || contentVersion != area.getEditor().getContentVersion())) {
+                    lastResultItems = FinderFactory.find(reader, false, searchParams, totalLines);
+                }
+            } catch (java.util.concurrent.CancellationException ignored) {
+                return;
+            } catch (Exception e) {
+                Log.e("bottom log search failed", e);
+                Platform.runLater(() -> {
+                    if (!destroyed && flag == out.lastChangeSearchFlag.get()) {
+                        com.allan.atools.ui.SnackbarUtils.show(e.getMessage() == null ? "搜索失败，请重试" : e.getMessage());
+                    }
+                });
+                return;
+            }
             //Log.d(BottomSearchBtnsMgr.TAG, "findFactory.find time: " + TimerCounter.end("bottom_search_in_thread"));
             newCacheResult = new OneFileSearchResults().addResults(lastResultItems).addTotalLen(t.length());
         }
@@ -261,4 +281,20 @@ final class BottomHandler extends Handler {
             styler.stylingNormal(flag, cache.cacheResult, clickType, showType);
         }
     }
+
+    void refreshLoadedStyle(long flag) {
+        Platform.runLater(() -> {
+            if (destroyed || out.editorArea.getEditor().isDestroyed() || cache.cacheResult == null) return;
+            int length = out.editorArea.getLength();
+            var loaded = new OneFileSearchResults().addTotalLen(length).addResults(
+                    cache.cacheResult.results == null ? java.util.List.of() : cache.cacheResult.results.stream()
+                            .filter(line -> line.items != null && java.util.Arrays.stream(line.items)
+                                    .allMatch(item -> (long) item.range.totalOffset + item.range.end - item.range.start <= length))
+                            .toList());
+            ShowType mode = TextUtils.isEmpty(out.mSearchParamAndIndicatorParam.searchParams.words) ? ShowType.Temp
+                    : TextUtils.isEmpty(out.getTemporaryWord()) ? ShowType.Search : ShowType.BothSearchFrontTempBehind;
+            post(() -> styler.stylingNormal(flag, loaded, ClickType.None, mode));
+        });
+    }
+
 }

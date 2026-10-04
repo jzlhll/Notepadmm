@@ -30,6 +30,7 @@ class EditorArea @JvmOverloads constructor(
     CodeArea(text, true) {
 
     val editor: EditorAreaMgr
+    var largeLog: com.allan.atools.tools.modulenotepad.log.LargeLogController? = null
     val bottomSearchBtnsMgr: BottomSearchBtnsMgr
     val fontThemeChanged: ChangeListener<Number>
     val multiSelections: EditorAreaMultiSelectionsMgr
@@ -308,6 +309,8 @@ class EditorArea @JvmOverloads constructor(
     }
 
     fun destroy() {
+        largeLog?.close()
+        largeLog = null
 //        try {
 //            CaretNode node = (CaretNode) ReflectionUtils.getPrivateField(getCaretSelectionBind(), "delegateCaret");
 //            node.dispose();

@@ -88,6 +88,14 @@ public final class BottomSearchBtnsMgr {
         pendingSearchJump = false;
     }
 
+    public void refreshLoadedContent(boolean sourceChanged) {
+        if (sourceChanged) {
+            handler.cache.cacheResult = null;
+            handler.triggerSearchWhenTextChanged(lastChangeSearchFlag.incrementAndGet());
+        } else if (handler.cache.cacheResult == null) handler.triggerSearchWhenTextChanged(lastChangeSearchFlag.get());
+        else handler.refreshLoadedStyle(lastChangeSearchFlag.get());
+    }
+
     boolean consumePendingSearchJump() {
         boolean pending = pendingSearchJump;
         pendingSearchJump = false;
@@ -129,10 +137,17 @@ public final class BottomSearchBtnsMgr {
             return;
         }
         Highlight.JumpMode mode = back ? Highlight.JumpMode.GoUp : Highlight.JumpMode.GoDown;
-        disableSelectionListenerTemporary(400);
-        Highlight.jumpToLineAndSelectWord(area, mode, out.lineNum, item.range.start, item.range.end);
-
-        updateIndicator(out.resultIndex, out.totalResultSize);
+        long version = area.getEditor().getContentVersion();
+        Runnable jump = () -> {
+            if (area.getEditor().isDestroyed() || area.getEditor().getContentVersion() != version
+                    || UIContext.currentAreaProp.get() != area) return;
+            disableSelectionListenerTemporary(400);
+            Highlight.jumpToLineAndSelectWord(area, mode, out.lineNum, item.range.start, item.range.end);
+            updateIndicator(out.resultIndex, out.totalResultSize);
+        };
+        if (area.getLargeLog() != null) {
+            area.getLargeLog().ensureLoaded(item.range.totalOffset + item.range.end - item.range.start, jump);
+        } else jump.run();
     }
 
     void refreshIndicator() {

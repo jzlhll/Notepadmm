@@ -4,6 +4,8 @@ module atools {
 
     requires java.base;
     requires java.desktop;
+    requires java.management;
+    requires jdk.management;
     requires jdk.charsets;
 
     requires javafx.base;

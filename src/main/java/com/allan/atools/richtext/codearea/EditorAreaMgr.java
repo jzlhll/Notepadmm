@@ -90,6 +90,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         private Subscription textChangedSubscription;
 
         private void onTextChanged() {
+            if (area.getLargeLog() != null && area.getLargeLog().getLoadingText()) return;
             contentVersion.incrementAndGet();
             mContentSizeReachedStyleLimit = area.getLength() >= processingLimits.getMaxSize();
             mLineCountReachedStyleLimit = area.getParagraphs().size() >= processingLimits.getMaxLines();
@@ -324,6 +325,28 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return contentVersion.get();
     }
 
+    /** 文件块不进入撤销历史，用户编辑仍按原有文档状态处理。 */
+    public void enableLargeLog() {
+        var changes = area.multiPlainChanges().filter(ignored -> area.getLargeLog() == null || !area.getLargeLog().getLoadingText());
+        area.setUndoManager(org.fxmisc.undo.UndoManagerFactory.unlimitedHistoryMultiChangeUM(
+                changes, org.fxmisc.richtext.model.PlainTextChange::invert,
+                org.fxmisc.richtext.util.UndoUtils.applyMultiPlainTextChange(area),
+                org.fxmisc.richtext.model.PlainTextChange::mergeWith,
+                org.fxmisc.richtext.model.PlainTextChange::isIdentity));
+        if (!documentState.isDirty()) {
+            var position = area.getUndoManager().getCurrentPosition();
+            position.mark();
+            documentState.setSavedUndoPosition(position);
+        } else documentState.invalidateSavedUndoPosition();
+        documentState.setSavedText(null);
+    }
+
+    public void refreshLargeLogState(boolean sourceChanged) {
+        refreshProcessingLimits(getSourceFile(), area);
+        disableStylerIfNeeded(null);
+        if (sourceChanged) contentVersion.incrementAndGet();
+    }
+
     public boolean isRealtimeProcessingLimitReached() {
         return mSourceFileSizeReachedStyleLimit
                 || mContentSizeReachedStyleLimit
@@ -541,13 +564,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private boolean isCurrentContentSaved() {
         var savedText = documentState.getSavedText();
-        if (savedText == null) {
-            return false;
-        }
         if (documentState.isSavedUndoPositionValid()
                 && area.getUndoManager().isAtMarkedPosition()) {
             return true;
         }
+        if (savedText == null) return false;
         return area.getLength() == savedText.length() && area.getText().equals(savedText);
     }
 
@@ -689,6 +710,9 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private void startSave(File target, String sourceCode, String encoding,
                            CompletableFuture<SaveResult> result) {
+        var largeLog = area.getLargeLog();
+        var logSnapshot = largeLog == null ? null : largeLog.prepareSave(sourceCode);
+        var prefixBytes = new AtomicLong();
         var undoManager = area.getUndoManager();
         undoManager.preventMerge();
         UndoManager.UndoPosition savedPosition = area.getText().equals(sourceCode) ? undoManager.getCurrentPosition() : null;
@@ -699,11 +723,21 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         CompletableFuture<Boolean> write;
         synchronized (saveLock) {
             write = saveChain.handle((ignored, throwable) -> null)
-                    .thenApplyAsync(ignored -> writeSourceFile(target, sourceCode, encoding), SAVE_EXECUTOR);
+                    .thenApplyAsync(ignored -> {
+                        if (logSnapshot == null) return writeSourceFile(target, sourceCode, encoding);
+                        try {
+                            prefixBytes.set(logSnapshot.writeTo(target.toPath(), Charset.forName(encoding)));
+                            return true;
+                        } catch (Exception e) {
+                            Log.e("save log failed: " + target, e);
+                            return false;
+                        }
+                    }, SAVE_EXECUTOR);
             saveChain = write.handle((ignored, throwable) -> null);
         }
         write.whenComplete((success, throwable) -> Platform.runLater(() -> area.runAfterMarkdownComposition(() -> {
             if (throwable != null || !Boolean.TRUE.equals(success) || isDestroyed()) {
+                if (largeLog != null && !isDestroyed()) largeLog.finishSave(null, null, 0L);
                 if (throwable != null) {
                     Log.e("save content failed: " + target, throwable);
                 }
@@ -717,6 +751,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 MarkdownAttachments.applyRebaseForSaveAs(area, referenceSourceFile, target);
             }
             bindSavedFile(target);
+            if (largeLog != null) largeLog.finishSave(target.toPath(), encoding, prefixBytes.get());
             documentState.updateBaseFileMetadata();
             documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
             documentState.setSavedText(sourceCode);
@@ -1128,6 +1163,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void replaceSelectedTextWithPadding(String newText) {
+        if (!area.isEditable()) return;
         var selection = area.getSelection();
         if (selection.getLength() == 0) {
             return;
@@ -1196,6 +1232,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void find(SearchParams params, Action<OneFileSearchResults> action) {
+        if (area.getLargeLog() != null) {
+            area.getLargeLog().search(new SearchParams[]{params}, action);
+            return;
+        }
         ThreadUtils.execute(()-> {
             String text = area.getText();
             int[] totalLines = {0};
@@ -1216,6 +1256,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void findAdvance(SearchParams[] params, Action<OneFileSearchResults> action) {
+        if (area.getLargeLog() != null) {
+            area.getLargeLog().search(params, action);
+            return;
+        }
         ThreadUtils.execute(()-> {
             String text = area.getText();
             int[] totalLines = new int[]{0};

@@ -35,6 +35,13 @@ final class Styler {
             if(DEBUG_STYLER) Log.d("Styler: styling disabled by limit");
             return;
         }
+        if (area.getLargeLog() != null && items.results != null) {
+            int length = items.totalLen;
+            items = new OneFileSearchResults().addTotalLen(length).addResults(items.results.stream()
+                    .filter(line -> line.items != null && java.util.Arrays.stream(line.items)
+                            .allMatch(item -> (long) item.range.totalOffset + item.range.end - item.range.start <= length))
+                    .toList());
+        }
         mFullAction.action(area, flag, items, clickType, showType);
     }
 

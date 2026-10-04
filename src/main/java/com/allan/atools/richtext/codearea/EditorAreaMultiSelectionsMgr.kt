@@ -229,6 +229,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     }
 
     fun deleteMulti() {
+        if (!area.isEditable) return
         //方式1：直接搞，通过多更新
         curMultiSelection?.let {
             val c = it
@@ -246,6 +247,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     }
 
     private fun deleteOrReplaceUsingText(str:String) {
+        if (!area.isEditable) return
         //方式2：通过我们的List来处理
         curMultiSelection?.let {
             val startOffset = area.getAbsolutePosition(it.startParagraph, it.startColumn)
@@ -271,6 +273,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     }
 
     fun replace(str:String) {
+        if (!area.isEditable) return
         Log.d(TAG + "area: replace(str)")
         removeAllMultiSelect()
         //replaceMulti(str)
@@ -278,6 +281,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     }
 
     private fun replaceMulti(str:String) {
+        if (!area.isEditable) return
         val curTs = System.currentTimeMillis()
         curMultiSelection?.let {
             val c = it

@@ -116,6 +116,9 @@ public final class EditorSessionManager {
         tracked.backupSha256 = entry.backupSha256;
         tracked.lastSnapshotAt = entry.backupFile == null ? 0L : System.currentTimeMillis();
         tracked.contentVersion = area.getEditor().getContentVersion();
+        if (entry.chunkedLog) tracked.backupLogState = new com.allan.atools.tools.modulenotepad.log.LogReadState(
+                new com.allan.atools.tools.modulenotepad.log.LogPosition(entry.loadedByteOffset, 1L, 0L),
+                entry.pendingBytes == null ? new byte[0] : entry.pendingBytes, entry.afterCr);
     }
 
     public void onTextChanged(EditorArea area, long contentVersion) {
@@ -346,9 +349,13 @@ public final class EditorSessionManager {
                                                          String sessionId,
                                                          long backupVersion,
                                                          String text) {
+        var logState = tracked.area.getLargeLog() == null ? null : tracked.area.getLargeLog().getReadState();
         synchronized (tracked) {
             var write = tracked.writeChain.handle((ignored, throwable) -> null)
-                    .thenApplyAsync(ignored -> writeBackup(sessionId, backupVersion, text), ioExecutor);
+                    .thenApplyAsync(ignored -> {
+                        var backup = writeBackup(sessionId, backupVersion, text);
+                        return new BackupData(backup.version, backup.fileName, backup.byteSize, backup.sha256, logState);
+                    }, ioExecutor);
             tracked.writeChain = write.handle((ignored, throwable) -> null);
             return write;
         }
@@ -421,6 +428,14 @@ public final class EditorSessionManager {
         tab.baseFileSize = state.getBaseFileSize();
         tab.caretPosition = area.getCaretPosition();
         tab.initialSaveDirectory = state.getInitialSaveDirectory();
+        var logState = state.isDirty() ? tracked.backupLogState
+                : area.getLargeLog() == null ? null : area.getLargeLog().getReadState();
+        tab.chunkedLog = area.getLargeLog() != null;
+        if (logState != null) {
+            tab.loadedByteOffset = logState.getPosition().getOffset();
+            tab.pendingBytes = logState.getPending();
+            tab.afterCr = logState.getAfterCr();
+        }
         if (state.isDirty() || state.isUntitled() && !area.getText().isEmpty()) {
             tab.backupVersion = tracked.backupVersion;
             tab.backupFile = tracked.backupFile;
@@ -458,6 +473,7 @@ public final class EditorSessionManager {
                     }
                     if (loadTabText(tab, warnings)) {
                         restored.add(tab);
+                        if (tab.recoveredLogFragment) warnings.add(tab.displayName + "：源文件已变化，未保存内容已恢复为独立文档");
                         return;
                     }
                     var previousTab = previousById.get(tab.sessionId);
@@ -516,7 +532,8 @@ public final class EditorSessionManager {
         }
         try {
             var encoding = tab.encoding == null ? StandardCharsets.UTF_8 : Charset.forName(tab.encoding);
-            tab.restoredText = Files.readString(source, encoding);
+            tab.restoredText = com.allan.atools.tools.modulenotepad.log.LogMemoryBudget.readEditable(source, encoding);
+            tab.chunkedLog = tab.restoredText == null;
             return true;
         } catch (Exception e) {
             warnings.add(Locales.str("sessionFileReadFailed").replace("%s", tab.displayName));
@@ -528,7 +545,24 @@ public final class EditorSessionManager {
         if (!loadBackup(tab)) {
             return false;
         }
-        loadSavedText(tab);
+        if (tab.chunkedLog) {
+            var source = pathOrNull(tab.sourcePath);
+            boolean sameVersion = false;
+            try {
+                sameVersion = source != null && Files.isRegularFile(source)
+                        && Files.size(source) == tab.baseFileSize
+                        && Files.getLastModifiedTime(source).toMillis() == tab.baseLastModified
+                        && tab.loadedByteOffset >= 0 && tab.loadedByteOffset <= tab.baseFileSize
+                        && (tab.pendingBytes == null || tab.pendingBytes.length <= 8);
+            } catch (IOException ignored) { }
+            if (!sameVersion) {
+                tab.chunkedLog = false;
+                tab.untitled = true;
+                tab.initialSaveDirectory = source == null || source.getParent() == null ? null : source.getParent().toString();
+                tab.sourcePath = null;
+                tab.recoveredLogFragment = true;
+            }
+        } else loadSavedText(tab);
         return true;
     }
 
@@ -712,7 +746,7 @@ public final class EditorSessionManager {
             var temporary = Files.createTempFile(backupsDir, sessionId + "-", ".tmp");
             Files.write(temporary, bytes);
             moveReplace(temporary, target);
-            return new BackupData(version, fileName, bytes.length, sha256(bytes));
+            return new BackupData(version, fileName, bytes.length, sha256(bytes), null);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -723,6 +757,7 @@ public final class EditorSessionManager {
         tracked.backupFile = backup.fileName;
         tracked.backupByteSize = backup.byteSize;
         tracked.backupSha256 = backup.sha256;
+        tracked.backupLogState = backup.logState;
     }
 
     private static void clearBackupReference(TrackedDocument tracked) {
@@ -730,6 +765,7 @@ public final class EditorSessionManager {
         tracked.backupFile = null;
         tracked.backupByteSize = 0L;
         tracked.backupSha256 = null;
+        tracked.backupLogState = null;
     }
 
     private void writeManifest(SessionManifest manifest, boolean synchronizePrevious) throws IOException {
@@ -871,6 +907,7 @@ public final class EditorSessionManager {
         volatile String backupFile;
         volatile long backupByteSize;
         volatile String backupSha256;
+        volatile com.allan.atools.tools.modulenotepad.log.LogReadState backupLogState;
         volatile ScheduledFuture<?> debounceTask;
         volatile ScheduledFuture<?> compensationTask;
         CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
@@ -880,7 +917,8 @@ public final class EditorSessionManager {
         }
     }
 
-    private record BackupData(long version, String fileName, long byteSize, String sha256) {
+    private record BackupData(long version, String fileName, long byteSize, String sha256,
+                              com.allan.atools.tools.modulenotepad.log.LogReadState logState) {
     }
 
     private record RestoreData(String activeSessionId, List<SessionTab> tabs, List<String> warnings) {

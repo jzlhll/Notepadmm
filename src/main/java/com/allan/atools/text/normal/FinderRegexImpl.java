@@ -25,15 +25,24 @@ public final class FinderRegexImpl extends AbstractFinder {
         super(text, lineNum, searchParams, totalFileLineCount);
         if(DEBUG) printWraps(searchParams);
 
+        wraps = createWraps(searchParams);
+    }
+
+    public FinderRegexImpl(java.io.Reader reader, boolean lineNum, SearchParams[] searchParams, int[] totalFileLineCount) {
+        super(reader, lineNum, searchParams, totalFileLineCount);
+        wraps = createWraps(searchParams);
+    }
+
+    private static IWrap[] createWraps(SearchParams[] searchParams) {
         List<IWrap> wrapList = new ArrayList<>();
         for (var p : searchParams) {
             wrapList.addAll(List.of(toWrap(p)));
         }
-        wraps = new IWrap[wrapList.size()];
+        var wraps = new IWrap[wrapList.size()];
         for (int i = 0; i < wraps.length; i++) {
             wraps[i] = wrapList.get(i);
         }
-        wrapList.clear();
+        return wraps;
     }
 
     private void printWraps(SearchParams[] ps) {
@@ -63,7 +72,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 var item = new ResultItemWrap();
                 item.setLine(isSystemUseLineNum ? String.format(mFormat, linenum, lineWrap.line) : lineWrap.line);
                 item.setOrigLine(lineWrap.line);
-                item.resultOffset = isSystemUseLineNum ? mFormatLineNumOffset : 0;
+                item.resultOffset = item.getLine().length() - lineWrap.line.length();
                 item.lineNum = linenum;
 
                 var resultItem = new ResultItem();
@@ -98,7 +107,10 @@ public final class FinderRegexImpl extends AbstractFinder {
     private ResultItemWrap oneLineHandle(LineWrap lineWrap, int linenum, SearchParamsWrapSimple wrap, ResultItemWrap lineItem) {
         int fromIndex = 0;
         int[] indexes;
-        String cvtLine = wrap.originParam.useCaseMatch ? lineWrap.line : lineWrap.line.toLowerCase();
+        if (!wrap.originParam.useCaseMatch && lineWrap.caseInsensitiveLine == null) {
+            lineWrap.caseInsensitiveLine = lineWrap.line.toLowerCase();
+        }
+        String cvtLine = wrap.originParam.useCaseMatch ? lineWrap.line : lineWrap.caseInsensitiveLine;
         int cvtLineLength = cvtLine.length();
 
         do {
@@ -164,7 +176,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 var item = new ResultItemWrap();
                 item.setLine(isSystemUseLineNum ? String.format(mFormat, linenum, lineWrap.line) : lineWrap.line);
                 item.setOrigLine(lineWrap.line);
-                item.resultOffset = isSystemUseLineNum ? mFormatLineNumOffset : 0;
+                item.resultOffset = item.getLine().length() - lineWrap.line.length();
                 item.lineNum = linenum;
 
                 var resultItem = new ResultItem();
@@ -227,6 +239,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 }
             }
 
+            origLine.caseInsensitiveLine = null;
             if (item != null) {
                 if (tempResultItems.size() > 1) {
                     //先排序，后过滤。冲突的元素

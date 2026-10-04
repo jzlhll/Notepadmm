@@ -16,7 +16,12 @@ public final class SessionTab {
     public long baseFileSize;
     public int caretPosition;
     public String initialSaveDirectory;
+    public boolean chunkedLog;
+    public long loadedByteOffset;
+    public byte[] pendingBytes;
+    public boolean afterCr;
 
     public transient String restoredText;
     public transient String savedText;
+    public transient boolean recoveredLogFragment;
 }

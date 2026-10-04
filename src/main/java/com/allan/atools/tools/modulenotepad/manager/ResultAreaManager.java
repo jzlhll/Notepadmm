@@ -75,8 +75,16 @@ public final class ResultAreaManager implements INotepadResultManager {
                     if (editArea.getEditor().isDestroyed()) {
                         Log.e("jump to next but edior is destroyed!");
                     }
-                    Highlight.jumpToLineAndSelectWordMore((CodeArea) editor.getArea(), Highlight.JumpMode.JumpCenter, item.getOrigLine(),
-                            item.lineNum, firstItem.range.start, firstItem.range.end);
+                    Runnable jump = () -> {
+                        if (editArea.getEditor().isDestroyed()) return;
+                        editArea.getBottomSearchBtnsMgr().disableSelectionListenerTemporary(500);
+                        Highlight.jumpToLineAndSelectWordMore(editArea, Highlight.JumpMode.JumpCenter, item.getOrigLine(),
+                                item.lineNum, firstItem.range.start, firstItem.range.end);
+                    };
+                    if (editArea.getLargeLog() != null) {
+                        int end = firstItem.range.totalOffset - firstItem.range.start + item.getOrigLine().length();
+                        editArea.getLargeLog().ensureLoaded(end, jump);
+                    } else jump.run();
                 }
             }
         }
