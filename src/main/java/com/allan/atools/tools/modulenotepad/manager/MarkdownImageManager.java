@@ -8,12 +8,10 @@ import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
-import com.allan.baseparty.Action0;
 import com.allan.uilibs.richtexts.CodeArea;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
+import javafx.beans.InvalidationListener;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -28,6 +26,7 @@ import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.HtmlBlock;
 import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Paragraph;
+import org.reactfx.Subscription;
 
 import javax.imageio.ImageIO;
 import java.io.File;
@@ -38,6 +37,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.HashSet;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -80,7 +81,7 @@ public final class MarkdownImageManager {
     /** Typora 风格 style="zoom:40%" */
     private static final Pattern STYLE_ZOOM_PATTERN = Pattern.compile(
             "(?i)zoom\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*%");
-    private final Action0 textChangedAction = this::onTextChanged;
+    private Subscription textChanges;
 
     private final LinkedHashMap<String, Image> imageCache = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
@@ -95,7 +96,6 @@ public final class MarkdownImageManager {
     private Map<Integer, MarkdownImage> imageByLine = Map.of();
     private boolean runtimeActive;
     private boolean destroyed;
-    private long shownContentVersion = -1;
     private Future<?> parseTask;
     private double cachedLineHeight = -1;
 
@@ -119,7 +119,8 @@ public final class MarkdownImageManager {
         if (!supportsMarkdown(area)) {
             return;
         }
-        area.getEditor().textChanged.addAction(textChangedAction);
+        textChanges = area.plainTextChanges().subscribe(change ->
+                onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted()));
         if (isOverLimit(area)) {
             return;
         }
@@ -132,20 +133,50 @@ public final class MarkdownImageManager {
         if (area == null) {
             return;
         }
-        area.getEditor().textChanged.removeAction(textChangedAction);
+        if (textChanges != null) {
+            textChanges.unsubscribe();
+            textChanges = null;
+        }
         deactivateRuntime();
         clearAllImageStyles(area);
         currentArea = null;
     }
 
-    private void onTextChanged() {
+    private void onTextChanged(int position, String removed, String inserted) {
         if (isOverLimit(currentArea)) {
             deactivateRuntime();
             clearAllImageStyles(currentArea);
             return;
         }
         activateRuntime();
-        clearAllImageStyles(currentArea);
+        var area = currentArea;
+        int first = area.offsetToPosition(Math.min(position, area.getLength()),
+                org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).getMajor();
+        int removedLines = (int) removed.chars().filter(c -> c == '\n').count();
+        int insertedLines = (int) inserted.chars().filter(c -> c == '\n').count();
+        int delta = insertedLines - removedLines;
+        var next = new LinkedHashMap<Integer, MarkdownImage>();
+        var moved = new HashSet<Integer>();
+        boolean touched = false;
+        for (var info : imageByLine.values()) {
+            if (info.lineIndex >= first && info.lineIndex <= first + removedLines) {
+                if (info.stopTracking != null) info.stopTracking.run();
+                touched = true;
+                continue;
+            }
+            if (info.lineIndex > first + removedLines && delta != 0) {
+                info.lineIndex += delta;
+                moved.add(info.lineIndex);
+            }
+            next.put(info.lineIndex, info);
+        }
+        imageByLine = next;
+        // 只展开正在改动的图片行，其余图片保留节点、加载状态和缓存。
+        if (touched) for (int line = first; line <= first + insertedLines; line++) {
+            clearImageParagraphStyle(area, line);
+            area.recreateParagraphGraphic(line);
+        }
+        for (int line : moved) area.recreateParagraphGraphic(line);
         refreshScheduler.request();
     }
 
@@ -190,18 +221,28 @@ public final class MarkdownImageManager {
         cachedLineHeight = -1;
         var newByLine = new LinkedHashMap<Integer, MarkdownImage>();
         for (var info : parsed) {
-            newByLine.putIfAbsent(info.lineIndex, info);
+            var old = imageByLine.get(info.lineIndex);
+            boolean same = old != null && old.key.equals(info.key) && Objects.equals(old.alt, info.alt)
+                    && old.width == info.width && old.styleZoom == info.styleZoom;
+            newByLine.putIfAbsent(info.lineIndex, same ? old : info);
         }
+        var changed = new HashSet<Integer>();
         for (var line : imageByLine.keySet()) {
+            var old = imageByLine.get(line);
+            if (newByLine.get(line) != old && old.stopTracking != null) old.stopTracking.run();
             if (!newByLine.containsKey(line)) {
                 clearImageParagraphStyle(area, line);
+                changed.add(line);
             }
+        }
+        for (var entry : newByLine.entrySet()) {
+            if (imageByLine.get(entry.getKey()) != entry.getValue()) changed.add(entry.getKey());
         }
         imageByLine = newByLine;
         for (var entry : newByLine.entrySet()) {
             applyImageParagraphStyle(area, entry.getKey(), entry.getValue());
         }
-        shownContentVersion = contentVersion;
+        for (int line : changed) area.recreateParagraphGraphic(line);
     }
 
     private void activateRuntime() {
@@ -240,7 +281,7 @@ public final class MarkdownImageManager {
         box.setMaxWidth(baseWidth);
 
         // 图片放底层、行号放顶层：水平滚动时图片会滚过行号区域，图片背景横条不能盖住行号
-        Node imageNode = createImageNode(area, index, info);
+        Node imageNode = createImageNode(area, info);
         double nodeHeight = imageNode.prefHeight(-1);
         double reserved = totalParagraphHeight(area, info);
         // 行号背景撑满图片段落整个高度：ParagraphBox 只把 graphic（本容器）拉伸到段落高，
@@ -266,13 +307,13 @@ public final class MarkdownImageManager {
         return box;
     }
 
-    private Node createImageNode(EditorArea area, int index, MarkdownImage info) {
+    private Node createImageNode(EditorArea area, MarkdownImage info) {
         Image image = cachedImage(info.key);
         if (image == null) {
             if (isKnownFailure(info.key)) {
                 return createPlaceholder(info, Locales.str("markdownImageLoadFailed"));
             }
-            beginLoad(area, index, info);
+            beginLoad(area, info);
             return createPlaceholder(info, Locales.str("markdownImageLoading"));
         }
         if (image.isError()) {
@@ -280,7 +321,7 @@ public final class MarkdownImageManager {
         }
         if (image.getProgress() < 1.0) {
             // 远程图片后台加载中
-            trackProgress(area, index, info, image);
+            trackProgress(area, info, image);
             return createPlaceholder(info, Locales.str("markdownImageLoading"));
         }
 
@@ -307,7 +348,7 @@ public final class MarkdownImageManager {
             if (area == null || destroyed || imageByLine.get(info.lineIndex) != info) return;
             synchronized (imageCache) { imageCache.remove(info.key); }
             info.loading = false;
-            beginLoad(area, info.lineIndex, info);
+            beginLoad(area, info);
             area.recreateParagraphGraphic(info.lineIndex);
         });
         return frame;
@@ -382,14 +423,15 @@ public final class MarkdownImageManager {
             return;
         }
         for (var line : imageByLine.keySet()) {
+            var info = imageByLine.get(line);
+            if (info.stopTracking != null) info.stopTracking.run();
             clearImageParagraphStyle(area, line);
             area.recreateParagraphGraphic(line);
         }
         imageByLine = Map.of();
-        shownContentVersion = -1;
     }
 
-    private void beginLoad(EditorArea area, int index, MarkdownImage info) {
+    private void beginLoad(EditorArea area, MarkdownImage info) {
         if (info.loading) {
             return;
         }
@@ -405,19 +447,20 @@ public final class MarkdownImageManager {
             cacheImage(info.key, image);
             Image loaded = image;
             if (!ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
-                Platform.runLater(() -> onImageLoaded(area, index, info, loaded));
+                Platform.runLater(() -> onImageLoaded(area, info, loaded));
             }
         });
     }
 
-    private void onImageLoaded(EditorArea area, int index, MarkdownImage info, Image image) {
+    private void onImageLoaded(EditorArea area, MarkdownImage info, Image image) {
         if (area.getMarkdownComposing()) {
-            area.runAfterMarkdownComposition(() -> onImageLoaded(area, index, info, image));
+            area.runAfterMarkdownComposition(() -> onImageLoaded(area, info, image));
             return;
         }
         info.loading = false;
+        int index = info.lineIndex;
         if (destroyed || area != currentArea
-                || shownContentVersion != area.getEditor().getContentVersion()
+                || isOverLimit(area)
                 || imageByLine.get(index) != info) {
             return;
         }
@@ -429,26 +472,21 @@ public final class MarkdownImageManager {
         area.recreateParagraphGraphic(index);
     }
 
-    /** 远程图片后台加载进度监听：完成后刷新 graphic（onImageLoaded 幂等，两个监听独立触发） */
-    private void trackProgress(EditorArea area, int index, MarkdownImage info, Image image) {
-        image.progressProperty().addListener(new ChangeListener<>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (newValue.doubleValue() >= 1.0) {
-                    image.progressProperty().removeListener(this);
-                    onImageLoaded(area, index, info, image);
-                }
-            }
-        });
-        image.errorProperty().addListener(new ChangeListener<>() {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                if (newValue != null && newValue) {
-                    image.errorProperty().removeListener(this);
-                    onImageLoaded(area, index, info, image);
-                }
-            }
-        });
+    /** 每张图片只注册一次完成监听，完成、换源或离开文档时同时解除两个属性的监听。 */
+    private void trackProgress(EditorArea area, MarkdownImage info, Image image) {
+        if (info.stopTracking != null) return;
+        InvalidationListener listener = observable -> {
+            if (image.getProgress() < 1.0 && !image.isError()) return;
+            if (info.stopTracking != null) info.stopTracking.run();
+            onImageLoaded(area, info, image);
+        };
+        info.stopTracking = () -> {
+            image.progressProperty().removeListener(listener);
+            image.errorProperty().removeListener(listener);
+            info.stopTracking = null;
+        };
+        image.progressProperty().addListener(listener);
+        image.errorProperty().addListener(listener);
     }
 
     private Image loadImage(MarkdownImage info) {
@@ -695,7 +733,7 @@ public final class MarkdownImageManager {
     }
 
     private static final class MarkdownImage {
-        final int lineIndex;
+        int lineIndex;
         final String alt;
         final String key;
         final Resolved resolved;
@@ -705,6 +743,7 @@ public final class MarkdownImageManager {
         double imageWidth = -1;
         double imageHeight = -1;
         boolean loading;
+        Runnable stopTracking;
 
         MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom, double width) {
             this.lineIndex = lineIndex;

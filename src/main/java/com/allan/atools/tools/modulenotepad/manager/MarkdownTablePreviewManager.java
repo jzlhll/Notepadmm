@@ -354,8 +354,7 @@ public final class MarkdownTablePreviewManager {
                 updatePresentation();
             }
         }
-        // 怀疑表格前方增删换行后，部分复用的行节点未与新行号同步，导致预览看似断成两块。
-        // 暂在行映射和样式更新后重建受影响表格的可见节点；根因尚未复现确认，后续可据此调整。
+        // 前方换行改变虚拟段落索引，只重新绑定发生位移的表格行；单元格布局继续复用。
         for (var table : shiftedTables) {
             if (table.valid() && table.mode() == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table)) {
                 recreateTableGraphics(table);
@@ -493,11 +492,36 @@ public final class MarkdownTablePreviewManager {
         for (var table : tables) {
             if (table.valid()) {
                 var layout = tableLayout(table);
+                if (!resize && !table.id().equals(pendingTableId) && canReuseLayout(table, layout)) {
+                    layout.table = table;
+                    for (var graphic : List.copyOf(layout.graphics)) graphic.updateSelectionStyle();
+                    continue;
+                }
                 boolean editing = activeTable != null && activeTable.id().equals(table.id());
                 layoutJobs.add(new LayoutJob(table, layout, editing && !resize));
             }
         }
+        updateToolbar();
         layoutTimer.start();
+    }
+
+    /** 内容、样式及可用宽度都未变化时，仅更新源码映射，不重新测量和重建单元格。 */
+    private boolean canReuseLayout(MarkdownTableDocumentState.Table table, TableLayout layout) {
+        if (layout.cells == null || layout.cells.length != table.rows().size()
+                || layout.viewportWidth != layoutWidth || !font.equals(layout.font)
+                || !table.alignments().equals(layout.alignments)) return false;
+        if (layout.frozenWidths && (activeTable == null || !activeTable.id().equals(table.id()))) return false;
+        for (int row = 0; row < layout.cells.length; row++) {
+            var sourceRow = table.rows().get(row);
+            if (layout.cells[row].length != sourceRow.cells().size()) return false;
+            for (int column = 0; column < layout.cells[row].length; column++) {
+                var cell = layout.cells[row][column];
+                String source = sourceRow.cells().get(column).source();
+                if (!cell.source.equals(source) || cell.header != sourceRow.header()
+                        || !cell.runs.equals(inlineContents.get(source))) return false;
+            }
+        }
+        return true;
     }
 
     /** 分帧测量完整表格；测量完成前继续使用上一份布局。 */
@@ -578,6 +602,8 @@ public final class MarkdownTablePreviewManager {
             layout.totalWidth = Arrays.stream(widths).sum();
             layout.viewportWidth = available;
             layout.font = measuredFont;
+            layout.alignments = List.copyOf(table.alignments());
+            layout.frozenWidths = freezeWidths;
             layout.rowHeights.clear();
             for (int index = 0; index < cells.length; index++) {
                 updateRowHeight(table, index, false);
@@ -2052,6 +2078,8 @@ public final class MarkdownTablePreviewManager {
         private double totalWidth;
         private double viewportWidth;
         private Font font;
+        private List<MarkdownTableDocumentState.Alignment> alignments = List.of();
+        private boolean frozenWidths;
         private final Map<Integer, Double> rowHeights = new HashMap<>();
         private final Set<HBox> contents = Collections.newSetFromMap(new WeakHashMap<>());
         private final Set<RowGraphic> graphics = Collections.newSetFromMap(new WeakHashMap<>());

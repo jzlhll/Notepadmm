@@ -39,6 +39,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     public static final String PARAGRAPH_PREVIEW_HEIGHT_PREFIX = "preview-height:";
     /** Mermaid 独立维护预览高度，避免与表格、图片的段落样式相互清理。 */
     public static final String MERMAID_PREVIEW_HEIGHT_PREFIX = "mermaid-preview-height:";
+    /** Mermaid 源码首段的操作栏留白，与预览占高分开维护。 */
+    public static final String MERMAID_SOURCE_HEADER_HEIGHT_PREFIX = "mermaid-source-header-height:";
 
     private final LinkedHashMap<Object, BiFunction<Integer, Node, Node>> graphicDecorators = new LinkedHashMap<>();
     private IntFunction<? extends Node> baseGraphicFactory;
@@ -120,7 +122,13 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         paragraph.getStyleClass().removeIf(style -> style.startsWith("md-") || style.startsWith("markdown-"));
         String inlineStyle = "";
         String previewHeight = null;
-        String markdownLayout = "";
+        double headerHeight = 0;
+        if (styleClasses != null) for (String style : styleClasses) {
+            if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
+                headerHeight = Double.parseDouble(style.substring(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX.length()));
+            }
+        }
+        String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 95;" : "";
         for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
             if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
@@ -129,13 +137,16 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
+            } else if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
+                // 已提取操作栏高度，须与正文排版合并，避免内联 padding 覆盖顶部留白。
             } else if (style.startsWith("md-layout:")) {
                 var fields = style.split(":");
                 if (fields.length == 6) {
                     int quote = Integer.parseInt(fields[1]);
                     int list = Integer.parseInt(fields[2]);
                     int left = 85 + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
-                    markdownLayout = "-fx-padding: " + fields[3] + " 10 " + fields[4] + " " + left + ";";
+                    markdownLayout = "-fx-padding: " + (Double.parseDouble(fields[3]) + headerHeight)
+                            + " 10 " + fields[4] + " " + left + ";";
                     if (quote > 0) {
                         var colors = new java.util.ArrayList<String>();
                         var widths = new java.util.ArrayList<String>();
@@ -167,6 +178,15 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {
         applyTextStyle(text, styleClasses);
+        if (styleClasses.contains("markdown-syntax-collapsible")
+                && !styleClasses.contains("markdown-syntax-expanded")
+                && !styleClasses.contains("search") && !styleClasses.contains("temporary")) {
+            // 只替换排版节点：等长零宽占位保持 TextFlow 的 UTF-16 命中索引，源码、复制与撤销均不变。
+            // WORD JOINER 不引入额外断行机会；保留 Text 节点参与排版，不能设为 unmanaged 丢失字符位置。
+            text.setText("\u2060".repeat(text.getText().length()));
+            text.setOpacity(0);
+            return;
+        }
         if (EMOJI_FONT_FAMILY != null && styleClasses.contains(MARKDOWN_EMOJI_STYLE)) {
             text.setStyle("-fx-font-family: \"" + EMOJI_FONT_FAMILY + "\";");
         }

@@ -2,12 +2,10 @@ package com.allan.atools.richtext.codearea.keywordhelper;
 
 import com.allan.atools.bean.SearchParams;
 import org.commonmark.ext.gfm.strikethrough.Strikethrough;
-import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.ext.gfm.tables.TableBody;
 import org.commonmark.ext.gfm.tables.TableHead;
 import org.commonmark.ext.gfm.tables.TableRow;
-import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.BlockQuote;
 import org.commonmark.node.Code;
@@ -25,20 +23,17 @@ import org.commonmark.node.ListItem;
 import org.commonmark.node.Node;
 import org.commonmark.node.StrongEmphasis;
 import org.commonmark.node.Text;
-import org.commonmark.parser.IncludeSourceSpans;
-import org.commonmark.parser.Parser;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -51,20 +46,18 @@ import java.util.regex.Pattern;
  * 嵌套元素（标题内加粗、粗斜体叠加、代码块内容不高亮等）由 AST 结构天然保证。
  */
 public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAbstract {
-    private final Parser relaxedParser = Parser.builder()
-            .extensions(MarkdownExtensions.all())
-            .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
-            .build();
     private volatile boolean previewEnabled = true;
 
     public void setPreviewEnabled(boolean enabled) { previewEnabled = enabled; }
 
     private MarkdownAstCache astCache = new MarkdownAstCache();
+    private record CodeTokensKey(String source, String literal, String info, int indent) {}
+    private final LinkedHashMap<CodeTokensKey, long[]> codeTokens = new LinkedHashMap<>(16, 0.75f, true);
+    private int cachedCodeCharacters;
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
     private static final Pattern BARE_LINK_PATTERN = Pattern.compile(
             "(?i)(?<![\\p{L}\\p{N}_])https?://[\\p{L}\\p{N}\\[][^\\s\\p{Z}<>\"'`\\\\，。；：！？、（）【】《》“”‘’]*");
-    private static final char RELAXED_SPACE_PLACEHOLDER = '\uE000';
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
             "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
@@ -98,7 +91,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private static final int STYLE_HEADING_SIX = 28;
     private static final int STYLE_MATH = 29;
     private static final int STYLE_HIGHLIGHT = 30;
-    private static final int STYLE_COUNT = 31;
+    private static final int STYLE_COLLAPSIBLE = 31;
+    private static final int STYLE_COUNT = 32;
     private static final int EVENT_META_BITS = 6;
     private static final int EVENT_STYLE_MASK = 31;
 
@@ -109,7 +103,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             "temporary", "search",
             "markdown-code-keyword", "markdown-code-string", "markdown-code-comment", "markdown-code-punct",
             "markdown-code-tag", "markdown-code-tagmark", "markdown-code-attribute", "markdown-code-attribute-value",
-            "markdown-emoji", "markdown-code-fence", "markdown-syntax-marker", "markdown-title-6", "markdown-math", "markdown-highlight"
+            "markdown-emoji", "markdown-code-fence", "markdown-syntax-marker", "markdown-title-6", "markdown-math", "markdown-highlight",
+            "markdown-syntax-collapsible"
     };
     private static final Collection<String> DEFAULT_TEXT_STYLE = Collections.singleton("editor-default-label");
 
@@ -212,17 +207,21 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     @Override
     protected StyleSpans<Collection<String>> computeHighlighting(
             String text, BooleanSupplier canContinue) {
-        var snapshot = astCache.snapshot(text);
-        var root = snapshot.getRoot();
         if (!canContinue.getAsBoolean()) {
             return null;
         }
         var events = new EventBuffer();
         var visitor = new MarkdownRegionVisitor(text, events, canContinue);
         if (previewEnabled) {
-            root.accept(visitor);
+            var snapshot = astCache.snapshot(text);
+            snapshot.getRoot().accept(visitor);
             for (var marker : snapshot.getMarkers()) {
                 events.addRegion(marker.getStart(), marker.getEnd(), STYLE_SYNTAX);
+            }
+            for (var group : snapshot.getSyntaxGroups()) {
+                for (var marker : group.getMarkers()) {
+                    events.addRegion(marker.getStart(), marker.getEnd(), STYLE_COLLAPSIBLE);
+                }
             }
         }
         if (!canContinue.getAsBoolean()) {
@@ -336,7 +335,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private final String text;
         private final EventBuffer events;
         private final BooleanSupplier canContinue;
-        private final BitSet relaxedEmphasisExcluded = new BitSet();
 
         MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
             this.text = text;
@@ -352,7 +350,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(FencedCodeBlock block) {
-            addLiteralRegions(block);
             addNodeRegions(block, STYLE_CODE);
             addFencedCodeTokenRegions(block);
             var spans = block.getSourceSpans();
@@ -382,7 +379,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(IndentedCodeBlock block) {
-            addLiteralRegions(block);
             addNodeRegions(block, STYLE_CODE);
         }
 
@@ -400,7 +396,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(Code code) {
-            addLiteralRegions(code);
             addNodeRegions(code, STYLE_INLINE_CODE);
         }
 
@@ -412,27 +407,21 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         @Override
         public void visit(Text node) {
-            forEachBareLink(text, node, canContinue, (start, end) -> {
-                events.addRegion(start, end, STYLE_LINK);
-                relaxedEmphasisExcluded.set(start, end);
-            });
+            forEachBareLink(text, node, canContinue, (start, end) -> events.addRegion(start, end, STYLE_LINK));
         }
 
         @Override
         public void visit(Image image) {
-            addLiteralRegions(image);
             addNodeRegions(image, STYLE_IMAGE);
         }
 
         @Override
         public void visit(HtmlBlock block) {
-            addLiteralRegions(block);
             addHtmlImgRegions(block);
         }
 
         @Override
         public void visit(HtmlInline inline) {
-            addLiteralRegions(inline);
             addHtmlImgRegions(inline);
         }
 
@@ -476,7 +465,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             if (customBlock instanceof TableBlock tableBlock) {
                 addTableRegions(tableBlock);
             } else if (customBlock instanceof MarkdownMathBlock) {
-                addLiteralRegions(customBlock);
                 addNodeRegions(customBlock, STYLE_MATH);
             }
             visitChildren(customBlock);
@@ -487,7 +475,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             if (customNode instanceof Strikethrough strikethrough) {
                 addNodeRegions(strikethrough, STYLE_STRIKETHROUGH);
             } else if (customNode instanceof MarkdownMath) {
-                addLiteralRegions(customNode);
                 addNodeRegions(customNode, STYLE_MATH);
             } else if (customNode instanceof MarkdownDecoration decoration && "mark".equals(decoration.getTag())) {
                 addNodeRegions(customNode, STYLE_HIGHLIGHT);
@@ -502,132 +489,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             }
         }
 
-        private void addLiteralRegions(Node node) {
-            for (var span : node.getSourceSpans()) {
-                int start = span.getInputIndex();
-                relaxedEmphasisExcluded.set(start, start + span.getLength());
-            }
-        }
-
-        /** 内侧空格使用等长占位符归一化，再交由 commonmark 解析强调和删除线。 */
-        private void addRelaxedEmphasisRegions() {
-            var normalized = text.toCharArray();
-            var adjustedSpaces = new BitSet(text.length());
-            int lineStart = 0;
-            while (lineStart < text.length()) {
-                int lineEnd = text.indexOf('\n', lineStart);
-                if (lineEnd < 0) {
-                    lineEnd = text.length();
-                }
-                normalizeRelaxedEmphasisLine(normalized, adjustedSpaces, lineStart, lineEnd);
-                lineStart = lineEnd + 1;
-            }
-            if (adjustedSpaces.isEmpty() || !canContinue.getAsBoolean()) {
-                return;
-            }
-
-            var relaxedRoot = relaxedParser.parse(new String(normalized));
-            if (!canContinue.getAsBoolean()) {
-                return;
-            }
-            relaxedRoot.accept(new AbstractVisitor() {
-                @Override
-                public void visit(StrongEmphasis emphasis) {
-                    addRelaxedNodeRegion(emphasis, STYLE_BOLD, adjustedSpaces);
-                    visitChildren(emphasis);
-                }
-
-                @Override
-                public void visit(Emphasis emphasis) {
-                    addRelaxedNodeRegion(emphasis, STYLE_ITALIC, adjustedSpaces);
-                    visitChildren(emphasis);
-                }
-
-                @Override
-                public void visit(CustomNode customNode) {
-                    if (customNode instanceof Strikethrough strikethrough) {
-                        addRelaxedNodeRegion(strikethrough, STYLE_STRIKETHROUGH, adjustedSpaces);
-                    }
-                    visitChildren(customNode);
-                }
-
-                @Override public void visit(Image image) {}
-            });
-        }
-
-        private void normalizeRelaxedEmphasisLine(char[] normalized, BitSet adjustedSpaces,
-                                                  int lineStart, int lineEnd) {
-            var openers = new HashMap<Integer, ArrayDeque<Integer>>();
-            int index = lineStart;
-            while (index < lineEnd) {
-                if ((index & 4095) == 0 && !canContinue.getAsBoolean()) {
-                    return;
-                }
-                char marker = text.charAt(index);
-                if ((marker != '*' && marker != '~') || relaxedEmphasisExcluded.get(index)
-                        || isEscaped(index)) {
-                    index++;
-                    continue;
-                }
-                int runStart = index;
-                while (index < lineEnd && text.charAt(index) == marker
-                        && !relaxedEmphasisExcluded.get(index)) {
-                    index++;
-                }
-                int runEnd = index;
-                int runLength = runEnd - runStart;
-                if (marker == '~' && runLength != 2) {
-                    continue;
-                }
-                var runs = openers.computeIfAbsent(marker == '~' ? -runLength : runLength,
-                        ignored -> new ArrayDeque<>());
-                if (!runs.isEmpty() && hasNonWhitespace(runs.peek(), runStart)) {
-                    normalizeInnerSpace(normalized, adjustedSpaces, runs.pop());
-                    normalizeInnerSpace(normalized, adjustedSpaces, runStart - 1);
-                } else if (runEnd < lineEnd) {
-                    runs.push(runEnd);
-                }
-            }
-        }
-
-        private void normalizeInnerSpace(char[] normalized, BitSet adjustedSpaces, int index) {
-            if (index >= 0 && index < text.length()
-                    && text.charAt(index) != '\r' && text.charAt(index) != '\n'
-                    && Character.isWhitespace(text.charAt(index))) {
-                normalized[index] = RELAXED_SPACE_PLACEHOLDER;
-                adjustedSpaces.set(index);
-            }
-        }
-
-        private boolean hasNonWhitespace(int start, int end) {
-            for (int i = start; i < end; i++) {
-                if (!Character.isWhitespace(text.charAt(i))) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean isEscaped(int index) {
-            int slashCount = 0;
-            for (int i = index - 1; i >= 0 && text.charAt(i) == '\\'; i--) {
-                slashCount++;
-            }
-            return (slashCount & 1) != 0;
-        }
-
-        private void addRelaxedNodeRegion(Node node, int styleId, BitSet adjustedSpaces) {
-            for (var span : node.getSourceSpans()) {
-                int start = span.getInputIndex();
-                int end = start + span.getLength();
-                int adjusted = adjustedSpaces.nextSetBit(start);
-                if (adjusted >= 0 && adjusted < end) {
-                    addNodeRegions(node, styleId);
-                    return;
-                }
-            }
-        }
-
         private void addMarkerRegions(Node node, Pattern markerPattern, int styleId) {
             var matcher = markerPattern.matcher(text);
             for (var span : node.getSourceSpans()) {
@@ -636,15 +497,40 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 matcher.region(start, end);
                 if (matcher.lookingAt()) {
                     events.addRegion(start, matcher.end(), styleId);
-                    if (styleId == STYLE_LIST) {
-                        relaxedEmphasisExcluded.set(start, matcher.end());
-                    }
                 }
             }
         }
 
         /** 逐行记录 literal 与原文的对应位置，保留引用前缀和列表缩进。 */
         private void addFencedCodeTokenRegions(FencedCodeBlock block) {
+            var spans = block.getSourceSpans();
+            if (spans.isEmpty() || block.getLiteral().isEmpty() || CodeBlockLanguages.of(block.getInfo()) == null) return;
+            int base = spans.get(0).getInputIndex();
+            var last = spans.get(spans.size() - 1);
+            int end = last.getInputIndex() + last.getLength();
+            if (end - base > 262_144) {
+                computeFencedCodeTokenRegions(block);
+                return;
+            }
+            var key = new CodeTokensKey(text.substring(base, end), block.getLiteral(), block.getInfo(), block.getFenceIndent());
+            var cached = codeTokens.get(key);
+            if (cached != null) {
+                events.addRelative(cached, base);
+                return;
+            }
+            int firstEvent = events.size();
+            computeFencedCodeTokenRegions(block);
+            if (!canContinue.getAsBoolean()) return;
+            codeTokens.put(key, events.relativeSlice(firstEvent, base));
+            cachedCodeCharacters += key.source().length() + key.literal().length();
+            while (codeTokens.size() > 128 || cachedCodeCharacters > 2_097_152) {
+                var oldest = codeTokens.keySet().iterator().next();
+                cachedCodeCharacters -= oldest.source().length() + oldest.literal().length();
+                codeTokens.remove(oldest);
+            }
+        }
+
+        private void computeFencedCodeTokenRegions(FencedCodeBlock block) {
             var language = CodeBlockLanguages.of(block.getInfo());
             String literal = block.getLiteral();
             if (language == null || literal.isEmpty()) return;
@@ -755,6 +641,19 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         int size() {
             return size;
+        }
+
+        long[] relativeSlice(int start, int base) {
+            var result = Arrays.copyOfRange(values, start, size);
+            long shift = (long) base << EVENT_META_BITS;
+            for (int index = 0; index < result.length; index++) result[index] -= shift;
+            return result;
+        }
+
+        void addRelative(long[] cached, int base) {
+            ensureCapacity(size + cached.length);
+            long shift = (long) base << EVENT_META_BITS;
+            for (long event : cached) values[size++] = event + shift;
         }
 
         int positionAt(int index) {

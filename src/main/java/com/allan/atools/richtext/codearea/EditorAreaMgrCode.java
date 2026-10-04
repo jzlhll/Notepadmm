@@ -100,6 +100,9 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         var area = getArea();
         if (mKeywordHelper != null && area != null) {
             styleTextSubscription = area.plainTextChanges().subscribe(change -> {
+                if (mKeywordHelper instanceof EditorKeywordHelperImplMarkdown && area instanceof EditorArea editorArea) {
+                    editorArea.getMarkdownPresentation().onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted());
+                }
                 styleDirty = true;
                 scheduleLatestStyle(false);
             });
@@ -260,32 +263,42 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         var endCallback = latestEndCallback;
         latestEndCallback = null;
         var helper = mKeywordHelper;
+        boolean renderMarkdown = helper instanceof EditorKeywordHelperImplMarkdown && area.getMarkdownPreviewEnabled();
         if (helper instanceof EditorKeywordHelperImplMarkdown markdownHelper) {
-            markdownHelper.setPreviewEnabled(area.getMarkdownPreviewEnabled());
+            markdownHelper.setPreviewEnabled(renderMarkdown);
         }
 
         Runnable task = () -> {
             EditorKeywordHelperAbstract.StyleUpdate update = null;
+            MarkdownStructureSnapshot structure = null;
             try {
                 if (canComputeStyle(requestId, optionsVersion, contentVersion, helper)) {
-                    update = helper.computeStyleUpdate(text, temporaryText, searchText, currentSpans,
+                    var syntaxSpans = helper instanceof EditorKeywordHelperImplMarkdown
+                            ? MarkdownSyntaxPresentation.highlightingStyles(currentSpans) : currentSpans;
+                    update = helper.computeStyleUpdate(text, temporaryText, searchText, syntaxSpans,
                             () -> canComputeStyle(requestId, optionsVersion, contentVersion, helper));
+                    if (update != null && renderMarkdown
+                            && canComputeStyle(requestId, optionsVersion, contentVersion, helper)) {
+                        structure = markdownAstCache.snapshot(text);
+                    }
                 }
             } catch (RuntimeException e) {
                 Log.e("Code styler failed", e);
             }
             var result = update;
-            Platform.runLater(() -> area.runAfterMarkdownComposition(() -> finishStyle(
-                    requestId, optionsVersion, contentVersion, text,
-                    helper, area, result, endCallback)));
+            var resultStructure = structure;
+            Platform.runLater(() -> area.runAfterMarkdownComposition(() -> area.getMarkdownSyntax().runAfterPointer(() -> finishStyle(
+                    requestId, optionsVersion, contentVersion,
+                    helper, area, result, resultStructure, endCallback))));
         };
         pendingStyleTask = task;
         stylerHandler().post(task);
     }
 
-    private void finishStyle(long requestId, long optionsVersion, long contentVersion, String text,
+    private void finishStyle(long requestId, long optionsVersion, long contentVersion,
                              EditorKeywordHelperAbstract helper, EditorArea area,
-                             EditorKeywordHelperAbstract.StyleUpdate update, Action0 endCallback) {
+                             EditorKeywordHelperAbstract.StyleUpdate update,
+                             MarkdownStructureSnapshot structure, Action0 endCallback) {
         if (requestId != runningStyleRequestId) {
             return;
         }
@@ -294,13 +307,11 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         runningStyleRequestId = 0;
         boolean alive = isStyleTaskAlive(requestId, optionsVersion, helper);
         boolean contentCurrent = contentVersion == getContentVersion();
-        if (alive && update != null && update.spans() != null) {
-            if (contentCurrent) {
-                area.setStyleSpans(update.start(), update.spans());
-                if (helper instanceof EditorKeywordHelperImplMarkdown) {
-                    area.getMarkdownPresentation().apply(markdownAstCache.snapshot(text));
-                }
-            }
+        if (alive && update != null && contentCurrent) {
+            area.suspendVisibleParsWhileInvoke(() -> {
+                if (update.spans() != null) area.setStyleSpans(update.start(), update.spans());
+                if (structure != null) area.getMarkdownPresentation().apply(structure);
+            });
         }
         if (alive && contentCurrent && endCallback != null) {
             endCallback.invoke();

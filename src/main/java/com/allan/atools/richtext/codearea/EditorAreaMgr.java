@@ -12,7 +12,6 @@ import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.tools.modulenotepad.Highlight;
-import com.allan.atools.tools.modulenotepad.StaticsProf;
 import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.UIContext;
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace;
@@ -68,7 +67,6 @@ import static org.fxmisc.richtext.model.TwoDimensional.Bias.Forward;
 public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, Collection<String>>, ITextFindAndReplace {
     static final String TAG = "Editor";
 
-    private static final int MAX_LINE_COUNT_FOR_STYLE = 10000;
     private static final ExecutorService SAVE_EXECUTOR = Executors.newFixedThreadPool(2, runnable -> {
         var thread = new Thread(runnable, "editor-save-io");
         thread.setDaemon(true);
@@ -93,8 +91,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
         private void onTextChanged() {
             contentVersion.incrementAndGet();
-            mContentSizeReachedStyleLimit = area.getLength() >= StaticsProf.getMaxFileSizeForStyle();
-            mLineCountReachedStyleLimit = area.getParagraphs().size() >= MAX_LINE_COUNT_FOR_STYLE;
+            mContentSizeReachedStyleLimit = area.getLength() >= processingLimits.getMaxSize();
+            mLineCountReachedStyleLimit = area.getParagraphs().size() >= processingLimits.getMaxLines();
             disableStylerIfNeeded(null);
             if(EditorArea.DEBUG_EDITOR) Log.v("text changed !!");
             if (mActions != null) {
@@ -316,6 +314,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     private volatile CompletableFuture<SaveResult> pendingSave =
             CompletableFuture.completedFuture(SaveResult.SUCCESS_CLEAN);
     private boolean programmaticReplace;
+    private volatile EditorProcessingLimits.Limits processingLimits;
     private volatile boolean mSourceFileSizeReachedStyleLimit;
     private volatile boolean mContentSizeReachedStyleLimit;
     private volatile boolean mLineCountReachedStyleLimit;
@@ -329,6 +328,16 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         return mSourceFileSizeReachedStyleLimit
                 || mContentSizeReachedStyleLimit
                 || mLineCountReachedStyleLimit;
+    }
+
+    /** 打开、重载或变更文件类型时同步全部阈值，避免沿用上一个文件类型的降级状态。 */
+    private void refreshProcessingLimits(File sourceFile, EditorArea targetArea) {
+        processingLimits = EditorProcessingLimits.forName(sourceFile != null
+                ? sourceFile.getName() : documentState.getDisplayName());
+        mSourceFileSizeReachedStyleLimit = sourceFile != null
+                && sourceFile.length() >= processingLimits.getMaxSize();
+        mContentSizeReachedStyleLimit = targetArea.getLength() >= processingLimits.getMaxSize();
+        mLineCountReachedStyleLimit = targetArea.getParagraphs().size() >= processingLimits.getMaxLines();
     }
 
     /** 统一限制语法高亮和 Markdown 目录等全文实时处理。 */
@@ -475,11 +484,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                         StandardCharsets.UTF_8.name())
                 : EditorDocumentState.named(sourceFile, StandardCharsets.UTF_8.name());
         sourceFile = documentState.getSourceFile();
-        int maxRealtimeProcessingSize = StaticsProf.getMaxFileSizeForStyle();
-        mSourceFileSizeReachedStyleLimit = sourceFile != null
-                && sourceFile.length() >= maxRealtimeProcessingSize;
-        mContentSizeReachedStyleLimit = area.getLength() >= maxRealtimeProcessingSize;
-        mLineCountReachedStyleLimit = area.getParagraphs().size() >= MAX_LINE_COUNT_FOR_STYLE;
+        refreshProcessingLimits(sourceFile, area);
         state = new EditorAreaState(area, documentState);
         state.setFileEncoding(documentState.getEncoding());
         if (sourceFile != null) {
@@ -759,10 +764,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             UIContext.allOpenedFileList.remove(oldFile);
         }
         documentState.bindSourceFile(target);
-        boolean styleLimitReached = target.length() >= StaticsProf.getMaxFileSizeForStyle();
+        boolean styleLimitReached = isRealtimeProcessingLimitReached();
+        refreshProcessingLimits(target, area);
         boolean refreshStyles = !getSourceFile().equals(oldFile)
-                || mSourceFileSizeReachedStyleLimit != styleLimitReached;
-        mSourceFileSizeReachedStyleLimit = styleLimitReached;
+                || isRealtimeProcessingLimitReached() != styleLimitReached;
         documentState.setDisplayName(target.getName());
         state.setWrap(state.isWrap());
         UIContext.allOpenedFileList.add(target);
@@ -946,8 +951,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     @Override
     public void resetText(String text) {
         var sourceFile = getSourceFile();
-        mSourceFileSizeReachedStyleLimit = sourceFile != null
-                && sourceFile.length() >= StaticsProf.getMaxFileSizeForStyle();
+        refreshProcessingLimits(sourceFile, area);
         programmaticReplace = true;
         try {
             area.getMarkdownTableDocumentState().reset();
@@ -995,6 +999,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             UIContext.allOpenedFileList.remove(oldFile);
         }
         documentState.bindSourceFile(newf);
+        refreshProcessingLimits(newf, area);
         state.setWrap(state.isWrap());
         UIContext.allOpenedFileList.add(newf);
 
@@ -1003,7 +1008,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         if (this instanceof EditorAreaMgrCode codeEditor) {
             codeEditor.bindKeywordHelper(newf);
         }
-        mSourceFileSizeReachedStyleLimit = newf.length() >= StaticsProf.getMaxFileSizeForStyle();
         UIContext.context().refreshCurrentDocumentInfo();
         AllEditorsManager.delayToSaveRecentFile(newFile);
         EditorSessionManager.getInstance().onCaretOrStructureChanged();

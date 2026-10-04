@@ -99,7 +99,7 @@
     -fx-fill: -au-md-code-fence;
 }
 
-/* ===== 代码块整块圆角矩形背景（段落样式类，见 MarkdownCodeBlockManager） =====
+/* ===== 代码块整块圆角矩形背景（由 MarkdownPresentation 统一应用段落样式） =====
  * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 12px 圆角整块。
  * 左缘 = TextFlow 左缘 + 85px（editor.css .paragraph-text 的左内边距，即正文起始线）；
  * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 85px），
@@ -365,7 +365,11 @@
     -fx-text-fill: -au-md-image-placeholder-fill;
 }
 
-/* Mermaid 预览在段落图形中呈现，使用悬浮按钮切换原始围栏代码块。 */
+/* Mermaid 的常显操作栏和预览均在段落内占位，切换原始围栏代码块。 */
+.markdown-mermaid-error {
+    -fx-font-size: 11px;
+}
+
 .markdown-mermaid-frame {
     -fx-background-color: -au-editor-bg-color;
     -fx-border-color: -au-md-image-frame-border;
@@ -373,7 +377,7 @@
     -fx-cursor: hand;
 }
 
-/* 语法标记保留真实字符和占宽，仅降低与所在区域背景的对比。 */
+/* 收起的标记由文本节点以等长零宽占位呈现；展开、搜索命中和保留源码的语法使用此颜色。 */
 .text.markdown-syntax-marker,
 .text.markdown-code.markdown-syntax-marker,
 .text.markdown-inline-code.markdown-syntax-marker { -fx-fill: -au-md-syntax; }

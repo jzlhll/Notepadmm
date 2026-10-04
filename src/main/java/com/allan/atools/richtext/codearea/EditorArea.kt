@@ -38,6 +38,7 @@ class EditorArea @JvmOverloads constructor(
     private var followZoomCaretRequested = false
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
+    val markdownSyntax = MarkdownSyntaxPresentation(this)
     val markdownEditing: MarkdownEditingActions
     val markdownAttachments by lazy { MarkdownAttachments(this) }
     val markdownClipboard by lazy { MarkdownClipboard(this) }
@@ -55,7 +56,8 @@ class EditorArea @JvmOverloads constructor(
     fun toggleMarkdownPreview() {
         val top = if (visibleParagraphs.isEmpty()) -1 else firstVisibleParToAllParIndex()
         markdownPreviewEnabled = !markdownPreviewEnabled
-        markdownPresentation.snapshot?.let { if (it.text == text) markdownPresentation.apply(it) }
+        if (!markdownPreviewEnabled) markdownPresentation.clear()
+        else markdownPresentation.snapshot?.let { if (it.text == text) markdownPresentation.apply(it) }
         (editor as EditorAreaMgrCode).trigger(null, null, null)
         UIContext.context().refreshCurrentDocumentInfo()
         if (top >= 0) javafx.application.Platform.runLater {
@@ -110,6 +112,7 @@ class EditorArea @JvmOverloads constructor(
         //setUseInitialStyleForInsertion(false);
         Highlight.jumpToHead(this)
         viewPosition = EditorViewPosition(this)
+        markdownSyntax.install()
 
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
             if (event.target !is TextInputControl && event.button == MouseButton.PRIMARY && !event.isShortcutDown
@@ -145,6 +148,7 @@ class EditorArea @JvmOverloads constructor(
                 if (!markdownComposing) while (afterMarkdownComposition.isNotEmpty()) afterMarkdownComposition.removeFirst().run()
             }
             bottomSearchBtnsMgr.cancelPendingSearchJump()
+            markdownSyntax.requestRefresh()
         }
 
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
@@ -311,6 +315,7 @@ class EditorArea @JvmOverloads constructor(
 //            e.printStackTrace();
 //        }
         viewPosition.destroy()
+        markdownSyntax.destroy()
         paragraphWrapping.clear()
         markdownPresentation.clear()
         dispose()

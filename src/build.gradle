@@ -64,7 +64,8 @@ dependencies {
 tasks.named('compileJava', JavaCompile) {
     dependsOn tasks.named('compileKotlin')
     options.compilerArgumentProviders.add({
-        ['--patch-module', "atools=${sourceSets.main.output.asPath}"]
+        ['--patch-module', "atools=${sourceSets.main.output.asPath}",
+         '--add-exports', 'org.commonmark/org.commonmark.internal=atools']
     } as CommandLineArgumentProvider)
 }
 
