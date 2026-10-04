@@ -7,6 +7,7 @@ import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownMermaidSupport
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
@@ -229,7 +230,7 @@ class MarkdownPreviewWindow private constructor() {
             val script = MarkdownPreviewWindow::class.java.getResource("/markdown/preview.js")!!.readText()
             val baseTag = if (base == null) "" else "<base href=\"${escape(base)}\">"
             val formula = state.elements.any { it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMath || it.node is com.allan.atools.richtext.codearea.keywordhelper.MarkdownMathBlock }
-            val diagram = state.elements.any { it.node is org.commonmark.node.FencedCodeBlock && it.node.info.trim() == "mermaid" }
+            val diagram = state.elements.any { it.node is org.commonmark.node.FencedCodeBlock && MarkdownMermaidSupport.isSupported(it.node) }
             val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
                 (if (diagram) "<script>$mermaidLibrary</script>" else "")
             return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$style$themeCss</style>$libraries</head>" +

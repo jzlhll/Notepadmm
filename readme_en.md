@@ -33,7 +33,7 @@ Open a `.md` / `.markdown` file to use Markdown styling and inline previews alon
 - **Image previews**: standalone Markdown images and HTML `<img>` tags display directly in the editor. Relative paths and `style="zoom:40%"` scaling are supported; wide images fit the visible area.
 - **Editable GFM tables**: switch between table and source views, edit cells directly, insert/delete/move rows and columns, duplicate data rows, change column alignment, and explicitly format table source. Tab/Shift+Tab navigate between cells; edits support undo and redo.
 - **Table data exchange**: copy rows, columns, or entire tables as Markdown or TSV. Pasting TSV fills multiple cells and expands the table as needed for exchange with spreadsheets.
-- **Offline Mermaid diagrams**: built-in flowchart and sequence-diagram rendering with source/diagram switching for documenting processes and interactions.
+- **Offline Mermaid diagrams**: built-in flowchart, sequence-diagram, and Gantt-chart rendering with source/diagram switching for documenting processes, interactions, and project schedules.
 - **Typora integration**: when a local Typora installation is detected, menu actions can open supported documents in Typora after saving current edits.
 
 ## Workspaces and everyday editing
@@ -51,7 +51,7 @@ Open a `.md` / `.markdown` file to use Markdown styling and inline previews alon
 
 ## Markdown diagrams
 
-Use a fenced `mermaid` block in a `.md` / `.markdown` file. Supported types are `flowchart` (including `graph`) and `sequenceDiagram`. Complete blocks display as diagrams by default. Hover over or select a diagram to access its floating toolbar, then choose **Show source** or **Show diagram**. Unclosed blocks keep their source visible; syntax errors reveal the source and show an error in the toolbar. Switching views does not change document content.
+Use a fenced `mermaid` block in a `.md` / `.markdown` file. Supported types are `flowchart` (including `graph`), `sequenceDiagram`, and `gantt`. Complete blocks display as diagrams by default. Hover over or select a diagram to access its floating toolbar, then choose **Show source** or **Show diagram**. Unclosed blocks keep their source visible; syntax errors reveal the source and show an error in the toolbar. Switching views does not change document content.
 
 Select text in a diagram and press **Cmd+C** (macOS) or **Ctrl+C** (Windows) to copy it. Clicking a node does not copy it automatically.
 
@@ -75,6 +75,20 @@ sequenceDiagram
     E-->>U: Show diagram
     U->>E: Click Show source
     E-->>U: Reveal source
+```
+
+Gantt chart:
+
+```mermaid
+gantt
+    title Project schedule
+    dateFormat YYYY-MM-DD
+    section Development
+    Design :done, design, 2026-10-01, 3d
+    Implementation :active, develop, after design, 5d
+    section Release
+    Review :review, after develop, 2d
+    Launch :milestone, after review, 0d
 ```
 
 ## Open files from the command line
@@ -147,5 +161,5 @@ The Gradle Wrapper manages dependencies, the module path, and runtime options. W
 
 - Log analysis focuses on search, highlighting, and result navigation within open documents. Cross-file full-text search is not yet available.
 - Markdown combines source editing with inline previews. Full WYSIWYG editing of ordinary text, math, footnotes, and HTML/PDF export remain planned; see the [Markdown editing and preview plan](docs/TODO_Markdown成熟编辑与预览.md).
-- Mermaid currently supports `flowchart` / `graph` and `sequenceDiagram`.
+- Mermaid currently supports `flowchart` / `graph`, `sequenceDiagram`, and `gantt`.
 - Some highlighting, outline, and preview features are disabled when documents reach size or line-count limits. Performance depends on the document and available system resources.

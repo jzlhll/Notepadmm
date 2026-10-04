@@ -17,6 +17,7 @@ import org.commonmark.renderer.html.HtmlRenderer
 class MarkdownMath(val literal: String, val display: Boolean) : CustomNode()
 class MarkdownMathBlock(var literal: String = "", var closed: Boolean = false) : org.commonmark.node.CustomBlock()
 class MarkdownDecoration(val tag: String, val delimiter: String) : CustomNode()
+class MarkdownEmoji(val shortcode: String, val literal: String) : CustomNode()
 
 /** 扩展参与同一 AST：代码和转义内容不会被二次正则解析为公式或强调。 */
 class MarkdownDocumentExtension : Parser.ParserExtension, HtmlRenderer.HtmlRendererExtension {
@@ -31,6 +32,29 @@ class MarkdownDocumentExtension : Parser.ParserExtension, HtmlRenderer.HtmlRende
         builder.customInlineContentParserFactory(object : InlineContentParserFactory {
             override fun getTriggerCharacters() = setOf('$')
             override fun create() = InlineContentParser { state -> parseMath(state) }
+        })
+        builder.customInlineContentParserFactory(object : InlineContentParserFactory {
+            override fun getTriggerCharacters() = setOf(':')
+            override fun create() = InlineContentParser { state ->
+                val scanner = state.scanner()
+                val start = scanner.position()
+                scanner.next()
+                var length = 0
+                while (scanner.hasNext() && length < 64 &&
+                    (scanner.peek() in 'a'..'z' || scanner.peek() in 'A'..'Z' || scanner.peek() in '0'..'9' || scanner.peek() in "_+-")) {
+                    scanner.next()
+                    length++
+                }
+                if (length == 0 || !scanner.next(':')) ParsedInline.none() else {
+                    val source = scanner.getSource(start, scanner.position())
+                    val emoji = MarkdownEmojiShortcodes.resolve(source.content)
+                    if (emoji == null) ParsedInline.none() else {
+                        val node = MarkdownEmoji(source.content, emoji)
+                        node.sourceSpans = source.sourceSpans
+                        ParsedInline.of(node, scanner.position())
+                    }
+                }
+            }
         })
         builder.customDelimiterProcessor(DecorationProcessor('=', 2, "mark"))
         builder.customDelimiterProcessor(DecorationProcessor('^', 1, "sup"))
@@ -120,10 +144,12 @@ class MarkdownDocumentExtension : Parser.ParserExtension, HtmlRenderer.HtmlRende
     }
 
     private class Renderer(private val context: HtmlNodeRendererContext) : NodeRenderer {
-        override fun getNodeTypes() = setOf(MarkdownMath::class.java, MarkdownMathBlock::class.java, MarkdownDecoration::class.java)
+        override fun getNodeTypes() = setOf(MarkdownMath::class.java, MarkdownMathBlock::class.java, MarkdownDecoration::class.java, MarkdownEmoji::class.java)
         override fun render(node: Node) {
             val writer = context.writer
-            if (node is MarkdownMath || node is MarkdownMathBlock) {
+            if (node is MarkdownEmoji) {
+                writer.text(node.literal)
+            } else if (node is MarkdownMath || node is MarkdownMathBlock) {
                 if (node is MarkdownMathBlock && !node.closed) {
                     writer.tag("pre", context.extendAttributes(node, "pre", emptyMap()))
                     writer.tag("code")

@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea.keywordhelper
 
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
+import org.commonmark.ext.front.matter.YamlFrontMatterBlock
 import org.commonmark.node.*
 
 /** 同一源码的不可变结构快照，供排版、键盘操作、目录和定位共用。 */
@@ -9,11 +10,13 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     data class Element(val node: Node, val parent: Int, val ranges: List<Range>)
     data class HeadingEntry(val level: Int, val title: String, val line: Int, val anchor: String)
     data class SyntaxGroup(val start: Int, val end: Int, val markers: List<Range>)
+    data class FrontMatter(val firstLine: Int, val lastLine: Int, val closed: Boolean, val body: Range)
     data class Line(
         val start: Int, val end: Int, val heading: Int = 0, val quoteDepth: Int = 0,
         val listDepth: Int = 0, val code: Boolean = false, val rule: Boolean = false,
         val taskOffset: Int = -1, val blockStart: Boolean = false, val blockEnd: Boolean = false,
-        val codeEdge: String? = null, val codeEmpty: Boolean = false
+        val codeEdge: String? = null, val codeEmpty: Boolean = false,
+        val frontMatter: Boolean = false, val frontMatterEdge: String? = null, val frontMatterDelimiter: Boolean = false
     )
 
     val lines: List<Line>
@@ -21,6 +24,8 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     val markers: List<Range>
     val headings: List<HeadingEntry>
     val syntaxGroups: List<SyntaxGroup>
+    val details: List<MarkdownDetailsBlocks.Block>
+    val frontMatter: List<FrontMatter>
     private val protectedRanges = ArrayList<Range>()
 
     init {
@@ -38,6 +43,8 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         val titles = ArrayList<HeadingEntry>()
         val anchors = HashMap<String, Int>()
         val usedAnchors = HashSet<String>()
+        val metadata = ArrayList<FrontMatter>()
+        val metadataEnd = Regex("^(?:---|\\.\\.\\.)(?:\\s.*)?$")
 
         fun mark(begin: Int, end: Int) {
             if (begin >= 0 && end > begin && end <= text.length) syntax.add(Range(begin, end))
@@ -48,6 +55,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                     is Text -> append(value.literal)
                     is Code -> append(value.literal)
                     is MarkdownMath -> append(value.literal)
+                    is MarkdownEmoji -> append(value.literal)
                     is MarkdownMathBlock -> append(value.literal)
                     is SoftLineBreak, is HardLineBreak -> append(' ')
                 }
@@ -62,7 +70,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
             nodes.add(Element(node, parent, ranges))
             val quoteDepth = quote + if (node is BlockQuote) 1 else 0
             val listDepth = list + if (node is ListItem) 1 else 0
-            val literal = node is Code || node is FencedCodeBlock || node is IndentedCodeBlock || node is HtmlBlock || node is MarkdownMath || node is MarkdownMathBlock || node is org.commonmark.ext.front.matter.YamlFrontMatterBlock
+            val literal = node is Code || node is FencedCodeBlock || node is IndentedCodeBlock || node is HtmlBlock || node is MarkdownMath || node is MarkdownMathBlock || node is YamlFrontMatterBlock
             if (literal) protectedRanges.addAll(ranges)
             if (node is Block) {
                 val first = node.sourceSpans.firstOrNull()?.lineIndex
@@ -92,7 +100,31 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 val begin = first.inputIndex
                 val end = last.inputIndex + last.length
                 val markerStart = syntax.size
+                val closedMetadata = node is YamlFrontMatterBlock && last.lineIndex > first.lineIndex
+                    && metadataEnd.matches(text.substring(last.inputIndex, end))
+                if (node is YamlFrontMatterBlock) {
+                    val bodyFirst = if (closedMetadata) first.lineIndex + 1 else first.lineIndex
+                    val bodyLast = if (closedMetadata) last.lineIndex - 1 else last.lineIndex
+                    val bodyStart = if (first.lineIndex < last.lineIndex) lineData[first.lineIndex + 1].start else end
+                    val bodyEnd = if (closedMetadata) Math.max(bodyStart, lineData[bodyLast].end) else end
+                    metadata.add(FrontMatter(first.lineIndex, last.lineIndex, closedMetadata, Range(bodyStart, bodyEnd)))
+                    for (index in first.lineIndex..last.lineIndex) {
+                        val delimiter = closedMetadata && (index == first.lineIndex || index == last.lineIndex)
+                        lineData[index] = lineData[index].copy(frontMatter = true, frontMatterDelimiter = delimiter,
+                            frontMatterEdge = if (delimiter) null else when {
+                                bodyFirst == bodyLast -> "single"
+                                index == bodyFirst -> "first"
+                                index == bodyLast -> "last"
+                                else -> "mid"
+                            })
+                    }
+                }
                 when (node) {
+                    is YamlFrontMatterBlock -> if (closedMetadata) {
+                        mark(begin, begin + first.length)
+                        mark(last.inputIndex, end)
+                    }
+                    is MarkdownEmoji -> mark(begin, end)
                     is MarkdownMathBlock -> {
                         val opening = text.substring(begin, begin + first.length).indexOf("$$")
                         if (opening >= 0) mark(begin + opening, begin + opening + 2)
@@ -183,9 +215,9 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                     }
                 }
                 // 列表保留可见项目符号；未闭合代码和未原生渲染的公式仍显示完整源码。
-                val collapsible = node is Heading || node is BlockQuote || node is Code || node is Emphasis ||
+                val collapsible = node is Heading || node is BlockQuote || node is Code || node is Emphasis || node is MarkdownEmoji ||
                     node is StrongEmphasis || node is Strikethrough || node is MarkdownDecoration ||
-                    node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null
+                    node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null || closedMetadata
                 if (collapsible && syntax.size > markerStart) {
                     groups.add(SyntaxGroup(begin, end, syntax.subList(markerStart, syntax.size).toList()))
                 }
@@ -199,6 +231,8 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         markers = syntax.distinct().sortedBy { it.start }
         headings = titles.toList()
         syntaxGroups = groups.toList()
+        details = MarkdownDetailsBlocks.parse(this)
+        frontMatter = metadata.toList()
     }
 
     fun lineAt(position: Int): Int {

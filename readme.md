@@ -33,7 +33,7 @@
 - **图片预览**：独立成段的 Markdown 图片及 HTML `<img>` 可直接显示在编辑区，支持相对路径与 `style="zoom:40%"` 缩放，宽图自动适应可视区域。
 - **可编辑的 GFM 表格**：切换表格／源码显示，直接编辑单元格；支持增删、移动、复制行列，调整列对齐，以及主动优化源码排版。Tab／Shift+Tab 在单元格间导航，编辑操作支持撤销重做。
 - **表格数据互通**：行、列和整表可复制为 Markdown 或 TSV；粘贴 TSV 时可覆盖多个单元格并按需扩充行列，方便与电子表格交换数据。
-- **离线 Mermaid 图表**：内置流程图与时序图渲染，可切换源码与图形，适合记录处理流程和调用关系。
+- **离线 Mermaid 图表**：内置流程图、时序图与甘特图渲染，可切换源码与图形，适合记录处理流程、调用关系和项目计划。
 - **Typora 联动**：检测到本机安装 Typora 后，可通过菜单使用 Typora 打开支持的文档；当前编辑内容会先保存。
 
 ## 工作区与日常编辑
@@ -51,7 +51,7 @@
 
 ## Markdown 图表
 
-在 `.md` / `.markdown` 文件中使用 `mermaid` 围栏代码块，支持 `flowchart`（含 `graph` 写法）和 `sequenceDiagram`。完整代码块默认显示图形；鼠标悬停或选中图表区域时显示悬浮按钮，通过“显示源码”或“显示图形”切换。未闭合的代码块保留源码，语法错误会展开源码并在悬浮条中提示原因。切换显示方式不会修改文档内容。
+在 `.md` / `.markdown` 文件中使用 `mermaid` 围栏代码块，支持 `flowchart`（含 `graph` 写法）、`sequenceDiagram` 和 `gantt`。完整代码块默认显示图形；鼠标悬停或选中图表区域时显示悬浮按钮，通过“显示源码”或“显示图形”切换。未闭合的代码块保留源码，语法错误会展开源码并在悬浮条中提示原因。切换显示方式不会修改文档内容。
 
 图形模式支持拖选文字，再通过 `Cmd+C`（macOS）或 `Ctrl+C`（Windows）复制所选内容。点击节点不会自动复制。
 
@@ -75,6 +75,20 @@ sequenceDiagram
     E-->>U: 显示图表
     U->>E: 点击显示源码
     E-->>U: 展开源码
+```
+
+甘特图：
+
+```mermaid
+gantt
+    title 项目计划
+    dateFormat YYYY-MM-DD
+    section 开发
+    设计 :done, design, 2026-10-01, 3d
+    实现 :active, develop, after design, 5d
+    section 发布
+    验收 :review, after develop, 2d
+    上线 :milestone, after review, 0d
 ```
 
 ## 命令行打开文件
@@ -147,5 +161,5 @@ Gradle Wrapper 统一管理依赖、模块路径和运行参数。新增三方�
 
 - 日志分析以已打开文档的搜索、着色和结果定位为主，跨文件全文搜索尚未开放。
 - Markdown 当前采用源码编辑与局部预览；完整的正文所见即所得、公式、脚注及 HTML／PDF 导出仍在规划中，参见 [Markdown 编辑与预览计划](docs/TODO_Markdown成熟编辑与预览.md)。
-- Mermaid 当前支持 `flowchart` / `graph` 与 `sequenceDiagram`。
+- Mermaid 当前支持 `flowchart` / `graph`、`sequenceDiagram` 与 `gantt`。
 - 大文档达到大小或行数限制时，会停用部分高亮、大纲和预览能力；具体体验取决于文档内容与本机资源。

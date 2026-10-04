@@ -15,6 +15,11 @@
     -au-scroll-thumb-color: #cdcdcc;
     -au-scroll-thumb-press-color: #666667;
 
+    /* 编辑器滚动条的静止、悬停与拖动颜色 */
+    -au-editor-scroll-thumb-color: rgba(0, 0, 0, 0.22);
+    -au-editor-scroll-thumb-hover-color: rgba(0, 0, 0, 0.34);
+    -au-editor-scroll-thumb-press-color: rgba(0, 0, 0, 0.46);
+
     -au-editor-caret-color: #111111;
 
     -au-input-text-color: #121212;

@@ -9,7 +9,7 @@ object MarkdownPlainText {
     @JvmStatic
     fun render(root: Node): String = TextContentRenderer.builder().extensions(MarkdownExtensions.all()).nodeRendererFactory { context ->
         object : NodeRenderer {
-            override fun getNodeTypes() = setOf(MarkdownMath::class.java, MarkdownMathBlock::class.java, MarkdownDecoration::class.java, org.commonmark.node.Link::class.java, org.commonmark.node.Image::class.java,
+            override fun getNodeTypes() = setOf(MarkdownMath::class.java, MarkdownMathBlock::class.java, MarkdownDecoration::class.java, MarkdownEmoji::class.java, org.commonmark.node.Link::class.java, org.commonmark.node.Image::class.java,
                 org.commonmark.node.HtmlInline::class.java, org.commonmark.node.HtmlBlock::class.java,
                 org.commonmark.ext.footnotes.FootnoteDefinition::class.java, org.commonmark.ext.footnotes.FootnoteReference::class.java)
             override fun render(node: Node) {
@@ -18,6 +18,7 @@ object MarkdownPlainText {
                     is org.commonmark.node.HtmlBlock -> { context.writer.write(org.jsoup.Jsoup.parseBodyFragment(node.literal).body().wholeText()); context.writer.block() }
                     is org.commonmark.ext.footnotes.FootnoteReference -> Unit
                     is MarkdownMath -> context.writer.write(node.literal)
+                    is MarkdownEmoji -> context.writer.write(node.literal)
                     is MarkdownMathBlock -> { context.writer.write(node.literal); context.writer.block() }
                     else -> {
                         var child = node.firstChild

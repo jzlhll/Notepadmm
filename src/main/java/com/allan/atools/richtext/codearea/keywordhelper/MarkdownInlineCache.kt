@@ -92,6 +92,7 @@ class MarkdownInlineCache {
             is SoftLineBreak -> SoftLineBreak()
             is HardLineBreak -> HardLineBreak()
             is MarkdownMath -> MarkdownMath(source.literal, source.display)
+            is MarkdownEmoji -> MarkdownEmoji(source.shortcode, source.literal)
             is MarkdownDecoration -> MarkdownDecoration(source.tag, source.delimiter)
             else -> return null
         }

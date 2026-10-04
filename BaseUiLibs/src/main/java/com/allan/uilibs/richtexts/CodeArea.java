@@ -6,8 +6,10 @@ import javafx.beans.NamedArg;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.Node;
+import javafx.scene.Cursor;
 import javafx.scene.shape.StrokeType;
 import javafx.scene.text.Font;
+import javafx.scene.transform.Scale;
 import javafx.scene.transform.Shear;
 import org.fxmisc.richtext.CaretSelectionBind;
 import org.fxmisc.richtext.StyledTextArea;
@@ -32,6 +34,12 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
     private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
     private static final String MARKDOWN_EMOJI_STYLE = "markdown-emoji";
+    public static final String MARKDOWN_EMOJI_GLYPH_PREFIX = "markdown-emoji-glyph:";
+    public static final String MARKDOWN_EMOJI_RENDERED_CLASS = "markdown-emoji-rendered";
+    public static final String MARKDOWN_LIST_BULLET_PREFIX = "markdown-list-bullet:";
+    public static final String MARKDOWN_TASK_MARKER_CLASS = "markdown-task-marker";
+    public static final String MARKDOWN_TASK_PREFIX_CLASS = "markdown-task-prefix";
+    public static final String MARKDOWN_TASK_RENDERED_CLASS = "markdown-task-rendered";
     private static final String EMOJI_FONT_FAMILY = findEmojiFontFamily();
     /** 段落样式特殊条目前缀：pref-height:240 会转为 ParagraphText 的 -fx-pref-height 内联样式（用于撑高段落，如 markdown 行内图片） */
     public static final String PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:";
@@ -39,6 +47,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     public static final String PARAGRAPH_PREVIEW_HEIGHT_PREFIX = "preview-height:";
     /** Mermaid 独立维护预览高度，避免与表格、图片的段落样式相互清理。 */
     public static final String MERMAID_PREVIEW_HEIGHT_PREFIX = "mermaid-preview-height:";
+    public static final String DETAILS_PREVIEW_HEIGHT_PREFIX = "details-preview-height:";
     /** Mermaid 源码首段的操作栏留白，与预览占高分开维护。 */
     public static final String MERMAID_SOURCE_HEADER_HEIGHT_PREFIX = "mermaid-source-header-height:";
 
@@ -134,6 +143,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
             } else if (style.startsWith(MERMAID_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(MERMAID_PREVIEW_HEIGHT_PREFIX.length()) + "px";
+            } else if (style.startsWith(DETAILS_PREVIEW_HEIGHT_PREFIX)) {
+                previewHeight = style.substring(DETAILS_PREVIEW_HEIGHT_PREFIX.length()) + "px";
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
@@ -145,6 +156,14 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                     int quote = Integer.parseInt(fields[1]);
                     int list = Integer.parseInt(fields[2]);
                     int left = 85 + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
+                    if (quote > 0) {
+                        // JavaFX 会将最内层引用边框的 inset 与宽度计入内容留白，padding 只补足剩余间距。
+                        left -= 85 + (quote - 1) * 12 + 2;
+                    } else if (styleClasses.contains("md-heading-1") || styleClasses.contains("md-heading-2")
+                            || styleClasses.contains("md-thematic-break")) {
+                        // 标题下划线与分隔线的边框已计入正文左侧留白，避免 padding 再叠加一次。
+                        left -= 85;
+                    }
                     markdownLayout = "-fx-padding: " + (Double.parseDouble(fields[3]) + headerHeight)
                             + " 10 " + fields[4] + " " + left + ";";
                     if (quote > 0) {
@@ -168,6 +187,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 paragraph.getStyleClass().add(style);
             }
         }
+        if (styleClasses != null && styleClasses.contains("md-front-matter-delimiter-collapsed")) previewHeight = "0px";
         if (previewHeight != null) {
             inlineStyle = "-fx-min-height: " + previewHeight + ";-fx-pref-height: " + previewHeight
                     + ";-fx-max-height: " + previewHeight + ";-fx-pref-width: 0;-fx-opacity: 0;";
@@ -178,23 +198,84 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {
         applyTextStyle(text, styleClasses);
-        if (styleClasses.contains("markdown-syntax-collapsible")
-                && !styleClasses.contains("markdown-syntax-expanded")
-                && !styleClasses.contains("search") && !styleClasses.contains("temporary")) {
-            // 只替换排版节点：等长零宽占位保持 TextFlow 的 UTF-16 命中索引，源码、复制与撤销均不变。
-            // WORD JOINER 不引入额外断行机会；保留 Text 节点参与排版，不能设为 unmanaged 丢失字符位置。
+        boolean searched = styleClasses.contains("search") || styleClasses.contains("temporary");
+        if (styleClasses.contains(MARKDOWN_TASK_PREFIX_CLASS) && !searched) {
             text.setText("\u2060".repeat(text.getText().length()));
             text.setOpacity(0);
             return;
         }
-        if (EMOJI_FONT_FAMILY != null && styleClasses.contains(MARKDOWN_EMOJI_STYLE)) {
-            text.setStyle("-fx-font-family: \"" + EMOJI_FONT_FAMILY + "\";");
+        if (styleClasses.contains(MARKDOWN_TASK_MARKER_CLASS) && !searched) {
+            String source = text.getText();
+            if (source.length() == 3 && source.charAt(0) == '[' && source.charAt(2) == ']'
+                    && (source.charAt(1) == ' ' || source.charAt(1) == 'x' || source.charAt(1) == 'X')) {
+                // 保留三个源码字符的位置，用单个占位字形给矢量复选框留出宽度。
+                text.setText("☐\u202F\u2060");
+                text.setStyle("-fx-font-family: \"System\";");
+                text.getStyleClass().add(MARKDOWN_TASK_RENDERED_CLASS);
+                if (source.charAt(1) != ' ') text.getStyleClass().add("markdown-task-checked");
+                text.setCursor(Cursor.HAND);
+                text.setPickOnBounds(true);
+                return;
+            }
+        }
+        String emojiGlyph = null;
+        String bulletGlyph = null;
+        for (String style : styleClasses) {
+            if (style.startsWith(MARKDOWN_EMOJI_GLYPH_PREFIX)) {
+                emojiGlyph = style.substring(MARKDOWN_EMOJI_GLYPH_PREFIX.length());
+                break;
+            } else if (style.startsWith(MARKDOWN_LIST_BULLET_PREFIX)) {
+                bulletGlyph = style.substring(MARKDOWN_LIST_BULLET_PREFIX.length());
+                break;
+            }
+        }
+        if (bulletGlyph != null && !styleClasses.contains("search") && !styleClasses.contains("temporary")) {
+            // 无序标记与显示符号均为一个 UTF-16 字符，保留源码坐标与原始列表语法。
+            text.setText(bulletGlyph);
+            text.getStyleClass().add("markdown-list-bullet");
+            if (bulletGlyph.equals("•") || bulletGlyph.equals("◦")) {
+                // 只放大标记字形，保留 TextFlow 的字符宽度、行高与列表缩进。
+                double factor = bulletGlyph.equals("•") ? 1.5 : 1.65;
+                var scale = new Scale(factor, factor);
+                scale.pivotXProperty().bind(Bindings.createDoubleBinding(
+                        () -> text.getLayoutBounds().getMinX() + text.getLayoutBounds().getWidth() / 2,
+                        text.layoutBoundsProperty()));
+                scale.pivotYProperty().bind(Bindings.createDoubleBinding(
+                        () -> text.getLayoutBounds().getMinY() + text.getLayoutBounds().getHeight() / 2,
+                        text.layoutBoundsProperty()));
+                text.getTransforms().add(scale);
+            }
+            return;
+        }
+        boolean collapsed = styleClasses.contains("markdown-syntax-collapsible")
+                && !styleClasses.contains("markdown-syntax-expanded")
+                && !styleClasses.contains("search") && !styleClasses.contains("temporary");
+        if (collapsed) {
+            // 只替换排版节点：等长零宽占位保持 TextFlow 的 UTF-16 命中索引，源码、复制与撤销均不变。
+            // WORD JOINER 不引入额外断行机会；保留 Text 节点参与排版，不能设为 unmanaged 丢失字符位置。
+            if (emojiGlyph != null && emojiGlyph.length() <= text.getText().length()) {
+                text.setText(emojiGlyph + "\u2060".repeat(text.getText().length() - emojiGlyph.length()));
+            } else if (!styleClasses.contains(MARKDOWN_EMOJI_STYLE)) {
+                text.setText("\u2060".repeat(text.getText().length()));
+                text.setOpacity(0);
+                return;
+            }
+        }
+        // 搜索把短码拆成多个样式片段时保留源码；只有完整短码或直接输入的表情才切换字体。
+        if (styleClasses.contains(MARKDOWN_EMOJI_STYLE)
+                && (!styleClasses.contains("markdown-syntax-collapsible") || emojiGlyph != null && collapsed)) {
+            if (EMOJI_FONT_FAMILY != null) {
+                text.setStyle("-fx-font-family: \"" + EMOJI_FONT_FAMILY + "\";");
+                text.getStyleClass().add(MARKDOWN_EMOJI_RENDERED_CLASS);
+            }
+            return;
         }
         if (styleClasses.contains(MARKDOWN_ITALIC_STYLE)) {
             text.getTransforms().add(new Shear(-0.18, 0));
         }
-        if (styleClasses.contains(MARKDOWN_BOLD_STYLE)) {
-            //自加载字体无 bold 变体，CSS -fx-font-weight 不生效，用描边模拟粗体
+        if (styleClasses.contains(MARKDOWN_BOLD_STYLE)
+                || styleClasses.stream().anyMatch(style -> style.startsWith("markdown-title-"))) {
+            // 自加载字体无 bold 变体，标题与强调共用按字号缩放的描边模拟粗体。
             text.setStrokeType(StrokeType.CENTERED);
             text.strokeProperty().bind(text.fillProperty());
             text.strokeWidthProperty().bind(Bindings.createDoubleBinding(

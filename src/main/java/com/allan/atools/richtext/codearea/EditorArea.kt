@@ -37,6 +37,7 @@ class EditorArea @JvmOverloads constructor(
     val markdownTableDocumentState = MarkdownTableDocumentState()
     val viewPosition: EditorViewPosition
     private var followZoomCaretRequested = false
+    private var taskPointerDown = false
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
     val markdownSyntax = MarkdownSyntaxPresentation(this)
@@ -115,8 +116,33 @@ class EditorArea @JvmOverloads constructor(
         viewPosition = EditorViewPosition(this)
         markdownSyntax.install()
 
+        addEventFilter(MouseEvent.MOUSE_PRESSED) { event ->
+            if (event.button != MouseButton.PRIMARY) return@addEventFilter
+            var node = event.target as? javafx.scene.Node
+            var task = false
+            while (node != null && node !== this) {
+                if (CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass) { task = true; break }
+                node = node.parent
+            }
+            taskPointerDown = task && isEditable && !markdownComposing && markdownPreviewEnabled
+                && !editor.isRealtimeProcessingLimitReached && !event.isShortcutDown && !event.isAltDown && !event.isShiftDown
+            // 复选框点击不交给文本拖选行为，保留点击前的光标和选区。
+            if (taskPointerDown) event.consume()
+        }
+        addEventFilter(MouseEvent.MOUSE_RELEASED) { event ->
+            if (event.button == MouseButton.PRIMARY && taskPointerDown) {
+                taskPointerDown = false
+                event.consume()
+            }
+        }
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
+            var target = event.target as? javafx.scene.Node
+            while (target != null && target !== this) {
+                if (MarkdownDetailsPresentation.GRAPHIC_CLASS in target.styleClass) return@addEventFilter
+                target = target.parent
+            }
             if (event.target !is TextInputControl && event.button == MouseButton.PRIMARY && !event.isShortcutDown
+                && !event.isAltDown && !event.isShiftDown
                 && event.clickCount == 1 && event.isStillSincePress && markdownEditing.toggleTask(event)) {
                 event.consume()
                 return@addEventFilter
@@ -309,6 +335,7 @@ class EditorArea @JvmOverloads constructor(
     }
 
     fun destroy() {
+        (parent as? EditorZoomViewport)?.clearEmojiRendering()
         largeLog?.close()
         largeLog = null
 //        try {
@@ -320,7 +347,7 @@ class EditorArea @JvmOverloads constructor(
         viewPosition.destroy()
         markdownSyntax.destroy()
         paragraphWrapping.clear()
-        markdownPresentation.clear()
+        markdownPresentation.destroy()
         dispose()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()

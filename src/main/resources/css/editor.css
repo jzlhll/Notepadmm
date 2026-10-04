@@ -23,22 +23,76 @@
   -fx-padding: 0 0 0 85px;
 }
 
+/* 编辑器滚动条使用细圆角滑块，轨道与正文背景融合。 */
+.editor-virtualized-scroll-pane,
+.editor-virtualized-scroll-pane > .scroll-bar {
+  -fx-background-color: -au-editor-bg-color;
+  -fx-background-insets: 0;
+  -fx-border-width: 0;
+  -fx-padding: 0;
+}
+
 .editor-virtualized-scroll-pane > .scroll-bar:vertical {
-  -fx-min-width: 12px;
-  -fx-pref-width: 12px;
+  -fx-min-width: 11px;
+  -fx-pref-width: 11px;
+  -fx-max-width: 11px;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar:horizontal {
+  -fx-min-height: 11px;
+  -fx-pref-height: 11px;
+  -fx-max-height: 11px;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar > .track,
+.editor-virtualized-scroll-pane > .scroll-bar > .track-background {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-width: 0;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar > .thumb {
+  -fx-background-color: -au-editor-scroll-thumb-color;
+  -fx-background-insets: 2px;
+  -fx-background-radius: 8px;
+  -fx-effect: null;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar > .thumb:hover {
+  -fx-background-color: -au-editor-scroll-thumb-hover-color;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar > .thumb:pressed {
+  -fx-background-color: -au-editor-scroll-thumb-press-color;
+}
+
+.editor-virtualized-scroll-pane > .scroll-bar > .increment-button,
+.editor-virtualized-scroll-pane > .scroll-bar > .decrement-button {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-padding: 0;
+}
+
+/* JavaFX 按端部按钮的跨轴首选尺寸计算滑块最小长度（1.5 倍）。
+   保留 20px 的跨轴尺寸得到 30px 滑块，沿滚动方向仍为 0，不占用轨道。 */
+.editor-virtualized-scroll-pane > .scroll-bar:vertical > .increment-button,
+.editor-virtualized-scroll-pane > .scroll-bar:vertical > .decrement-button {
+  -fx-pref-width: 20px;
+  -fx-pref-height: 0;
 }
 
 .editor-virtualized-scroll-pane > .scroll-bar:horizontal > .increment-button,
 .editor-virtualized-scroll-pane > .scroll-bar:horizontal > .decrement-button {
-  -fx-padding: 1px 1px 1px 1px;
+  -fx-pref-width: 0;
+  -fx-pref-height: 20px;
 }
 
-.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .decrement-button > .decrement-arrow {
-  -fx-shape: "M 4 0 L 0 4 L 4 8 Z";
-}
-
-.editor-virtualized-scroll-pane > .scroll-bar:horizontal > .increment-button > .increment-arrow {
-  -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
+.editor-virtualized-scroll-pane > .scroll-bar > .increment-button > .increment-arrow,
+.editor-virtualized-scroll-pane > .scroll-bar > .decrement-button > .decrement-arrow {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+  -fx-shape: null;
+  -fx-effect: null;
 }
 
 .styled-text-area .selection {

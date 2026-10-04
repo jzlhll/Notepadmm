@@ -2,6 +2,7 @@ package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
 import com.allan.atools.utils.Locales
+import com.allan.uilibs.richtexts.CodeArea
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
@@ -52,7 +53,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
         val state = snapshot()
         val line = state.lines[state.lineAt(area.caretPosition)]
-        if (state.isLiteral(area.caretPosition) && !line.code && event.code != KeyCode.TAB) return false
+        if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code && event.code != KeyCode.TAB) return false
         when (event.code) {
             KeyCode.ENTER -> {
                 if (event.isShiftDown && !line.code) {
@@ -168,7 +169,13 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false
         val start = area.selection.start
         val end = area.selection.end
-        change(offset, offset + 1, if (area.getText(offset, offset + 1) == " ") "x" else " ", start, end)
+        val styles = area.getStyleOfChar(offset - 1)
+        area.undoManager.preventMerge()
+        area.replaceText(offset, offset + 1, if (area.getText(offset, offset + 1) == " ") "x" else " ")
+        // 字符插入会使用默认样式，立即恢复整段标记，使复选框状态无需等待后台高亮。
+        if (CodeArea.MARKDOWN_TASK_MARKER_CLASS in styles) area.setStyle(offset - 1, offset + 2, styles)
+        area.selectRange(start, end)
+        area.undoManager.preventMerge()
         return true
     }
 

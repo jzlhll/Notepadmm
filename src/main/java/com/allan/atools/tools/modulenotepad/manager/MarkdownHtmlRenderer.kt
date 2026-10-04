@@ -17,6 +17,7 @@ object MarkdownHtmlRenderer {
         .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-display")
         .addAttributes("input", "type", "checked", "disabled").addEnforcedAttribute("input", "type", "checkbox")
         .addAttributes("img", "width", "height").addAttributes("ol", "start").addAttributes("td", "align").addAttributes("th", "align")
+        .addAttributes("details", "open")
         .addProtocols("img", "src", "file", "data").addProtocols("a", "href", "file", "mailto", "#")
         .preserveRelativeLinks(true)
 
@@ -62,10 +63,12 @@ object MarkdownHtmlRenderer {
                 is YamlFrontMatterBlock -> {
                     val spans = node.sourceSpans
                     if (spans.isNotEmpty()) {
-                        writer.tag("details", context.extendAttributes(node, "details", mapOf("class" to "front-matter")))
-                        writer.tag("summary"); writer.text("Front Matter"); writer.tag("/summary")
-                        writer.tag("pre"); writer.text(state.text.substring(spans.first().inputIndex, spans.last().let { it.inputIndex + it.length })); writer.tag("/pre")
-                        writer.tag("/details")
+                        val metadata = state.frontMatter.firstOrNull { it.firstLine == spans.first().lineIndex }
+                        val content = if (metadata?.closed == true) state.text.substring(metadata.body.start, metadata.body.end)
+                            else state.text.substring(spans.first().inputIndex, spans.last().let { it.inputIndex + it.length })
+                        writer.tag("pre", context.extendAttributes(node, "pre", mapOf("class" to "front-matter")))
+                        writer.text(content)
+                        writer.tag("/pre")
                     }
                 }
                 is Paragraph -> {
@@ -90,8 +93,7 @@ object MarkdownHtmlRenderer {
                 }
                 is FencedCodeBlock -> {
                     val language = node.info.trim().substringBefore(' ').lowercase(java.util.Locale.ROOT)
-                    val mermaid = language == "mermaid" && Regex("^(?:flowchart|graph|sequenceDiagram)(?:\\s|$)").containsMatchIn(
-                        node.literal.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.startsWith("%%") }.orEmpty())
+                    val mermaid = MarkdownMermaidSupport.isSupported(node)
                     writer.tag("pre", context.extendAttributes(node, "pre", if (mermaid) mapOf("class" to "mermaid-source") else emptyMap()))
                     writer.tag("code", mapOf("class" to "language-$language"))
                     writeCode(node.literal, language)
@@ -101,22 +103,12 @@ object MarkdownHtmlRenderer {
         }
 
         private fun writeCode(source: String, language: String) {
-            val normal = when (language) { "js", "jsx" -> "javascript"; "ts", "tsx" -> "typescript"; "py" -> "python"; "sh", "bash", "zsh" -> "shell"; "yml" -> "yaml"; else -> language }
-            val helper = when (normal) {
-                "java" -> EditorKeywordHelperImplJava(); "kotlin", "kt" -> EditorKeywordHelperImplKotlin()
-                "c", "cpp", "c++" -> EditorKeywordHelperImplCC(); "csharp", "cs" -> EditorKeywordHelperImplCSharp()
-                else -> null
-            }
-            val pattern = helper?.getPattern(null, null) ?: MarkdownCodeLanguages.pattern(normal)
-            if (pattern == null) { context.writer.text(source); return }
-            val matcher = pattern.matcher(source)
             var end = 0
-            while (matcher.find()) {
-                context.writer.text(source.substring(end, matcher.start()))
-                val style = when { matcher.group("STRING") != null -> "string"; matcher.group("COMMENT") != null -> "comment"; matcher.group("KEYWORD") != null -> "keyword"; else -> "punct" }
-                context.writer.tag("span", mapOf("class" to "token-$style"))
-                context.writer.text(matcher.group()); context.writer.tag("/span")
-                end = matcher.end()
+            MarkdownCodeLanguages.forEachToken(source, language, { true }) { token ->
+                context.writer.text(source.substring(end, token.start))
+                context.writer.tag("span", mapOf("class" to "token-${token.style}"))
+                context.writer.text(source.substring(token.start, token.end)); context.writer.tag("/span")
+                end = token.end
             }
             context.writer.text(source.substring(end))
         }

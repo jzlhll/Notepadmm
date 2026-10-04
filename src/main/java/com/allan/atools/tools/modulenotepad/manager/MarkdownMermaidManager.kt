@@ -6,6 +6,7 @@ import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownMermaidSupport
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
@@ -151,14 +152,9 @@ class MarkdownMermaidManager(area: EditorArea?) {
             try {
                 (area.editor as EditorAreaMgrCode).parseMarkdown(text).accept(object : AbstractVisitor() {
                     override fun visit(block: FencedCodeBlock) {
-                        if (!block.info.trim().equals("mermaid", ignoreCase = true)) return
+                        if (!MarkdownMermaidSupport.isSupported(block)) return
                         val spans = block.sourceSpans
                         if (spans.isEmpty()) return
-                        // 仅接管流程图、时序图；其他 Mermaid 类型仍按普通源码呈现。
-                        val declaration = block.literal.lineSequence().map { it.trim() }
-                            .firstOrNull { it.isNotEmpty() && !it.startsWith("%%") }.orEmpty()
-                        if (!Regex("^(flowchart|graph)(?:\\s|$)|^sequenceDiagram(?:\\s|$)")
-                                .containsMatchIn(declaration)) return
                         val closed = block.closingFenceLength != null
                         parsed.add(Diagram(spans.first().lineIndex, spans.last().lineIndex,
                             block.literal, closed, showSource = !closed))

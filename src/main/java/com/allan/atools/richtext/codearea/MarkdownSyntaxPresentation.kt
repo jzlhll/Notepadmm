@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.uilibs.richtexts.CodeArea
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.event.EventHandler
@@ -32,7 +33,11 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             var node = it.target as? Node
             textPointer = true
             while (node != null && node !== area) {
-                if (node is Control || node is WebView) { textPointer = false; break }
+                if (node is Control || node is WebView || CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass
+                    || MarkdownDetailsPresentation.GRAPHIC_CLASS in node.styleClass) {
+                    textPointer = false
+                    break
+                }
                 node = node.parent
             }
         }
@@ -93,6 +98,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             changeExpanded(subtract(desired, actual), true)
         }
         expanded = next
+        area.markdownPresentation.refreshFrontMatterDelimiters()
     }
 
     fun requestRefresh() {
@@ -121,6 +127,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             changeExpanded(subtract(desired, previous), true)
         }
         expanded = next
+        area.markdownPresentation.refreshFrontMatterDelimiters()
         area.requestLayout()
         if (area.isFocused) area.requestFollowCaret()
     }
@@ -150,6 +157,13 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
                 if (result !in marker.start..marker.end) continue
                 val styles = area.getStyleOfChar(marker.start)
                 if (COLLAPSIBLE !in styles || EXPANDED in styles || "search" in styles || "temporary" in styles) continue
+                if ("markdown-emoji" in styles) {
+                    // 表情本身可见：左边界保留短码起点，右侧命中覆盖完整短码，拖选才能复制整颗表情。
+                    if (styles.any { it.startsWith(CodeArea.MARKDOWN_EMOJI_GLYPH_PREFIX) }) {
+                        result = if (result == marker.start) marker.start else marker.end
+                    }
+                    continue
+                }
                 // 零宽边界可能命中标记内部：前缀映射到正文起点，后缀映射到正文终点。
                 result = if (marker.start != group.start && marker.end == group.end) marker.start else marker.end
             }

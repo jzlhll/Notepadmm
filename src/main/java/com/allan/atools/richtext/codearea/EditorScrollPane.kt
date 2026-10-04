@@ -21,6 +21,11 @@ import kotlin.math.exp
 class EditorScrollPane(val editorArea: EditorArea) :
     MyVirtualScrollPane<EditorZoomViewport>(EditorZoomViewport(editorArea)) {
 
+    override fun removeContent(): EditorZoomViewport {
+        content.clearEmojiRendering()
+        return super.removeContent()
+    }
+
     private val zoomPercentState = ReadOnlyDoubleWrapper(this, "zoomPercent", 100.0)
     val zoomPercent: Double
         get() = zoomPercentState.get()
@@ -84,6 +89,12 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     private val zoom = SimpleDoubleProperty(1.0)
     private val panX = Var.newSimpleVar(0.0)
     private val scale = Scale(1.0, 1.0, 0.0, 0.0)
+    private val emojiRendering = MarkdownEmojiRendering(area)
+    private val taskRendering = MarkdownTaskRendering(area)
+    private val emojiPulse = Runnable {
+        emojiRendering.refresh()
+        taskRendering.refresh()
+    }
     private val totalWidth: Val<Double> = Val.combine(
         area.totalWidthEstimateProperty(), area.widthProperty(), area.insetsProperty(), zoom
     ) { textWidth, areaWidth, insets, factor ->
@@ -101,7 +112,16 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
 
     init {
         styleClass.add("editor-zoom-viewport")
-        children.add(area)
+        children.addAll(area, emojiRendering, taskRendering)
+        // 布局完成后再取字形位置，避免在 TextFlow 排版中途生成快照。
+        sceneProperty().addListener { _, previous, current ->
+            previous?.removePostLayoutPulseListener(emojiPulse)
+            current?.addPostLayoutPulseListener(emojiPulse)
+            if (current == null) {
+                emojiRendering.clear()
+                taskRendering.clear()
+            }
+        }
         backgroundProperty().bind(area.backgroundProperty())
         area.transforms.add(scale)
         area.isManaged = false
@@ -135,6 +155,11 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
         // 放大时保留原排版宽度，超出视口的部分交给外层横向滚动。
         area.resize(width, height / factor)
         scrollXToPixel(scrollX.value)
+    }
+
+    fun clearEmojiRendering() {
+        emojiRendering.clear()
+        taskRendering.clear()
     }
 
     fun followCaret() {

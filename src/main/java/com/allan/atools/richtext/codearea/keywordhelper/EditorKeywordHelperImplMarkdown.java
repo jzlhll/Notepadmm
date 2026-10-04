@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea.keywordhelper;
 
 import com.allan.atools.bean.SearchParams;
+import com.allan.uilibs.richtexts.CodeArea;
 import org.commonmark.ext.gfm.strikethrough.Strikethrough;
 import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.ext.gfm.tables.TableBody;
@@ -8,6 +9,7 @@ import org.commonmark.ext.gfm.tables.TableHead;
 import org.commonmark.ext.gfm.tables.TableRow;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.BlockQuote;
+import org.commonmark.node.BulletList;
 import org.commonmark.node.Code;
 import org.commonmark.node.CustomBlock;
 import org.commonmark.node.CustomNode;
@@ -34,8 +36,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.LinkedHashMap;
-import java.util.Locale;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
@@ -56,14 +60,14 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
     private int cachedCodeCharacters;
     private static final Pattern QUOTE_MARKER_PATTERN = Pattern.compile(">\\h?");
     private static final Pattern LIST_MARKER_PATTERN = Pattern.compile("(?:[-+*]|\\d+[.)])\\h+(?:\\[[ xX]\\]\\h+)?");
+    private static final Pattern BULLET_MARKER_PATTERN = Pattern.compile("\\h*([-+*])(?=\\h|$)");
+    private static final Pattern ITEM_MARKER_PATTERN = Pattern.compile("\\h*([-+*]|\\d+[.)])(?=\\h|$)");
+    private static final Pattern TASK_MARKER_PATTERN = Pattern.compile("\\h+(\\[[ xX]\\])(?=\\h|$)");
     private static final Pattern BARE_LINK_PATTERN = Pattern.compile(
             "(?i)(?<![\\p{L}\\p{N}_])https?://[\\p{L}\\p{N}\\[][^\\s\\p{Z}<>\"'`\\\\，。；：！？、（）【】《》“”‘’]*");
     /** HTML <img> 标签：属性值带引号时内部可含 '>'，尾部 '/' 不计入属性 */
     private static final Pattern HTML_IMG_TAG_PATTERN = Pattern.compile(
             "(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>");
-    /** XML 代码块属性段：name = "value"（组 1=属性名 2=等号 3=属性值），与 EditorKeywordHelperImplXml 一致 */
-    private static final Pattern XML_ATTRIBUTE_PATTERN = Pattern.compile(
-            "([-.:\\w]+\\h*)(=)(\\h*(?:\"[^\"]*\"|'[^']*'))");
 
     private static final int STYLE_CODE = 5;
     private static final int STYLE_INLINE_CODE = 6;
@@ -232,7 +236,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         if (!canContinue.getAsBoolean()) {
             return null;
         }
-        return buildStyleSpans(events, text.length(), canContinue);
+        return buildStyleSpans(events, text, visitor.bulletGlyphs, visitor.taskMarkers, visitor.taskPrefixes, canContinue);
     }
 
     private void addSearchRegions(String text, EventBuffer events) {
@@ -254,24 +258,23 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
     private void addEmojiFontRegions(String text, EventBuffer events) {
         for (int index = 0; index < text.length(); ) {
-            int codePoint = text.codePointAt(index);
-            int end = index + Character.charCount(codePoint);
-            char next = end < text.length() ? text.charAt(end) : 0;
-            if ((codePoint == 0x231B || codePoint == 0x23F3) && next != '\uFE0E') {
-                if (next == '\uFE0F') {
-                    end++;
-                }
+            int end = MarkdownEmojiShortcodes.unicodeEnd(text, index);
+            if (end > index) {
                 events.addRegion(index, end, STYLE_EMOJI);
+                index = end;
+            } else {
+                index += Character.charCount(text.codePointAt(index));
             }
-            index = end;
         }
     }
 
     /**
      * 事件扫描法合成重叠区间（如 **bold *italic*** 同时持有 bold 与 italic 样式类）。
      */
-    private StyleSpans<Collection<String>> buildStyleSpans(EventBuffer events, int textLength,
+    private StyleSpans<Collection<String>> buildStyleSpans(EventBuffer events, String text, Map<Integer, String> bulletGlyphs,
+                                                            Set<Integer> taskMarkers, NavigableMap<Integer, Integer> taskPrefixes,
                                                             BooleanSupplier canContinue) {
+        int textLength = text.length();
         events.sort();
         if (!canContinue.getAsBoolean()) {
             return null;
@@ -287,7 +290,31 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             }
             int position = events.positionAt(eventIndex);
             if (position > prev) {
-                spansBuilder.add(activeStyles(activeMask), position - prev);
+                var styles = activeStyles(activeMask);
+                if ((activeMask & (1 << STYLE_EMOJI)) != 0) {
+                    String emoji = MarkdownEmojiShortcodes.resolve(text.substring(prev, position));
+                    if (emoji != null) {
+                        var withGlyph = new HashSet<>(styles);
+                        withGlyph.add(CodeArea.MARKDOWN_EMOJI_GLYPH_PREFIX + emoji);
+                        styles = Set.copyOf(withGlyph);
+                    }
+                }
+                String bullet = bulletGlyphs.get(prev);
+                if (bullet != null && position == prev + 1) {
+                    var withBullet = new HashSet<>(styles);
+                    withBullet.add(CodeArea.MARKDOWN_LIST_BULLET_PREFIX + bullet);
+                    styles = Set.copyOf(withBullet);
+                }
+                var prefix = taskPrefixes.floorEntry(prev);
+                boolean taskPrefix = prefix != null && position <= prefix.getValue();
+                boolean taskMarker = taskMarkers.contains(prev) && position == prev + 3;
+                if (taskPrefix || taskMarker) {
+                    var withTask = new HashSet<>(styles);
+                    if (taskPrefix) withTask.add(CodeArea.MARKDOWN_TASK_PREFIX_CLASS);
+                    if (taskMarker) withTask.add(CodeArea.MARKDOWN_TASK_MARKER_CLASS);
+                    styles = Set.copyOf(withTask);
+                }
+                spansBuilder.add(styles, position - prev);
                 prev = position;
             }
             while (eventIndex < events.size() && events.positionAt(eventIndex) == position) {
@@ -335,6 +362,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private final String text;
         private final EventBuffer events;
         private final BooleanSupplier canContinue;
+        private final HashMap<Integer, String> bulletGlyphs = new HashMap<>();
+        private final HashSet<Integer> taskMarkers = new HashSet<>();
+        private final TreeMap<Integer, Integer> taskPrefixes = new TreeMap<>();
 
         MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
             this.text = text;
@@ -391,6 +421,35 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(ListItem listItem) {
             addMarkerRegions(listItem, LIST_MARKER_PATTERN, STYLE_LIST);
+            if (!listItem.getSourceSpans().isEmpty()) {
+                var span = listItem.getSourceSpans().get(0);
+                int end = span.getInputIndex() + span.getLength();
+                var item = ITEM_MARKER_PATTERN.matcher(text).region(span.getInputIndex(), end);
+                if (item.lookingAt()) {
+                    var task = TASK_MARKER_PATTERN.matcher(text).region(item.end(), end);
+                    if (task.lookingAt()) {
+                        int start = task.start(1);
+                        taskMarkers.add(start);
+                        taskPrefixes.put(item.start(1), start);
+                        events.addRegion(item.start(1), start, STYLE_LIST);
+                        events.addRegion(start, start + 3, STYLE_LIST);
+                    }
+                }
+            }
+            if (listItem.getParent() instanceof BulletList && !listItem.getSourceSpans().isEmpty()) {
+                var span = listItem.getSourceSpans().get(0);
+                int end = span.getInputIndex() + span.getLength();
+                var marker = BULLET_MARKER_PATTERN.matcher(text).region(span.getInputIndex(), end);
+                if (marker.lookingAt() && !TASK_MARKER_PATTERN.matcher(text).region(marker.end(), end).lookingAt()) {
+                    int depth = 0;
+                    for (Node parent = listItem; parent != null; parent = parent.getParent()) {
+                        if (parent instanceof ListItem) depth++;
+                    }
+                    int position = marker.start(1);
+                    bulletGlyphs.put(position, depth == 1 ? "•" : depth == 2 ? "◦" : "▪");
+                    events.addRegion(position, position + 1, STYLE_LIST);
+                }
+            }
             visitChildren(listItem);
         }
 
@@ -474,6 +533,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         public void visit(CustomNode customNode) {
             if (customNode instanceof Strikethrough strikethrough) {
                 addNodeRegions(strikethrough, STYLE_STRIKETHROUGH);
+            } else if (customNode instanceof MarkdownEmoji) {
+                addNodeRegions(customNode, STYLE_EMOJI);
             } else if (customNode instanceof MarkdownMath) {
                 addNodeRegions(customNode, STYLE_MATH);
             } else if (customNode instanceof MarkdownDecoration decoration && "mark".equals(decoration.getTag())) {
@@ -504,7 +565,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         /** 逐行记录 literal 与原文的对应位置，保留引用前缀和列表缩进。 */
         private void addFencedCodeTokenRegions(FencedCodeBlock block) {
             var spans = block.getSourceSpans();
-            if (spans.isEmpty() || block.getLiteral().isEmpty() || CodeBlockLanguages.of(block.getInfo()) == null) return;
+            if (spans.isEmpty() || block.getLiteral().isEmpty() || MarkdownCodeLanguages.normalize(block.getInfo()) == null) return;
             int base = spans.get(0).getInputIndex();
             var last = spans.get(spans.size() - 1);
             int end = last.getInputIndex() + last.getLength();
@@ -531,39 +592,58 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         }
 
         private void computeFencedCodeTokenRegions(FencedCodeBlock block) {
-            var language = CodeBlockLanguages.of(block.getInfo());
+            var language = MarkdownCodeLanguages.normalize(block.getInfo());
             String literal = block.getLiteral();
             if (language == null || literal.isEmpty()) return;
             var offsets = new int[literal.length()];
             java.util.Arrays.fill(offsets, -1);
             int cursor = 0;
             var spans = block.getSourceSpans();
-            int contentLines = spans.size() - (block.getClosingFenceLength() == null ? 1 : 2);
-            for (int line = 0; line < contentLines && cursor < literal.length(); line++) {
+            int literalLine = spans.get(0).getLineIndex() + 1;
+            int contentEnd = spans.size() - (block.getClosingFenceLength() == null ? 0 : 1);
+            for (int index = 1; index < contentEnd && cursor < literal.length(); index++) {
+                if (!canContinue.getAsBoolean()) return;
+                var span = spans.get(index);
+                // 空白行的 SourceSpan 会被省略，按实际行号对齐，不能把后续代码逐行错配。
+                while (literalLine < span.getLineIndex() && cursor < literal.length()) {
+                    int next = literal.indexOf('\n', cursor);
+                    cursor = next < 0 ? literal.length() : next + 1;
+                    literalLine++;
+                }
+                if (cursor >= literal.length()) break;
+                if (span.getLineIndex() != literalLine) continue;
                 int next = literal.indexOf('\n', cursor);
                 int end = next < 0 ? literal.length() : next;
-                var span = spans.get(line + 1);
                 var source = text.substring(span.getInputIndex(), span.getInputIndex() + span.getLength());
                 String value = literal.substring(cursor, end);
-                // CommonMark 展开 Tab 时无法逐字符映射，该行保留整块样式。
+                int valueStart = cursor;
+                // 嵌套围栏的缩进可能把 Tab 展开为空格，仍按未改变的正文后缀映射词法颜色。
+                if (!source.endsWith(value)) {
+                    while (valueStart < end && (literal.charAt(valueStart) == ' ' || literal.charAt(valueStart) == '\t')) {
+                        valueStart++;
+                    }
+                    value = literal.substring(valueStart, end);
+                }
                 if (!value.isEmpty() && source.endsWith(value)) {
                     int base = span.getInputIndex() + source.length() - value.length();
-                    for (int index = cursor; index < end; index++) offsets[index] = base + index - cursor;
+                    for (int offset = valueStart; offset < end; offset++) offsets[offset] = base + offset - valueStart;
                 }
                 cursor = end + 1;
+                literalLine++;
             }
-            Matcher matcher = language.pattern().matcher(literal);
-            int count = 0;
-            while (matcher.find()) {
-                if ((count++ & 255) == 0 && !canContinue.getAsBoolean()) return;
-                if (language.xml()) addMappedXmlRegions(matcher, offsets);
-                else {
-                    int style = matcher.group("KEYWORD") != null ? STYLE_CODE_KEYWORD
-                            : matcher.group("STRING") != null ? STYLE_CODE_STRING
-                            : matcher.group("COMMENT") != null ? STYLE_CODE_COMMENT : STYLE_CODE_PUNCT;
-                    addMappedRegion(offsets, matcher.start(), matcher.end(), style);
-                }
-            }
+            MarkdownCodeLanguages.forEachToken(literal, language, canContinue, token -> {
+                int style = switch (token.getStyle()) {
+                    case "keyword" -> STYLE_CODE_KEYWORD;
+                    case "string" -> STYLE_CODE_STRING;
+                    case "comment" -> STYLE_CODE_COMMENT;
+                    case "tag" -> STYLE_CODE_TAG;
+                    case "tagmark" -> STYLE_CODE_TAG_MARK;
+                    case "attribute" -> STYLE_CODE_ATTRIBUTE;
+                    case "attribute-value" -> STYLE_CODE_ATTRIBUTE_VALUE;
+                    default -> STYLE_CODE_PUNCT;
+                };
+                addMappedRegion(offsets, token.getStart(), token.getEnd(), style);
+            });
         }
 
         private void addMappedRegion(int[] offsets, int start, int end, int style) {
@@ -574,23 +654,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                 while (index < end && offsets[index] == source + length) { index++; length++; }
                 events.addRegion(source, source + length, style);
             }
-        }
-
-        private void addMappedXmlRegions(Matcher matcher, int[] offsets) {
-            if (matcher.group("COMMENT") != null) {
-                addMappedRegion(offsets, matcher.start(), matcher.end(), STYLE_CODE_COMMENT);
-                return;
-            }
-            addMappedRegion(offsets, matcher.start(2), matcher.end(2), STYLE_CODE_TAG_MARK);
-            addMappedRegion(offsets, matcher.start(3), matcher.end(3), STYLE_CODE_TAG);
-            int start = matcher.start(4);
-            var attributes = XML_ATTRIBUTE_PATTERN.matcher(matcher.group(4));
-            while (attributes.find()) {
-                addMappedRegion(offsets, start + attributes.start(1), start + attributes.end(1), STYLE_CODE_ATTRIBUTE);
-                addMappedRegion(offsets, start + attributes.start(2), start + attributes.end(2), STYLE_CODE_TAG_MARK);
-                addMappedRegion(offsets, start + attributes.start(3), start + attributes.end(3), STYLE_CODE_ATTRIBUTE_VALUE);
-            }
-            addMappedRegion(offsets, matcher.start(5), matcher.end(5), STYLE_CODE_TAG_MARK);
         }
 
         private void addTableRegions(TableBlock tableBlock) {
@@ -681,61 +744,6 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
 
         private static long encode(int position, int styleId, boolean add) {
             return ((long) position << EVENT_META_BITS) | ((long) styleId << 1) | (add ? 1 : 0);
-        }
-    }
-
-    /** 围栏代码块 info 语言 → token pattern（复用各语言 helper 的关键字/字符串/注释规则），懒加载缓存 */
-    private static final class CodeBlockLanguages {
-        private record CodeLanguage(Pattern pattern, boolean xml) {
-        }
-
-        private static final HashMap<String, CodeLanguage> CACHE = new HashMap<>();
-
-        static synchronized CodeLanguage of(String info) {
-            String language = normalize(info);
-            return language == null ? null : CACHE.computeIfAbsent(language, CodeBlockLanguages::create);
-        }
-
-        /** 取 info 首个空白前的 token 归一化（如 "java xx" → java），不支持的语言返回 null */
-        private static String normalize(String info) {
-            if (info == null || info.isBlank()) {
-                return null;
-            }
-            String token = info.trim();
-            int space = token.indexOf(' ');
-            if (space >= 0) {
-                token = token.substring(0, space);
-            }
-            token = token.toLowerCase(Locale.ROOT);
-            return switch (token) {
-                case "java" -> "java";
-                case "kotlin", "kt" -> "kotlin";
-                case "c", "cpp", "c++", "cc", "h", "hpp" -> "c";
-                case "csharp", "cs", "c#" -> "csharp";
-                case "xml", "html", "htm" -> "xml";
-                case "javascript", "js", "jsx" -> "javascript";
-                case "typescript", "ts", "tsx" -> "typescript";
-                case "python", "py" -> "python";
-                case "json", "jsonc" -> "json";
-                case "shell", "sh", "bash", "zsh" -> "shell";
-                case "sql" -> "sql";
-                case "yaml", "yml" -> "yaml";
-                default -> null;
-            };
-        }
-
-        private static CodeLanguage create(String language) {
-            EditorKeywordHelperAbstract helper = switch (language) {
-                case "java" -> new EditorKeywordHelperImplJava();
-                case "kotlin" -> new EditorKeywordHelperImplKotlin();
-                case "c" -> new EditorKeywordHelperImplCC();
-                case "csharp" -> new EditorKeywordHelperImplCSharp();
-                case "xml" -> new EditorKeywordHelperImplXml();
-                default -> null;
-            };
-            // getPattern(null, null) 不含 temporary/search 组，返回纯语言 token pattern
-            return helper == null ? new CodeLanguage(MarkdownCodeLanguages.pattern(language), false)
-                    : new CodeLanguage(helper.getPattern(null, null), "xml".equals(language));
         }
     }
 }

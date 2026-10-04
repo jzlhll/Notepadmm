@@ -20,7 +20,8 @@
     -fx-border-width: 0 0 1 0;
     -fx-border-insets: 0 0 0 85px;
 }
-.markdown-code, .markdown-inline-code { -fx-font-family: monospace; }
+/* 使用自带等宽字体，避免系统 monospace 回退字体中的下划线过细、贴近行底。 */
+.markdown-code, .markdown-inline-code { -fx-font-family: "JetBrains Mono"; }
 
 /* ===== 代码块（``` 围栏与缩进代码块） ===== */
 .markdown-code {
@@ -246,6 +247,10 @@
 }
 
 /* ===== 引用 > ===== */
+.markdown-editor .paragraph-text.md-quote-paragraph .editor-default-label {
+    -fx-fill: -au-md-quote;
+}
+
 .markdown-quote {
     -fx-fill: -au-md-quote;
 }
@@ -254,6 +259,15 @@
 .markdown-list {
     -fx-fill: -au-md-list;
 }
+
+/* 渲染后的圆点、方块使用正文标记色，不受源码语法标记的浅灰色覆盖。 */
+.markdown-editor .text.markdown-list-bullet {
+    -fx-fill: -au-md-list;
+}
+
+/* 矢量复选框从占位文本读取主题色，原文仍保留 [ ] / [x]。 */
+.markdown-editor .text.markdown-task-rendered { -fx-fill: -au-md-quote; }
+.markdown-editor .text.markdown-task-rendered.markdown-task-checked { -fx-fill: -au-md-link; }
 
 /* ===== 链接 ===== */
 .markdown-link {
@@ -319,3 +333,38 @@
 
 .markdown-math { -fx-font-family: monospace; -rtfx-background-color: -au-md-inline-code-bg; }
 .markdown-highlight { -rtfx-background-color: -au-md-highlight; }
+
+/* 详情块的原生摘要与正文共用当前编辑器主题。 */
+.markdown-details-text { -fx-fill: -au-editor-text-color; }
+.markdown-details-bold { -fx-font-weight: bold; }
+.markdown-details-italic { -fx-font-style: italic; }
+.markdown-details-underline { -fx-underline: true; }
+
+/* YAML 元数据按原文展示；不将其中的 Markdown 字符或网址变成正文格式。 */
+.markdown-editor .paragraph-text.md-front-matter .text {
+    -fx-fill: -au-md-quote;
+    -fx-font-family: "JetBrains Mono";
+    -fx-font-size: .9em;
+}
+.markdown-editor .paragraph-text.md-front-matter .text.search,
+.markdown-editor .paragraph-text.md-front-matter .text.temporary { -fx-fill: -au-editor-text-color; }
+.styled-text-area.editor-area .paragraph-text.md-front-matter { -fx-line-spacing: 0; }
+.md-front-matter-first {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-insets: 0 0 0 85px;
+    -fx-background-radius: 4 4 0 0;
+}
+.md-front-matter-mid {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-insets: 0 0 0 85px;
+}
+.md-front-matter-last {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-insets: 0 0 0 85px;
+    -fx-background-radius: 0 0 4 4;
+}
+.md-front-matter-single {
+    -fx-background-color: -au-md-code-bg;
+    -fx-background-insets: 0 0 0 85px;
+    -fx-background-radius: 4;
+}
