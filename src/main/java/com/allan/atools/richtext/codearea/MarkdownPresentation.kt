@@ -46,7 +46,7 @@ class MarkdownPresentation(private val area: EditorArea) {
 
     /** 段落样式随文本移动；只失效编辑触及的段落，结构变化再由新快照扩展更新范围。 */
     fun onTextChanged(position: Int, removed: String, inserted: String) {
-        details.clear()
+        details.onTextChanged(position, removed, inserted)
         if (appliedLines.isEmpty()) return
         val first = area.offsetToPosition(Math.min(position, area.length), org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).major
         if (first >= appliedLines.size) return

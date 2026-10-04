@@ -152,6 +152,15 @@ public final class MarkdownTablePreviewManager {
     private double textPadding;
     private double layoutWidth = -1;
     private Font font;
+    private long parsedVersion = -1;
+    private java.io.File boundFile;
+    private final Map<EditorArea, SavedLayouts> savedLayouts = new WeakHashMap<>();
+
+    private record SavedLayouts(long version, java.io.File file, long savedAt, int cellCount,
+                                List<MarkdownTableDocumentState.Table> tables,
+                                Map<String, List<MarkdownTableLayout.Run>> contents,
+                                Map<String, TableLayout> layouts, double width,
+                                double graphicWidth, double textPadding, Font font) {}
 
     public MarkdownTablePreviewManager(EditorArea area) {
         configureCellEditor();
@@ -159,11 +168,14 @@ public final class MarkdownTablePreviewManager {
     }
 
     public void refreshCurrentFile(EditorArea area) {
+        if (area == currentArea && textChanges != null && area.getMarkdownPreviewEnabled()
+                && java.util.Objects.equals(boundFile, area.getEditor().getSourceFile())) return;
         unbindEditor();
         currentArea = area;
         if (!supportsMarkdown(area) || !area.getMarkdownPreviewEnabled()) {
             return;
         }
+        boundFile = area.getEditor().getSourceFile();
         textChanges = area.plainTextChanges().subscribe(change ->
                 onTextChanged(change.getPosition(), change.getRemoved(), change.getInserted()));
         viewportChanges = area.viewportDirtyEvents().subscribe(event -> requestLayoutRefresh());
@@ -179,12 +191,28 @@ public final class MarkdownTablePreviewManager {
         UIContext.getFontThemeProperty().addListener(layoutChanged);
         area.addEventFilter(MouseEvent.MOUSE_DRAGGED, areaMouseDragged);
         area.addParagraphGraphicDecorator(this, this::createGraphic);
-        refreshScheduler.startNow();
+        var saved = savedLayouts.remove(area);
+        if (saved != null && saved.version() == area.getEditor().getContentVersion()
+                && java.util.Objects.equals(saved.file(), boundFile) && !area.getEditor().isRealtimeProcessingLimitReached()) {
+            tables = saved.tables();
+            inlineContents = saved.contents();
+            layouts.putAll(saved.layouts());
+            layoutWidth = saved.width();
+            graphicWidth = saved.graphicWidth();
+            textPadding = saved.textPadding();
+            font = saved.font();
+            cellEditor.setFont(font);
+            parsedVersion = saved.version();
+            rebuildLineIndex();
+            updatePresentation();
+            requestLayoutRefresh();
+        } else refreshScheduler.startNow();
     }
 
     public void destroy() {
         destroyed = true;
         unbindEditor();
+        savedLayouts.clear();
         refreshScheduler.dispose();
     }
 
@@ -249,6 +277,9 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void unbindEditor() {
+        saveLayouts();
+        parsedVersion = -1;
+        boundFile = null;
         inputMethodRevision++;
         composingText = false;
         handlingInputMethod = false;
@@ -306,6 +337,42 @@ public final class MarkdownTablePreviewManager {
         cellEditor.clear();
         layouts.clear();
         layoutWidth = -1;
+    }
+
+    /** 标签切换只缓存测量数据，不持有离屏节点；大表和未完成的布局不进入缓存。 */
+    private void saveLayouts() {
+        savedLayouts.keySet().removeIf(area -> area.getEditor().isDestroyed());
+        var area = currentArea;
+        if (destroyed || area == null || area.getEditor().isDestroyed() || font == null
+                || parsedVersion != area.getEditor().getContentVersion() || !layoutJobs.isEmpty()) return;
+        int count = 0;
+        var copies = new HashMap<String, TableLayout>();
+        for (var entry : layouts.entrySet()) {
+            var layout = entry.getValue();
+            if (layout.cells == null || layout.frozenWidths) return;
+            for (var row : layout.cells) count += row.length;
+            if (count > 20_000) return;
+            var copy = new TableLayout();
+            copy.table = layout.table;
+            copy.cells = layout.cells;
+            copy.widths = layout.widths;
+            copy.totalWidth = layout.totalWidth;
+            copy.viewportWidth = layout.viewportWidth;
+            copy.font = layout.font;
+            copy.alignments = layout.alignments;
+            copy.rowHeights.putAll(layout.rowHeights);
+            copies.put(entry.getKey(), copy);
+        }
+        savedLayouts.put(area, new SavedLayouts(parsedVersion, boundFile, System.nanoTime(), count,
+                tables, inlineContents, copies, layoutWidth, graphicWidth, textPadding, font));
+        while (savedLayouts.size() > 4 || savedLayouts.values().stream().mapToInt(SavedLayouts::cellCount).sum() > 20_000) {
+            EditorArea oldest = null;
+            long time = Long.MAX_VALUE;
+            for (var entry : savedLayouts.entrySet()) {
+                if (entry.getValue().savedAt() < time) { oldest = entry.getKey(); time = entry.getValue().savedAt(); }
+            }
+            savedLayouts.remove(oldest);
+        }
     }
 
     private void onTextChanged(int position, String removed, String inserted) {
@@ -401,6 +468,7 @@ public final class MarkdownTablePreviewManager {
                 if (pendingTableId == null) structurePending = false;
                 cellEditor.setEditable(area.isEditable() && !structurePending);
                 area.getMarkdownTableDocumentState().reconcile(result);
+                parsedVersion = version;
                 tables = area.getMarkdownTableDocumentState().getTables();
                 inlineContents = Map.copyOf(contents);
                 rebuildLineIndex();

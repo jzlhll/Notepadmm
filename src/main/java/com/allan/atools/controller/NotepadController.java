@@ -556,8 +556,7 @@ public final class NotepadController extends AbstractMainController {
     private void updateMarkdownTablePreviewManager(EditorArea area) {
         if (!supportsMarkdown(area)) {
             if (markdownTablePreviewManager != null) {
-                markdownTablePreviewManager.destroy();
-                markdownTablePreviewManager = null;
+                markdownTablePreviewManager.refreshCurrentFile(null);
             }
             return;
         }

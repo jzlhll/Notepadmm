@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 
 /** 在同一文档版本的 Markdown 功能之间复用 AST。 */
 public final class MarkdownAstCache {
+    private volatile MarkdownStructureSnapshot latestSnapshot;
     private final MarkdownInlineCache inlineCache = new MarkdownInlineCache();
     private final Parser parser = Parser.builder()
             .extensions(MarkdownExtensions.all())
@@ -37,12 +38,15 @@ public final class MarkdownAstCache {
         return entry(text).root;
     }
 
-    public synchronized MarkdownStructureSnapshot snapshot(String text) {
-        var value = entry(text);
-        if (value.snapshot == null) {
-            value.snapshot = new MarkdownStructureSnapshot(text, value.root);
+    public MarkdownStructureSnapshot snapshot(String text) {
+        var known = latestSnapshot;
+        if (known != null && known.getText().equals(text)) return known;
+        synchronized (this) {
+            var value = entry(text);
+            if (value.snapshot == null) value.snapshot = new MarkdownStructureSnapshot(text, value.root);
+            latestSnapshot = value.snapshot;
+            return value.snapshot;
         }
-        return value.snapshot;
     }
 
     private Parsed entry(String text) {

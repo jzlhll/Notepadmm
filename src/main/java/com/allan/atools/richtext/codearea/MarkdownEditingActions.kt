@@ -51,6 +51,15 @@ class MarkdownEditingActions(private val area: EditorArea) {
         }
         if (event.isAltDown || event.isControlDown || event.isMetaDown) return false
         if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
+        // 普通退格不依赖全文结构，只有命中列表或引用前缀边界时才查询 AST。
+        if (event.code == KeyCode.BACK_SPACE) {
+            if (area.selection.length > 0) return false
+            val paragraph = area.getParagraph(area.currentParagraph).text
+            val quotes = quote.find(paragraph)?.value.orEmpty()
+            val marker = item.find(paragraph.substring(quotes.length))
+            val prefixEnd = quotes.length + (marker?.value?.length ?: 0)
+            if (prefixEnd == 0 || area.caretPosition - area.getAbsolutePosition(area.currentParagraph, 0) != prefixEnd) return false
+        }
         val state = snapshot()
         val line = state.lines[state.lineAt(area.caretPosition)]
         if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code && event.code != KeyCode.TAB) return false
@@ -164,6 +173,8 @@ class MarkdownEditingActions(private val area: EditorArea) {
             || !MarkdownEditorSupport.supportsMarkdown(area) || area.editor.isRealtimeProcessingLimitReached) return false
         val hit = area.hit(event.x, event.y).characterIndex
         if (!hit.isPresent) return false
+        // 点击正文不获取全文快照；只有确实命中已绘制的任务标记才继续。
+        if (CodeArea.MARKDOWN_TASK_MARKER_CLASS !in area.getStyleOfChar(hit.asInt)) return false
         val state = snapshot()
         val offset = state.lines[state.lineAt(hit.asInt)].taskOffset
         if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false

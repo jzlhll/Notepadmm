@@ -34,9 +34,11 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
     private class State {
         val open = HashMap<Int, Boolean>()
     }
-    private class Entry(val block: MarkdownDetailsBlocks.Block, val state: State) {
+    private class Entry(var block: MarkdownDetailsBlocks.Block, val state: State) {
         var height = 0.0
         var preview = true
+        var dirty = true
+        val root by lazy { Jsoup.parseBodyFragment(block.source).body().children().firstOrNull { it.normalName() == "details" } }
     }
     private var entries = emptyList<Entry>()
     private val saved = HashMap<Pair<String, Int>, State>()
@@ -62,18 +64,21 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
             area.selectionProperty().addListener(selectionChanged)
             area.focusedProperty().addListener(selectionChanged)
         }
+        val previous = entries.associateBy { it.block.start }
         val occurrences = HashMap<String, Int>()
         val nextSaved = HashMap<Pair<String, Int>, State>()
         val next = snapshot.details.map { block ->
             val occurrence = occurrences.getOrDefault(block.source, 0)
             occurrences[block.source] = occurrence + 1
             val key = block.source to occurrence
-            val state = saved[key] ?: State()
+            val old = previous[block.start]?.takeIf { it.block == block }
+            val state = old?.state ?: saved[key] ?: State()
             nextSaved[key] = state
-            Entry(block, state)
+            old ?: Entry(block, state)
         }
-        clear()
+        val removed = entries.filter { it !in next }
         entries = next
+        clearStyles(removed.flatMap { it.block.firstLine..it.block.lastLine })
         saved.clear()
         saved.putAll(nextSaved)
         refresh()
@@ -108,7 +113,9 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
                 val selection = area.selection
                 val editing = (area.isFocused || selection.length > 0) && (if (selection.length == 0) area.caretPosition in block.start..block.end
                     else selection.start < block.end && selection.end > block.start)
-                val changed = entry.preview == editing || entry.height == 0.0
+                val changed = entry.dirty || entry.preview == editing || entry.height == 0.0
+                if (!changed) continue
+                entry.dirty = false
                 entry.preview = !editing
                 if (entry.preview && entry.height == 0.0) entry.height = Math.ceil(content(entry).prefHeight(width())) + 12.0
                 for (line in block.firstLine..block.lastLine) {
@@ -168,8 +175,7 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
     }
 
     private fun content(entry: Entry): VBox {
-        val root = Jsoup.parseBodyFragment(entry.block.source).body().children().firstOrNull { it.normalName() == "details" }
-            ?: return VBox()
+        val root = entry.root ?: return VBox()
         val size = UIContext.getFontSizeProperty().get().toDouble()
         val indices = root.getAllElements().filter { it.normalName() == "details" }
             .withIndex().associate { it.value to it.index }
@@ -261,9 +267,37 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
         return details(root)
     }
 
-    private fun clearStyles() {
+    /** 未触及的详情块只平移源码范围，继续保留折叠高度和节点。 */
+    fun onTextChanged(position: Int, removed: String, inserted: String) {
+        if (entries.isEmpty()) return
+        val delta = inserted.length - removed.length
+        val lines = inserted.count { it == '\n' } - removed.count { it == '\n' }
+        val end = position + removed.length
+        val affected = ArrayList<Int>()
+        entries = entries.filter { entry ->
+            val block = entry.block
+            when {
+                end < block.start || end == block.start && inserted.endsWith('\n') -> {
+                    entry.block = block.copy(start = block.start + delta, end = block.end + delta,
+                        firstLine = block.firstLine + lines, lastLine = block.lastLine + lines)
+                    entry.dirty = entry.dirty || lines != 0
+                    true
+                }
+                position > block.end -> true
+                else -> {
+                    val first = area.offsetToPosition(Math.min(position, area.length), org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).major
+                    affected.addAll(Math.min(block.firstLine, first)..Math.max(first, block.lastLine + lines))
+                    false
+                }
+            }
+        }
+        clearStyles(affected)
+    }
+
+    private fun clearStyles(lines: Iterable<Int>) {
         area.suspendVisibleParsWhileInvoke {
-            for (line in area.paragraphs.indices) {
+            for (line in lines) {
+                if (line !in area.paragraphs.indices) continue
                 val old = area.getParagraph(line).paragraphStyle
                 val styles = old.filterNot { it.startsWith(CodeArea.DETAILS_PREVIEW_HEIGHT_PREFIX) }
                 if (old != styles) { area.setParagraphStyle(line, styles); area.recreateParagraphGraphic(line) }
@@ -272,10 +306,9 @@ class MarkdownDetailsPresentation(private val area: EditorArea) {
     }
 
     fun clear() {
-        if (entries.isEmpty()) return
+        val previous = entries
         entries = emptyList()
-        // 样式随编辑后的段落移动，清理时按当前段落识别，避免删除换行后留下不可见正文。
-        clearStyles()
+        clearStyles(previous.flatMap { it.block.firstLine..it.block.lastLine })
     }
 
     fun destroy() {

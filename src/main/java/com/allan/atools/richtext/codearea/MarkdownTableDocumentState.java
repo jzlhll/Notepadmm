@@ -1,9 +1,7 @@
 package com.allan.atools.richtext.codearea;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /** 单个编辑器内 Markdown 表格的稳定标识、源码映射与显示状态。 */
@@ -104,76 +102,46 @@ public final class MarkdownTableDocumentState {
 
     /** 以已修正范围做一对一匹配，保留表格标识、形态和横向位置。 */
     public void reconcile(List<Table> parsed) {
-        var matchedOld = new HashSet<Table>();
-        var matchedNew = new HashSet<Table>();
-        for (var next : parsed) {
-            if (tables.stream().filter(old -> overlaps(old, next)).count() != 1) {
-                continue;
-            }
-            Table exact = null;
-            for (var old : tables) {
-                if (!matchedOld.contains(old) && old.startOffset == next.startOffset) {
-                    if (parsed.stream().filter(candidate -> overlaps(old, candidate)).count() != 1) {
-                        continue;
-                    }
-                    if (exact != null) {
-                        exact = null;
-                        break;
-                    }
-                    exact = old;
-                }
-            }
-            if (exact != null) {
-                next.copyViewState(exact);
-                matchedOld.add(exact);
-                matchedNew.add(next);
+        // 新表格按源码位置排列且互不重叠；二分定位旧表覆盖的区间，避免逐表两两扫描。
+        var counts = new int[parsed.size() + 1];
+        var firstMatches = new int[tables.size()];
+        var matchCounts = new int[tables.size()];
+        for (int index = 0; index < tables.size(); index++) {
+            var old = tables.get(index);
+            int first = boundary(parsed, old.startOffset, true);
+            int end = boundary(parsed, old.endOffset, false);
+            int count = Math.max(0, end - first);
+            firstMatches[index] = first;
+            matchCounts[index] = count;
+            if (count > 0) {
+                counts[first]++;
+                counts[end]--;
             }
         }
-        for (var next : parsed) {
-            if (matchedNew.contains(next)) {
-                continue;
-            }
-            Table candidate = null;
-            for (var old : tables) {
-                if (matchedOld.contains(old) || !overlaps(old, next)) {
-                    continue;
-                }
-                if (candidate != null) {
-                    candidate = null;
-                    break;
-                }
-                candidate = old;
-            }
-            if (candidate != null && overlapCount(candidate, parsed, matchedNew) == 1) {
-                next.copyViewState(candidate);
-                matchedOld.add(candidate);
-                matchedNew.add(next);
-            }
-        }
-
+        for (int index = 1; index < parsed.size(); index++) counts[index] += counts[index - 1];
         var result = new ArrayList<>(parsed);
-        for (var old : tables) {
-            if (!matchedOld.contains(old) && !old.valid && old.endOffset > old.startOffset
-                    && parsed.stream().noneMatch(next -> overlaps(old, next))) {
-                result.add(old);
-            }
+        for (int index = 0; index < tables.size(); index++) {
+            var old = tables.get(index);
+            int first = firstMatches[index];
+            int count = matchCounts[index];
+            if (count == 1 && counts[first] == 1) parsed.get(first).copyViewState(old);
+            else if (count == 0 && !old.valid && old.endOffset > old.startOffset) result.add(old);
         }
         result.sort((first, second) -> Integer.compare(first.startOffset, second.startOffset));
         tables = List.copyOf(result);
     }
 
-    private static int overlapCount(Table old, List<Table> parsed, Set<Table> matchedNew) {
-        int count = 0;
-        for (var next : parsed) {
-            if (!matchedNew.contains(next) && overlaps(old, next)) {
-                count++;
-            }
+    private static int boundary(List<Table> tables, int position, boolean byEnd) {
+        int low = 0;
+        int high = tables.size();
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            var table = tables.get(middle);
+            boolean before = byEnd ? table.endOffset <= position : table.startOffset < position;
+            if (before) low = middle + 1;
+            else high = middle;
         }
-        return count;
-    }
-
-    private static boolean overlaps(Table first, Table second) {
-        return first.startOffset < second.endOffset && second.startOffset < first.endOffset;
+        return low;
     }
 
     public static final class Table {
