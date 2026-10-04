@@ -2,6 +2,7 @@ package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.UIContext;
 import com.allan.atools.GlobalCfgStores;
+import com.allan.atools.toolsstartup.MacRecentDocuments;
 import com.allan.atools.bean.FileEncodingMap;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.beans.FileEncodingMaps;
@@ -699,6 +700,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             var newss = ss.stream().distinct().filter(s -> new File(s).exists()).toList();
             int savedCount = Math.min(MAX_RECENT_FILES, newss.size());
             GlobalCfgStores.recent().setStringList(KEY_RECENT_FILES, newss.subList(0, savedCount));
+            MacRecentDocuments.requestSync();
             //保存的时候，最上面的文件就是最新的
             return null;
         }
@@ -737,6 +739,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             add = true;
         }
         GlobalCfgStores.recent().setStringList(KEY_PINNED_FILES, pinned.stream().limit(MAX_RECENT_FILES).toList());
+        MacRecentDocuments.requestSync();
         return add;
     }
 
