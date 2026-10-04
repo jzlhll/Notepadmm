@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.Colors
+import com.allan.atools.MarkdownThemes
 import com.allan.atools.UIContext
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.MarkdownHtmlRenderer
@@ -206,10 +207,11 @@ class MarkdownClipboard(private val area: EditorArea) {
         val source = area.text
         val base = area.editor.sourceFile?.parentFile?.toURI()?.toASCIIString()
         val dark = Colors.isDark()
+        val themeCss = MarkdownThemes.previewCss(dark)
         ThreadUtils.execute {
             try {
                 val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(source)
-                val html = MarkdownPreviewWindow.renderDocument(state, base, dark)
+                val html = MarkdownPreviewWindow.renderDocument(state, base, dark, themeCss)
                 Files.writeString(destination.toPath(), html, StandardCharsets.UTF_8)
                 Platform.runLater { SnackbarUtils.show(Locales.str("markdown.exportDone")) }
             } catch (error: Exception) {

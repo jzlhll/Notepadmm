@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.MarkdownThemes;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract;
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown;
@@ -51,7 +52,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         super(area, sourceFile, tab, documentState);
         styleDelay.setOnFinished(event -> startLatestStyle());
         mKeywordHelper = createKeywordHelper(sourceFile);
+        area.getStyleClass().remove("markdown-editor");
+        if (mKeywordHelper instanceof EditorKeywordHelperImplMarkdown) area.getStyleClass().add("markdown-editor");
         ensureKeywordStylesheet(mKeywordHelper);
+        MarkdownThemes.attachEditor(area);
         if (mKeywordHelper != null) {
             bindStyleTextChanges();
             requestStyle(null, null, null, true);
@@ -80,6 +84,8 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         resetStyleScheduler();
         if (getArea() instanceof EditorArea editorArea) editorArea.getMarkdownPresentation().clear();
         mKeywordHelper = createKeywordHelper(sourceFile);
+        getArea().getStyleClass().remove("markdown-editor");
+        if (mKeywordHelper instanceof EditorKeywordHelperImplMarkdown) getArea().getStyleClass().add("markdown-editor");
         ensureKeywordStylesheet(mKeywordHelper);
         bindStyleTextChanges();
         if (mKeywordHelper == null) {

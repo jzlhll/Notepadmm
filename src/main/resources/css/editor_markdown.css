@@ -1,86 +1,19 @@
-/*
- * 编辑器 Markdown 皮肤文件：Markdown 全部语法高亮样式 + 编辑器整体配色变量。
- * 换肤：整体调整 .root 中的变量即可；深色主题在 colors_dark.css 中覆盖同名变量。
- * 注意：本文件需先于 colors.css / colors_dark.css 加载（见 StartupNotepadInitImp.getCssPaths）。
+/* Markdown 通用布局和语义样式；配色由 css/markdown-themes 下的主题独立提供。
+ * MarkdownThemes 在编辑器节点上加载明暗基础主题和用户覆盖样式。
  */
-.root {
-    /* ---- editor 整体（会被 colors*.css 主题文件覆盖，此处为默认值） ---- */
-    -au-editor-bg-color: #fffef6; /*编辑器整体背景色*/
-    -au-editor-text-color: #010101; /*编辑器默认文字颜色*/
-
-    /* ---- 标题 h1 ~ h5 ---- */
-    -au-md-title-1: #68206f;
-    -au-md-title-2: #783080;
-    -au-md-title-3: #884090;
-    -au-md-title-4: #9850a0;
-    -au-md-title-5: #a860ad;
-    -au-md-title-6: #99639e;
-    -au-md-syntax: #b9bcc1;
-    -au-md-quote-border: #c7cbd0;
-    -au-md-quote-bg: #f6f7f8;
-
-    /* ---- 代码块：浅色底 + 深色文字（亮色皮肤，自然融入） ---- */
-    -au-md-code-bg: #eef2f5;
-    -au-md-code-fill: #1d4d55;
-    -au-md-code-fence: #d9dfe3;
-    -au-md-inline-code-bg: #def2f4;
-    -au-md-inline-code-fill: #0e7490;
-
-    /* ---- 代码块内语言 token 色（叠加在 markdown-code 上，亮色 VSCode Light 风） ---- */
-    -au-md-code-keyword: #0033b3;
-    -au-md-code-string: #a31515;
-    -au-md-code-comment: #008000;
-    -au-md-code-punct: #47494e;
-    -au-md-code-tag: #800000;
-    -au-md-code-tagmark: #47494e;
-    -au-md-code-attribute: #e50000;
-    -au-md-code-attribute-value: #0451a5;
-
-    /* ---- 表格 / 引用 / 列表 ---- */
-    -au-md-table-mark: #d8dde3;
-    -au-md-quote: #808080;
-    -au-md-list: #008080;
-
-    /* ---- 链接 / 图片 ---- */
-    -au-md-link: #0969da;
-    -au-md-image: #9932cc;
-
-    /* ---- 行内图片显示（图片框 / 占位提示，见 MarkdownImageManager） ---- */
-    -au-md-image-frame-border: #d8dde3;
-    -au-md-image-placeholder-fill: #808080;
-}
-
-/* ===== 标题 ===== */
-.markdown-title-1 {
-    -fx-fill: -au-md-title-1;
-    -fx-font-size: 1.4em;
-    -fx-font-weight: bold;
-}
-
-.markdown-title-2 {
-    -fx-fill: -au-md-title-2;
-    -fx-font-size: 1.4em;
-}
-
-.markdown-title-3 {
-    -fx-fill: -au-md-title-3;
-    -fx-font-size: 1.3em;
-}
-
-.markdown-title-4 {
-    -fx-fill: -au-md-title-4;
-    -fx-font-size: 1.2em;
-}
-
-.markdown-title-5 {
-    -fx-fill: -au-md-title-5;
-    -fx-font-size: 1.1em;
-}
-
+/* ===== 标题：Typora GitHub 的标题比例和正文色 ===== */
+.markdown-title-1 { -fx-fill: -au-md-title-1; -fx-font-size: 2.25em; -fx-font-weight: bold; }
+.markdown-title-2 { -fx-fill: -au-md-title-2; -fx-font-size: 1.75em; -fx-font-weight: bold; }
+.markdown-title-3 { -fx-fill: -au-md-title-3; -fx-font-size: 1.5em; -fx-font-weight: bold; }
+.markdown-title-4 { -fx-fill: -au-md-title-4; -fx-font-size: 1.25em; -fx-font-weight: bold; }
+.markdown-title-5 { -fx-fill: -au-md-title-5; -fx-font-size: 1em; -fx-font-weight: bold; }
 .markdown-title-6 { -fx-fill: -au-md-title-6; -fx-font-size: 1em; -fx-font-weight: bold; }
-.markdown-title-1 { -fx-font-size: 1.8em; }
-.markdown-title-2 { -fx-font-size: 1.5em; -fx-font-weight: bold; }
-.markdown-title-3, .markdown-title-4, .markdown-title-5 { -fx-font-weight: bold; }
+.styled-text-area.markdown-editor .paragraph-text.md-heading-1,
+.styled-text-area.markdown-editor .paragraph-text.md-heading-2 {
+    -fx-border-color: -au-md-heading-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-insets: 0 0 0 85px;
+}
 .styled-text-area.editor-area .paragraph-text.md-body-paragraph { -fx-line-spacing: 3px; }
 .styled-text-area.editor-area .paragraph-text.md-thematic-break {
     -fx-border-color: -au-md-quote-border;
@@ -100,13 +33,13 @@
 }
 
 /* ===== 代码块整块圆角矩形背景（由 MarkdownPresentation 统一应用段落样式） =====
- * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 12px 圆角整块。
+ * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 3px 圆角整块。
  * 左缘 = TextFlow 左缘 + 85px（editor.css .paragraph-text 的左内边距，即正文起始线）；
  * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 85px），
  * 两边均与编辑器的 padding 边缘对齐。 */
 .md-code-block-first {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-radius: 12 12 0 0;
+    -fx-background-radius: 3 3 0 0;
     -fx-background-insets: 0 0 0 85px;
 }
 
@@ -117,13 +50,13 @@
 
 .md-code-block-last {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-radius: 0 0 12 12;
+    -fx-background-radius: 0 0 3 3;
     -fx-background-insets: 0 0 0 85px;
 }
 
 .md-code-block-single {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-radius: 12;
+    -fx-background-radius: 3;
     -fx-background-insets: 0 0 0 85px;
 }
 
@@ -196,7 +129,7 @@
 }
 
 .markdown-table-preview-alternate {
-    -fx-background-color: derive(-au-editor-bg-color, -3%);
+    -fx-background-color: -au-md-table-alternate;
 }
 
 .markdown-table-preview-cell {
@@ -385,4 +318,4 @@
 .text.markdown-syntax-marker.temporary { -fx-fill: -au-editor-text-color; }
 
 .markdown-math { -fx-font-family: monospace; -rtfx-background-color: -au-md-inline-code-bg; }
-.markdown-highlight { -rtfx-background-color: #e5c95b77; }
+.markdown-highlight { -rtfx-background-color: -au-md-highlight; }

@@ -1,6 +1,8 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
+import com.allan.atools.MarkdownThemes;
+import com.allan.atools.ui.MarkdownThemeDialog;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
@@ -18,6 +20,8 @@ import com.jfoenix.controls.JFXRadioButton;
 import com.jfoenix.controls.JFXScrollPane;
 import com.jfoenix.controls.JFXToggleButton;
 import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
+import javafx.beans.WeakInvalidationListener;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -52,6 +56,7 @@ public final class SettingController extends AbstractController {
     public JFXRadioButton mainUiSizeLargeBtn;
     public JFXRadioButton mainUiSizeLargerBtn;
     public Hyperlink fontCustomLink;
+    public Hyperlink markdownThemeLink;
 
     public JFXComboBox<Label> localesComboBox;
 
@@ -61,6 +66,7 @@ public final class SettingController extends AbstractController {
     }
 
     private long sFontChangedCount;
+    private InvalidationListener markdownThemeChanged;
 
     private void initMainUiSizeMode() {
         ToggleGroup group = new ToggleGroup();
@@ -99,6 +105,14 @@ public final class SettingController extends AbstractController {
         super.init(stage);
 
         initMainUiSizeMode();
+        MarkdownThemes.initialize();
+        markdownThemeLink.setText(MarkdownThemes.current().getName());
+        markdownThemeChanged = observable -> markdownThemeLink.setText(MarkdownThemes.current().getName());
+        MarkdownThemes.revisionProperty().addListener(new WeakInvalidationListener(markdownThemeChanged));
+        markdownThemeLink.setOnAction(event -> {
+            markdownThemeLink.setVisited(false);
+            MarkdownThemeDialog.show(getStage());
+        });
 
         try {
            var names = Files.readAllLines(Path.of(ResLocation.getRealPath("locales", "locales.list")));

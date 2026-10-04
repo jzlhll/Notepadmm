@@ -1,0 +1,53 @@
+/*
+ * ATools-Theme-Name: GitHub
+ * ATools-Theme-Mode: light
+ *
+ * 修改名称和模式后，可通过设置中的 Markdown 主题对话框导入此文件。
+ * 配色变量使用颜色字面量（十六进制、rgb/rgba 或颜色名）。
+ * JavaFX 样式规则以 .markdown-editor 开头，避免影响其他编辑器和设置页面。
+ * 浅色参考 Typora GitHub，深色参考 GitHub Night；排版适配 RichTextFX。
+ */
+.markdown-editor {
+    -au-editor-bg-color: #ffffff;
+    -au-editor-text-color: #333333;
+    -au-editor-caret-color: #333333;
+    -au-editor-selection-words-color: #b3d4fc;
+    -au-md-title-1: #333333;
+    -au-md-title-2: #333333;
+    -au-md-title-3: #333333;
+    -au-md-title-4: #333333;
+    -au-md-title-5: #333333;
+    -au-md-title-6: #777777;
+    -au-md-heading-border: #eeeeee;
+    -au-md-syntax: #b9bcc1;
+    -au-md-quote: #777777;
+    -au-md-quote-border: #dfe2e5;
+    -au-md-quote-bg: #ffffff;
+    -au-md-code-bg: #f8f8f8;
+    -au-md-code-fill: #333333;
+    -au-md-code-fence: #dfe2e5;
+    -au-md-inline-code-bg: #f3f4f4;
+    -au-md-inline-code-fill: #333333;
+    -au-md-code-keyword: #d73a49;
+    -au-md-code-string: #032f62;
+    -au-md-code-comment: #6a737d;
+    -au-md-code-punct: #333333;
+    -au-md-code-tag: #22863a;
+    -au-md-code-tagmark: #333333;
+    -au-md-code-attribute: #6f42c1;
+    -au-md-code-attribute-value: #032f62;
+    -au-md-table-mark: #dfe2e5;
+    -au-md-table-alternate: #f8f8f8;
+    -au-md-list: #333333;
+    -au-md-link: #4183c4;
+    -au-md-image: #4183c4;
+    -au-md-image-frame-border: #dfe2e5;
+    -au-md-image-placeholder-fill: #777777;
+    -au-md-highlight: #fff8c5;
+}
+
+/* 可在配色块后追加 JavaFX 样式，例如：
+.markdown-editor .markdown-title-1 {
+    -fx-font-size: 2.25em;
+}
+*/

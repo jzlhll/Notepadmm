@@ -102,6 +102,7 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     init {
         styleClass.add("editor-zoom-viewport")
         children.add(area)
+        backgroundProperty().bind(area.backgroundProperty())
         area.transforms.add(scale)
         area.isManaged = false
         clip = Rectangle().apply {

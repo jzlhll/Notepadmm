@@ -683,3 +683,14 @@
 .black-bg {
    -fx-background-color : #121121;
 }
+
+/* Markdown 主题弹窗 */
+.markdown-theme-card {
+    -fx-padding: 14;
+    -fx-background-color: -au-main-bg-color2;
+    -fx-background-radius: 6;
+    -fx-border-color: -au-main-window-border-color;
+    -fx-border-radius: 6;
+}
+.markdown-theme-unavailable { -fx-opacity: 0.6; }
+.markdown-theme-error { -fx-text-fill: -au-red-color; }

@@ -40,6 +40,8 @@ public final class SettingPreferences {
     public static final String appVisionKey = "appVision";
     public static final String hdScreen2Key = "hdScreen2";
     public static final String cycleNextKey = "bottomCycleNext";
+    public static final String markdownLightThemeKey = "markdownLightTheme";
+    public static final String markdownDarkThemeKey = "markdownDarkTheme";
     public static final String fontThemeIdKey = "fontThemeId";
     public static final String editorFontSizeKey = "resultAreaFoldableStyledAreaFontSize";
     public static final String mainUiSizeModeKey = "mainUiSizeMode";
@@ -69,6 +71,8 @@ public final class SettingPreferences {
                 new SettingProfDef("bool", hdScreen2Key, "true"),
                 new SettingProfDef("bool", cycleNextKey, "true"),
                 new SettingProfDef("int", fontThemeIdKey, "0"),
+                new SettingProfDef("str", markdownLightThemeKey, "github"),
+                new SettingProfDef("str", markdownDarkThemeKey, "github-dark"),
                 new SettingProfDef("int", editorFontSizeKey, "15"),
                 new SettingProfDef("int", mainUiSizeModeKey, "0"),
                 new SettingProfDef("bool", editorChinesePunctuationKey, "false"),

@@ -62,6 +62,14 @@
             </VBox.margin>
         </JFXToggleButton>
 
+        <HBox alignment="CENTER_LEFT">
+            <VBox.margin>
+                <Insets top="4" left="6"/>
+            </VBox.margin>
+            <Label text="%markdown.theme" styleClass="normal-label"/>
+            <Hyperlink fx:id="markdownThemeLink" styleClass="myhyperlink"/>
+        </HBox>
+
         <Label text="%setting.selectFont" styleClass="normal-label">
             <VBox.margin>
                 <Insets left="3" top="12"/>
