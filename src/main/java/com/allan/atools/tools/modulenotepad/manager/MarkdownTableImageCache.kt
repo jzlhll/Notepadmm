@@ -1,6 +1,5 @@
 package com.allan.atools.tools.modulenotepad.manager
 
-import com.allan.atools.threads.ThreadUtils
 import javafx.application.Platform
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -42,18 +41,25 @@ class MarkdownTableImageCache {
         entry.views.removeAll { it.first.get() == null }
         entry.views.add(WeakReference(box) to alt)
         show(entry, box, alt)
-        while (entries.size > 64) {
-            val oldest = entries.entries.iterator().next()
-            entries.remove(oldest.key)
-            queue.remove(oldest.value)
-        }
+        trim()
         pump()
         return box
+    }
+
+    // 容量限制仅淘汰已完成缓存，仍有消费者的排队／加载项必须完成回填。
+    private fun trim() {
+        if (entries.size <= 64) return
+        val iterator = entries.entries.iterator()
+        while (entries.size > 64 && iterator.hasNext()) {
+            val entry = iterator.next().value
+            if (entry.task == null && (entry.image != null || entry.failed)) iterator.remove()
+        }
     }
 
     private fun show(entry: Entry, box: StackPane, alt: String) {
         val image = entry.image
         if (image != null) {
+            box.setOnMousePressed(null)
             box.children.setAll(ImageView(image).apply { fitWidth = 120.0; fitHeight = 80.0; isPreserveRatio = true; accessibleText = alt })
         } else {
             box.children.setAll(Label(alt.ifEmpty { "Image" }).apply { isWrapText = true })
@@ -61,8 +67,15 @@ class MarkdownTableImageCache {
                 if (entry.failed) {
                     event.consume()
                     entry.diagnostic?.event("retry requested")
-                    entry.failed = false
-                    queue.add(entry)
+                    val current = entries.getOrPut(entry.url.toString()) { entry }
+                    if (current !== entry) {
+                        current.views.add(WeakReference(box) to alt)
+                        show(current, box, alt)
+                    }
+                    if (current.failed) {
+                        current.failed = false
+                        queue.add(current)
+                    }
                     pump()
                 }
             }
@@ -73,11 +86,16 @@ class MarkdownTableImageCache {
         while (active < 4 && queue.isNotEmpty()) {
             val entry = queue.removeFirst()
             if (entry.task != null) continue
+            entry.views.removeAll { it.first.get() == null }
+            if (entry.views.isEmpty()) {
+                entries.remove(entry.url.toString(), entry)
+                continue
+            }
             active++
             val revision = generation
             val diagnostic = MarkdownImageLoadLog("table", entry.url.toString(), entry.document, 0)
             entry.diagnostic = diagnostic
-            entry.task = ThreadUtils.submit {
+            entry.task = MarkdownImageTasks.submit {
                 var stage = "connect"
                 val image = try {
                     val loaded = if (entry.url.scheme.equals("file", true)) {
@@ -86,7 +104,7 @@ class MarkdownTableImageCache {
                         diagnostic.event("read bytes=${bytes.size}")
                         if (bytes.size > 20 * 1024 * 1024) throw java.io.IOException("Table image exceeds byte limit")
                         stage = "decode"
-                        Image(bytes.inputStream(), 120.0, 80.0, true, true)
+                        MarkdownImageDecoder.decode(bytes, 120.0, 80.0).image
                     } else {
                         MarkdownRemoteImageLoader.load(entry.url.toString(), diagnostic, 120.0, 80.0)
                     }
@@ -106,6 +124,7 @@ class MarkdownTableImageCache {
                             entry.failed = image == null
                             entry.views.forEach { (reference, alt) -> reference.get()?.let { show(entry, it, alt) } }
                         }
+                        trim()
                         pump()
                     } else {
                         diagnostic.event("result skipped stale document generation")
@@ -121,7 +140,7 @@ class MarkdownTableImageCache {
         entries.values.forEach { entry ->
             if (entry.task != null) entry.diagnostic?.event("cancel requested document cleared")
         }
-        running.forEach { it.cancel(true) }
+        running.forEach { MarkdownImageTasks.cancel(it) }
         running.clear()
         entries.clear()
         queue.clear()

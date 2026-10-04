@@ -19,7 +19,7 @@ object MarkdownRemoteImageLoader {
     private data class ImageSize(val width: Double, val height: Double)
 
     private class CachedImage(val bytes: ByteArray) {
-        val decoded = HashMap<ImageSize, Image>()
+        val decoded = HashMap<ImageSize, MarkdownImageDecoder.Result>()
         @Volatile var memoryBytes = bytes.size.toLong()
     }
 
@@ -28,27 +28,32 @@ object MarkdownRemoteImageLoader {
     private val loading = HashMap<URI, CompletableFuture<CachedImage>>()
 
     @JvmStatic
-    fun load(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): Image {
+    fun load(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): Image =
+        loadDecoded(destination, diagnostic, width, height).image
+
+    @JvmStatic
+    fun loadDecoded(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): MarkdownImageDecoder.Result {
         val uri = imageUri(destination)
         val data = imageData(uri, diagnostic)
         try {
             val image = synchronized(data) {
+                if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
                 val size = ImageSize(width, height)
                 val known = data.decoded[size]
                 if (known != null) {
                     diagnostic.event("cache decoded hit requestedWidth=$width requestedHeight=$height")
                     known
                 } else {
-                    Image(data.bytes.inputStream(), width, height, true, true).also { result ->
-                        if (!result.isError && result.width > 0 && result.height > 0) {
+                    MarkdownImageDecoder.decode(data.bytes, width, height).also { result ->
+                        if (!result.image.isError && result.image.width > 0 && result.image.height > 0) {
                             data.decoded[size] = result
-                            data.memoryBytes += (result.width * result.height * 4).toLong()
+                            data.memoryBytes += (result.image.width * result.image.height * 4).toLong()
                         }
                     }
                 }
             }
             synchronized(cacheLock) {
-                if (image.isError || image.width <= 0 || image.height <= 0) {
+                if (image.image.isError || image.image.width <= 0 || image.image.height <= 0) {
                     cache.entries.removeIf { it.value === data }
                 } else {
                     trimCache()
@@ -81,7 +86,17 @@ object MarkdownRemoteImageLoader {
         }
         if (!owner) {
             diagnostic.event("cache wait shared download")
-            return request.get()
+            try {
+                return request.get()
+            } catch (error: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw error
+            } catch (error: java.util.concurrent.ExecutionException) {
+                // 一个文档取消下载不能把仍在等待的其他文档永久标为失败。
+                if (error.cause !is InterruptedIOException || Thread.currentThread().isInterrupted) throw error
+                synchronized(cacheLock) { loading.remove(uri, request) }
+                return imageData(uri, diagnostic)
+            }
         }
         try {
             val data = download(uri, diagnostic)
@@ -91,7 +106,7 @@ object MarkdownRemoteImageLoader {
             request.completeExceptionally(error)
             throw error
         } finally {
-            synchronized(cacheLock) { loading.remove(uri) }
+            synchronized(cacheLock) { loading.remove(uri, request) }
         }
     }
 
@@ -149,7 +164,18 @@ object MarkdownRemoteImageLoader {
                     if (status !in 200..299) throw IOException("Image request returned HTTP $status at $uri")
                     if (length > MAX_IMAGE_BYTES) throw IOException("Image exceeds $MAX_IMAGE_BYTES byte limit")
                     stage = "read"
-                    val bytes = connection.inputStream.use { it.readNBytes(MAX_IMAGE_BYTES + 1) }
+                    val bytes = connection.inputStream.use { input ->
+                        val output = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(16 * 1024)
+                        while (true) {
+                            if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            if (output.size() + count > MAX_IMAGE_BYTES) throw IOException("Image exceeds byte limit")
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
                     if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
                     diagnostic.event("read bytes=${bytes.size}")
                     if (bytes.size > MAX_IMAGE_BYTES) throw IOException("Image exceeds $MAX_IMAGE_BYTES byte limit")

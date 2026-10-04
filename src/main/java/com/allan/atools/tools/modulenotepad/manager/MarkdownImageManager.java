@@ -12,7 +12,6 @@ import com.allan.uilibs.richtexts.CodeArea;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.InvalidationListener;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -27,7 +26,6 @@ import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Paragraph;
 import org.reactfx.Subscription;
 
-import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -82,13 +80,14 @@ public final class MarkdownImageManager {
             "(?i)zoom\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*%");
     private Subscription textChanges;
 
-    private final LinkedHashMap<String, Image> imageCache = new LinkedHashMap<>(16, 0.75f, true) {
+    private record CachedImage(java.lang.ref.WeakReference<Image> image, double width, double height) {}
+    // 图片节点和共享缓存负责强引用，正文索引只保留尺寸和弱引用。
+    private final LinkedHashMap<String, CachedImage> imageCache = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<String, CachedImage> eldest) {
             return size() > IMAGE_CACHE_LIMIT;
         }
     };
-
     private EditorArea currentArea;
     private final LatestRefreshScheduler refreshScheduler =
             new LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, this::startRefresh);
@@ -97,6 +96,20 @@ public final class MarkdownImageManager {
     private boolean destroyed;
     private Future<?> parseTask;
     private double cachedLineHeight = -1;
+    private boolean layoutPending;
+    private final InvalidationListener layoutChanged = observable -> {
+        if (layoutPending) return;
+        layoutPending = true;
+        Platform.runLater(() -> {
+            layoutPending = false;
+            var area = currentArea;
+            if (destroyed || !runtimeActive || area == null) return;
+            cachedLineHeight = -1;
+            area.suspendVisibleParsWhileInvoke(() -> {
+                for (var info : imageByLine.values()) applyImageParagraphStyle(area, info.lineIndex, info);
+            });
+        });
+    };
 
     public MarkdownImageManager(EditorArea area) {
         bindEditor(area);
@@ -159,7 +172,7 @@ public final class MarkdownImageManager {
         boolean touched = false;
         for (var info : imageByLine.values()) {
             if (info.lineIndex >= first && info.lineIndex <= first + removedLines) {
-                if (info.stopTracking != null) info.stopTracking.run();
+                MarkdownImageTasks.cancel(info.loadTask);
                 touched = true;
                 continue;
             }
@@ -228,7 +241,9 @@ public final class MarkdownImageManager {
         var changed = new HashSet<Integer>();
         for (var line : imageByLine.keySet()) {
             var old = imageByLine.get(line);
-            if (newByLine.get(line) != old && old.stopTracking != null) old.stopTracking.run();
+            if (newByLine.get(line) != old) {
+                MarkdownImageTasks.cancel(old.loadTask);
+            }
             if (!newByLine.containsKey(line)) {
                 clearImageParagraphStyle(area, line);
                 changed.add(line);
@@ -250,6 +265,8 @@ public final class MarkdownImageManager {
             return;
         }
         runtimeActive = true;
+        area.widthProperty().addListener(layoutChanged);
+        area.paddingProperty().addListener(layoutChanged);
         area.addParagraphGraphicDecorator(this, this::createGraphic);
     }
 
@@ -257,7 +274,10 @@ public final class MarkdownImageManager {
         var area = currentArea;
         if (area != null) {
             area.removeParagraphGraphicDecorator(this);
+            area.widthProperty().removeListener(layoutChanged);
+            area.paddingProperty().removeListener(layoutChanged);
         }
+        for (var info : imageByLine.values()) MarkdownImageTasks.cancel(info.loadTask);
         runtimeActive = false;
         invalidateRefresh();
     }
@@ -300,43 +320,45 @@ public final class MarkdownImageManager {
         Image image = cachedImage(info.key);
         if (image == null) {
             if (isKnownFailure(info.key)) {
-                return createPlaceholder(info, Locales.str("markdownImageLoadFailed"));
+                return createPlaceholder(area, info, Locales.str("markdownImageLoadFailed"));
             }
             beginLoad(area, info);
-            return createPlaceholder(info, Locales.str("markdownImageLoading"));
+            return createPlaceholder(area, info, Locales.str("markdownImageLoading"));
         }
         if (image.isError()) {
-            return createPlaceholder(info, Locales.str("markdownImageLoadFailed"));
+            return createPlaceholder(area, info, Locales.str("markdownImageLoadFailed"));
         }
-        if (image.getProgress() < 1.0) {
-            // 远程图片后台加载中
-            trackProgress(area, info, image, info.loadLog);
-            return createPlaceholder(info, Locales.str("markdownImageLoading"));
-        }
-
         var view = new ImageView(image);
         view.setPreserveRatio(true);
-        double[] size = displaySize(area, info);
-        view.setFitHeight(size[0]);
+        view.fitHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> displaySize(area, info)[0], area.widthProperty(), area.paddingProperty()));
+        view.fitWidthProperty().bind(Bindings.createDoubleBinding(
+                () -> displaySize(area, info)[1], area.widthProperty(), area.paddingProperty()));
         var frame = new StackPane(view);
         frame.getStyleClass().add("markdown-image-frame");
         frame.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
-        frame.setPrefSize(size[1] + FRAME_BORDER * 2, size[0] + FRAME_BORDER * 2);
+        frame.prefWidthProperty().bind(view.fitWidthProperty().add(FRAME_BORDER * 2));
+        frame.prefHeightProperty().bind(view.fitHeightProperty().add(FRAME_BORDER * 2));
         return frame;
     }
 
-    private Node createPlaceholder(MarkdownImage info, String message) {
+    private Node createPlaceholder(EditorArea owner, MarkdownImage info, String message) {
         String text = info.alt == null || info.alt.isBlank() ? message : info.alt + " - " + message;
         var label = new Label(text);
         label.getStyleClass().add("markdown-image-placeholder");
         var frame = new StackPane(label);
         frame.getStyleClass().add("markdown-image-frame");
-        frame.setPrefSize(PLACEHOLDER_WIDTH, PLACEHOLDER_HEIGHT);
+        frame.setPrefHeight(PLACEHOLDER_HEIGHT);
+        frame.prefWidthProperty().bind(Bindings.createDoubleBinding(
+                () -> Math.min(PLACEHOLDER_WIDTH, availableImageWidth(owner)), owner.widthProperty(), owner.paddingProperty()));
+        frame.setMinWidth(Region.USE_PREF_SIZE);
+        label.setWrapText(true);
         frame.setOnMouseClicked(event -> {
             var area = currentArea;
             if (area == null || destroyed || imageByLine.get(info.lineIndex) != info) return;
+            if (info.loading) return;
             if (info.loadLog != null) info.loadLog.event("retry requested");
-            synchronized (imageCache) { imageCache.remove(info.key); }
+            removeCachedImage(info.key);
             info.loading = false;
             beginLoad(area, info);
             area.recreateParagraphGraphic(info.lineIndex);
@@ -346,10 +368,12 @@ public final class MarkdownImageManager {
 
     /** [0]=显示高度 [1]=显示宽度；zoom 按原图尺寸百分比缩放（Typora 语义），原图未加载时退回占位高度，宽度超限时等比收缩 */
     private double[] displaySize(EditorArea area, MarkdownImage info) {
-        Image image = cachedImage(info.key);
-        if (image != null && image.getWidth() > 0 && image.getHeight() > 0) {
-            info.imageWidth = image.getWidth();
-            info.imageHeight = image.getHeight();
+        synchronized (this) {
+            var cached = imageCache.get(info.key);
+            if (cached != null) {
+                info.imageWidth = cached.width();
+                info.imageHeight = cached.height();
+            }
         }
         double aspect = info.imageWidth > 0 && info.imageHeight > 0
                 ? info.imageWidth / info.imageHeight : 4.0 / 3.0;
@@ -358,11 +382,16 @@ public final class MarkdownImageManager {
         double height = info.imageHeight > 0
                 ? info.imageHeight * info.styleZoom : PLACEHOLDER_IMAGE_HEIGHT;
         if (info.width > 0) height = info.width / aspect;
-        double maxWidth = Math.max(160.0, area.getWidth() - 48);
+        double maxWidth = availableImageWidth(area);
         if (height * aspect > maxWidth) {
             height = maxWidth / aspect;
         }
         return new double[]{height, height * aspect};
+    }
+
+    private double availableImageWidth(EditorArea area) {
+        return Math.max(1.0, area.getWidth() - area.getInsets().getLeft() - area.getInsets().getRight()
+                - textLeftPadding(area) - LINE_NO_COMPENSATE - FRAME_BORDER * 2);
     }
 
     private int totalParagraphHeight(EditorArea area, MarkdownImage info) {
@@ -414,8 +443,6 @@ public final class MarkdownImageManager {
             return;
         }
         for (var line : imageByLine.keySet()) {
-            var info = imageByLine.get(line);
-            if (info.stopTracking != null) info.stopTracking.run();
             clearImageParagraphStyle(area, line);
             area.recreateParagraphGraphic(line);
         }
@@ -430,16 +457,18 @@ public final class MarkdownImageManager {
         var diagnostic = new MarkdownImageLoadLog("body", info.key,
                 area.getEditor().getSourceFile(), info.lineIndex + 1);
         info.loadLog = diagnostic;
-        ThreadUtils.submit(() -> {
-            Image image;
+        info.loadTask = MarkdownImageTasks.submit(() -> {
+            MarkdownImageDecoder.Result decoded;
             try {
-                image = loadImage(info, diagnostic);
+                decoded = loadImage(info, diagnostic);
             } catch (Exception e) {
                 diagnostic.fail("load threw exception", e);
-                image = null;
+                decoded = null;
             }
+            if (Thread.currentThread().isInterrupted()) return;
+            Image image = decoded == null ? null : decoded.getImage();
             diagnostic.complete(image);
-            cacheImage(info.key, image);
+            cacheImage(info.key, decoded);
             Image loaded = image;
             if (!ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted()) {
                 Platform.runLater(() -> onImageLoaded(area, info, loaded, diagnostic));
@@ -456,6 +485,7 @@ public final class MarkdownImageManager {
             return;
         }
         info.loading = false;
+        info.loadTask = null;
         int index = info.lineIndex;
         if (destroyed || area != currentArea
                 || isOverLimit(area)
@@ -463,68 +493,32 @@ public final class MarkdownImageManager {
             if (diagnostic != null) diagnostic.event("result skipped stale image or inactive document");
             return;
         }
-        if (image != null && !image.isError() && image.getProgress() < 1.0) {
-            trackProgress(area, info, image, diagnostic);
-        }
-        if (image != null && !image.isError() && image.getWidth() > 0) {
-            info.imageWidth = image.getWidth();
-            info.imageHeight = image.getHeight();
-        }
         applyImageParagraphStyle(area, index, info);
         area.recreateParagraphGraphic(index);
     }
 
-    /** 每张图片只注册一次完成监听，完成、换源或离开文档时同时解除两个属性的监听。 */
-    private void trackProgress(EditorArea area, MarkdownImage info, Image image, MarkdownImageLoadLog diagnostic) {
-        if (info.stopTracking != null) return;
-        InvalidationListener listener = observable -> {
-            if (image.getProgress() < 1.0 && !image.isError()) return;
-            if (info.stopTracking != null) info.stopTracking.run();
-            onImageLoaded(area, info, image, diagnostic);
-        };
-        info.stopTracking = () -> {
-            image.progressProperty().removeListener(listener);
-            image.errorProperty().removeListener(listener);
-            info.stopTracking = null;
-        };
-        image.progressProperty().addListener(listener);
-        image.errorProperty().addListener(listener);
-    }
-
-    private Image loadImage(MarkdownImage info, MarkdownImageLoadLog diagnostic) {
+    private MarkdownImageDecoder.Result loadImage(MarkdownImage info, MarkdownImageLoadLog diagnostic) throws IOException {
         var resolved = info.resolved;
         if (resolved.remote()) {
-            return MarkdownRemoteImageLoader.load(resolved.url(), diagnostic, 0, 0);
+            return MarkdownRemoteImageLoader.loadDecoded(resolved.url(), diagnostic, 0, 0);
         }
         File file = resolved.file();
-        if (file == null || !file.isFile()) {
-            diagnostic.fail("local file missing or not a regular file", null);
-            return null;
-        }
-        Image image = new Image(resolved.url(), false);
-        if (!image.isError()) {
-            return image;
-        }
-        // JavaFX 不支持的格式（webp 等）走 ImageIO + twelvemonkeys
-        diagnostic.event("JavaFX decode failed; trying ImageIO causes=" + image.getException());
-        try {
-            var bufferedImage = ImageIO.read(file);
-            if (bufferedImage != null) {
-                return SwingFXUtils.toFXImage(bufferedImage, null);
-            }
-        } catch (IOException | RuntimeException e) {
-            diagnostic.fail("ImageIO decode threw exception", e);
-        }
-        diagnostic.fail("no ImageIO decoder accepted image", image.getException());
-        return null;
+        if (file == null || !file.isFile()) throw new IOException("Local image file missing");
+        return MarkdownImageDecoder.decode(file, 0, 0);
     }
 
     private synchronized Image cachedImage(String key) {
-        return imageCache.get(key);
+        var cached = imageCache.get(key);
+        return cached == null ? null : cached.image().get();
     }
 
-    private synchronized void cacheImage(String key, Image image) {
-        imageCache.put(key, image);
+    private synchronized void cacheImage(String key, MarkdownImageDecoder.Result decoded) {
+        imageCache.put(key, decoded == null ? null : new CachedImage(
+                new java.lang.ref.WeakReference<>(decoded.getImage()), decoded.getWidth(), decoded.getHeight()));
+    }
+
+    private synchronized void removeCachedImage(String key) {
+        imageCache.remove(key);
     }
 
     private synchronized boolean isKnownFailure(String key) {
@@ -749,7 +743,7 @@ public final class MarkdownImageManager {
         double imageHeight = -1;
         double sourceHeight = -1;
         boolean loading;
-        Runnable stopTracking;
+        Future<?> loadTask;
         MarkdownImageLoadLog loadLog;
 
         MarkdownImage(int lineIndex, String alt, Resolved resolved, double styleZoom, double width) {
