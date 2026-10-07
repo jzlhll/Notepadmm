@@ -89,6 +89,10 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     private val zoom = SimpleDoubleProperty(1.0)
     private val panX = Var.newSimpleVar(0.0)
     private val scale = Scale(1.0, 1.0, 0.0, 0.0)
+    private val clipRect = Rectangle().apply {
+        widthProperty().bind(this@EditorZoomViewport.widthProperty())
+        heightProperty().bind(this@EditorZoomViewport.heightProperty())
+    }
     private val emojiRendering = MarkdownEmojiRendering(area)
     private val taskRendering = MarkdownTaskRendering(area)
     private val emojiPulse = Runnable {
@@ -123,12 +127,9 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
             }
         }
         backgroundProperty().bind(area.backgroundProperty())
-        area.transforms.add(scale)
         area.isManaged = false
-        clip = Rectangle().apply {
-            widthProperty().bind(this@EditorZoomViewport.widthProperty())
-            heightProperty().bind(this@EditorZoomViewport.heightProperty())
-        }
+        clip = clipRect
+        applyZoomRendering(zoom.get())
         panX.addListener { _, _, value -> area.layoutX = -value }
         addEventFilter(ScrollEvent.SCROLL) { event ->
             if (zoom.get() <= 1.0) return@addEventFilter
@@ -143,18 +144,29 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     fun setZoom(factor: Double) {
         if (zoom.get() == factor) return
         val offset = scrollX.value / zoom.get() * factor
-        scale.x = factor
-        scale.y = factor
         zoom.set(factor)
+        applyZoomRendering(factor)
         requestLayout()
         scrollXToPixel(offset)
+    }
+
+    /** 仅在放大时挂载缩放变换，100% 直接透传原生渲染路径。 */
+    private fun applyZoomRendering(factor: Double) {
+        if (factor > 1.0) {
+            scale.x = factor
+            scale.y = factor
+            if (!area.transforms.contains(scale)) area.transforms.add(scale)
+        } else {
+            area.transforms.remove(scale)
+            panX.value = 0.0
+        }
     }
 
     override fun layoutChildren() {
         val factor = zoom.get()
         // 放大时保留原排版宽度，超出视口的部分交给外层横向滚动。
         area.resize(width, height / factor)
-        scrollXToPixel(scrollX.value)
+        if (factor > 1.0) scrollXToPixel(scrollX.value)
     }
 
     fun clearEmojiRendering() {
