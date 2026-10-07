@@ -73,6 +73,13 @@ class MarkdownEditingActions(private val area: EditorArea) {
             indent(event.isShiftDown)
             return true
         }
+        if (event.code == KeyCode.ENTER && plainEnter()) {
+            if (event.isShiftDown) {
+                change(area.selection.start, area.selection.end, "  \n", area.selection.start + 3)
+                return true
+            }
+            return false
+        }
         // 普通退格不依赖全文结构，只有命中列表或引用前缀边界时才查询 AST。
         if (event.code == KeyCode.BACK_SPACE) {
             if (area.selection.length > 0) return false
@@ -108,6 +115,31 @@ class MarkdownEditingActions(private val area: EditorArea) {
             else -> Unit
         }
         return false
+    }
+
+    /** 只允许普通正文单行内的修改走快速路径，其他结构仍查询当前版本，不能用旧 AST 改写内容。 */
+    private fun plainEnter(): Boolean {
+        if (area.selection.length != 0) return false
+        val state = (area.editor as EditorAreaMgrCode).cachedMarkdownSnapshot() ?: return false
+        val index = area.currentParagraph
+        val line = state.lines.getOrNull(index) ?: return false
+        if (line.heading > 0 || line.listDepth > 0 || line.quoteDepth > 0 || line.code || line.frontMatter || line.rule ||
+            state.isEmbeddedLine(index) || state.intersectsLiteralBlocks(line.start, line.end)) return false
+        val source = area.text
+        if (source == state.text) return !state.isLiteral(area.caretPosition)
+        val content = area.getParagraph(index).text
+        val previous = state.text.substring(line.start, line.end)
+        fun plain(value: String): Boolean = value.isNotBlank() && !value.startsWith("    ") &&
+            !value.startsWith('\t') && item.find(value) == null &&
+            value.none { it in "`~*#-+><[]\$=_\\|" }
+        if (!plain(content) || !plain(previous)) return false
+        val start = area.getAbsolutePosition(index, 0)
+        if (start != line.start) return false
+        val end = start + content.length
+        val suffix = source.length - end
+        // 前后文必须完整一致，包含空行及 Setext 下划线；只复用这一行已知的普通正文属性。
+        return suffix == state.text.length - line.end && source.regionMatches(0, state.text, 0, start) &&
+            source.regionMatches(end, state.text, line.end, suffix)
     }
 
     private fun enter(state: MarkdownStructureSnapshot, line: MarkdownStructureSnapshot.Line): Boolean {

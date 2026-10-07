@@ -2,6 +2,8 @@ package com.allan.atools.richtext.codearea.keywordhelper
 
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
 import org.commonmark.ext.front.matter.YamlFrontMatterBlock
+import org.commonmark.ext.footnotes.FootnoteDefinition
+import org.commonmark.ext.footnotes.FootnoteReference
 import org.commonmark.node.*
 
 /** 同一源码的不可变结构快照，供排版、键盘操作、目录和定位共用。 */
@@ -9,6 +11,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     data class Range(val start: Int, val end: Int)
     data class Element(val node: Node, val parent: Int, val ranges: List<Range>)
     data class HeadingEntry(val level: Int, val title: String, val line: Int, val anchor: String)
+    data class HtmlDependency(val kind: String, val name: String, val value: String? = null, val extra: String? = null)
     data class SyntaxGroup(val start: Int, val end: Int, val markers: List<Range>)
     data class FrontMatter(val firstLine: Int, val lastLine: Int, val closed: Boolean, val body: Range)
     data class Line(
@@ -27,6 +30,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     val details: List<MarkdownDetailsBlocks.Block>
     val frontMatter: List<FrontMatter>
     val embeddedBlocks: List<MarkdownEmbeddedBlocks.Block>
+    val htmlDependencies: List<HtmlDependency>
     private val protectedRanges = ArrayList<Range>()
     private val inlineCodeRanges = HashSet<Range>()
     private val protectedBlockLines = HashSet<Int>()
@@ -47,6 +51,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         val anchors = HashMap<String, Int>()
         val usedAnchors = HashSet<String>()
         val metadata = ArrayList<FrontMatter>()
+        val dependencies = ArrayList<HtmlDependency>()
         val metadataEnd = Regex("^(?:---|\\.\\.\\.)(?:\\s.*)?$")
 
         fun mark(begin: Int, end: Int) {
@@ -69,6 +74,13 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         }
         fun visit(node: Node, parent: Int, quote: Int, list: Int) {
             val ranges = node.sourceSpans.map { Range(it.inputIndex, it.inputIndex + it.length) }
+            // 块外定义、脚注编号和目录会影响块内 HTML，普通正文修改无需重新渲染整篇文档。
+            when (node) {
+                is LinkReferenceDefinition -> dependencies.add(HtmlDependency("link", node.label, node.destination, node.title))
+                is FootnoteReference -> dependencies.add(HtmlDependency("note-reference", node.label))
+                is FootnoteDefinition -> dependencies.add(HtmlDependency("note-definition", node.label,
+                    ranges.firstOrNull()?.let { text.substring(it.start, ranges.last().end) }))
+            }
             val id = nodes.size
             nodes.add(Element(node, parent, ranges))
             val quoteDepth = quote + if (node is BlockQuote) 1 else 0
@@ -157,6 +169,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                         }
                         anchors[base] = occurrence + 1
                         titles.add(HeadingEntry(node.level, title, first.lineIndex, anchor))
+                        dependencies.add(HtmlDependency("heading-${node.level}", title, anchor))
                         val atx = Regex("^[ \\t]*#{1,6}(?=[ \\t]|$)").find(text.substring(begin, begin + first.length))
                         if (atx != null) {
                             var content = begin + atx.range.last + 1
@@ -239,6 +252,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         details = MarkdownDetailsBlocks.parse(this)
         frontMatter = metadata.toList()
         embeddedBlocks = MarkdownEmbeddedBlocks.collect(this)
+        htmlDependencies = dependencies.toList()
     }
 
     fun lineAt(position: Int): Int {
@@ -269,5 +283,18 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         element.node is Link && element.ranges.any { position >= it.start && position < it.end }
     }?.node as? Link
 
-    fun isEmbeddedLine(line: Int): Boolean = embeddedBlocks.any { line in it.firstLine..it.lastLine }
+    fun isEmbeddedLine(line: Int): Boolean {
+        var low = 0
+        var high = embeddedBlocks.lastIndex
+        while (low <= high) {
+            val middle = (low + high) / 2
+            val block = embeddedBlocks[middle]
+            when {
+                line < block.firstLine -> high = middle - 1
+                line > block.lastLine -> low = middle + 1
+                else -> return true
+            }
+        }
+        return false
+    }
 }

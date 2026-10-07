@@ -6,7 +6,6 @@ import javafx.beans.property.BooleanProperty
 import javafx.geometry.Insets
 import javafx.scene.layout.Region
 import javafx.scene.text.TextFlow
-import org.fxmisc.flowless.VirtualFlow
 import java.util.IdentityHashMap
 
 /** 可见段落按类型换行，长源码行提供横向范围，正文仍使用视口宽度。 */
@@ -21,19 +20,24 @@ class MarkdownParagraphWrapSupport(private val area: CodeArea) {
 
     private class Entry(val wrap: BooleanProperty, val padding: Insets, var forced: Boolean = false)
     private val entries = IdentityHashMap<Region, Entry>()
+    private var visible = emptyList<Region>()
     private var layoutPending = false
 
-    fun refresh(enabled: Boolean) {
+    fun refresh(enabled: Boolean, collect: Boolean = true) {
         if (!enabled) {
             clear()
             return
         }
         var changed = false
-        val visible = area.lookupAll(".paragraph-box").filterIsInstance<Region>().toSet()
+        val flow = MarkdownVisibleParagraphs.flow(area)
+        if (collect) visible = MarkdownVisibleParagraphs.boxes(flow)
+        val visibleSet = visible.toHashSet()
+        val extraWidth = if (area.isWrapText && flow != null)
+            Math.max(0.0, flow.totalWidthEstimateProperty().value - flow.width) else 0.0
         val iterator = entries.entries.iterator()
         while (iterator.hasNext()) {
             val (box, entry) = iterator.next()
-            if (box !in visible) {
+            if (box !in visibleSet) {
                 restore(box, entry)
                 iterator.remove()
             }
@@ -50,12 +54,8 @@ class MarkdownParagraphWrapSupport(private val area: CodeArea) {
                 entry.forced = force
                 changed = true
             }
-            var parent = box.parent
-            while (parent != null && parent !is VirtualFlow<*, *>) parent = parent.parent
-            val flow = parent as? VirtualFlow<*, *>
             // Flowless 给所有段落使用相同宽度；扣掉长行多出的部分，避免正文也被撑宽。
-            val extra = if (!force && area.isWrapText && flow != null)
-                Math.max(0.0, flow.totalWidthEstimateProperty().value - flow.width) else 0.0
+            val extra = if (!force) extraWidth else 0.0
             val original = entry.padding
             val padding = Insets(original.top, original.right + extra, original.bottom, original.left)
             if (box.padding != padding) {
@@ -84,5 +84,6 @@ class MarkdownParagraphWrapSupport(private val area: CodeArea) {
     fun clear() {
         entries.forEach { (box, entry) -> restore(box, entry) }
         entries.clear()
+        visible = emptyList()
     }
 }

@@ -33,10 +33,14 @@ import javax.imageio.ImageIO
 class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private class Entry(var block: MarkdownEmbeddedBlocks.Block) {
         var html: String? = null
+        var comparableHtml: String? = null
+        var source: String? = null
         var renderedStart = block.start
         var renderedLine = block.firstLine
         var height = 0.0
         var preview = false
+        var styledHeight: Double? = null
+        var searchHit = false
         var readingState: String? = null
         val taskStates = HashMap<Int, Boolean>()
     }
@@ -49,12 +53,16 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private var generation = 0L
     private var renderTask: Future<*>? = null
     private var anchors = emptyMap<String, Int>()
+    private var renderedDependencies: List<MarkdownStructureSnapshot.HtmlDependency>? = null
+    private var renderedBlockCount = 0
+    private var renderingRequired = false
+    private var forceReload = false
     private var installed = false
     private var disposed = false
     private var pending = false
     private val selectionChanged = InvalidationListener { requestRefresh() }
     private val layoutChanged = InvalidationListener {
-        entries.forEach { it.height = 0.0 }
+        // 保留上次测量高度，等页面回报新高度后再调整，避免滚动文档先收缩再展开。
         views.keys.toList().forEach { it.resizeContent() }
         requestRefresh()
     }
@@ -76,9 +84,20 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
         val previous = entries.associateBy { it.block.start }
         val next = state.embeddedBlocks.map { block ->
-            previous[block.start]?.also { it.block = block } ?: Entry(block)
+            (previous[block.start]?.also { entry ->
+                if (entry.block.firstLine != block.firstLine || entry.block.lastLine != block.lastLine) {
+                    styles(entry, false)
+                    entry.styledHeight = null
+                }
+                entry.block = block
+            } ?: Entry(block)).also { entry ->
+                entry.searchHit = area.getStyleSpans(block.start, block.end).any {
+                    "search" in it.style || "temporary" in it.style
+                }
+            }
         }
-        val removed = entries.filterNot { it in next }
+        val retained = next.toHashSet()
+        val removed = entries.filterNot { it in retained }
         removed.forEach { styles(it, false) }
         views.keys.toList().filter { views[it] in removed }.forEach { it.release() }
         entries = next
@@ -88,14 +107,30 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         taskPositionsCurrent = true
         version = area.editor.contentVersion
         file = area.editor.sourceFile
-        if (changed) render(state, changedFile)
+        if (changed && (renderingRequired || changedFile || renderedDependencies != state.htmlDependencies || renderedBlockCount != entries.size ||
+            entries.any { entry ->
+                val source = entry.source
+                source == null || source.length != entry.block.end - entry.block.start ||
+                    !state.text.regionMatches(entry.block.start, source, 0, source.length)
+            })) render(state, changedFile)
+        anchors = anchors + state.headings.associate { it.anchor to state.lines[it.line].start }
         refresh()
     }
 
     private fun render(state: MarkdownStructureSnapshot, force: Boolean = false) {
+        renderingRequired = true
+        forceReload = forceReload || force
+        val reload = forceReload
         val token = ++generation
         renderTask?.cancel(true)
-        if (entries.isEmpty()) return
+        if (entries.isEmpty()) {
+            renderingRequired = false
+            forceReload = false
+            renderedDependencies = state.htmlDependencies
+            renderedBlockCount = 0
+            anchors = emptyMap()
+            return
+        }
         val base = file?.parentFile?.toURI()?.toASCIIString()
         renderTask = ThreadUtils.submit {
             try {
@@ -128,27 +163,38 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     else element.outerHtml()
                     buffers.getValue(block.start).append(html)
                 }
-                val fragments = buffers.mapValues { it.value.toString() }
+                // HTML 归一化也留在后台，界面线程只比较结果并更新实际变化的页面。
+                val fragments = buffers.mapValues { (_, buffer) ->
+                    val html = buffer.toString()
+                    html to stableHtml(html)
+                }
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
-                    if (disposed || token != generation || snapshot !== state || state.text != area.text ||
+                    if (disposed || token != generation || snapshot !== state ||
                         version != area.editor.contentVersion || file != area.editor.sourceFile) return@runLater
                     renderTask = null
+                    renderingRequired = false
+                    forceReload = false
                     anchors = targets
+                    renderedDependencies = state.htmlDependencies
+                    renderedBlockCount = entries.size
                     for (entry in entries) {
+                        entry.source = state.text.substring(entry.block.start, entry.block.end)
                         // HTML 注释没有可显示节点，保留可点击的简短占位，编辑时恢复全文。
-                        val html = fragments[entry.block.start].orEmpty().ifEmpty {
+                        val fragment = fragments[entry.block.start]
+                        val html = fragment?.first.orEmpty().ifEmpty {
                             if (state.text.substring(entry.block.start, entry.block.end).trimStart().startsWith("<!--"))
                                 "<span class=\"source-placeholder\">${MarkdownPreviewWindow.escape(Locales.str("markdown.hiddenComment"))}</span>"
                             else ""
                         }
                         if (html.isEmpty()) { entry.html = null; continue }
-                        if (!force && entry.html?.let(::stableHtml) == stableHtml(html)) continue
+                        val comparable = if (fragment?.first?.isNotEmpty() == true) fragment.second else stableHtml(html)
+                        if (!reload && entry.html != null && entry.comparableHtml == comparable) continue
                         entry.html = html
+                        entry.comparableHtml = comparable
                         entry.taskStates.clear()
                         entry.renderedStart = entry.block.start
                         entry.renderedLine = entry.block.firstLine
-                        entry.height = 0.0
                         views.keys.toList().filter { views[it] === entry }.forEach { it.load() }
                     }
                     refresh()
@@ -163,10 +209,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     }
 
     private fun stableHtml(html: String): String {
-        val coordinates = Regex("data-source-(?:start|line)=\"[0-9]+\"")
-        val checked = Regex("\\schecked(?:=\"[^\"]*\")?")
-        return Regex("<input\\b[^>]*>").replace(html.replace(coordinates, "")) { tag ->
-            tag.value.replace(checked, "")
+        return INPUT_TAG.replace(html.replace(SOURCE_COORDINATES, "")) { tag ->
+            tag.value.replace(CHECKED_ATTRIBUTE, "")
         }
     }
 
@@ -182,8 +226,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     private fun refresh() {
         if (disposed || area.markdownComposing) return
-        val state = snapshot ?: return
-        if (state.text != area.text || version != area.editor.contentVersion) return
+        if (snapshot == null || version != area.editor.contentVersion || entries.isEmpty()) return
+        var changed = false
         area.suspendVisibleParsWhileInvoke {
             for (entry in entries) {
                 val block = entry.block
@@ -191,37 +235,45 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 val editing = (area.isFocused || selection.length > 0) &&
                     if (selection.length == 0) area.caretPosition in block.start..block.end
                     else selection.start < block.end && selection.end > block.start
-                val search = (block.firstLine..block.lastLine).any { line ->
-                    val source = state.lines[line]
-                    area.getStyleSpans(source.start, source.end).any { "search" in it.style || "temporary" in it.style }
-                }
-                val preview = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !search
-                styles(entry, preview)
+                val preview = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !entry.searchHit
+                if (styles(entry, preview)) changed = true
             }
         }
         views.keys.toList().forEach { it.syncReadonly() }
-        area.requestLayout()
+        if (changed) area.requestLayout()
     }
 
-    private fun styles(entry: Entry, preview: Boolean) {
-        val changed = entry.preview != preview
+    private fun styles(entry: Entry, preview: Boolean): Boolean {
+        val height = if (preview) Math.max(32.0, entry.height) else -1.0
+        if (entry.preview == preview && entry.styledHeight == height) return false
+        val changed = entry.preview != preview || entry.styledHeight == null
         entry.preview = preview
-        for (line in entry.block.firstLine..entry.block.lastLine) {
+        entry.styledHeight = height
+        // 单纯测高只影响首行，余下源码行继续保持收起状态。
+        val last = if (changed) entry.block.lastLine else entry.block.firstLine
+        for (line in entry.block.firstLine..last) {
             if (line !in area.paragraphs.indices) continue
             val old = area.getParagraph(line).paragraphStyle
             val next = old.filterNot { it.startsWith(CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX) }.toMutableList()
             if (preview) next.add(CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX + if (line == entry.block.firstLine)
-                Math.max(32.0, entry.height) else 0.0)
+                height else 0.0)
             if (old != next) area.setParagraphStyle(line, next)
             if (changed) area.recreateParagraphGraphic(line)
         }
+        return true
     }
 
     private fun width(base: Node?): Double = Math.max(40.0, area.width - area.insets.left - area.insets.right -
         (base?.prefWidth(-1.0) ?: 0.0) - MarkdownEditorSupport.textLeftPadding(area) - 12.0)
 
     private fun graphic(line: Int, base: Node?): Node? {
-        val entry = entries.firstOrNull { it.preview && line in it.block.firstLine..it.block.lastLine } ?: return base
+        var low = 0
+        var high = entries.lastIndex
+        while (low <= high) {
+            val middle = (low + high) / 2
+            if (entries[middle].block.firstLine <= line) low = middle + 1 else high = middle - 1
+        }
+        val entry = entries.getOrNull(high)?.takeIf { it.preview && line <= it.block.lastLine } ?: return base
         if (line != entry.block.firstLine) return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
         if (views.values.toSet().size >= 8 && entry !in views.values) {
             Platform.runLater { if (entry in entries) { entry.html = null; styles(entry, false) } }
@@ -231,7 +283,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     }
 
     private fun edit(position: Int) {
-        if (disposed || area.markdownComposing || version != area.editor.contentVersion || file != area.editor.sourceFile || snapshot?.text != area.text) return
+        if (disposed || area.markdownComposing || version != area.editor.contentVersion || file != area.editor.sourceFile || snapshot == null) return
         area.selectRange(Math.max(0, Math.min(position, area.length)), Math.max(0, Math.min(position, area.length)))
         area.requestFocus()
         requestRefresh()
@@ -245,6 +297,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         private var revision = 0L
         private var live = false
         private var ready = false
+        private var readonly: Boolean? = null
         private var pageTask: Future<*>? = null
         private val bridge = Bridge()
 
@@ -331,6 +384,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             if (!live || disposed || entry.html == null) return
             saveReadingState()
             ready = false
+            readonly = null
             revision++
             imageTasks.forEach(MarkdownImageTasks::cancel)
             imageTasks.clear()
@@ -419,8 +473,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
 
         fun syncReadonly() {
-            if (live && ready && web.engine.loadWorker.state == Worker.State.SUCCEEDED)
-                web.engine.executeScript("embeddedReadonly(${!area.isEditable})")
+            val next = !area.isEditable
+            if (live && ready && web.engine.loadWorker.state == Worker.State.SUCCEEDED && readonly != next) {
+                web.engine.executeScript("embeddedReadonly($next)")
+                readonly = next
+            }
         }
 
         fun resizeContent() {
@@ -453,7 +510,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         /** 固定本地脚本的桥接，不向文档中的脚本或外部导航暴露编辑器。 */
         inner class Bridge {
             fun height(value: Double) {
-                if (!live || !ready || disposed || !value.isFinite() || value < 1 || entry !in entries || !entry.preview) return
+                if (!live || !ready || disposed || !value.isFinite() || value < 1 || entry !in entries) return
                 if (value > 30_000) { entry.html = null; requestRefresh(); return }
                 val next = Math.ceil(value)
                 if (kotlin.math.abs(entry.height - next) < 1) return
@@ -513,6 +570,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     if (position !in entry.block.start until entry.block.end) continue
                     val renderedLine = line - entry.block.firstLine + entry.renderedLine
                     entry.taskStates[renderedLine] = checked
+                    entry.source = entry.source?.replaceRange(position - entry.block.start,
+                        position - entry.block.start + 1, inserted)
                     views.keys.toList().filter { views[it] === entry }.forEach { it.updateTask(renderedLine, checked) }
                 }
                 version = area.editor.contentVersion
@@ -523,6 +582,13 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         val delta = inserted.length - removed.length
         val lines = inserted.count { it == '\n' } - removed.count { it == '\n' }
         val end = position + removed.length
+        anchors = anchors.mapNotNull { (id, offset) ->
+            when {
+                offset < position -> id to offset
+                offset >= end -> id to offset + delta
+                else -> null
+            }
+        }.toMap()
         val retained = ArrayList<Entry>()
         for (entry in entries) {
             val block = entry.block
@@ -548,6 +614,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         entries.forEach { styles(it, false) }
         entries = emptyList()
         snapshot = null
+        renderedDependencies = null
+        renderedBlockCount = 0
+        renderingRequired = false
+        forceReload = false
+        anchors = emptyMap()
         taskPositionsCurrent = false
         views.keys.toList().forEach { it.release() }
     }
@@ -565,5 +636,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         UIContext.getFontSizeProperty().removeListener(themeChanged)
         UIContext.getFontThemeProperty().removeListener(themeChanged)
         MarkdownThemes.revisionProperty().removeListener(themeChanged)
+    }
+
+    companion object {
+        private val SOURCE_COORDINATES = Regex("data-source-(?:start|line)=\"[0-9]+\"")
+        private val CHECKED_ATTRIBUTE = Regex("\\schecked(?:=\"[^\"]*\")?")
+        private val INPUT_TAG = Regex("<input\\b[^>]*>")
     }
 }

@@ -94,7 +94,10 @@ class MarkdownClipboard(private val area: EditorArea) {
         private fun htmlToMarkdown(node: Node): String {
             if (node is TextNode) return MarkdownSourceText.escape(node.wholeText)
             if (node !is Element) return ""
-            if (node.hasClass("md-task-icon")) return MarkdownInlineCode.encode(node.wholeText())
+            if (node.hasClass("md-task-icon")) {
+                val source = node.selectFirst(".md-task-source") ?: return ""
+                return MarkdownInlineCode.encode(source.wholeText())
+            }
             fun contents() = node.childNodes().joinToString("") { htmlToMarkdown(it) }
             val content = when (node.tagName()) {
                 "script", "style", "iframe", "object" -> ""

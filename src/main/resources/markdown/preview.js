@@ -4,7 +4,7 @@ function installPreviewBridge() {
   document.previewBridgeInstalled=true;
   document.addEventListener('dblclick', function(event) {
     var node=event.target.closest('[data-source-start]');
-    if(node && !event.target.closest('a,input,button')) editorBridge.edit(Number(node.getAttribute('data-source-start')));
+    if(node && !event.target.closest('a,input,button,.md-task-control')) editorBridge.edit(Number(node.getAttribute('data-source-start')));
   });
   document.addEventListener('click', function(event) {
     var anchor=event.target.closest('a');

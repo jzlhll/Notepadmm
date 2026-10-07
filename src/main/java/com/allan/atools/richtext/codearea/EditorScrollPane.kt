@@ -2,6 +2,7 @@ package com.allan.atools.richtext.codearea
 
 import com.allan.uilibs.richtexts.MyVirtualScrollPane
 import com.allan.atools.utils.ResLocation
+import javafx.beans.InvalidationListener
 import javafx.beans.property.ReadOnlyDoubleProperty
 import javafx.beans.property.ReadOnlyDoubleWrapper
 import javafx.beans.property.SimpleDoubleProperty
@@ -12,6 +13,7 @@ import javafx.scene.layout.Region
 import javafx.scene.shape.Rectangle
 import javafx.scene.transform.Scale
 import org.fxmisc.flowless.Virtualized
+import org.reactfx.Subscription
 import org.reactfx.value.Val
 import org.reactfx.value.Var
 import kotlin.math.abs
@@ -95,9 +97,16 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     }
     private val emojiRendering = MarkdownEmojiRendering(area)
     private val taskRendering = MarkdownTaskRendering(area)
+    private var decorationsDirty = true
+    private var decorationChanges: Subscription? = null
+    private val decorationsChanged = InvalidationListener { decorationsDirty = true }
     private val emojiPulse = Runnable {
-        emojiRendering.refresh()
-        taskRendering.refresh()
+        if (decorationsDirty) {
+            decorationsDirty = false
+            val texts = MarkdownVisibleParagraphs.texts(area)
+            emojiRendering.refresh(texts)
+            taskRendering.refresh(texts)
+        }
     }
     private val totalWidth: Val<Double> = Val.combine(
         area.totalWidthEstimateProperty(), area.widthProperty(), area.insetsProperty(), zoom
@@ -117,10 +126,21 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     init {
         styleClass.add("editor-zoom-viewport")
         children.addAll(area, emojiRendering, taskRendering)
+        area.needsLayoutProperty().addListener(decorationsChanged)
+        area.visibleParagraphs.addListener(decorationsChanged)
+        area.estimatedScrollXProperty().addListener(decorationsChanged)
+        area.estimatedScrollYProperty().addListener(decorationsChanged)
+        area.editableProperty().addListener(decorationsChanged)
+        area.visibleProperty().addListener(decorationsChanged)
+        area.opacityProperty().addListener(decorationsChanged)
         // 布局完成后再取字形位置，避免在 TextFlow 排版中途生成快照。
         sceneProperty().addListener { _, previous, current ->
             previous?.removePostLayoutPulseListener(emojiPulse)
+            decorationChanges?.unsubscribe()
+            decorationChanges = null
+            decorationsDirty = true
             current?.addPostLayoutPulseListener(emojiPulse)
+            if (current != null) decorationChanges = area.richChanges().subscribe { decorationsDirty = true }
             if (current == null) {
                 emojiRendering.clear()
                 taskRendering.clear()

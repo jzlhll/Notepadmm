@@ -19,6 +19,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
     private var version = -1L
     private var groupsByLine = emptyArray<MutableList<Int>?>()
     private var expanded = emptySet<Int>()
+    private var expandedRanges = emptyList<MarkdownStructureSnapshot.Range>()
     private var pointerDown = false
     private var pointerSequence = 0L
     private var textPointer = false
@@ -92,13 +93,30 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
         val next = if (enabled()) selectedGroups(value) else emptySet()
         val desired = if (enabled()) next.flatMap { value.syntaxGroups[it].markers } else styledRanges(COLLAPSIBLE)
         // 直接对齐最终状态，不能先全量收起再展开，否则每次高亮都会重建同一批文本节点。
-        val actual = styledRanges(EXPANDED)
+        val actual = styledRanges(EXPANDED, expandedRanges)
         area.suspendVisibleParsWhileInvoke {
             changeExpanded(subtract(actual, desired), false)
             changeExpanded(subtract(desired, actual), true)
         }
         expanded = next
+        expandedRanges = mergeRanges(desired)
         area.markdownPresentation.refreshFrontMatterDelimiters()
+    }
+
+    fun onTextChanged(position: Int, removed: String, inserted: String) {
+        val end = position + removed.length
+        val delta = inserted.length - removed.length
+        expandedRanges = expandedRanges.mapNotNull { range ->
+            when {
+                range.end < position -> range
+                range.start > end -> MarkdownStructureSnapshot.Range(range.start + delta, range.end + delta)
+                else -> {
+                    val start = Math.min(range.start, position)
+                    val last = if (range.end >= end) range.end + delta else position + inserted.length
+                    if (last > start) MarkdownStructureSnapshot.Range(start, last) else null
+                }
+            }
+        }
     }
 
     fun requestRefresh() {
@@ -127,6 +145,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             changeExpanded(subtract(desired, previous), true)
         }
         expanded = next
+        expandedRanges = mergeRanges(desired)
         area.markdownPresentation.refreshFrontMatterDelimiters()
         area.requestLayout()
         if (area.isFocused) area.requestFollowCaret()
@@ -171,13 +190,19 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
         return result
     }
 
-    private fun styledRanges(style: String): List<MarkdownStructureSnapshot.Range> {
+    private fun styledRanges(style: String, candidates: List<MarkdownStructureSnapshot.Range>? = null): List<MarkdownStructureSnapshot.Range> {
         if (area.length == 0) return emptyList()
-        var offset = 0
         val ranges = ArrayList<MarkdownStructureSnapshot.Range>()
-        for (span in area.getStyleSpans(0, area.length)) {
-            if (style in span.style && span.length > 0) ranges.add(MarkdownStructureSnapshot.Range(offset, offset + span.length))
-            offset += span.length
+        // 展开标记只由本类写入，记录其范围并随编辑平移，无需每次高亮后扫描全文样式。
+        val sources = candidates?.let(::mergeRanges) ?: listOf(MarkdownStructureSnapshot.Range(0, area.length))
+        for (range in sources) {
+            var offset = Math.max(0, range.start)
+            val end = Math.min(area.length, range.end)
+            if (offset >= end) continue
+            for (span in area.getStyleSpans(offset, end)) {
+                if (style in span.style && span.length > 0) ranges.add(MarkdownStructureSnapshot.Range(offset, offset + span.length))
+                offset += span.length
+            }
         }
         return ranges
     }
@@ -232,7 +257,9 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
 
     fun clear() {
         if (disposed) return
-        changeExpanded(styledRanges(COLLAPSIBLE), true)
+        val ranges = styledRanges(COLLAPSIBLE)
+        changeExpanded(ranges, true)
+        expandedRanges = ranges
         snapshot = null
         groupsByLine = emptyArray()
         expanded = emptySet()
@@ -249,6 +276,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
         area.removeEventFilter(MouseEvent.MOUSE_RELEASED, released)
         snapshot = null
         groupsByLine = emptyArray()
+        expandedRanges = emptyList()
     }
 
     companion object {

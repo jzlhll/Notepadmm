@@ -13,7 +13,6 @@ import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import javafx.scene.paint.Paint
 import javafx.scene.shape.MoveTo
-import javafx.scene.shape.Rectangle
 import javafx.scene.text.Font
 import javafx.scene.text.Text
 import javafx.scene.text.TextFlow
@@ -22,9 +21,9 @@ import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.floor
 
-/** 以高分辨率系统字形覆盖表情，原 Text 保留排版、光标与源码坐标。 */
+/** 高清表情挂在原段落内，直接随段落滚动；原 Text 保留排版、光标与源码坐标。 */
 class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
-    private class Entry(val view: ImageView, val opacity: Double) {
+    private class Entry(val view: ImageView, val opacity: Double, val flow: TextFlow) {
         var rasterKey: Key? = null
         var raster: Raster? = null
         var measurement: Measurement? = null
@@ -38,7 +37,7 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
         isMouseTransparent = true
     }
 
-    fun refresh() {
+    fun refresh(texts: List<Text>) {
         if (scene == null) {
             clear()
             return
@@ -51,14 +50,14 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
             }
             ancestor = ancestor.parent
         }
-        val visible = area.lookupAll(".${CodeArea.MARKDOWN_EMOJI_RENDERED_CLASS}")
-            .filterIsInstance<Text>().filter { it.isVisible && it.scene === scene }.toSet()
+        val visible = texts.filter { CodeArea.MARKDOWN_EMOJI_RENDERED_CLASS in it.styleClass &&
+            it.isVisible && it.scene === scene }.toSet()
         val iterator = entries.entries.iterator()
         while (iterator.hasNext()) {
             val (text, entry) = iterator.next()
-            if (text !in visible) {
+            if (text !in visible || text.parent !== entry.flow) {
                 text.opacity = entry.opacity
-                children.remove(entry.view)
+                entry.flow.children.remove(entry.view)
                 iterator.remove()
             }
         }
@@ -85,18 +84,18 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
             if (raster == null) {
                 if (entry != null) {
                     text.opacity = entry.opacity
-                    children.remove(entry.view)
+                    entry.flow.children.remove(entry.view)
                     entries.remove(text)
                 }
                 continue
             }
             val current = entry ?: Entry(ImageView().apply {
                 isManaged = false
+                isMouseTransparent = true
                 isSmooth = true
-                clip = Rectangle()
-            }, text.opacity).also {
+            }, text.opacity, flow!!).also {
                 entries[text] = it
-                children.add(it.view)
+                it.flow.children.add(it.view)
             }
             current.rasterKey = key
             current.raster = raster
@@ -129,45 +128,24 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
                 ink.minY - raster.ink.minY * ratioY,
                 raster.image.width * ratioX, raster.image.height * ratioY
             )
-            val target = sceneToLocal(text.localToScene(local))
+            val target = text.localToParent(local)
             val view = current.view
             view.image = raster.image
             view.fitWidth = target.width
             view.fitHeight = target.height
             view.relocate(target.minX, target.minY)
-            var opacity = current.opacity
-            var clipBounds: Bounds = target
-            ancestor = text
-            var shown = true
-            while (ancestor != null && ancestor !== parent) {
-                val node = ancestor
-                if (!node.isVisible) shown = false
-                if (node !== text) opacity *= node.opacity
-                node.clip?.let { clip ->
-                    val bounds = sceneToLocal(node.localToScene(clip.boundsInParent))
-                    val left = Math.max(clipBounds.minX, bounds.minX)
-                    val top = Math.max(clipBounds.minY, bounds.minY)
-                    val right = Math.min(clipBounds.maxX, bounds.maxX)
-                    val bottom = Math.min(clipBounds.maxY, bounds.maxY)
-                    clipBounds = BoundingBox(left, top, Math.max(0.0, right - left), Math.max(0.0, bottom - top))
-                }
-                ancestor = node.parent
-            }
-            (view.clip as Rectangle).apply {
-                x = clipBounds.minX - target.minX
-                y = clipBounds.minY - target.minY
-                width = clipBounds.width
-                height = clipBounds.height
-            }
-            view.isVisible = shown
-            view.opacity = opacity
+            view.isVisible = true
+            view.opacity = current.opacity
             // 只有高清图生成成功后才隐藏原字形；Text 仍参与 TextFlow 排版与选区计算。
             text.opacity = 0.0
         }
     }
 
     fun clear() {
-        entries.forEach { (text, entry) -> text.opacity = entry.opacity }
+        entries.forEach { (text, entry) ->
+            text.opacity = entry.opacity
+            entry.flow.children.remove(entry.view)
+        }
         entries.clear()
         children.clear()
     }

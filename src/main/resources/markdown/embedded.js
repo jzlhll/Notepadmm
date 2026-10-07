@@ -1,5 +1,6 @@
 /* 编辑区内的固定块预览脚本；图片由共用后台加载器读取，页面不直接发起外部请求。 */
 var embeddedObserver;
+var embeddedHeightPending=false, embeddedLastHeight=-1;
 function embeddedTask(line,checked) {
   var item=document.querySelector('li[data-source-line="'+line+'"]');
   var input=item && item.querySelector('input[type=checkbox]');
@@ -9,9 +10,17 @@ function embeddedTasks(states) {
   states.forEach(function(state) {embeddedTask(state[0],state[1]);});
 }
 function embeddedHeight() {
-  if(typeof embeddedBridge==='undefined') return;
-  var article=document.querySelector('article');
-  embeddedBridge.height(Math.ceil(article.getBoundingClientRect().height));
+  if(embeddedHeightPending || typeof embeddedBridge==='undefined') return;
+  embeddedHeightPending=true;
+  requestAnimationFrame(function() {
+    embeddedHeightPending=false;
+    var article=document.querySelector('article');
+    if(!article) return;
+    var height=Math.ceil(article.getBoundingClientRect().height);
+    if(height===embeddedLastHeight) return;
+    embeddedLastHeight=height;
+    embeddedBridge.height(height);
+  });
 }
 function embeddedReadonly(readonly) {
   document.body.setAttribute('data-readonly',readonly);
@@ -36,7 +45,7 @@ function embeddedImage(index,data,width,height) {
 function embeddedReady() {
   window.editorBridge=embeddedBridge;
   document.addEventListener('dblclick',function(event) {
-    if(event.target.closest('a,input,button,summary')) return;
+    if(event.target.closest('a,input,button,summary,.md-task-control')) return;
     var hit=document.caretRangeFromPoint?document.caretRangeFromPoint(event.clientX,event.clientY):null;
     var text=hit && hit.startContainer.parentElement?hit.startContainer.parentElement.closest('[data-source-text]'):null;
     if(text) {

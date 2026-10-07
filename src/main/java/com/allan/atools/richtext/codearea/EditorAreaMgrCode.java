@@ -131,6 +131,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return markdownAstCache.snapshot(text);
     }
 
+    public MarkdownStructureSnapshot cachedMarkdownSnapshot() {
+        return markdownAstCache.peekSnapshot();
+    }
+
     public void openMarkdownLinkAt(int position) {
         if (!(mKeywordHelper instanceof EditorKeywordHelperImplMarkdown helper) || isDestroyed()) return;
         String text = getArea().getText();
@@ -263,7 +267,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         long optionsVersion = styleOptionsVersion;
         long contentVersion = getContentVersion();
         String text = area.getText();
-        var currentSpans = area.getStyleSpans(0, text.length());
+        var styledDocument = area.getContent().snapshot();
         var temporaryText = latestTemporaryText;
         var searchText = latestSearchText;
         var endCallback = latestEndCallback;
@@ -279,6 +283,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
             MarkdownStructureSnapshot structure = null;
             try {
                 if (canComputeStyle(requestId, optionsVersion, contentVersion, helper)) {
+                    var currentSpans = styledDocument.getStyleSpans(0, text.length());
                     var syntaxSpans = helper instanceof EditorKeywordHelperImplMarkdown
                             ? MarkdownSyntaxPresentation.highlightingStyles(currentSpans) : currentSpans;
                     update = helper.computeStyleUpdate(text, temporaryText, searchText, syntaxSpans,
@@ -339,8 +344,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     private boolean canComputeStyle(long requestId, long optionsVersion, long contentVersion,
                                     EditorKeywordHelperAbstract helper) {
         return isStyleTaskAlive(requestId, optionsVersion, helper)
-                && (helper instanceof EditorKeywordHelperImplMarkdown
-                || contentVersion == getContentVersion());
+                && contentVersion == getContentVersion();
     }
 
     private void resetStyleScheduler() {

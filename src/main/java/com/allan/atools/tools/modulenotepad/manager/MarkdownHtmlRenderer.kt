@@ -23,6 +23,7 @@ object MarkdownHtmlRenderer {
 
     @JvmStatic
     fun body(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false): String {
+        val headings = state.headings.associateBy { it.line }
         val renderer = HtmlRenderer.builder().extensions(MarkdownExtensions.all())
             .escapeHtml(false).sanitizeUrls(true).urlSanitizer(org.commonmark.renderer.html.DefaultUrlSanitizer(listOf("http", "https", "mailto", "file", "data"))).softbreak("<br>\n")
             .attributeProviderFactory {
@@ -31,7 +32,7 @@ object MarkdownHtmlRenderer {
                         attributes["data-source-start"] = span.inputIndex.toString()
                         attributes["data-source-line"] = span.lineIndex.toString()
                     }
-                    if (node is org.commonmark.node.Heading) state.headings.firstOrNull { it.line == node.sourceSpans.firstOrNull()?.lineIndex }
+                    if (node is org.commonmark.node.Heading) headings[node.sourceSpans.firstOrNull()?.lineIndex]
                         ?.let { attributes["id"] = it.anchor }
                 }
             }.nodeRendererFactory { context -> TechnicalRenderer(context, state, sourceMap) }.build()
@@ -41,6 +42,11 @@ object MarkdownHtmlRenderer {
         // CommonMark 的任务扩展只输出 input；给所属列表项明确分类，不能同时保留圆点。
         document.select("li > input[type=checkbox], li > p > input[type=checkbox]").forEach { input ->
             input.parents().firstOrNull { it.normalName() == "li" }?.addClass("task-list-item")
+        }
+        // WebView 对表单控件背景图的绘制不一致；原 input 负责交互，普通元素负责画框和勾号。
+        document.select("input[type=checkbox]").forEach { input ->
+            input.wrap("<label class=\"md-task-control\"></label>")
+            input.after("<span class=\"md-task-icon\" aria-hidden=\"true\"></span>")
         }
         // 图片只保留有限的整数尺寸，文档自定义 CSS 不执行。
         for (image in document.select("img[width],img[height]")) {

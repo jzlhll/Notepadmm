@@ -246,7 +246,7 @@ class EditorArea @JvmOverloads constructor(
         val followZoomCaret = followZoomCaretRequested
         followZoomCaretRequested = false
         val wrapMarkdown = isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached
-        paragraphWrapping.refresh(wrapMarkdown)
+        paragraphWrapping.refresh(wrapMarkdown, collect = false)
         super.layoutChildren()
         paragraphWrapping.refresh(wrapMarkdown)
         // 等原有光标跟随完成布局，再处理缩放视口的横向裁剪。

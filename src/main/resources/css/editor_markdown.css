@@ -267,10 +267,10 @@
 
 /* 矢量复选框从占位文本读取主题色，原文仍保留 [ ] / [x]。 */
 .markdown-editor .text.markdown-task-rendered { -fx-fill: -au-md-quote; }
-.markdown-editor .text.markdown-task-rendered.markdown-task-checked { -fx-fill: -au-md-link; }
+.markdown-editor .text.markdown-task-rendered.markdown-task-checked { -fx-fill: #2e9b50; }
 .markdown-editor .text.markdown-task-rendered.markdown-task-example { -rtfx-background-color: transparent; }
 .markdown-task-icon-empty { -fx-fill: transparent; -fx-stroke: -au-md-quote; }
-.markdown-task-icon-checked { -fx-fill: -au-md-link; -fx-stroke: transparent; }
+.markdown-task-icon-checked { -fx-fill: #2e9b50; -fx-stroke: transparent; }
 .markdown-task-icon-tick { -fx-fill: transparent; -fx-stroke: white; }
 
 /* ===== 链接 ===== */

@@ -49,6 +49,11 @@ public final class MarkdownAstCache {
         }
     }
 
+    /** 只读取已完成的不可变快照，按键快速判断不能等待后台解析锁。 */
+    public MarkdownStructureSnapshot peekSnapshot() {
+        return latestSnapshot;
+    }
+
     private Parsed entry(String text) {
         var value = versions.get(text);
         if (value != null) return value;
