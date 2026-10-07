@@ -14,7 +14,7 @@ import org.jsoup.safety.Safelist
 /** 预览、剪贴板和 HTML 导出共用正文输出及有限 HTML 范围。 */
 object MarkdownHtmlRenderer {
     private fun allowed() = Safelist.relaxed().addTags("details", "summary", "u", "sub", "sup", "mark", "input", "section", "nav", "hr", "del", "s")
-        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-text", "data-source-map", "data-display")
+        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-text", "data-source-map", "data-display", "data-checked", "role", "aria-label", "title")
         .addAttributes("input", "type", "checked", "disabled").addEnforcedAttribute("input", "type", "checkbox")
         .addAttributes("img", "width", "height").addAttributes("ol", "start").addAttributes("td", "align").addAttributes("th", "align")
         .addAttributes("details", "open")
@@ -38,6 +38,10 @@ object MarkdownHtmlRenderer {
         val clean = Jsoup.clean(renderer.render(state.root), base ?: "file:///", allowed(),
             org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
         val document = Jsoup.parseBodyFragment(clean)
+        // CommonMark 的任务扩展只输出 input；给所属列表项明确分类，不能同时保留圆点。
+        document.select("li > input[type=checkbox], li > p > input[type=checkbox]").forEach { input ->
+            input.parents().firstOrNull { it.normalName() == "li" }?.addClass("task-list-item")
+        }
         // 图片只保留有限的整数尺寸，文档自定义 CSS 不执行。
         for (image in document.select("img[width],img[height]")) {
             val width = image.attr("width")
@@ -52,11 +56,22 @@ object MarkdownHtmlRenderer {
     private class TechnicalRenderer(private val context: HtmlNodeRendererContext, private val state: MarkdownStructureSnapshot,
                                     private val sourceMap: Boolean) : NodeRenderer {
         override fun getNodeTypes() = setOf(FencedCodeBlock::class.java, Paragraph::class.java, YamlFrontMatterBlock::class.java,
-            org.commonmark.node.HtmlBlock::class.java, org.commonmark.node.Text::class.java)
+            org.commonmark.node.HtmlBlock::class.java, org.commonmark.node.Text::class.java, org.commonmark.node.Code::class.java)
 
         override fun render(node: Node) {
             val writer = context.writer
             when (node) {
+                is org.commonmark.node.Code -> {
+                    if (MarkdownTaskMarkers.isStatus(node.literal)) {
+                        writer.tag("span", context.extendAttributes(node, "span", mapOf("class" to "md-task-icon",
+                            "data-checked" to (node.literal != "[ ]").toString(), "role" to "img", "aria-label" to node.literal)))
+                        writer.tag("span", mapOf("class" to "md-task-source")); writer.text(node.literal); writer.tag("/span")
+                        writer.tag("/span")
+                    } else {
+                        writer.tag("code", context.extendAttributes(node, "code", emptyMap()))
+                        writer.text(node.literal); writer.tag("/code")
+                    }
+                }
                 is org.commonmark.node.Text -> {
                     val span = node.sourceSpans.firstOrNull()
                     val mapping = if (sourceMap && span != null) textMap(node) else null

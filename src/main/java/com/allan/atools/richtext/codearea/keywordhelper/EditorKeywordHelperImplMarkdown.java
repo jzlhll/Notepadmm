@@ -237,7 +237,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         if (!canContinue.getAsBoolean()) {
             return null;
         }
-        return buildStyleSpans(events, text, visitor.bulletGlyphs, visitor.taskMarkers, visitor.taskPrefixes, canContinue);
+        return buildStyleSpans(events, text, visitor.bulletGlyphs, visitor.taskMarkers, visitor.taskExamples, visitor.taskPrefixes, canContinue);
     }
 
     private void addSearchRegions(String text, EventBuffer events) {
@@ -273,7 +273,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
      * 事件扫描法合成重叠区间（如 **bold *italic*** 同时持有 bold 与 italic 样式类）。
      */
     private StyleSpans<Collection<String>> buildStyleSpans(EventBuffer events, String text, Map<Integer, String> bulletGlyphs,
-                                                            Set<Integer> taskMarkers, NavigableMap<Integer, Integer> taskPrefixes,
+                                                            Set<Integer> taskMarkers, Set<Integer> taskExamples, NavigableMap<Integer, Integer> taskPrefixes,
                                                             BooleanSupplier canContinue) {
         int textLength = text.length();
         events.sort();
@@ -313,6 +313,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
                     var withTask = new HashSet<>(styles);
                     if (taskPrefix) withTask.add(CodeArea.MARKDOWN_TASK_PREFIX_CLASS);
                     if (taskMarker) withTask.add(CodeArea.MARKDOWN_TASK_MARKER_CLASS);
+                    if (taskMarker && taskExamples.contains(prev)) withTask.add("markdown-task-example");
                     styles = Set.copyOf(withTask);
                 }
                 spansBuilder.add(styles, position - prev);
@@ -365,6 +366,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         private final BooleanSupplier canContinue;
         private final HashMap<Integer, String> bulletGlyphs = new HashMap<>();
         private final HashSet<Integer> taskMarkers = new HashSet<>();
+        private final HashSet<Integer> taskExamples = new HashSet<>();
         private final TreeMap<Integer, Integer> taskPrefixes = new TreeMap<>();
 
         MarkdownRegionVisitor(String text, EventBuffer events, BooleanSupplier canContinue) {
@@ -457,6 +459,19 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(Code code) {
             addNodeRegions(code, STYLE_INLINE_CODE);
+            int marker = MarkdownTaskMarkers.inlineOffset(code, text);
+            if (marker >= 0) {
+                var span = code.getSourceSpans().get(0);
+                int start = span.getInputIndex();
+                int end = start + span.getLength();
+                taskMarkers.add(marker);
+                taskExamples.add(marker);
+                taskPrefixes.put(start, marker);
+                taskPrefixes.put(marker + 3, end);
+                events.addRegion(start, marker, STYLE_INLINE_CODE);
+                events.addRegion(marker, marker + 3, STYLE_INLINE_CODE);
+                events.addRegion(marker + 3, end, STYLE_INLINE_CODE);
+            }
         }
 
         @Override

@@ -33,7 +33,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             var node = it.target as? Node
             textPointer = true
             while (node != null && node !== area) {
-                if (node is Control || node is WebView || CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass
+                if (node is Control || node is WebView || CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass && "markdown-task-example" !in node.styleClass
                     || "markdown-embedded-graphic" in node.styleClass) {
                     textPointer = false
                     break

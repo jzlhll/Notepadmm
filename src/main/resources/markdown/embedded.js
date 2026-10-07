@@ -1,5 +1,13 @@
 /* 编辑区内的固定块预览脚本；图片由共用后台加载器读取，页面不直接发起外部请求。 */
 var embeddedObserver;
+function embeddedTask(line,checked) {
+  var item=document.querySelector('li[data-source-line="'+line+'"]');
+  var input=item && item.querySelector('input[type=checkbox]');
+  if(input) {input.checked=checked;input.defaultChecked=checked;}
+}
+function embeddedTasks(states) {
+  states.forEach(function(state) {embeddedTask(state[0],state[1]);});
+}
 function embeddedHeight() {
   if(typeof embeddedBridge==='undefined') return;
   var article=document.querySelector('article');

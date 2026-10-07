@@ -195,7 +195,8 @@ class MarkdownEditingActions(private val area: EditorArea) {
         val hit = area.hit(event.x, event.y).characterIndex
         if (!hit.isPresent) return false
         // 点击正文不获取全文快照；只有确实命中已绘制的任务标记才继续。
-        if (CodeArea.MARKDOWN_TASK_MARKER_CLASS !in area.getStyleOfChar(hit.asInt)) return false
+        val hitStyles = area.getStyleOfChar(hit.asInt)
+        if (CodeArea.MARKDOWN_TASK_MARKER_CLASS !in hitStyles || "markdown-task-example" in hitStyles) return false
         val state = snapshot()
         val offset = state.lines[state.lineAt(hit.asInt)].taskOffset
         if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false

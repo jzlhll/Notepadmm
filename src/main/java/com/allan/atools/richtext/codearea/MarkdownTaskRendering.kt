@@ -81,8 +81,8 @@ class MarkdownTaskRendering(private val area: EditorArea) : Pane() {
             entry.box.apply {
                 width = target.width
                 height = target.height
-                arcWidth = target.width * 0.35
-                arcHeight = target.height * 0.35
+                arcWidth = target.width * 0.3
+                arcHeight = target.height * 0.3
                 fill = if (checked) text.fill else Color.TRANSPARENT
                 stroke = if (checked) null else text.fill
                 strokeWidth = target.width * 0.1
@@ -119,7 +119,7 @@ class MarkdownTaskRendering(private val area: EditorArea) : Pane() {
             }
             entry.view.isVisible = shown
             entry.view.opacity = opacity
-            text.cursor = if (area.isEditable && !area.markdownComposing) Cursor.HAND else Cursor.TEXT
+            text.cursor = if ("markdown-task-example" !in text.styleClass && area.isEditable && !area.markdownComposing) Cursor.HAND else Cursor.TEXT
             text.opacity = 0.0
         }
     }

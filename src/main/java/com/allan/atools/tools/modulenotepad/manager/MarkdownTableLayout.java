@@ -82,6 +82,13 @@ final class MarkdownTableLayout {
         }
         for (int index = 0; index < runs.size(); index++) {
             var run = runs.get(index);
+            if (run.code() && com.allan.atools.richtext.codearea.keywordhelper.MarkdownTaskMarkers.isStatus(run.text())) {
+                var icon = new com.allan.atools.richtext.codearea.MarkdownTaskIcon(font.getSize(), !run.text().equals("[ ]"));
+                icon.setUserData(run.destination());
+                if (index == flow.getChildren().size()) flow.getChildren().add(icon);
+                else flow.getChildren().set(index, icon);
+                continue;
+            }
             if (run.image() != null) {
                 var picture = images == null ? new javafx.scene.layout.Region() : images.apply(run);
                 if (images == null) {

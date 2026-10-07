@@ -38,10 +38,12 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         var height = 0.0
         var preview = false
         var readingState: String? = null
+        val taskStates = HashMap<Int, Boolean>()
     }
     private val views = WeakHashMap<BlockView, Entry>()
     private var entries = emptyList<Entry>()
     private var snapshot: MarkdownStructureSnapshot? = null
+    private var taskPositionsCurrent = false
     private var version = -1L
     private var file: File? = null
     private var generation = 0L
@@ -83,6 +85,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         val changedFile = file != area.editor.sourceFile
         val changed = snapshot !== state || changedFile
         snapshot = state
+        taskPositionsCurrent = true
         version = area.editor.contentVersion
         file = area.editor.sourceFile
         if (changed) render(state, changedFile)
@@ -128,7 +131,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 val fragments = buffers.mapValues { it.value.toString() }
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
-                    if (disposed || token != generation || snapshot !== state || version != area.editor.contentVersion || file != area.editor.sourceFile) return@runLater
+                    if (disposed || token != generation || snapshot !== state || state.text != area.text ||
+                        version != area.editor.contentVersion || file != area.editor.sourceFile) return@runLater
                     renderTask = null
                     anchors = targets
                     for (entry in entries) {
@@ -139,9 +143,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                             else ""
                         }
                         if (html.isEmpty()) { entry.html = null; continue }
-                        val stable = Regex("data-source-(?:start|line)=\"[0-9]+\"")
-                        if (!force && entry.html?.replace(stable, "") == html.replace(stable, "")) continue
+                        if (!force && entry.html?.let(::stableHtml) == stableHtml(html)) continue
                         entry.html = html
+                        entry.taskStates.clear()
                         entry.renderedStart = entry.block.start
                         entry.renderedLine = entry.block.firstLine
                         entry.height = 0.0
@@ -155,6 +159,14 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     if (token == generation) { entries.forEach { it.html = null }; refresh() }
                 }
             }
+        }
+    }
+
+    private fun stableHtml(html: String): String {
+        val coordinates = Regex("data-source-(?:start|line)=\"[0-9]+\"")
+        val checked = Regex("\\schecked(?:=\"[^\"]*\")?")
+        return Regex("<input\\b[^>]*>").replace(html.replace(coordinates, "")) { tag ->
+            tag.value.replace(checked, "")
         }
     }
 
@@ -215,7 +227,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             Platform.runLater { if (entry in entries) { entry.html = null; styles(entry, false) } }
             return base
         }
-        return BlockView(entry, base)
+        return views.keys.firstOrNull { views[it] === entry }?.also { it.updateBase(base) } ?: BlockView(entry, base)
     }
 
     private fun edit(position: Int) {
@@ -226,7 +238,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         area.requestFollowCaret()
     }
 
-    private inner class BlockView(private val entry: Entry, private val base: Node?) : Pane() {
+    private inner class BlockView(private val entry: Entry, private var base: Node?) : Pane() {
         private val web = WebView()
         private val imageTasks = ArrayList<Future<*>>()
         private var imageUrls = emptyList<String>()
@@ -237,6 +249,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         private val bridge = Bridge()
 
         init {
+            views[this] = entry
             styleClass.add("markdown-embedded-graphic")
             web.isManaged = false
             web.isContextMenuEnabled = false
@@ -259,7 +272,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     event.consume()
                 }
             }
-            if (base != null) { base.opacity = 0.0; children.add(base) }
+            base?.let { it.opacity = 0.0; children.add(it) }
             children.add(web)
             web.engine.loadWorker.stateProperty().addListener { _, _, state ->
                 if (live && state == Worker.State.SUCCEEDED &&
@@ -267,6 +280,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     ready = true
                     (web.engine.executeScript("window") as JSObject).setMember("embeddedBridge", bridge)
                     web.engine.executeScript("embeddedReady()")
+                    syncTasks()
                     syncReadonly()
                     entry.readingState?.let { web.engine.executeScript("restorePreviewReadingState(${Gson().toJson(it)})") }
                     imageUrls.indices.forEach { loadImage(it) }
@@ -276,7 +290,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 }
             }
             sceneProperty().addListener { _, _, scene ->
-                if (scene == null) release() else {
+                // 样式或文档段落替换可能在同一帧内重新挂载，不能因此清空已显示的页面。
+                if (scene == null) Platform.runLater { if (this.scene == null) release() } else if (!live) {
                     live = true
                     views[this] = entry
                     load()
@@ -285,6 +300,31 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED) { it.consume() }
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_RELEASED) { it.consume() }
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED) { it.consume() }
+        }
+
+        fun updateBase(next: Node?) {
+            if (base === next) return
+            base?.let { children.remove(it) }
+            base = next
+            next?.let { it.opacity = 0.0; children.add(0, it) }
+            requestLayout()
+        }
+
+        fun updateTask(line: Int, checked: Boolean) {
+            val expected = revision
+            Platform.runLater {
+                if (live && ready && expected == revision) web.engine.executeScript("embeddedTask($line,$checked)")
+            }
+        }
+
+        private fun syncTasks() {
+            val html = entry.html ?: return
+            val states = Jsoup.parseBodyFragment(html).select("li.task-list-item[data-source-line]").mapNotNull { item ->
+                val line = item.attr("data-source-line").toIntOrNull() ?: return@mapNotNull null
+                val input = item.selectFirst("input[type=checkbox]") ?: return@mapNotNull null
+                listOf(line, entry.taskStates[line] ?: input.hasAttr("checked"))
+            }
+            web.engine.executeScript("embeddedTasks(${Gson().toJson(states)})")
         }
 
         fun load() {
@@ -413,7 +453,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         /** 固定本地脚本的桥接，不向文档中的脚本或外部导航暴露编辑器。 */
         inner class Bridge {
             fun height(value: Double) {
-                if (disposed || !value.isFinite() || value < 1 || entry !in entries || !entry.preview) return
+                if (!live || !ready || disposed || !value.isFinite() || value < 1 || entry !in entries || !entry.preview) return
                 if (value > 30_000) { entry.html = null; requestRefresh(); return }
                 val next = Math.ceil(value)
                 if (kotlin.math.abs(entry.height - next) < 1) return
@@ -459,9 +499,27 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     }
 
 
-    fun onTextChanged(position: Int, removed: String, inserted: String) {
+    fun onTextChanged(position: Int, removed: String, inserted: String): Boolean {
         generation++
         renderTask?.cancel(true)
+        val state = snapshot
+        if (taskPositionsCurrent && state != null && removed.length == 1 && inserted.length == 1 &&
+            removed[0] in " xX" && inserted[0] in " xX") {
+            val line = state.lineAt(position)
+            if (state.lines[line].taskOffset == position) {
+                // 任务状态不改变块结构、坐标或高度，保留页面并只更新 checkbox。
+                val checked = inserted != " "
+                for (entry in entries) {
+                    if (position !in entry.block.start until entry.block.end) continue
+                    val renderedLine = line - entry.block.firstLine + entry.renderedLine
+                    entry.taskStates[renderedLine] = checked
+                    views.keys.toList().filter { views[it] === entry }.forEach { it.updateTask(renderedLine, checked) }
+                }
+                version = area.editor.contentVersion
+                return true
+            }
+        }
+        taskPositionsCurrent = false
         val delta = inserted.length - removed.length
         val lines = inserted.count { it == '\n' } - removed.count { it == '\n' }
         val end = position + removed.length
@@ -480,6 +538,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             }
         }
         entries = retained
+        return false
     }
 
     fun clear() {
@@ -489,6 +548,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         entries.forEach { styles(it, false) }
         entries = emptyList()
         snapshot = null
+        taskPositionsCurrent = false
         views.keys.toList().forEach { it.release() }
     }
 

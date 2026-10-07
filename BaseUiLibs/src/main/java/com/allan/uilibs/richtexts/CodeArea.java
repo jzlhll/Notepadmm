@@ -216,7 +216,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 text.setStyle("-fx-font-family: \"System\";");
                 text.getStyleClass().add(MARKDOWN_TASK_RENDERED_CLASS);
                 if (source.charAt(1) != ' ') text.getStyleClass().add("markdown-task-checked");
-                text.setCursor(Cursor.HAND);
+                text.setCursor(styleClasses.contains("markdown-task-example") ? Cursor.TEXT : Cursor.HAND);
                 text.setPickOnBounds(true);
                 return;
             }

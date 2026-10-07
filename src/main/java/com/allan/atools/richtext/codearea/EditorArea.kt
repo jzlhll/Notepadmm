@@ -121,7 +121,7 @@ class EditorArea @JvmOverloads constructor(
             var node = event.target as? javafx.scene.Node
             var task = false
             while (node != null && node !== this) {
-                if (CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass) { task = true; break }
+                if (CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass && "markdown-task-example" !in node.styleClass) { task = true; break }
                 node = node.parent
             }
             taskPointerDown = task && isEditable && !markdownComposing && markdownPreviewEnabled
