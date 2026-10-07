@@ -48,6 +48,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     /** Mermaid 独立维护预览高度，避免与表格、图片的段落样式相互清理。 */
     public static final String MERMAID_PREVIEW_HEIGHT_PREFIX = "mermaid-preview-height:";
     public static final String DETAILS_PREVIEW_HEIGHT_PREFIX = "details-preview-height:";
+    public static final String EMBEDDED_PREVIEW_HEIGHT_PREFIX = "embedded-preview-height:";
     /** Mermaid 源码首段的操作栏留白，与预览占高分开维护。 */
     public static final String MERMAID_SOURCE_HEADER_HEIGHT_PREFIX = "mermaid-source-header-height:";
 
@@ -145,6 +146,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 previewHeight = style.substring(MERMAID_PREVIEW_HEIGHT_PREFIX.length()) + "px";
             } else if (style.startsWith(DETAILS_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(DETAILS_PREVIEW_HEIGHT_PREFIX.length()) + "px";
+            } else if (style.startsWith(EMBEDDED_PREVIEW_HEIGHT_PREFIX)) {
+                previewHeight = style.substring(EMBEDDED_PREVIEW_HEIGHT_PREFIX.length()) + "px";
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";

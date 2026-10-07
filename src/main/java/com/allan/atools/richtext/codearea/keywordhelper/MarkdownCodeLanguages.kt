@@ -28,6 +28,11 @@ object MarkdownCodeLanguages {
         "(?<NAME>[^\\s=\"'<>/]+)(?:\\s*(?<EQUAL>=)\\s*(?<VALUE>\"[^\"]*\"|'[^']*'|[^\\s>]+))?")
 
     @JvmStatic
+    fun supportedLanguages(): List<String> = listOf("java", "kotlin", "groovy", "swift", "objective-c",
+        "c", "cpp", "go", "csharp", "xml", "html", "css", "javascript", "typescript", "python", "json",
+        "shell", "sql", "yaml", "toml", "ini", "dockerfile", "powershell", "rust", "dart", "ruby", "php", "lua", "protobuf", "diff")
+
+    @JvmStatic
     fun normalize(info: String?): String? {
         val name = info?.trim()?.takeWhile { !it.isWhitespace() }?.lowercase(Locale.ROOT)
         return when (name) {

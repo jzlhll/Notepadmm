@@ -21,6 +21,7 @@ import org.commonmark.node.HtmlInline;
 import org.commonmark.node.Image;
 import org.commonmark.node.IndentedCodeBlock;
 import org.commonmark.node.Link;
+import org.commonmark.node.LinkReferenceDefinition;
 import org.commonmark.node.ListItem;
 import org.commonmark.node.Node;
 import org.commonmark.node.StrongEmphasis;
@@ -472,6 +473,11 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         @Override
         public void visit(Image image) {
             addNodeRegions(image, STYLE_IMAGE);
+        }
+
+        @Override
+        public void visit(LinkReferenceDefinition definition) {
+            addNodeRegions(definition, STYLE_LINK);
         }
 
         @Override

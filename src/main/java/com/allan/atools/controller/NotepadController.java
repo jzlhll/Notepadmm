@@ -81,6 +81,7 @@ public final class NotepadController extends AbstractMainController {
 
     //fxml action head buttons
     public Label notepadMainActionBarFontBtn;
+    public Label notepadMainActionBarShortcutsBtn;
     public Label notepadMainActionBarSearchBtn;
     public Label notepadMainAltMultiSelectBtn;
     public Label notepadMainActionBarSettingBtn;

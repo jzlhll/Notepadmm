@@ -28,6 +28,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun create() {
+        if (!area.markdownEditing.canFormat(true)) return
         val start = area.selection.start
         val end = area.selection.end
         val selected = area.selectedText
@@ -55,7 +56,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     fun chooseLanguage() {
         val node = block() ?: return
         val before = area.text
-        val options = listOf("text", "java", "kotlin", "javascript", "typescript", "python", "json", "shell", "sql", "yaml", "xml", "cpp", "mermaid")
+        val options = listOf("text") + com.allan.atools.richtext.codearea.keywordhelper.MarkdownCodeLanguages.supportedLanguages() + "mermaid"
         val dialog = ChoiceDialog(node.info.trim().ifEmpty { "text" }, options)
         dialog.title = Locales.str("markdown.codeLanguage")
         dialog.headerText = Locales.str("markdown.codeLanguage")
@@ -89,6 +90,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun createTable() {
+        if (!area.markdownEditing.canFormat(true)) return
         val sourceBeforeDialog = area.text
         val dialog = TextInputDialog("3,3")
         dialog.title = Locales.str("markdown.createTable")

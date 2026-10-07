@@ -63,6 +63,13 @@
                 <HBox.margin>
                     <Insets left="5"/>
                 </HBox.margin>
+                <Label fx:id="notepadMainActionBarShortcutsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+            </JFXRippler>
+
+            <JFXRippler styleClass="jfx-rippler,window-header-action">
+                <HBox.margin>
+                    <Insets left="5"/>
+                </HBox.margin>
                 <Label fx:id="notepadMainInsertEmptyLineBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER" text=" In "/>
             </JFXRippler>
 

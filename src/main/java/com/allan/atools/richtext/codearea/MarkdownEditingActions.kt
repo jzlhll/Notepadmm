@@ -6,7 +6,6 @@ import com.allan.uilibs.richtexts.CodeArea
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
-import javafx.scene.control.TextInputDialog
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
@@ -20,7 +19,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
 
     private fun change(start: Int, end: Int, replacement: String, selectStart: Int, selectEnd: Int = selectStart) {
-        if (!area.isEditable) return
+        if (!area.isEditable || area.markdownComposing) return
         area.undoManager.preventMerge()
         area.replaceText(start, end, replacement)
         area.selectRange(selectStart, selectEnd)
@@ -28,27 +27,46 @@ class MarkdownEditingActions(private val area: EditorArea) {
         area.requestFollowCaret()
     }
 
-    fun handleKey(event: KeyEvent): Boolean {
-        if (!MarkdownEditorSupport.supportsMarkdown(area) || area.editor.isRealtimeProcessingLimitReached
-            || area.markdownComposing || !area.isEditable) return false
-        if (event.isShortcutDown && !event.isAltDown) {
-            if (!event.isShiftDown) when (event.code) {
-                KeyCode.B -> { wrap("**"); return true }
-                KeyCode.I -> { wrap("*"); return true }
-                KeyCode.BACK_QUOTE -> { wrap("`"); return true }
-                KeyCode.K -> { editLink(); return true }
-                else -> Unit
-            }
-            if (event.isShiftDown) when (event.code) {
-                KeyCode.V -> { area.markdownClipboard.paste(true); return true }
-                KeyCode.X -> { wrap("~~"); return true }
-                KeyCode.M -> { area.toggleMarkdownPreview(); return true }
-                KeyCode.Q -> { prefixLines("> "); return true }
-                KeyCode.L -> { prefixLines("- "); return true }
-                else -> Unit
-            }
+    fun canFormat(block: Boolean = false, inlineCode: Boolean = false): Boolean {
+        if (!MarkdownEditorSupport.supportsMarkdown(area) || !area.isEditable || area.markdownComposing
+            || area.editor.isRealtimeProcessingLimitReached) return false
+        val state = snapshot()
+        if (if (block) state.intersectsLiteralBlocks(area.selection.start, area.selection.end)
+            else state.intersectsLiteral(area.selection.start, area.selection.end, inlineCode)) {
+            com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.literalFormat"))
             return false
         }
+        return true
+    }
+
+    fun handleKey(event: KeyEvent): Boolean {
+        if (!MarkdownEditorSupport.supportsMarkdown(area) || area.markdownComposing) return false
+        val shortcut = MarkdownShortcuts.match(event)
+        if (shortcut != null) {
+            if (shortcut == MarkdownShortcuts.SOURCE) {
+                area.toggleMarkdownPreview()
+                return true
+            }
+            if (shortcut == MarkdownShortcuts.PASTE_PLAIN) {
+                if (area.isEditable) area.markdownClipboard.paste(true)
+                return true
+            }
+            // 降级和只读状态仍消费已识别的格式键，避免落入其他编辑器默认行为。
+            if (!area.isEditable || area.editor.isRealtimeProcessingLimitReached) return true
+            when (shortcut) {
+                MarkdownShortcuts.BOLD -> wrap("**")
+                MarkdownShortcuts.ITALIC -> wrap("*")
+                MarkdownShortcuts.INLINE_CODE -> wrap("`")
+                MarkdownShortcuts.LINK -> editLink()
+                MarkdownShortcuts.STRIKE -> wrap("~~")
+                MarkdownShortcuts.PASTE_PLAIN -> area.markdownClipboard.paste(true)
+                MarkdownShortcuts.QUOTE -> prefixLines("> ")
+                MarkdownShortcuts.LIST -> prefixLines("- ")
+                else -> heading(shortcut.heading)
+            }
+            return true
+        }
+        if (!area.isEditable || area.editor.isRealtimeProcessingLimitReached) return false
         if (event.isAltDown || event.isControlDown || event.isMetaDown) return false
         if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
         if (event.code == KeyCode.TAB) {
@@ -194,7 +212,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun wrap(mark: String) {
-        if (!area.isEditable || area.markdownComposing) return
+        if (!canFormat(inlineCode = mark == "`")) return
         val start = area.selection.start
         val end = area.selection.end
         if (mark != "`") {
@@ -288,6 +306,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun prefixLines(prefix: String) {
+        if (!canFormat(true)) return
         val (start, end) = lineRange()
         val state = snapshot()
         val original = area.getText(start, end).split('\n')
@@ -328,6 +347,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun heading(level: Int) {
+        if (level !in 0..6 || !canFormat(true)) return
         var (start, end) = lineRange()
         val state = snapshot()
         val entries = state.elements.filter { it.node is org.commonmark.node.Heading }
@@ -375,35 +395,28 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun editLink() {
-        val sourceBeforeDialog = area.text
-        val state = snapshot()
-        val existing = state.linkAt(area.caretPosition)
-        val dialog = TextInputDialog(existing?.destination ?: "https://")
-        dialog.title = Locales.str("markdown.editLink")
-        dialog.headerText = Locales.str("markdown.linkAddress")
-        val destination = dialog.showAndWait().orElse(null) ?: return
-        if (area.text != sourceBeforeDialog || !area.isEditable) return
-        val start = existing?.sourceSpans?.firstOrNull()?.inputIndex ?: area.selection.start
-        val end = existing?.sourceSpans?.lastOrNull()?.let { it.inputIndex + it.length } ?: area.selection.end
-        val label = if (existing != null) {
-            val first = existing.firstChild?.sourceSpans?.firstOrNull()
-            val last = existing.lastChild?.sourceSpans?.lastOrNull()
-            if (first != null && last != null) sourceBeforeDialog.substring(first.inputIndex, last.inputIndex + last.length)
-            else com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(existing).trim()
-        } else area.selectedText.ifEmpty { Locales.str("markdown.linkLabel") }.replace("[", "\\[").replace("]", "\\]")
-        val escaped = destination.trim().replace("<", "%3C").replace(">", "%3E").replace("\n", "").replace("\r", "")
-        val title = existing?.title?.takeIf { it.isNotEmpty() }?.let { " \"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" }.orEmpty()
-        val result = if (escaped.isEmpty()) label else "[$label](<$escaped>$title)"
-        change(start, end, result, start, start + result.length)
+        if (!canFormat()) return
+        val source = area.text
+        val edit = MarkdownLinkEditing.request(source, area.selection.start, area.selection.end, area.caretPosition, snapshot()) ?: return
+        if (source != area.text || !area.isEditable || area.markdownComposing) return
+        change(edit.start, edit.end, edit.text, edit.start, edit.start + edit.text.length)
     }
 
     fun installMenu() {
         val menu = Menu(Locales.str("markdown.format"))
         fun add(key: String, action: () -> Unit) {
-            menu.items.add(MenuItem(Locales.str(key)).apply { setOnAction { if (area.isEditable && !area.markdownComposing) action() } })
+            menu.items.add(MenuItem(Locales.str(key)).apply {
+                MarkdownShortcuts.entries.firstOrNull { it.labelKey == key }?.let { shortcut ->
+                    graphic = javafx.scene.control.Label(shortcut.display()).apply { styleClass.add("normal-desc-label") }
+                }
+                setOnAction { if (area.isEditable && !area.markdownComposing && !area.editor.isRealtimeProcessingLimitReached) action() }
+            })
         }
         val headings = Menu(Locales.str("markdown.heading"))
-        for (level in 1..6) headings.items.add(MenuItem("H$level").apply { setOnAction { heading(level) } })
+        for (level in 1..6) headings.items.add(MenuItem("H$level").apply {
+            graphic = javafx.scene.control.Label(MarkdownShortcuts.entries.first { it.heading == level }.display())
+            setOnAction { heading(level) }
+        })
         menu.items.add(headings)
         add("markdown.paragraph") { heading(0) }
         add("markdown.bold") { wrap("**") }
@@ -454,7 +467,8 @@ class MarkdownEditingActions(private val area: EditorArea) {
             dialog.showAndWait()
         }
         val preview = MenuItem(Locales.str("markdown.toggleSource"))
-        preview.setOnAction { area.toggleMarkdownPreview() }
+        preview.graphic = javafx.scene.control.Label(MarkdownShortcuts.SOURCE.display())
+        preview.setOnAction { if (!area.markdownComposing) area.toggleMarkdownPreview() }
         val fullPreview = MenuItem(Locales.str("markdown.preview"))
         fullPreview.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.show(area) }
         area.contextMenu.items.addAll(SeparatorMenuItem(), menu, copyMenu, export, stats, preview, fullPreview)

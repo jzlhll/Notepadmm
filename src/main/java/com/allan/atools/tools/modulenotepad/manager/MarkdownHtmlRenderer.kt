@@ -14,7 +14,7 @@ import org.jsoup.safety.Safelist
 /** 预览、剪贴板和 HTML 导出共用正文输出及有限 HTML 范围。 */
 object MarkdownHtmlRenderer {
     private fun allowed() = Safelist.relaxed().addTags("details", "summary", "u", "sub", "sup", "mark", "input", "section", "nav", "hr", "del", "s")
-        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-display")
+        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-text", "data-source-map", "data-display")
         .addAttributes("input", "type", "checked", "disabled").addEnforcedAttribute("input", "type", "checkbox")
         .addAttributes("img", "width", "height").addAttributes("ol", "start").addAttributes("td", "align").addAttributes("th", "align")
         .addAttributes("details", "open")
@@ -22,7 +22,7 @@ object MarkdownHtmlRenderer {
         .preserveRelativeLinks(true)
 
     @JvmStatic
-    fun body(state: MarkdownStructureSnapshot, base: String? = null): String {
+    fun body(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false): String {
         val renderer = HtmlRenderer.builder().extensions(MarkdownExtensions.all())
             .escapeHtml(false).sanitizeUrls(true).urlSanitizer(org.commonmark.renderer.html.DefaultUrlSanitizer(listOf("http", "https", "mailto", "file", "data"))).softbreak("<br>\n")
             .attributeProviderFactory {
@@ -34,7 +34,7 @@ object MarkdownHtmlRenderer {
                     if (node is org.commonmark.node.Heading) state.headings.firstOrNull { it.line == node.sourceSpans.firstOrNull()?.lineIndex }
                         ?.let { attributes["id"] = it.anchor }
                 }
-            }.nodeRendererFactory { context -> TechnicalRenderer(context, state) }.build()
+            }.nodeRendererFactory { context -> TechnicalRenderer(context, state, sourceMap) }.build()
         val clean = Jsoup.clean(renderer.render(state.root), base ?: "file:///", allowed(),
             org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
         val document = Jsoup.parseBodyFragment(clean)
@@ -49,12 +49,25 @@ object MarkdownHtmlRenderer {
         return document.body().html()
     }
 
-    private class TechnicalRenderer(private val context: HtmlNodeRendererContext, private val state: MarkdownStructureSnapshot) : NodeRenderer {
-        override fun getNodeTypes() = setOf(FencedCodeBlock::class.java, Paragraph::class.java, YamlFrontMatterBlock::class.java, org.commonmark.node.HtmlBlock::class.java)
+    private class TechnicalRenderer(private val context: HtmlNodeRendererContext, private val state: MarkdownStructureSnapshot,
+                                    private val sourceMap: Boolean) : NodeRenderer {
+        override fun getNodeTypes() = setOf(FencedCodeBlock::class.java, Paragraph::class.java, YamlFrontMatterBlock::class.java,
+            org.commonmark.node.HtmlBlock::class.java, org.commonmark.node.Text::class.java)
 
         override fun render(node: Node) {
             val writer = context.writer
             when (node) {
+                is org.commonmark.node.Text -> {
+                    val span = node.sourceSpans.firstOrNull()
+                    val mapping = if (sourceMap && span != null) textMap(node) else null
+                    if (mapping != null) {
+                        val attributes = mutableMapOf("data-source-start" to span!!.inputIndex.toString(), "data-source-text" to "")
+                        if (mapping.isNotEmpty()) attributes["data-source-map"] = mapping
+                        writer.tag("span", attributes)
+                    }
+                    writer.text(node.literal)
+                    if (mapping != null) writer.tag("/span")
+                }
                 is org.commonmark.node.HtmlBlock -> {
                     // HTML 容器可能跨越多个 AST 块；包装单个片段会提前关闭 details 等容器。
                     val opening = Regex("^(\\s*<[a-zA-Z][\\w:-]*)(?=[\\s/>])").find(node.literal)
@@ -104,6 +117,42 @@ object MarkdownHtmlRenderer {
                 }
             }
         }
+
+        /** 转义和实体可能多对一，按 UTF-16 边界映射到原文；无法精确映射时保留块级定位。 */
+        private fun textMap(node: org.commonmark.node.Text): String? {
+            val raw = StringBuilder()
+            val offsets = ArrayList<Int>()
+            val begin = node.sourceSpans.first().inputIndex
+            for (span in node.sourceSpans) {
+                raw.append(state.text, span.inputIndex, span.inputIndex + span.length)
+                repeat(span.length) { offsets.add(span.inputIndex + it - begin) }
+            }
+            if (raw.toString() == node.literal && offsets.withIndex().all { it.index == it.value }) return ""
+            val visible = StringBuilder()
+            val positions = ArrayList<Int>()
+            var index = 0
+            while (index < raw.length) {
+                val from = index
+                val character = raw[index]
+                val token = if (character == '\\' && index + 1 < raw.length &&
+                    (raw[index + 1] in '!'..'/' || raw[index + 1] in ':'..'@' || raw[index + 1] in '['..'`' || raw[index + 1] in '{'..'~')) {
+                    index += 2
+                    raw[index - 1].toString()
+                } else if (character == '&') {
+                    val entity = entityPattern.find(raw, index)?.takeIf { it.range.first == index }
+                    val value = entity?.let { org.jsoup.parser.Parser.unescapeEntities(it.value, false) }
+                    if (entity != null && value != entity.value) { index += entity.value.length; value!! }
+                    else { index++; character.toString() }
+                } else { index++; character.toString() }
+                visible.append(token)
+                repeat(token.length) { positions.add(offsets[from]) }
+            }
+            if (visible.toString() != node.literal) return null
+            positions.add(node.sourceSpans.last().let { it.inputIndex + it.length - begin })
+            return positions.joinToString(",")
+        }
+
+        private val entityPattern = Regex("&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);")
 
         private fun writeCode(source: String, language: String) {
             var end = 0

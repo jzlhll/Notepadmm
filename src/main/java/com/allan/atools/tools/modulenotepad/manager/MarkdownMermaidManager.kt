@@ -150,11 +150,12 @@ class MarkdownMermaidManager(area: EditorArea?) {
         parseTask = ThreadUtils.submit {
             val parsed = mutableListOf<Diagram>()
             try {
-                (area.editor as EditorAreaMgrCode).parseMarkdown(text).accept(object : AbstractVisitor() {
+                val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(text)
+                state.root.accept(object : AbstractVisitor() {
                     override fun visit(block: FencedCodeBlock) {
                         if (!MarkdownMermaidSupport.isSupported(block)) return
                         val spans = block.sourceSpans
-                        if (spans.isEmpty()) return
+                        if (spans.isEmpty() || state.isEmbeddedLine(spans.first().lineIndex)) return
                         val closed = block.closingFenceLength != null
                         parsed.add(Diagram(spans.first().lineIndex, spans.last().lineIndex,
                             block.literal, closed, showSource = !closed))

@@ -32,6 +32,8 @@ public final class NotepadHeadButtons {
                 main.getMainTopIconSize(21), Colors.ColorBottomBtnHighLight);
         IconfontCreator.setText(main.notepadMainActionBarFontBtn, "font-size",
                 main.getMainTopIconSize(22), Colors.ColorHeadButton);
+        IconfontCreator.setText(main.notepadMainActionBarShortcutsBtn, "nav-list",
+                main.getMainTopIconSize(22), Colors.ColorHeadButton);
         main.notepadMainInsertEmptyLineBtn.setStyle(
                 "-fx-font-size:" + main.getMainTopIconSize(21) + "px;");
         IconfontCreator.setText(main.notepadMainActionBarSettingBtn, "set",
@@ -62,6 +64,10 @@ public final class NotepadHeadButtons {
     public void init() {
         var mMain = UIContext.context();
         refreshSize();
+        mMain.notepadMainActionBarShortcutsBtn.setTooltip(new Tooltip(Locales.str("markdown.shortcuts")));
+        mMain.notepadMainActionBarShortcutsBtn.setAccessibleText(Locales.str("markdown.shortcuts"));
+        mMain.notepadMainActionBarShortcutsBtn.setOnMouseClicked(e ->
+                com.allan.atools.ui.MarkdownShortcutDialog.show(AllStagesManager.getInstance().getMainStage()));
 
         mMain.notepadMainAltMultiSelectBtn.setTooltip(new Tooltip(Locales.str("altMultiSelection")));
         mMain.notepadMainAltMultiSelectBtn.visibleProperty().bind(UIContext.isMultiSelectedProp);

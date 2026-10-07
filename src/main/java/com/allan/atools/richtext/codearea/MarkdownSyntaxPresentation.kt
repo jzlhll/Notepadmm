@@ -34,7 +34,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
             textPointer = true
             while (node != null && node !== area) {
                 if (node is Control || node is WebView || CodeArea.MARKDOWN_TASK_RENDERED_CLASS in node.styleClass
-                    || MarkdownDetailsPresentation.GRAPHIC_CLASS in node.styleClass) {
+                    || "markdown-embedded-graphic" in node.styleClass) {
                     textPointer = false
                     break
                 }

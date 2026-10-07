@@ -4,7 +4,7 @@ import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapsho
 
 /** 只更新当前版本的段落装饰，不替换源码或创建文本撤销记录。 */
 class MarkdownPresentation(private val area: EditorArea) {
-    private val details = MarkdownDetailsPresentation(area)
+    private val embedded = MarkdownEmbeddedPresentation(area)
     private val appliedLines = ArrayList<MarkdownStructureSnapshot.Line?>()
     private var appliedPreview: Boolean? = null
     var snapshot: MarkdownStructureSnapshot? = null
@@ -41,12 +41,12 @@ class MarkdownPresentation(private val area: EditorArea) {
         appliedLines.addAll(value.lines)
         appliedPreview = preview
         area.markdownSyntax.apply(value)
-        if (preview) details.apply(value) else details.clear()
+        if (preview) embedded.apply(value) else embedded.clear()
     }
 
     /** 段落样式随文本移动；只失效编辑触及的段落，结构变化再由新快照扩展更新范围。 */
     fun onTextChanged(position: Int, removed: String, inserted: String) {
-        details.onTextChanged(position, removed, inserted)
+        embedded.onTextChanged(position, removed, inserted)
         if (appliedLines.isEmpty()) return
         val first = area.offsetToPosition(Math.min(position, area.length), org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).major
         if (first >= appliedLines.size) return
@@ -91,7 +91,7 @@ class MarkdownPresentation(private val area: EditorArea) {
     }
 
     fun clear() {
-        details.clear()
+        embedded.clear()
         area.markdownSyntax.clear()
         if (appliedPreview != null) area.paragraphs.indices.forEach { merge(it, emptyList()) }
         appliedLines.clear()
@@ -101,7 +101,7 @@ class MarkdownPresentation(private val area: EditorArea) {
 
     fun destroy() {
         clear()
-        details.destroy()
+        embedded.destroy()
     }
 
     companion object {

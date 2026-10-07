@@ -138,7 +138,7 @@ class EditorArea @JvmOverloads constructor(
         addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
             var target = event.target as? javafx.scene.Node
             while (target != null && target !== this) {
-                if (MarkdownDetailsPresentation.GRAPHIC_CLASS in target.styleClass) return@addEventFilter
+                if ("markdown-embedded-graphic" in target.styleClass) return@addEventFilter
                 target = target.parent
             }
             if (event.target !is TextInputControl && event.button == MouseButton.PRIMARY && !event.isShortcutDown
@@ -181,11 +181,12 @@ class EditorArea @JvmOverloads constructor(
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
             bottomSearchBtnsMgr.cancelPendingSearchJump()
             if (event.target is TextInputControl || event.target is WebView) return@addEventFilter
-            if (!isEditable || markdownComposing) return@addEventFilter
+            if (markdownComposing) return@addEventFilter
             if (markdownEditing.handleKey(event)) {
                 event.consume()
                 return@addEventFilter
             }
+            if (!isEditable) return@addEventFilter
             if (event.isAltDown && !event.isControlDown && !event.isMetaDown && !event.isShiftDown
                 && (event.code == KeyCode.UP || event.code == KeyCode.DOWN)
             ) {
@@ -193,26 +194,7 @@ class EditorArea @JvmOverloads constructor(
                 moveSelectedLines(event.code == KeyCode.UP)
                 return@addEventFilter
             }
-            if (!isMarkdownDocument() || event.isAltDown || event.isShiftDown
-                || !event.isShortcutDown
-            ) {
-                return@addEventFilter
-            }
-            when (event.code) {
-                KeyCode.B -> {
-                    event.consume()
-                    markdownEditing.wrap("**")
-                }
-                KeyCode.BACK_QUOTE -> {
-                    event.consume()
-                    markdownEditing.wrap("`")
-                }
-                else -> {
-                    val level = markdownHeadingLevel(event.code) ?: return@addEventFilter
-                    event.consume()
-                    markdownEditing.heading(level)
-                }
-            }
+
         }
 
         // 中文标点模式：本 tab 开启时把 KEY_TYPED 收到的半角标点替换为全角（只读时跳过，与默认输入行为一致）
@@ -276,19 +258,6 @@ class EditorArea @JvmOverloads constructor(
     private fun isMarkdownDocument(): Boolean {
         val name = editor.documentState.displayName
         return name.endsWith(".md", true) || name.endsWith(".markdown", true)
-    }
-
-    private fun markdownHeadingLevel(code: KeyCode): Int? {
-        return when (code) {
-            KeyCode.DIGIT0, KeyCode.NUMPAD0 -> 0
-            KeyCode.DIGIT1, KeyCode.NUMPAD1 -> 1
-            KeyCode.DIGIT2, KeyCode.NUMPAD2 -> 2
-            KeyCode.DIGIT3, KeyCode.NUMPAD3 -> 3
-            KeyCode.DIGIT4, KeyCode.NUMPAD4 -> 4
-            KeyCode.DIGIT5, KeyCode.NUMPAD5 -> 5
-            KeyCode.DIGIT6, KeyCode.NUMPAD6 -> 6
-            else -> null
-        }
     }
 
     private fun moveSelectedLines(up: Boolean) {

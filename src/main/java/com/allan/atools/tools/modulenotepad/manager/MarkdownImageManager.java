@@ -565,12 +565,14 @@ public final class MarkdownImageManager {
 
     private static List<MarkdownImage> parseImages(EditorArea area, String text, File mdFile) {
         var collector = new ImageCollector();
-        ((EditorAreaMgrCode) area.getEditor()).parseMarkdown(text).accept(collector);
+        var state = ((EditorAreaMgrCode) area.getEditor()).markdownSnapshot(text);
+        state.getRoot().accept(collector);
         if (collector.found.isEmpty()) {
             return List.of();
         }
         var images = new ArrayList<MarkdownImage>();
         for (var found : collector.found) {
+            if (state.isEmbeddedLine(found.lineIndex())) continue;
             var resolved = resolve(mdFile, found.destination());
             if (resolved == null) {
                 continue;

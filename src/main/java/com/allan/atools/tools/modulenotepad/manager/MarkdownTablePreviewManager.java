@@ -23,6 +23,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.RadioMenuItem;
@@ -446,8 +447,10 @@ public final class MarkdownTablePreviewManager {
             List<MarkdownTableDocumentState.Table> parsed = null;
             var contents = new HashMap<String, List<MarkdownTableLayout.Run>>();
             try {
-                parsed = MarkdownTableParser.parse(text, ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) area.getEditor()).parseMarkdown(text), (source, node) ->
-                        contents.put(source, MarkdownTableLayout.parse(node)));
+                var state = ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) area.getEditor()).markdownSnapshot(text);
+                parsed = MarkdownTableParser.parse(text, state.getRoot(), (source, node) ->
+                        contents.put(source, MarkdownTableLayout.parse(node))).stream()
+                        .filter(table -> !state.isEmbeddedLine(table.firstLine())).toList();
             } catch (RuntimeException exception) {
                 Log.e("parse markdown tables failed", exception);
             }
@@ -1366,7 +1369,8 @@ public final class MarkdownTablePreviewManager {
 
     private void onCellKeyPressed(KeyEvent event) {
         if (composingText || handlingInputMethod) return;
-        if (event.isShortcutDown() && (event.getCode() == KeyCode.Z || event.getCode() == KeyCode.Y)) {
+        if (event.isAltDown() || event.isControlDown() && event.isMetaDown()) return;
+        if (event.isShortcutDown() && (event.getCode() == KeyCode.Z || event.getCode() == KeyCode.Y && !event.isShiftDown())) {
             event.consume();
             performUndoRedo(event.isShiftDown() || event.getCode() == KeyCode.Y);
             return;
@@ -1385,31 +1389,47 @@ public final class MarkdownTablePreviewManager {
             pastePlainText();
             return;
         }
-        if (event.isShortcutDown() && event.getCode() == KeyCode.ENTER) {
+        if (event.isShortcutDown() && !event.isShiftDown() && event.getCode() == KeyCode.ENTER) {
             event.consume();
             int row = activeRow;
             int column = activeColumn;
             applyTableEdit(activeTable, table -> MarkdownTableEdits.insertRow(table, row + 1, column));
             return;
         }
-        if (event.getCode() == KeyCode.TAB) {
+        if (!event.isShortcutDown() && event.getCode() == KeyCode.TAB) {
             event.consume();
             moveCell(event.isShiftDown() ? -1 : 1);
             return;
         }
-        if (event.isShortcutDown() && !event.isShiftDown() && event.getCode() == KeyCode.B) {
-            event.consume();
-            wrapCellSelection("**");
-        } else if (event.isShortcutDown() && event.getCode() == KeyCode.I) {
-            event.consume();
-            wrapCellSelection("*");
-        } else if (event.isShortcutDown() && event.isShiftDown() && event.getCode() == KeyCode.X) {
-            event.consume();
-            wrapCellSelection("~~");
-        } else if (event.isShortcutDown() && event.getCode() == KeyCode.BACK_QUOTE) {
-            event.consume();
-            wrapCellSelection("`");
+        var shortcut = com.allan.atools.richtext.codearea.MarkdownShortcuts.match(event);
+        if (shortcut == null) return;
+        switch (shortcut) {
+            case BOLD -> { event.consume(); wrapCellSelection("**"); }
+            case ITALIC -> { event.consume(); wrapCellSelection("*"); }
+            case STRIKE -> { event.consume(); wrapCellSelection("~~"); }
+            case INLINE_CODE -> { event.consume(); wrapCellSelection("`"); }
+            default -> { }
         }
+    }
+
+    private void editCellLink() {
+        var area = currentArea;
+        var table = activeTable;
+        if (!canModify(table) || composingText || handlingInputMethod) return;
+        long activation = cellActivationRevision;
+        long version = area.getEditor().getContentVersion();
+        String source = cellEditor.getText();
+        var selection = cellEditor.getSelection();
+        var document = ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) area.getEditor()).markdownSnapshot(area.getText());
+        var edit = com.allan.atools.richtext.codearea.MarkdownLinkEditing.request(source,
+                selection.getStart(), selection.getEnd(), cellEditor.getCaretPosition(), document);
+        if (edit == null || destroyed || currentArea != area || activation != cellActivationRevision
+                || version != area.getEditor().getContentVersion() || !source.equals(cellEditor.getText())
+                || !canModify(activeTable) || composingText || handlingInputMethod) return;
+        area.getUndoManager().preventMerge();
+        cellEditor.replaceText(edit.getStart(), edit.getEnd(), edit.getText());
+        cellEditor.selectRange(edit.getStart(), edit.getStart() + edit.getText().length());
+        area.getUndoManager().preventMerge();
     }
 
     private void onCellKeyTyped(KeyEvent event) {
@@ -1446,8 +1466,10 @@ public final class MarkdownTablePreviewManager {
         int start = cellEditor.getSelection().getStart();
         int end = cellEditor.getSelection().getEnd();
         String selected = cellEditor.getSelectedText();
-        currentArea.getUndoManager().preventMerge();
         var source = cellEditor.getText();
+        var state = new com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache().snapshot(source);
+        if (state.intersectsLiteral(start, end, mark.equals("`"))) return;
+        currentArea.getUndoManager().preventMerge();
         if (mark.equals("`")) {
             var edit = com.allan.atools.richtext.codearea.MarkdownInlineCode.toggle(source, start, end);
             cellEditor.replaceText(edit.getStart(), edit.getEnd(), edit.getText());
@@ -1587,9 +1609,15 @@ public final class MarkdownTablePreviewManager {
         for (int index = 0; index < marks.length; index++) {
             var item = new MenuItem(Locales.str(names[index]));
             var mark = marks[index];
+            for (var shortcut : com.allan.atools.richtext.codearea.MarkdownShortcuts.values()) {
+                if (shortcut.getLabelKey().equals(names[index])) item.setGraphic(new Label(shortcut.display()));
+            }
             item.setOnAction(event -> wrapCellSelection(mark));
             formats.getItems().add(item);
         }
+        var editLink = new MenuItem(Locales.str("markdown.editLink"));
+        editLink.setOnAction(event -> editCellLink());
+        formats.getItems().add(editLink);
         formats.setDisable(!area.isEditable() || structurePending);
         var menu = new ContextMenu(undo, redo, new SeparatorMenuItem(), cut, copy, copyAs,
                 paste, pasteCells, pasteText, selectAll, new SeparatorMenuItem(), formats, rowActions, columnActions,

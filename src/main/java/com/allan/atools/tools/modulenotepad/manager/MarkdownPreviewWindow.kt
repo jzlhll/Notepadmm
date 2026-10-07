@@ -269,13 +269,17 @@ class MarkdownPreviewWindow private constructor() {
         }
 
         fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = MarkdownThemes.previewCss(dark)): String {
+            return renderFragment(MarkdownHtmlRenderer.body(state, base), base, dark, themeCss,
+                hasFormula(state), hasDiagram(state))
+        }
+
+        fun renderFragment(body: String, base: String?, dark: Boolean, themeCss: String,
+                           formula: Boolean, diagram: Boolean, extraCss: String = "", extraScript: String = ""): String {
             val baseTag = if (base == null) "" else "<base href=\"${escape(base)}\">"
-            val formula = hasFormula(state)
-            val diagram = hasDiagram(state)
             val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
                 (if (diagram) "<script>$mermaidLibrary</script>" else "")
-            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$previewStyle$themeCss</style>$libraries</head>" +
-                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>${MarkdownHtmlRenderer.body(state, base)}</article><script>$previewScript</script></body></html>"
+            return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$previewStyle$themeCss$extraCss</style>$libraries</head>" +
+                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>$body</article><script>$previewScript</script><script>$extraScript</script></body></html>"
         }
 
         fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

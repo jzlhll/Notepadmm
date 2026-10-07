@@ -1,4 +1,15 @@
 -keepdirectories
+
+# 编辑区内固定页面通过公开方法回到源码和更新块高度。
+-keepclassmembers class com.allan.atools.richtext.codearea.MarkdownEmbeddedPresentation$BlockView$Bridge {
+    public void height(double);
+    public void edit(int);
+    public void open(java.lang.String);
+    public void copy(java.lang.String);
+    public void task(int, boolean);
+    public void retry(int);
+}
+-keeppackagenames com.allan.atools.richtext.codearea
 # -dontpreverify
 -dontoptimize
 -dontshrink

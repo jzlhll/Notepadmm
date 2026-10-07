@@ -26,7 +26,10 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     val syntaxGroups: List<SyntaxGroup>
     val details: List<MarkdownDetailsBlocks.Block>
     val frontMatter: List<FrontMatter>
+    val embeddedBlocks: List<MarkdownEmbeddedBlocks.Block>
     private val protectedRanges = ArrayList<Range>()
+    private val inlineCodeRanges = HashSet<Range>()
+    private val protectedBlockLines = HashSet<Int>()
 
     init {
         val lineData = ArrayList<Line>()
@@ -72,6 +75,8 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
             val listDepth = list + if (node is ListItem) 1 else 0
             val literal = node is Code || node is FencedCodeBlock || node is IndentedCodeBlock || node is HtmlBlock || node is MarkdownMath || node is MarkdownMathBlock || node is YamlFrontMatterBlock
             if (literal) protectedRanges.addAll(ranges)
+            if (node is Code) inlineCodeRanges.addAll(ranges)
+            if (literal && node is Block) node.sourceSpans.forEach { protectedBlockLines.add(it.lineIndex) }
             if (node is Block) {
                 val first = node.sourceSpans.firstOrNull()?.lineIndex
                 val last = node.sourceSpans.lastOrNull()?.lineIndex
@@ -233,6 +238,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         syntaxGroups = groups.toList()
         details = MarkdownDetailsBlocks.parse(this)
         frontMatter = metadata.toList()
+        embeddedBlocks = MarkdownEmbeddedBlocks.collect(this)
     }
 
     fun lineAt(position: Int): Int {
@@ -247,7 +253,21 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
 
     fun isLiteral(position: Int): Boolean = protectedRanges.any { position >= it.start && position < it.end }
 
+    /** 格式命令同时保护选区覆盖的字面内容和空行边界，不能只检查光标所在字符。 */
+    @JvmOverloads
+    fun intersectsLiteral(start: Int, end: Int, allowInlineCode: Boolean = false): Boolean = protectedRanges.any {
+        (!allowInlineCode || it !in inlineCodeRanges) &&
+            if (start == end) start >= it.start && start < it.end else start < it.end && end > it.start
+    } || intersectsLiteralBlocks(start, end)
+
+    fun intersectsLiteralBlocks(start: Int, end: Int): Boolean =
+        (lineAt(start)..lineAt(if (end > start && text.getOrNull(end - 1) == '\n') end - 1 else end)).any {
+            it in protectedBlockLines
+        }
+
     fun linkAt(position: Int): Link? = elements.firstOrNull { element ->
         element.node is Link && element.ranges.any { position >= it.start && position < it.end }
     }?.node as? Link
+
+    fun isEmbeddedLine(line: Int): Boolean = embeddedBlocks.any { line in it.firstLine..it.lastLine }
 }
