@@ -61,12 +61,13 @@ public final class FinderRegexImpl extends AbstractFinder {
         var m = wrap.pattern.matcher(lineWrap.line); // 获取 matcher 对象
 
         do {
-            if (!m.find()) {
+            if (getIsStarted() || mRetList.getTruncated() || !m.find()) {
                 break;
             }
 
             int start = m.start();
             int end = m.end();
+            if (!mRetList.acceptMatch(lineWrap.line.length(), end - start, lineItem == null)) break;
 
             if (lineItem == null) { //表示新的一行
                 var item = new ResultItemWrap();
@@ -90,14 +91,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 newItem.range = new ResultItem.Range(start, end, lineWrap.offset + start);
                 newItem.searchParams = wrap.originParam;
 
-                int insert = 0;
-                for (var ti : tempResultItems) {
-                    if (newItem.range.start < ti.range.start) {
-                        break;
-                    }
-                    insert++;
-                }
-                tempResultItems.add(insert, newItem);
+                tempResultItems.add(newItem);
             }
         } while (true);
 
@@ -114,7 +108,7 @@ public final class FinderRegexImpl extends AbstractFinder {
         int cvtLineLength = cvtLine.length();
 
         do {
-            if (fromIndex >= cvtLineLength) { //二~N次循环跳出
+            if (getIsStarted() || mRetList.getTruncated() || fromIndex >= cvtLineLength) { //二~N次循环跳出
                 break;
             }
 
@@ -172,6 +166,8 @@ public final class FinderRegexImpl extends AbstractFinder {
                 }
             }
 
+            if (!mRetList.acceptMatch(lineWrap.line.length(), fromIndex - indexes[0], lineItem == null)) break;
+
             if (lineItem == null) { //表示新的一行
                 var item = new ResultItemWrap();
                 item.setLine(isSystemUseLineNum ? String.format(mFormat, linenum, lineWrap.line) : lineWrap.line);
@@ -194,14 +190,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 newItem.range = new ResultItem.Range(indexes[0], fromIndex, lineWrap.offset + indexes[0]);
                 newItem.searchParams = wrap.originParam;
 
-                int insert = 0;
-                for (var ti : tempResultItems) {
-                    if (newItem.range.start < ti.range.start) {
-                        break;
-                    }
-                    insert++;
-                }
-                tempResultItems.add(insert, newItem);
+                tempResultItems.add(newItem);
             }
         } while (true);
 
@@ -224,6 +213,7 @@ public final class FinderRegexImpl extends AbstractFinder {
             tempResultItems.clear();
             ResultItemWrap item = null;
             for (var wrap : wraps) {
+                if (getIsStarted() || mRetList.getTruncated()) break;
                 if (tempResultItems.size() > 0) {
                     if (wrap instanceof SearchParamsWrapSimple s) {
                         oneLineHandle(origLine, i, s, item);
@@ -265,16 +255,16 @@ public final class FinderRegexImpl extends AbstractFinder {
                             Log.d(TAG, "center : " + item.lineNum + "行：" + rItem.range.start + ", " + rItem.range.end);
                         }
                     }
-                    //去除有重叠的数据
-                    for (int a = 1; a < tempResultItems.size(); a++) { //中间的判断；不得精简size()成为常量
+                    // 原地线性压缩重叠结果，避免反复删除并搬移后续元素。
+                    int retained = 1;
+                    for (int a = 1; a < tempResultItems.size(); a++) {
                         var cur = tempResultItems.get(a);
-                        if (cur.range.start < last.range.end) {
-                            tempResultItems.remove(a);
-                            a--;
-                        } else {
+                        if (cur.range.start >= last.range.end) {
+                            tempResultItems.set(retained++, cur);
                             last = cur;
                         }
                     }
+                    tempResultItems.subList(retained, tempResultItems.size()).clear();
 
                     if (DEBUG) {
                         for (var rItem : tempResultItems) {
@@ -288,6 +278,7 @@ public final class FinderRegexImpl extends AbstractFinder {
             }
 
             i++;
+            if (mRetList.getTruncated()) break;
         }
 
         if (getIsStarted()) {

@@ -89,7 +89,8 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
             var fileName = oneFileResults.displayName != null
                     ? oneFileResults.displayName
                     : oneFileResults.file == null ? "" : oneFileResults.file.getName();
-            var headText = "  " + fileName + "  (" + hitText + ")";
+            var headText = "  " + fileName + "  (" + hitText + ")"
+                    + (oneFileResults.truncated ? " · " + Locales.str("search.resultsLimited") : "");
             retParas.add(new Paragraph<>(lineParaStyle, segmentOps, headText, lineTextStyle));
 
             for (ResultItemWrap itemWrap : oneFileResults.results) {

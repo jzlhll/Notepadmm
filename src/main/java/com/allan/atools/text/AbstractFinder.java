@@ -1,11 +1,7 @@
 package com.allan.atools.text;
 
-import com.allan.atools.beans.ResultItemWrap;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.bean.SearchParams;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public abstract class AbstractFinder implements IFinder{
     protected static class LineWrap {
@@ -20,46 +16,61 @@ public abstract class AbstractFinder implements IFinder{
     protected final Iterable<LineWrap> mLines;
     protected final String mFormat;
     protected final int mFormatLineNumOffset;
-    protected final List<ResultItemWrap> mRetList;
+    protected final SearchResultList mRetList = new SearchResultList();
 
     protected final boolean isSystemUseLineNum;
 
     private volatile boolean isStarted = true;
+    private java.util.function.BooleanSupplier cancelled = () -> false;
+
+    public void setCancelled(java.util.function.BooleanSupplier cancelled) {
+        this.cancelled = cancelled;
+    }
     protected boolean getIsStarted() {
-        return !isStarted;
+        return !isStarted || Thread.currentThread().isInterrupted() || cancelled.getAsBoolean();
     }
     protected void setIsStarted(boolean s) {
         isStarted = s;
     }
 
-    private static List<LineWrap> splits(String str) {
-        int tmp = -1; //默认-1.后面有+1。相当于保证第一行不做分隔符拼接
-
-        String[] lines = str.split("\n");
-        List<LineWrap> res = new ArrayList<>(lines.length + 2);
-        for (var line : lines) {
-            var lineWrap = new LineWrap();
-            lineWrap.offset = tmp + 1;
-            lineWrap.line = line;
-            tmp = lineWrap.offset + line.length();
-            res.add(lineWrap);
-        }
-        return res;
-    }
-
     public AbstractFinder(String text, boolean lineNum, SearchParams[] searchParams, int[] totalFileLineCount) {
-        var lines = splits(text);
-        mLines = lines;
+        // 保留原先按 LF 拆行的坐标与尾部空行语义，只在遍历时创建当前行。
+        int end = text.length();
+        while (end > 0 && text.charAt(end - 1) == '\n') end--;
+        final int last = end;
+        int count = text.isEmpty() ? 1 : last == 0 ? 0 : 1;
+        for (int i = 0; i < last; i++) if (text.charAt(i) == '\n') count++;
+        totalFileLineCount[0] = count;
+        mLines = () -> new java.util.Iterator<>() {
+            private int offset;
+            private boolean emptyPending = text.isEmpty();
 
-        totalFileLineCount[0] = lines.size();
+            @Override
+            public boolean hasNext() {
+                return !getIsStarted() && !mRetList.getTruncated() && (emptyPending || offset < last);
+            }
 
-        int figures = ("" + lines.size()).length() + 1;
-        var line = Locales.str("line");
-        line = "    " + line;
+            @Override
+            public LineWrap next() {
+                if (!hasNext()) throw new java.util.NoSuchElementException();
+                int next = text.indexOf('\n', offset);
+                if (next < 0 || next > last) next = last;
+                var line = new LineWrap();
+                line.offset = offset;
+                if (next - offset > SearchResultList.MAX_LINE_CHARS) {
+                    mRetList.truncate();
+                    line.line = "";
+                } else line.line = text.substring(offset, next);
+                offset = next + 1;
+                emptyPending = false;
+                return line;
+            }
+        };
+        int figures = Integer.toString(count).length() + 1;
+        var line = "    " + Locales.str("line");
         mFormat = line + "%" + figures + "d: %s";
-        mFormatLineNumOffset = line.length() + figures + 1 + 1;
+        mFormatLineNumOffset = line.length() + figures + 2;
         isSystemUseLineNum = lineNum;
-        mRetList = new ArrayList<>();
     }
 
     /** 流式逐行读取，保留已有匹配与结果格式，避免拆分整篇正文。 */
@@ -73,9 +84,9 @@ public abstract class AbstractFinder implements IFinder{
             @Override
             public boolean hasNext() {
                 if (Thread.currentThread().isInterrupted()) cancel();
-                if (!isStarted) return false;
+                if (getIsStarted() || mRetList.getTruncated()) return false;
                 if (!ready) {
-                    try { next = input.readLine(); }
+                    try { next = SearchResultList.readLine(input, mRetList, () -> getIsStarted()); }
                     catch (java.io.IOException e) { throw new java.io.UncheckedIOException(e); }
                     ready = true;
                 }
@@ -103,7 +114,6 @@ public abstract class AbstractFinder implements IFinder{
         mFormat = line + "%6d: %s";
         mFormatLineNumOffset = line.length() + 8;
         isSystemUseLineNum = lineNum;
-        mRetList = new ArrayList<>();
     }
 
     public void cancel() {

@@ -479,6 +479,11 @@
     -fx-background-color: -au-main-bg-color;
     -fx-font-weight: BOLD;
 }
+
+.custom-notepad-pane #findTextField {
+    -fx-font-weight: NORMAL;
+    -fx-font-size: 15;
+}
 /*  -fx-background-color: WHITE;  */
 
 /**

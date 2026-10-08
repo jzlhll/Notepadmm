@@ -13,6 +13,7 @@ import java.util.List;
 public class OneFileSearchResults {
     public List<ResultItemWrap> results;
     public int totalLen;
+    public boolean truncated;
     public File file;
     public String sessionId;
     public String displayName;
@@ -25,6 +26,7 @@ public class OneFileSearchResults {
 
     public OneFileSearchResults addResults(List<ResultItemWrap> results) {
         this.results = results;
+        truncated = results instanceof com.allan.atools.text.SearchResultList limited && limited.getTruncated();
         return this;
     }
 

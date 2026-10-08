@@ -188,8 +188,10 @@ final class BottomHandler extends Handler {
                 return;
             }
             long contentVersion = area.getEditor().getContentVersion();
-            String text = area.getText();
-            var snapshot = area.getLargeLog() == null ? null : area.getLargeLog().snapshot(text);
+            boolean needsSearch = !TextUtils.isEmpty(out.mSearchParamAndIndicatorParam.searchParams.words)
+                    || !TextUtils.isEmpty(out.getTemporaryWord());
+            String text = needsSearch ? area.getText() : "";
+            var snapshot = !needsSearch || area.getLargeLog() == null ? null : area.getLargeLog().snapshot(text);
             post(() -> searchInThread(clickType, flag, text, contentVersion, snapshot));
         });
     }
@@ -247,7 +249,9 @@ final class BottomHandler extends Handler {
             //TimerCounter.start("bottom_search_in_thread");
             java.util.List<com.allan.atools.beans.ResultItemWrap> lastResultItems;
             try {
-                if (snapshot == null) lastResultItems = FinderFactory.find(t, false, searchParams, totalLines);
+                if (snapshot == null) lastResultItems = FinderFactory.find(t, false, searchParams, totalLines,
+                        () -> destroyed || area.getEditor().isDestroyed() || flag != out.lastChangeSearchFlag.get()
+                                || contentVersion != area.getEditor().getContentVersion());
                 else try (var reader = snapshot.openReader(() -> destroyed || area.getEditor().isDestroyed()
                         || flag != out.lastChangeSearchFlag.get()
                         || contentVersion != area.getEditor().getContentVersion())) {

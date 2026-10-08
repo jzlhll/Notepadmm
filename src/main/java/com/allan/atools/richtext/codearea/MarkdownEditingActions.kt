@@ -16,7 +16,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     private val item = Regex("^([ \\t]*)([-+*]|[0-9]{1,9}[.)])([ \\t]+)(\\[[ xX]][ \\t]+)?")
 
     private fun snapshot(): MarkdownStructureSnapshot =
-        (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
+        area.markdownCommands.snapshot()
 
     private fun change(start: Int, end: Int, replacement: String, selectStart: Int, selectEnd: Int = selectStart) {
         if (!area.isEditable || area.markdownComposing) return
@@ -40,7 +40,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun handleKey(event: KeyEvent): Boolean {
-        if (!MarkdownEditorSupport.supportsMarkdown(area) || area.markdownComposing) return false
+        if (area.markdownCommands.nativeKey || !MarkdownEditorSupport.supportsMarkdown(area) || area.markdownComposing) return false
         val shortcut = MarkdownShortcuts.match(event)
         if (shortcut != null) {
             if (shortcut == MarkdownShortcuts.SOURCE) {
@@ -53,6 +53,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
             }
             // 降级和只读状态仍消费已识别的格式键，避免落入其他编辑器默认行为。
             if (!area.isEditable || area.editor.isRealtimeProcessingLimitReached) return true
+            if (area.markdownCommands.deferKey(event)) return true
             when (shortcut) {
                 MarkdownShortcuts.BOLD -> wrap("**")
                 MarkdownShortcuts.ITALIC -> wrap("*")
@@ -70,6 +71,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (event.isAltDown || event.isControlDown || event.isMetaDown) return false
         if (event.code != KeyCode.ENTER && event.code != KeyCode.TAB && event.code != KeyCode.BACK_SPACE) return false
         if (event.code == KeyCode.TAB) {
+            if (area.markdownCommands.deferKey(event)) return true
             indent(event.isShiftDown)
             return true
         }
@@ -89,6 +91,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
             val prefixEnd = quotes.length + (marker?.value?.length ?: 0)
             if (prefixEnd == 0 || area.caretPosition - area.getAbsolutePosition(area.currentParagraph, 0) != prefixEnd) return false
         }
+        if (area.markdownCommands.deferKey(event)) return true
         val state = snapshot()
         val line = state.lines[state.lineAt(area.caretPosition)]
         if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code) return false
@@ -117,29 +120,15 @@ class MarkdownEditingActions(private val area: EditorArea) {
         return false
     }
 
-    /** 只允许普通正文单行内的修改走快速路径，其他结构仍查询当前版本，不能用旧 AST 改写内容。 */
+    /** 已完成的当前版本可直接判断；缺少快照时由命令队列在后台准备。 */
     private fun plainEnter(): Boolean {
         if (area.selection.length != 0) return false
-        val state = (area.editor as EditorAreaMgrCode).cachedMarkdownSnapshot() ?: return false
+        val state = area.markdownCommands.current() ?: return false
         val index = area.currentParagraph
         val line = state.lines.getOrNull(index) ?: return false
-        if (line.heading > 0 || line.listDepth > 0 || line.quoteDepth > 0 || line.code || line.frontMatter || line.rule ||
-            state.isEmbeddedLine(index) || state.intersectsLiteralBlocks(line.start, line.end)) return false
-        val source = area.text
-        if (source == state.text) return !state.isLiteral(area.caretPosition)
-        val content = area.getParagraph(index).text
-        val previous = state.text.substring(line.start, line.end)
-        fun plain(value: String): Boolean = value.isNotBlank() && !value.startsWith("    ") &&
-            !value.startsWith('\t') && item.find(value) == null &&
-            value.none { it in "`~*#-+><[]\$=_\\|" }
-        if (!plain(content) || !plain(previous)) return false
-        val start = area.getAbsolutePosition(index, 0)
-        if (start != line.start) return false
-        val end = start + content.length
-        val suffix = source.length - end
-        // 前后文必须完整一致，包含空行及 Setext 下划线；只复用这一行已知的普通正文属性。
-        return suffix == state.text.length - line.end && source.regionMatches(0, state.text, 0, start) &&
-            source.regionMatches(end, state.text, line.end, suffix)
+        return line.heading == 0 && line.listDepth == 0 && line.quoteDepth == 0 && !line.code &&
+            !line.frontMatter && !line.rule && !state.isEmbeddedLine(index) &&
+            !state.intersectsLiteralBlocks(line.start, line.end) && !state.isLiteral(area.caretPosition)
     }
 
     private fun enter(state: MarkdownStructureSnapshot, line: MarkdownStructureSnapshot.Line): Boolean {
@@ -229,6 +218,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         // 点击正文不获取全文快照；只有确实命中已绘制的任务标记才继续。
         val hitStyles = area.getStyleOfChar(hit.asInt)
         if (CodeArea.MARKDOWN_TASK_MARKER_CLASS !in hitStyles || "markdown-task-example" in hitStyles) return false
+        if (area.markdownCommands.defer { toggleTask(event) }) return true
         val state = snapshot()
         val offset = state.lines[state.lineAt(hit.asInt)].taskOffset
         if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false
@@ -245,6 +235,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun wrap(mark: String) {
+        if (area.markdownCommands.defer { wrap(mark) }) return
         if (!canFormat(inlineCode = mark == "`")) return
         val start = area.selection.start
         val end = area.selection.end
@@ -339,6 +330,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun prefixLines(prefix: String) {
+        if (area.markdownCommands.defer { prefixLines(prefix) }) return
         if (!canFormat(true)) return
         val (start, end) = lineRange()
         val state = snapshot()
@@ -380,6 +372,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun heading(level: Int) {
+        if (area.markdownCommands.defer { heading(level) }) return
         if (level !in 0..6 || !canFormat(true)) return
         var (start, end) = lineRange()
         val state = snapshot()
@@ -408,6 +401,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun indent(outdent: Boolean) {
+        if (area.markdownCommands.defer { indent(outdent) }) return
         val (start, end) = lineRange()
         val hadSelection = area.selection.length > 0
         val caret = area.caretPosition
@@ -428,6 +422,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     }
 
     fun editLink() {
+        if (area.markdownCommands.defer { editLink() }) return
         if (!canFormat()) return
         val source = area.text
         val edit = MarkdownLinkEditing.request(source, area.selection.start, area.selection.end, area.caretPosition, snapshot()) ?: return
@@ -442,7 +437,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
                 MarkdownShortcuts.entries.firstOrNull { it.labelKey == key }?.let { shortcut ->
                     graphic = javafx.scene.control.Label(shortcut.display()).apply { styleClass.add("normal-desc-label") }
                 }
-                setOnAction { if (area.isEditable && !area.markdownComposing && !area.editor.isRealtimeProcessingLimitReached) action() }
+                setOnAction { if (area.isEditable && !area.markdownComposing && !area.editor.isRealtimeProcessingLimitReached) area.markdownCommands.run(action) }
             })
         }
         val headings = Menu(Locales.str("markdown.heading"))
@@ -478,8 +473,10 @@ class MarkdownEditingActions(private val area: EditorArea) {
         copyMenu.items.add(MenuItem(Locales.str("markdown.copyCode")).apply { setOnAction { area.markdownCodeActions.copyCode() } })
         val copyAddress = MenuItem(Locales.str("markdown.copyLinkAddress"))
         copyAddress.setOnAction {
-            if (!area.editor.isRealtimeProcessingLimitReached) snapshot().linkAt(area.caretPosition)?.let { link ->
-                javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(link.destination) })
+            area.markdownCommands.run {
+                if (!area.editor.isRealtimeProcessingLimitReached) snapshot().linkAt(area.caretPosition)?.let { link ->
+                    javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(link.destination) })
+                }
             }
         }
         copyMenu.items.add(copyAddress)
@@ -488,16 +485,18 @@ class MarkdownEditingActions(private val area: EditorArea) {
         val stats = MenuItem(Locales.str("markdown.wordCount"))
         stats.setOnAction {
             if (area.editor.isRealtimeProcessingLimitReached) { com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.previewLimit")); return@setOnAction }
-            val document = snapshot()
-            val selected = if (area.selection.length == 0) document else
-                com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, area.selection.start, area.selection.end)
-            val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(selected.root)
-            val characters = plain.codePoints().filter { !Character.isWhitespace(it) }.count()
-            val words = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]|[\\p{L}\\p{N}_&&[^\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]]+").findAll(plain).count()
-            val dialog = javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION,
-                String.format(Locales.str("markdown.wordCountValue"), characters, words))
-            dialog.headerText = Locales.str("markdown.wordCount")
-            dialog.showAndWait()
+            area.markdownCommands.run {
+                val document = snapshot()
+                val selected = if (area.selection.length == 0) document else
+                    com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, area.selection.start, area.selection.end)
+                val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(selected.root)
+                val characters = plain.codePoints().filter { !Character.isWhitespace(it) }.count()
+                val words = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]|[\\p{L}\\p{N}_&&[^\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]]+").findAll(plain).count()
+                val dialog = javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION,
+                    String.format(Locales.str("markdown.wordCountValue"), characters, words))
+                dialog.headerText = Locales.str("markdown.wordCount")
+                dialog.showAndWait()
+            }
         }
         val preview = MenuItem(Locales.str("markdown.toggleSource"))
         preview.graphic = javafx.scene.control.Label(MarkdownShortcuts.SOURCE.display())

@@ -11,7 +11,7 @@ import org.commonmark.node.FencedCodeBlock
 
 /** 围栏和表格入口操作保留源码位置，使用主文档撤销链。 */
 class MarkdownCodeActions(private val area: EditorArea) {
-    private fun state() = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
+    private fun state() = area.markdownCommands.snapshot()
     private fun replace(start: Int, end: Int, text: String, caret: Int) {
         if (!area.isEditable || area.markdownComposing) return
         area.undoManager.preventMerge()
@@ -28,6 +28,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun create() {
+        if (area.markdownCommands.defer { create() }) return
         if (!area.markdownEditing.canFormat(true)) return
         val start = area.selection.start
         val end = area.selection.end
@@ -54,6 +55,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun chooseLanguage() {
+        if (area.markdownCommands.defer { chooseLanguage() }) return
         val node = block() ?: return
         val before = area.text
         val options = listOf("text") + com.allan.atools.richtext.codearea.keywordhelper.MarkdownCodeLanguages.supportedLanguages() + "mermaid"
@@ -70,6 +72,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun copyCode() {
+        if (area.markdownCommands.defer { copyCode() }) return
         val node = block() ?: return
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(node.literal) })
     }
@@ -78,6 +81,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
         .replace(raw) { match -> match.value.map { if (it == '\t') '\t' else ' ' }.joinToString("") }
 
     fun exitCode() {
+        if (area.markdownCommands.defer { exitCode() }) return
         val node = block() ?: return
         val snapshot = state()
         val first = node.sourceSpans.first()
@@ -90,6 +94,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
 
     fun createTable() {
+        if (area.markdownCommands.defer { createTable() }) return
         if (!area.markdownEditing.canFormat(true)) return
         val sourceBeforeDialog = area.text
         val dialog = TextInputDialog("3,3")

@@ -38,7 +38,8 @@ public class AllFilesSearchResults {
                     ? oneFileResults.displayName
                     : oneFileResults.file == null ? "" : oneFileResults.file.getName();
             var line = "  " + name
-                    + "  (" +  String.format(hitFmt, oneFileResults.results.size()) + ")";
+                    + "  (" +  String.format(hitFmt, oneFileResults.results.size()) + ")"
+                    + (oneFileResults.truncated ? " · " + Locales.str("search.resultsLimited") : "");
             sb.append(line).append(System.lineSeparator());
             for (ResultItemWrap item : oneFileResults.results) {
                 sb.append(item.getLine()).append(System.lineSeparator());

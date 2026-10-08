@@ -14,7 +14,7 @@ final class StylerActionCode extends StylerAction {
             if (!isCurrent(flag, contentVersion)) {
                 return;
             }
-            out.editorArea.getEditor().trigger(curTempParams, curParams, () -> {
+            ((com.allan.atools.richtext.codearea.EditorAreaMgrCode) out.editorArea.getEditor()).triggerSearch(curTempParams, curParams, () -> {
                 if (isCurrent(flag, contentVersion)) {
                     onStyleOver(flag, clickType);
                 }

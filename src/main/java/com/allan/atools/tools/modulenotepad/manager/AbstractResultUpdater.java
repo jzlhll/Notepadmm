@@ -201,7 +201,9 @@ public abstract class AbstractResultUpdater {
                 + "`  (" + results.allResults.size() + Locales.str("result.timesFiles")
                 + ", " + Locales.str("total")
                 + totalMatched
-                + Locales.str("result.times") + ")");
+                + Locales.str("result.times") + ")"
+                + (results.allResults.stream().anyMatch(result -> result.truncated)
+                ? " · " + Locales.str("search.resultsLimited") : ""));
         MyVirtualScrollPane<ResultAreaImpl> vpane = new MyVirtualScrollPane<>(area);
         tp.setContent(vpane);
 

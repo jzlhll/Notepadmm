@@ -41,6 +41,7 @@ class EditorArea @JvmOverloads constructor(
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
     val markdownSyntax = MarkdownSyntaxPresentation(this)
+    val markdownCommands: MarkdownCommandRunner
     val markdownEditing: MarkdownEditingActions
     val markdownAttachments by lazy { MarkdownAttachments(this) }
     val markdownClipboard by lazy { MarkdownClipboard(this) }
@@ -96,6 +97,7 @@ class EditorArea @JvmOverloads constructor(
     init {
         styleClass.add("editor-area")
         editor = createEditorAreaMgr(this, sourceFile, tab, documentState)
+        markdownCommands = MarkdownCommandRunner(this)
         markdownEditing = MarkdownEditingActions(this)
         markdownEditing.installMenu()
         multiSelections = EditorAreaMultiSelectionsMgr(this)
@@ -313,6 +315,7 @@ class EditorArea @JvmOverloads constructor(
 //        } catch (NoSuchFieldException | IllegalAccessException e) {
 //            e.printStackTrace();
 //        }
+        markdownCommands.destroy()
         viewPosition.destroy()
         markdownSyntax.destroy()
         paragraphWrapping.clear()

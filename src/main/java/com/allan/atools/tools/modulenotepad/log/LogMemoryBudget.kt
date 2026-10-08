@@ -51,9 +51,29 @@ object LogMemoryBudget {
         return extension.equals("txt", true) || extension.equals("log", true)
     }
 
-    /** 大日志延迟分块读取，小文件及其他文本保留普通打开流程。 */
+    /** 所有大文本延迟分块读取；小文件也须为文档模型预留堆余量。 */
     @JvmStatic
     fun readEditable(path: Path, charset: Charset): String? {
-        return if (isLog(path) && Files.size(path) > INITIAL_BYTES) null else Files.readString(path, charset)
+        val size = Files.size(path)
+        if (size > INITIAL_BYTES) return null
+        val lease = try { reserve(size * 6 + TASK_RESERVATION) } catch (_: IllegalStateException) { return null }
+        val text = lease.use {
+            Files.newBufferedReader(path, charset).use { reader ->
+                val content = StringBuilder()
+                val buffer = CharArray(32 * 1024)
+                while (true) {
+                    val count = reader.read(buffer)
+                    if (count < 0) break
+                    // 文件在打开过程中增长时仍必须受限。
+                    if (content.length.toLong() + count > INITIAL_BYTES) return null
+                    content.append(buffer, 0, count)
+                }
+                content.toString()
+            }
+        }
+        val documentCost = text.length * 6L + text.count { it == '\n' } * 256L
+        try { reserve(documentCost + TASK_RESERVATION).close() }
+        catch (_: IllegalStateException) { return null }
+        return text
     }
 }

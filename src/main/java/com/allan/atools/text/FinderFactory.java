@@ -9,19 +9,25 @@ import java.util.List;
 public final class FinderFactory {
     private FinderFactory() {};
 
-    private static AbstractFinder mCurrentFindImpl;
+    private static volatile AbstractFinder mCurrentFindImpl;
 
     public static List<ResultItemWrap> find(String text, boolean lineNum, SearchParams[] searchParams, int[] totalFileLineCount) {
-        AbstractFinder f = new FinderRegexImpl(text, lineNum, searchParams, totalFileLineCount);
-        mCurrentFindImpl = f;
-        var ans = f.find();
-        mCurrentFindImpl = null;
-        return ans;
+        return find(text, lineNum, searchParams, totalFileLineCount, () -> false);
+    }
+
+    public static List<ResultItemWrap> find(String text, boolean lineNum, SearchParams[] searchParams,
+                                            int[] totalFileLineCount, java.util.function.BooleanSupplier cancelled) {
+        AbstractFinder finder = new FinderRegexImpl(text, lineNum, searchParams, totalFileLineCount);
+        finder.setCancelled(cancelled);
+        mCurrentFindImpl = finder;
+        try { return finder.find(); }
+        finally { if (mCurrentFindImpl == finder) mCurrentFindImpl = null; }
     }
 
     public static synchronized void cancel() {
-        if (mCurrentFindImpl != null) {
-            mCurrentFindImpl.cancel();
+        var finder = mCurrentFindImpl;
+        if (finder != null) {
+            finder.cancel();
         }
     }
 

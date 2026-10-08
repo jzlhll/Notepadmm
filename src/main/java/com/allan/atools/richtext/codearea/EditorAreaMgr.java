@@ -339,6 +339,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             documentState.setSavedUndoPosition(position);
         } else documentState.invalidateSavedUndoPosition();
         documentState.setSavedText(null);
+        disableStylerIfNeeded(null);
     }
 
     public void refreshLargeLogState(boolean sourceChanged) {
@@ -348,7 +349,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     public boolean isRealtimeProcessingLimitReached() {
-        return mSourceFileSizeReachedStyleLimit
+        return area != null && area.getLargeLog() != null || mSourceFileSizeReachedStyleLimit
                 || mContentSizeReachedStyleLimit
                 || mLineCountReachedStyleLimit;
     }

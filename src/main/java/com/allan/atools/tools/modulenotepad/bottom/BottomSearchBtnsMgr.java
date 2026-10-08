@@ -160,7 +160,9 @@ public final class BottomSearchBtnsMgr {
     }
 
     void updateIndicator(int resultIndex, int totalResultSize) {
-        mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", resultIndex, totalResultSize);
+        mSearchParamAndIndicatorParam.indicator = String.format("%d/%d", resultIndex, totalResultSize)
+                + (handler.cache.cacheResult != null && handler.cache.cacheResult.truncated
+                ? " · " + Locales.str("search.resultsLimited") : "");
         if (UIContext.currentAreaProp.get() == editorArea) {
             UIContext.bottomSearchedIndicateProp.set(mSearchParamAndIndicatorParam.indicator);
         }

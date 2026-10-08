@@ -227,7 +227,7 @@ public final class EditorSessionManager {
     public CompletionStage<RestoreResult> restoreSession() {
         restoring = true;
         return CompletableFuture.supplyAsync(this::loadRestoreData, ioExecutor)
-                .thenCompose(data -> runOnFx(() -> applyRestoreData(data)))
+                .thenCompose(this::applyRestoreData)
                 .whenComplete((result, throwable) -> restoring = false);
     }
 
@@ -471,50 +471,59 @@ public final class EditorSessionManager {
                     if (!tab.dirty && !tab.untitled && !restoreSaved) {
                         return;
                     }
-                    if (loadTabText(tab, warnings)) {
-                        restored.add(tab);
-                        if (tab.recoveredLogFragment) warnings.add(tab.displayName + "：源文件已变化，未保存内容已恢复为独立文档");
-                        return;
-                    }
-                    var previousTab = previousById.get(tab.sessionId);
-                    if (previousTab != null && previousTab.dirty && loadDirtyTab(previousTab)) {
-                        previousTab.order = tab.order;
-                        restored.add(previousTab);
-                        warnings.add(Locales.str("sessionRestoredOlder").replace("%s", tab.displayName));
-                    } else {
-                        degradeTab(tab, restored, warnings);
-                    }
+                    restored.add(tab);
                 });
             }
-            return new RestoreData(manifest.activeSessionId, restored, warnings);
+            return new RestoreData(manifest.activeSessionId, restored, previousById, warnings);
         } catch (Exception e) {
             Log.e("load session failed", e);
             warnings.add(Locales.str("sessionReadFailed"));
-            return new RestoreData(null, List.of(), warnings);
+            return new RestoreData(null, List.of(), Map.of(), warnings);
         }
     }
 
-    private RestoreResult applyRestoreData(RestoreData data) {
-        int restoredCount = 0;
-        EditorArea activeArea = null;
-        for (var entry : data.tabs) {
-            var area = AllEditorsManager.Instance.restoreSessionEntry(entry, entry.restoredText);
-            if (area == null) {
-                continue;
-            }
-            restoredCount++;
-            if (entry.sessionId.equals(data.activeSessionId)) {
-                activeArea = area;
-            }
+    /** 每次只保留一个标签的待恢复正文，界面创建之间让出事件循环。 */
+    private CompletionStage<RestoreResult> applyRestoreData(RestoreData data) {
+        int[] restoredCount = {0};
+        EditorArea[] activeArea = {null};
+        CompletionStage<Void> chain = CompletableFuture.completedFuture(null);
+        for (var tab : data.tabs) {
+            chain = chain.thenComposeAsync(ignored -> {
+                var entries = new ArrayList<SessionTab>();
+                if (loadTabText(tab, data.warnings)) {
+                    entries.add(tab);
+                    if (tab.recoveredLogFragment) data.warnings.add(tab.displayName + "：源文件已变化，未保存内容已恢复为独立文档");
+                } else {
+                    var previousTab = data.previousById.get(tab.sessionId);
+                    if (previousTab != null && previousTab.dirty && loadDirtyTab(previousTab)) {
+                        previousTab.order = tab.order;
+                        entries.add(previousTab);
+                        data.warnings.add(Locales.str("sessionRestoredOlder").replace("%s", tab.displayName));
+                    } else degradeTab(tab, entries, data.warnings);
+                }
+                return runOnFx(() -> {
+                    for (var entry : entries) {
+                        try {
+                            var area = AllEditorsManager.Instance.restoreSessionEntry(entry, entry.restoredText);
+                            if (area != null) {
+                                restoredCount[0]++;
+                                if (entry.sessionId.equals(data.activeSessionId)) activeArea[0] = area;
+                            }
+                        } finally {
+                            entry.restoredText = null;
+                            entry.savedText = null;
+                        }
+                    }
+                    return (Void) null;
+                });
+            }, ioExecutor);
         }
-        if (activeArea != null) {
-            AllEditorsManager.Instance.bringAreaToFront(activeArea);
-        } else if (restoredCount > 0) {
-            var areas = AllEditorsManager.Instance.getAllAreas();
-            AllEditorsManager.Instance.bringAreaToFront(areas[0]);
-        }
-        commitCurrentState(true);
-        return new RestoreResult(restoredCount, String.join("\n", data.warnings));
+        return chain.thenCompose(ignored -> runOnFx(() -> {
+            if (activeArea[0] != null) AllEditorsManager.Instance.bringAreaToFront(activeArea[0]);
+            else if (restoredCount[0] > 0) AllEditorsManager.Instance.bringAreaToFront(AllEditorsManager.Instance.getAllAreas()[0]);
+            commitCurrentState(true);
+            return new RestoreResult(restoredCount[0], String.join("\n", data.warnings));
+        }));
     }
 
     private boolean loadTabText(SessionTab tab, List<String> warnings) {
@@ -580,7 +589,7 @@ public final class EditorSessionManager {
                 return;
             }
             var encoding = tab.encoding == null ? StandardCharsets.UTF_8 : Charset.forName(tab.encoding);
-            tab.savedText = Files.readString(source, encoding);
+            tab.savedText = com.allan.atools.tools.modulenotepad.log.LogMemoryBudget.readEditable(source, encoding);
         } catch (Exception ignored) {
         }
     }
@@ -921,6 +930,6 @@ public final class EditorSessionManager {
                               com.allan.atools.tools.modulenotepad.log.LogReadState logState) {
     }
 
-    private record RestoreData(String activeSessionId, List<SessionTab> tabs, List<String> warnings) {
+    private record RestoreData(String activeSessionId, List<SessionTab> tabs, Map<String, SessionTab> previousById, List<String> warnings) {
     }
 }

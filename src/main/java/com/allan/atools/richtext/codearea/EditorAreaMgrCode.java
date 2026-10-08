@@ -46,6 +46,8 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     private long runningStyleRequestId;
     private volatile long styleOptionsVersion;
     private long lastStyleStartedAt;
+    private MarkdownStructureSnapshot currentMarkdownSnapshot;
+    private long markdownSnapshotVersion = -1L;
 
     EditorAreaMgrCode(EditorArea area, File sourceFile, Tab tab,
                       EditorDocumentState documentState) {
@@ -135,6 +137,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return markdownAstCache.peekSnapshot();
     }
 
+    public MarkdownStructureSnapshot currentMarkdownSnapshot() {
+        return markdownSnapshotVersion == getContentVersion() ? currentMarkdownSnapshot : null;
+    }
+
     public void openMarkdownLinkAt(int position) {
         if (!(mKeywordHelper instanceof EditorKeywordHelperImplMarkdown helper) || isDestroyed()) return;
         String text = getArea().getText();
@@ -208,6 +214,24 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     @Override
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
         requestStyle(temporaryText, searchText, endSetStyleCallback, true);
+    }
+
+    /** 正文订阅已负责版本刷新，底部搜索只在条件改变时重新计算样式。 */
+    public void triggerSearch(SearchParams temporaryText, SearchParams searchText, Action0 endCallback) {
+        if (sameSearch(latestTemporaryText, temporaryText) && sameSearch(latestSearchText, searchText)) {
+            if (endCallback != null) endCallback.invoke();
+            return;
+        }
+        trigger(temporaryText, searchText, endCallback);
+    }
+
+    private static boolean sameSearch(SearchParams first, SearchParams second) {
+        boolean firstEmpty = first == null || first.words == null || first.words.isEmpty();
+        boolean secondEmpty = second == null || second.words == null || second.words.isEmpty();
+        return firstEmpty || secondEmpty ? firstEmpty == secondEmpty : first.isSameGeneric(second)
+                && java.util.Objects.equals(first.textColor, second.textColor)
+                && java.util.Objects.equals(first.bgColor, second.bgColor)
+                && first.highLight == second.highLight && first.enable == second.enable;
     }
 
     private void requestStyle(SearchParams temporaryText, SearchParams searchText,
@@ -319,6 +343,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         boolean alive = isStyleTaskAlive(requestId, optionsVersion, helper);
         boolean contentCurrent = contentVersion == getContentVersion();
         if (alive && update != null && contentCurrent) {
+            if (structure != null) {
+                currentMarkdownSnapshot = structure;
+                markdownSnapshotVersion = contentVersion;
+            }
             area.suspendVisibleParsWhileInvoke(() -> {
                 if (update.spans() != null) area.setStyleSpans(update.start(), update.spans());
                 if (structure != null) area.getMarkdownPresentation().apply(structure);
@@ -348,6 +376,8 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     }
 
     private void resetStyleScheduler() {
+        currentMarkdownSnapshot = null;
+        markdownSnapshotVersion = -1L;
         styleDelay.stop();
         styleRequestId.incrementAndGet();
         Runnable task = pendingStyleTask;
