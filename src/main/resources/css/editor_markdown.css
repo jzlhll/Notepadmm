@@ -221,11 +221,6 @@
     -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
 }
 
-/* 优先级高于 editor.css 的段落样式；顶部与 MarkdownTableToolbar.HEIGHT 一致，左侧保留正文留白。 */
-.styled-text-area.editor-area .paragraph-text.markdown-table-source-header {
-    -fx-padding: 28px 0 0 85px;
-}
-
 .markdown-table-toolbar {
     -fx-background-color: transparent;
     -fx-padding: 2 0 2 0;

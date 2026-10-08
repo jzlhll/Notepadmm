@@ -17,7 +17,7 @@ import javafx.scene.shape.Rectangle
 /** 操作栏属于表格首行，随文档布局和缩放，不另建悬浮窗口。 */
 class MarkdownTableToolbar(val tableId: String, optimize: Runnable, toggle: Runnable, exit: Runnable) : HBox(2.0) {
     companion object {
-        // 与源码首段的 CSS 顶部留白保持一致。
+        // 同时用于操作栏布局与源码首段的顶部留白。
         const val HEIGHT = 28.0
     }
 

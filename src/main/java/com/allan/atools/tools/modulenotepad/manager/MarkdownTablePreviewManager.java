@@ -893,12 +893,16 @@ public final class MarkdownTablePreviewManager {
         var existing = area.getParagraph(line).getParagraphStyle();
         var styles = new ArrayList<>(existing);
         styles.removeIf(style -> style.equals(PREVIEW_CLASS) || style.equals(SOURCE_HEADER_CLASS)
-                || style.equals(MarkdownParagraphWrapSupport.TABLE_SOURCE_CLASS) || style.startsWith(HEIGHT_PREFIX));
+                || style.equals(MarkdownParagraphWrapSupport.TABLE_SOURCE_CLASS) || style.startsWith(HEIGHT_PREFIX)
+                || style.startsWith(CodeArea.TABLE_SOURCE_HEADER_HEIGHT_PREFIX));
         if (preview) {
             styles.add(PREVIEW_CLASS);
             styles.add(HEIGHT_PREFIX + height);
         }
-        if (sourceHeader) styles.add(SOURCE_HEADER_CLASS);
+        if (sourceHeader) {
+            styles.add(SOURCE_HEADER_CLASS);
+            styles.add(CodeArea.TABLE_SOURCE_HEADER_HEIGHT_PREFIX + MarkdownTableToolbar.HEIGHT);
+        }
         if (sourceLine) styles.add(MarkdownParagraphWrapSupport.TABLE_SOURCE_CLASS);
         boolean presented = preview || sourceLine;
         if (presented) presentationLines.add(line);

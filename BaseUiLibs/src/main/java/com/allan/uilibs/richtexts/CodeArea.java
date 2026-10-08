@@ -51,6 +51,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     public static final String EMBEDDED_PREVIEW_HEIGHT_PREFIX = "embedded-preview-height:";
     /** Mermaid 源码首段的操作栏留白，与预览占高分开维护。 */
     public static final String MERMAID_SOURCE_HEADER_HEIGHT_PREFIX = "mermaid-source-header-height:";
+    /** 表格源码首段的操作栏留白，与正文段落的顶部间距合并。 */
+    public static final String TABLE_SOURCE_HEADER_HEIGHT_PREFIX = "table-source-header-height:";
 
     private final LinkedHashMap<Object, BiFunction<Integer, Node, Node>> graphicDecorators = new LinkedHashMap<>();
     private IntFunction<? extends Node> baseGraphicFactory;
@@ -133,12 +135,16 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         String inlineStyle = "";
         String previewHeight = null;
         double headerHeight = 0;
+        double sourceLeftPadding = 95;
         if (styleClasses != null) for (String style : styleClasses) {
             if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 headerHeight = Double.parseDouble(style.substring(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX.length()));
+            } else if (style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX)) {
+                headerHeight = Double.parseDouble(style.substring(TABLE_SOURCE_HEADER_HEIGHT_PREFIX.length()));
+                sourceLeftPadding = 85;
             }
         }
-        String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 95;" : "";
+        String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 " + sourceLeftPadding + ";" : "";
         for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
             if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
@@ -151,7 +157,8 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
             } else if (style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)) {
                 inlineStyle = "-fx-pref-height: "
                         + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length()) + "px;";
-            } else if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
+            } else if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)
+                    || style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 // 已提取操作栏高度，须与正文排版合并，避免内联 padding 覆盖顶部留白。
             } else if (style.startsWith("md-layout:")) {
                 var fields = style.split(":");
