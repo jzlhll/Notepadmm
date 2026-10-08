@@ -58,6 +58,9 @@
 
 # 关键的。java9以上保留module-info
 -keep class module-info
+
+# 本地 JFoenix 与原外部依赖保持相同的类名和成员名，供 FXML、CSS 与反射加载。
+-keep class com.jfoenix.** { *; }
 ######
 ########## JPMS 模块化下，只有 module-info.java 中被 opens/exports 的包，其包名必须保持
 ##########（FXMLLoader 反射 setAccessible、Gson 反射都要按 opens 条目的包名命中，包名一变则 InaccessibleObjectException）。

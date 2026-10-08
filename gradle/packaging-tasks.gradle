@@ -15,7 +15,7 @@ tasks.register('clean', Delete) {
 tasks.register('preparePackageLayout') {
     group = 'distribution'
     description = '准备应用打包目录、模块 JAR、第三方依赖和资源。'
-    dependsOn ':BaseParty:jar', ':BaseUiLibs:jar', ':app:jar'
+    dependsOn ':JFoenix:jar', ':BaseParty:jar', ':BaseUiLibs:jar', ':app:jar'
     outputs.upToDateWhen { false }
 
     doLast {
@@ -25,6 +25,7 @@ tasks.register('preparePackageLayout') {
         packagingConfig.resourcesDir.mkdirs()
 
         def projectJars = [
+                project(':JFoenix').tasks.named('jar', Jar).get().archiveFile.get().asFile,
                 project(':BaseParty').tasks.named('jar', Jar).get().archiveFile.get().asFile,
                 project(':BaseUiLibs').tasks.named('jar', Jar).get().archiveFile.get().asFile,
                 project(':app').tasks.named('jar', Jar).get().archiveFile.get().asFile
@@ -157,13 +158,14 @@ tasks.register('obfuscateAppJar') {
         baseConfig.addAll(jmodArgs)
         baseConfig.addAll(thirdPartyArgs)
 
-        // 三个模块必须同一次 ProGuard 运行统一改名，否则跨模块引用（编译期仍是原名）无法改写一致。
+        // 项目模块必须同一次 ProGuard 运行统一改名，否则跨模块引用（编译期仍是原名）无法改写一致。
         // 但 ProGuard 单次运行会污染多份 module-info（把 opens 串到其它模块）。因全部包名均已 keep，
         // module-info 中的 exports/requires 引用全为原名，故混淆后用原始 module-info.class 覆盖回即可。
         def projectJarNames = [
                 'atools.jar',
                 'atools.baseparty.jar',
-                'atools.baseuilibs.jar'
+                'atools.baseuilibs.jar',
+                'jfoenix.jar'
         ]
         def backupModuleInfo = { File orig, String tag ->
             def zf = new java.util.zip.ZipFile(orig)
@@ -253,6 +255,7 @@ tasks.register('obfuscateAppJar') {
         delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools.jar')
         delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseparty.jar')
         delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseuilibs.jar')
+        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_jfoenix.jar')
         zipSingleFile(packagingConfig.mappingFile, packagingConfig.proguardMap, 'out.map')
         delete packagingConfig.mappingFile
         delete packagingConfig.proguardUse
@@ -335,6 +338,8 @@ for jar in myLibs/*.jar; do
     echo "    -> $jar"
 done
 cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"
+# 本地模块替代旧 Maven JAR，避免同一目录出现重复的 com.jfoenix 模块。
+rm -f "$APP_PATH/Contents/app/mods/jfoenix-9.0.10.jar"
 echo "  JAR 复制完成"
 
 echo "[2/3] 同步 resources 资源目录..."

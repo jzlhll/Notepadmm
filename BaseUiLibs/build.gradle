@@ -10,7 +10,7 @@ javafx {
 
 dependencies {
     api project(':BaseParty')
-    api 'com.jfoenix:jfoenix:9.0.10'
+    api project(':JFoenix')
     api 'org.fxmisc.richtext:richtextfx:0.11.7'
 }
 

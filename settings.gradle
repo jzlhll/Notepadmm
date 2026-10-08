@@ -14,5 +14,5 @@ dependencyResolutionManagement {
 
 rootProject.name = 'Notepadmm'
 
-include 'BaseParty', 'BaseUiLibs', 'app'
+include 'JFoenix', 'BaseParty', 'BaseUiLibs', 'app'
 project(':app').projectDir = file('src')

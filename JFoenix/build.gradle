@@ -1,0 +1,41 @@
+plugins {
+    id 'java-library'
+    id 'org.openjfx.javafxplugin'
+}
+
+javafx {
+    version = '21.0.12'
+    if (rootProject.packagingConfig.javafxPlatform != null) {
+        platform = rootProject.packagingConfig.javafxPlatform
+    }
+    modules = ['javafx.controls', 'javafx.graphics']
+}
+
+// 保留上游模块名，沿用应用已有的 JavaFX 内部接口访问配置。
+def javafxInternalPackages = [
+        'javafx.base/com.sun.javafx.binding',
+        'javafx.base/com.sun.javafx.event',
+        'javafx.graphics/com.sun.javafx.geom',
+        'javafx.graphics/com.sun.javafx.scene',
+        'javafx.graphics/com.sun.javafx.scene.text',
+        'javafx.graphics/com.sun.javafx.scene.traversal',
+        'javafx.graphics/com.sun.javafx.stage',
+        'javafx.graphics/com.sun.javafx.util',
+        'javafx.controls/com.sun.javafx.scene.control',
+        'javafx.controls/com.sun.javafx.scene.control.behavior',
+        'javafx.controls/com.sun.javafx.scene.control.inputmap'
+]
+
+tasks.named('compileJava', JavaCompile) {
+    options.compilerArgs.addAll(javafxInternalPackages.collectMany {
+        ['--add-exports', "${it}=com.jfoenix".toString()]
+    })
+}
+
+tasks.named('jar', Jar) {
+    archiveFileName = 'jfoenix.jar'
+    from('LICENSE') {
+        into 'META-INF'
+        rename { 'LICENSE-JFoenix.txt' }
+    }
+}
