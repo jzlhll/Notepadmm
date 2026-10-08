@@ -427,6 +427,7 @@ public final class WorkspaceManager implements IWorkspace {
                 return;
             }
 
+            pendingWorkspaceDir = null;
             currentDir = dir;
             var path = dir.getAbsolutePath();
             restoreWorkspaceViews();
