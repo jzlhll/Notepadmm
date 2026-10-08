@@ -1,0 +1,34 @@
+[versions]
+java = "25"
+kotlin = "2.4.20"
+javafx = "27"
+javafxPlugin = "0.1.0"
+richtextfx = "0.11.7"
+gson = "2.14.0"
+annotations = "26.1.0"
+jna = "5.19.1"
+imageio = "3.15.3"
+commonmark = "0.30.0"
+jsoup = "1.23.2"
+proguard = "7.10.0"
+
+[libraries]
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+richtextfx = { module = "org.fxmisc.richtext:richtextfx", version.ref = "richtextfx" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "imageio" }
+commonmark-core = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
+commonmark-strikethrough = { module = "org.commonmark:commonmark-ext-gfm-strikethrough", version.ref = "commonmark" }
+commonmark-autolink = { module = "org.commonmark:commonmark-ext-autolink", version.ref = "commonmark" }
+commonmark-tasks = { module = "org.commonmark:commonmark-ext-task-list-items", version.ref = "commonmark" }
+commonmark-footnotes = { module = "org.commonmark:commonmark-ext-footnotes", version.ref = "commonmark" }
+commonmark-frontmatter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+proguard = { module = "com.guardsquare:proguard-base", version.ref = "proguard" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+javafx = { id = "org.openjfx.javafxplugin", version.ref = "javafxPlugin" }

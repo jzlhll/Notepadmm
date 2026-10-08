@@ -4,7 +4,6 @@ import com.allan.baseparty.exception.UnImplementException;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * 本List适用于极少的变动数组。
@@ -23,7 +22,10 @@ public final class SimpleNoNullList<E> implements Collection<E> {
 
         @Override
         public E next() {
-            return (E) list[itSize++];
+            // 数组仅通过 add(E) 写入元素，读取时可安全转换回 E。
+            @SuppressWarnings("unchecked")
+            E element = (E) list[itSize++];
+            return element;
         }
     }
 

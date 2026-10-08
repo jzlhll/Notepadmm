@@ -43,6 +43,44 @@ if (packageTarget != null) {
     if (!packageJdkHome.isDirectory()) {
         throw new GradleException("JDK 目录不存在：${packageJdkHome}。请修改 local.properties 中的 ${packageTarget.jdkProperty}=JDK绝对路径。")
     }
+
+    def releaseFile = new File(packageJdkHome, 'release')
+    if (!releaseFile.isFile()) {
+        throw new GradleException("请配置完整的 JDK 25：${packageJdkHome}，macOS 路径需指向 Contents/Home。")
+    }
+    def jdkRelease = new Properties()
+    releaseFile.withReader('UTF-8') { reader -> jdkRelease.load(reader) }
+    def jdkVersion = jdkRelease.getProperty('JAVA_VERSION', '').replace('"', '')
+    if (jdkVersion.tokenize('.-+').find() != libs.versions.java.get()) {
+        throw new GradleException("${packageTarget.jdkProperty} 必须使用 JDK 25，当前版本为 ${jdkVersion}。")
+    }
+    def jdkArch = jdkRelease.getProperty('OS_ARCH', '').replace('"', '')
+    def expectedArch = packageTarget.name.endsWith('arm64') ? ['aarch64', 'arm64'] : ['amd64', 'x86_64']
+    def jdkOs = jdkRelease.getProperty('OS_NAME', '').replace('"', '').toLowerCase()
+    if (!expectedArch.contains(jdkArch) ||
+            !(packageTarget.os == 'mac' ? jdkOs.contains('darwin') || jdkOs.contains('mac') : jdkOs.contains('windows'))) {
+        throw new GradleException("${packageTarget.jdkProperty} 的 JDK 平台不匹配 ${packageTarget.name}：${jdkOs}/${jdkArch}。")
+    }
+    if (packageTarget.bundledJavafx) {
+        // Windows ARM64 没有官方 Maven 原生包，必须使用目标平台的同版本 JavaFX jmods。
+        ['javafx.base', 'javafx.controls', 'javafx.fxml', 'javafx.graphics', 'javafx.media', 'javafx.swing', 'javafx.web'].each { moduleName ->
+            def jmodFile = new File(packageJdkHome, "jmods/${moduleName}.jmod")
+            if (!jmodFile.isFile()) {
+                throw new GradleException("Windows ARM64 JDK 缺少 JavaFX ${libs.versions.javafx.get()} 模块：${jmodFile}。")
+            }
+            def jmod = new java.util.zip.ZipFile(jmodFile)
+            try {
+                def descriptor = jmod.getInputStream(jmod.getEntry('classes/module-info.class')).withCloseable {
+                    java.lang.module.ModuleDescriptor.read(it)
+                }
+                if (descriptor.rawVersion().orElse('') != libs.versions.javafx.get()) {
+                    throw new GradleException("${moduleName} 版本必须为 ${libs.versions.javafx.get()}，当前为 ${descriptor.rawVersion().orElse('未知')}。")
+                }
+            } finally {
+                jmod.close()
+            }
+        }
+    }
 }
 
 ext.packageTargetDefinitions = packageTargets

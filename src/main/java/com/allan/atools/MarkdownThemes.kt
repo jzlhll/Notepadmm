@@ -7,9 +7,7 @@ import com.allan.atools.utils.ResLocation
 import javafx.beans.property.ReadOnlyLongProperty
 import javafx.beans.property.ReadOnlyLongWrapper
 import javafx.css.CssParser
-import javafx.css.CompoundSelector
 import javafx.css.Selector
-import javafx.css.SimpleSelector
 import javafx.scene.Parent
 import javafx.scene.paint.Color
 import java.nio.file.Files
@@ -160,12 +158,11 @@ object MarkdownThemes {
         val importantColors = HashSet<String>()
         for (rule in stylesheet.rules) {
             for (selector in rule.selectors) {
-                val first = when (selector) {
-                    is SimpleSelector -> selector
-                    is CompoundSelector -> selector.selectors.firstOrNull()
-                    else -> null
-                }
-                require(first != null && "markdown-editor" in first.styleClasses) {
+                // 从规范化文本提取最左侧选择器，ID 和伪类不影响主题作用域。
+                val first = selector.toString().takeWhile { !it.isWhitespace() && it != '>' }
+                    .substringBefore('#').substringBefore(':')
+                val firstSelector = Selector.createSelector(first)
+                require(firstSelector != null && "markdown-editor" in firstSelector.styleClassNames) {
                     Locales.str("markdown.themeScopeRequired")
                 }
             }

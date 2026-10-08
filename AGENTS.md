@@ -1,6 +1,6 @@
 # AGENTS.md
 
-专业日志分析与 Markdown 编辑并重的桌面工具，项目名 Notepadmm，应用名 ATools；支持 Windows 与 macOS。使用 Java 17、Kotlin、JavaFX 21、RichTextFX 0.11.7 和 Gradle。
+专业日志分析与 Markdown 编辑并重的桌面工具，项目名 Notepadmm，应用名 ATools；支持 Windows 与 macOS。使用 Java 25、Kotlin 2.4.20、JavaFX 27、RichTextFX 0.11.7 和 Gradle 9.6.1。
 
 - 凡是新增代码，能使用 Kotlin 就使用 Kotlin；不因此改写已有代码。
 

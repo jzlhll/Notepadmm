@@ -222,7 +222,6 @@ interface GcTrigger {
             RefWatcher.log("run gc!!!");
             System.gc();
             enqueueReferences();
-            System.runFinalization();
         }
 
         private void enqueueReferences() {

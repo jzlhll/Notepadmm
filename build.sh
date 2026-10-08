@@ -30,7 +30,16 @@ if [ -z "$build_action" ]; then
     exit 1
 fi
 
-# 检查 Java 17 JDK 编译环境
+# 优先使用项目本机配置，与 Gradle Wrapper 保持一致。
+if [ -f local.properties ]; then
+    build_jdk_home=$(sed -n 's/^buildJdk\.home=//p' local.properties | tr -d '\r' | tail -n 1)
+    if [ -n "$build_jdk_home" ]; then
+        JAVA_HOME=$build_jdk_home
+        export JAVA_HOME
+    fi
+fi
+
+# 检查 Java 25 JDK 编译环境
 java_cmd="java"
 javac_cmd="javac"
 if [ -n "${JAVA_HOME:-}" ]; then
@@ -43,11 +52,11 @@ if [ -n "${JAVA_HOME:-}" ]; then
 fi
 
 if ! command -v "$java_cmd" >/dev/null 2>&1; then
-    echo "未找到 Java。请安装 JDK 17，并正确设置 JAVA_HOME 或 PATH。"
+    echo "未找到 Java。请配置 local.properties 的 buildJdk.home 为 JDK 25，或设置 JAVA_HOME / PATH。"
     exit 1
 fi
 if ! command -v "$javac_cmd" >/dev/null 2>&1; then
-    echo "未找到 javac。请安装完整的 JDK 17，并正确设置 JAVA_HOME 或 PATH。"
+    echo "未找到 javac。请配置完整的 JDK 25。"
     exit 1
 fi
 
@@ -58,9 +67,9 @@ javac_version="$(printf '%s\n' "$javac_version_output" | sed -n '1s/^javac[[:spa
 java_major="${java_version%%[.-]*}"
 javac_major="${javac_version%%[.-]*}"
 
-if [ "$java_major" != "17" ] || [ "$javac_major" != "17" ]; then
-    echo "当前编译环境不是 JDK 17（java: ${java_version:-未知}，javac: ${javac_version:-未知}）。"
-    echo "请切换 JAVA_HOME 或 PATH 到 JDK 17 后重试。"
+if [ "$java_major" != "25" ] || [ "$javac_major" != "25" ]; then
+    echo "当前编译环境不是 JDK 25（java: ${java_version:-未知}，javac: ${javac_version:-未知}）。"
+    echo "请配置 local.properties 的 buildJdk.home，或切换 JAVA_HOME / PATH 到 JDK 25 后重试。"
     exit 1
 fi
 

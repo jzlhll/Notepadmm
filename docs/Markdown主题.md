@@ -55,7 +55,7 @@ ATools 内置 GitHub 浅色与 GitHub Dark 深色两套 Markdown 主题。设置
 | 列表、链接、图片标记 | `-au-md-list`、`-au-md-link`、`-au-md-image` |
 | 图片边框、占位文字 | `-au-md-image-frame-border`、`-au-md-image-placeholder-fill` |
 
-标题样式类为 `.markdown-title-1` 至 `.markdown-title-6`；其他可用样式包括 `.markdown-code`、`.markdown-inline-code`、`.markdown-link`、`.markdown-quote`、`.markdown-list`、`.markdown-table-preview-cell`，以及段落类 `.md-heading-1` 至 `.md-heading-6`、`.md-code-block-first` / `mid` / `last` / `single`。完整语义样式见 `src/main/resources/css/editor_markdown.css`，JavaFX CSS 属性见 [官方 CSS 参考](https://openjfx.io/javadoc/21/javafx.graphics/javafx/scene/doc-files/cssref.html)。
+标题样式类为 `.markdown-title-1` 至 `.markdown-title-6`；其他可用样式包括 `.markdown-code`、`.markdown-inline-code`、`.markdown-link`、`.markdown-quote`、`.markdown-list`、`.markdown-table-preview-cell`，以及段落类 `.md-heading-1` 至 `.md-heading-6`、`.md-code-block-first` / `mid` / `last` / `single`。完整语义样式见 `src/main/resources/css/editor_markdown.css`，JavaFX CSS 属性见 [官方 CSS 参考](https://openjfx.io/javadoc/27/javafx.graphics/javafx/scene/doc-files/cssref.html)。
 
 ## 参考资料与适配
 

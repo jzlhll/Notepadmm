@@ -44,10 +44,6 @@ module com.jfoenix{
     exports com.jfoenix.controls.cells.editors;
     exports com.jfoenix.controls.cells.editors.base;
     exports com.jfoenix.animation.alert;
-
-    opens com.jfoenix.assets.css;
-    opens com.jfoenix.assets.css.controls;
-    opens com.jfoenix.assets.font.roboto;
 }
 
 // compile exports

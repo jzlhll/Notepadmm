@@ -1,6 +1,20 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '2.2.21' apply false
-    id 'org.openjfx.javafxplugin' version '0.1.0' apply false
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.javafx) apply false
+}
+
+if (Runtime.version().feature() != libs.versions.java.get().toInteger()) {
+    throw new GradleException('请使用 JDK 25 运行 Gradle：配置 local.properties 的 buildJdk.home；IDE 中的 Gradle JVM 也需选择 JDK 25。')
+}
+
+// JavaFX 的 JSObject 替代 JDK 25 中已弃用的同名模块；忽略 Maven 的空占位 JAR。
+ext.javafxJsObjectJars = { Collection<File> jars ->
+    jars.findAll { jar ->
+        jar.name.startsWith('jdk-jsobject-') &&
+                java.lang.module.ModuleFinder.of(jar.toPath()).findAll().any {
+                    it.descriptor().name() == 'jdk.jsobject' && !it.descriptor().isAutomatic()
+                }
+    }
 }
 
 allprojects {
@@ -9,23 +23,49 @@ allprojects {
 }
 
 subprojects {
+    def javaVersion = rootProject.libs.versions.java.get().toInteger()
     plugins.withType(JavaPlugin).configureEach {
         java {
             toolchain {
-                languageVersion = JavaLanguageVersion.of(17)
+                languageVersion = JavaLanguageVersion.of(javaVersion)
             }
+            // --release 不能与 --upgrade-module-path 同用，编译器由 JDK 25 toolchain 固定。
+            sourceCompatibility = JavaVersion.toVersion(javaVersion)
+            targetCompatibility = JavaVersion.toVersion(javaVersion)
             modularity.inferModulePath = false
         }
 
         tasks.withType(JavaCompile).configureEach {
             options.encoding = 'UTF-8'
-            options.release = 17
         }
 
         tasks.named('compileJava', JavaCompile) {
             doFirst {
-                options.compilerArgs.addAll(['--module-path', classpath.asPath])
+                def jsObjectJars = rootProject.javafxJsObjectJars(classpath.files)
+                if (!jsObjectJars.isEmpty()) {
+                    options.compilerArgs.addAll(['--upgrade-module-path', files(jsObjectJars).asPath])
+                }
+                options.compilerArgs.addAll(['--module-path', (classpath - files(jsObjectJars)).asPath])
                 classpath = files()
+            }
+        }
+    }
+    plugins.withId('org.jetbrains.kotlin.jvm') {
+        kotlin {
+            jvmToolchain(javaVersion)
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
+            }
+        }
+    }
+    plugins.withId('org.openjfx.javafxplugin') {
+        // 插件 0.1.0 未覆盖 jdk-jsobject，补充平台变体规则以解析实际模块 JAR。
+        dependencies.components.withModule('org.openjfx:jdk-jsobject',
+                org.openjfx.gradle.metadatarule.JavaFXComponentMetadataRule)
+        javafx {
+            version = rootProject.libs.versions.javafx.get()
+            if (rootProject.packagingConfig.javafxPlatform != null) {
+                platform = rootProject.packagingConfig.javafxPlatform
             }
         }
     }

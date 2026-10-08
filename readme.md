@@ -8,7 +8,7 @@
 
 **Notepadmm 是一款专业日志分析与 Markdown 编辑并重的桌面工具。** 从多条件搜索、分色追踪和结果定位，到带有大纲、图片、可编辑表格与离线图表的技术文档，帮助你在同一个工作区里完成问题排查与分析记录。
 
-应用名称为 **ATools**，支持 Windows 与 macOS。项目基于 Java 17、Kotlin、JavaFX 21、RichTextFX 和 JFoenix，使用 Gradle 管理开发与发行打包。
+应用名称为 **ATools**，支持 Windows 与 macOS。项目基于 Java 25、Kotlin 2.4.20、JavaFX 27、RichTextFX 和本地 JFoenix 模块，使用 Gradle 9.6.1 管理开发与发行打包。
 
 ## 专业日志分析
 
@@ -115,7 +115,7 @@ atools file.txt
 
 ### 运行开发版
 
-安装 JDK 17 后，在项目根目录执行：
+安装 JDK 25，将 `local.properties.example` 复制为 `local.properties`，填写 `buildJdk.home`（macOS 需指向 JDK 的 `Contents/Home`），然后在项目根目录执行。Wrapper 和 `build.sh` 优先使用此路径，未填写时使用 `JAVA_HOME` / `PATH`；IDE 的 Project SDK 和 Gradle JVM 也需选择 JDK 25。依赖版本统一在 `gradle/libs.versions.toml` 管理。
 
 ```shell
 ./gradlew :app:run
@@ -127,7 +127,7 @@ Windows 使用：
 gradlew.bat :app:run
 ```
 
-`:app:run` 会编译 `BaseParty`、`BaseUiLibs` 和 `app`，组装模块路径与项目所需的 VM 参数，然后直接启动应用。它适合日常开发和调试，不会生成安装包。
+`:app:run` 会编译 `JFoenix`、`BaseParty`、`BaseUiLibs` 和 `app`，组装模块路径与项目所需的 VM 参数，然后直接启动应用。它适合日常开发和调试，不会生成安装包。
 
 ### 生成发行包
 
@@ -137,7 +137,7 @@ gradlew.bat :app:run
 | --- | --- |
 | `mainShAllMacArm64` | 准备 macOS Apple Silicon（ARM64）发行内容，并生成 `buildRoot/pack.sh`。 |
 | `mainShAllMacX64` | 准备 macOS Intel（x64）发行内容，并生成 `buildRoot/pack.sh`。 |
-| `mainShAllWindowsArm64` | 准备 Windows ARM64 发行内容，并生成安装版和绿色版 jpackage 脚本。目标 JDK 需要自带 Windows ARM64 JavaFX。 |
+| `mainShAllWindowsArm64` | 准备 Windows ARM64 发行内容，并生成安装版和绿色版 jpackage 脚本。目标 JDK 25 需要自带 Windows ARM64 JavaFX 27 jmods。 |
 | `mainShAllWindowsX64` | 准备 Windows x64 发行内容，并生成安装版和绿色版 jpackage 脚本。 |
 
 例如，在 Apple Silicon Mac 上执行：
@@ -155,6 +155,8 @@ buildRoot\jpackageCmdExe.bat
 ```
 
 Windows 的 `jpackageCmdExe.bat` 生成 `.exe` 安装包，`jpackageCmdGreenExe.bat` 生成免安装应用目录；macOS 的 `pack.sh` 生成 `.dmg`。最终产物统一输出到 `dist`。四个 `mainShAll...` 任务本身负责整理模块 JAR、第三方依赖和资源，分析并创建最小 JRE，混淆主应用 JAR，最后生成对应平台的 jpackage 脚本，不会直接执行该脚本。
+
+升级 JDK、JavaFX 或其他第三方依赖后，需要完整重新打包并安装；`fastCopy.sh` 只更新项目 JAR 和资源，不更新运行时、第三方 JAR 或启动参数。
 
 Gradle Wrapper 统一管理依赖、模块路径和运行参数。新增三方库或项目模块时，参见 [编译注意事项](docs/编译注意事项.md)。
 

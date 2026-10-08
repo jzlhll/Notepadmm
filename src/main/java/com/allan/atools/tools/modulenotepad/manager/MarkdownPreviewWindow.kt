@@ -70,7 +70,10 @@ class MarkdownPreviewWindow private constructor() {
             if (value == Worker.State.SUCCEEDED && stage.isShowing &&
                 view.engine.executeScript("typeof updatePreview === 'function'") == true) {
                 pageReady = true
-                (view.engine.executeScript("window") as JSObject).setMember("editorBridge", bridge)
+                // Kotlin 编译使用 JDK 25 的兼容接口，运行时由 JavaFX 提供未弃用的实现。
+                @Suppress("DEPRECATION")
+                val window = view.engine.executeScript("window") as JSObject
+                window.setMember("editorBridge", bridge)
                 view.engine.executeScript("installPreviewBridge()")
                 readingState?.let { view.engine.executeScript("restorePreviewReadingState(${gson.toJson(it)})") }
                 readingState = null

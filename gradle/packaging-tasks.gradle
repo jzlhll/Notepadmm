@@ -3,7 +3,7 @@ configurations {
 }
 
 dependencies {
-    proguardRuntime 'com.guardsquare:proguard-base:7.10.0'
+    proguardRuntime libs.proguard
 }
 
 tasks.register('clean', Delete) {
@@ -73,12 +73,16 @@ tasks.register('analyzeJreModules') {
         def command = [
                 packagingJdkTool('jdeps'),
                 '-q',
-                '--multi-release', '17',
+                '--multi-release', libs.versions.java.get(),
                 '--ignore-missing-deps',
                 '--list-deps',
                 '--recursive',
                 '--module-path', modulePathFiles*.absolutePath.join(File.pathSeparator)
         ]
+        def jsObjectJars = javafxJsObjectJars(modulePathFiles)
+        if (!jsObjectJars.isEmpty()) {
+            command.addAll(['--upgrade-module-path', files(jsObjectJars).asPath])
+        }
         command.addAll(modulePathFiles*.absolutePath)
         def output = runPackagingCommand(command)
         def jmodsDir = new File(packagingJdkHome(), 'jmods')
@@ -121,15 +125,18 @@ tasks.register('createMiniJre') {
 
     doLast {
         def modules = packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }
+        // 将 JavaFX 的 JSObject 放在 JDK jmods 前，让发行包也使用新版 WebView 桥接模块。
+        def jsObjectJars = javafxJsObjectJars(packagingConfig.thirdLibsDir.listFiles()?.toList() ?: [])
+        def linkModulePath = files(jsObjectJars, new File(packagingJdkHome(), 'jmods')).asPath
         delete packagingConfig.miniJreDir
         runPackagingCommand([
                 packagingJdkTool('jlink'),
                 '--strip-debug',
-                '--compress=1',
+                '--compress=zip-6',
                 '--no-header-files',
                 '--no-man-pages',
                 '--output', packagingConfig.miniJreDir.absolutePath,
-                '--module-path', new File(packagingJdkHome(), 'jmods').absolutePath,
+                '--module-path', linkModulePath,
                 '--add-modules', modules.join(',')
         ])
         delete new File(packagingConfig.miniJreDir, 'legal')
@@ -146,10 +153,13 @@ tasks.register('obfuscateAppJar') {
     doLast {
         def projectLibs = packagingConfig.projectLibsDir
         def jmodsDir = new File(packagingJdkHome(), 'jmods')
-        def jmodArgs = packagingConfig.jreDepsFile.readLines().findAll { !it.isBlank() }.collect { moduleName ->
+        def thirdPartyJars = packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort() ?: []
+        def hasJsObjectReplacement = !javafxJsObjectJars(thirdPartyJars).isEmpty()
+        def jmodArgs = packagingConfig.jreDepsFile.readLines().findAll {
+            !it.isBlank() && !(it == 'jdk.jsobject' && hasJsObjectReplacement)
+        }.collect { moduleName ->
             "-libraryjars ${proguardPath(new File(jmodsDir, "${moduleName}.jmod"))}(!**.jar;!module-info.class)"
         }
-        def thirdPartyJars = packagingConfig.thirdLibsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.sort()
         def thirdPartyArgs = thirdPartyJars.collect {
             "-libraryjars ${proguardPath(it)}(!module-info.class)"
         }

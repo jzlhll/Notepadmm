@@ -28,7 +28,7 @@
 
 ### 前置：测量 RichTextFX 追加与换页的内存放大
 
-必须先用项目实际的 RichTextFX 0.11.7、Java 17 和 CodeArea 封装测量，再确定页面大小。追加 1 MiB 源内容不等于增加 1 MiB 内存；解码文本、段落／片段／样式结构、可见节点、撤销历史、搜索快照及临时分配都需计入，同样字节数的短行密集日志和长行日志可能有不同成本。
+必须先用项目实际的 RichTextFX 0.11.7、Java 25 和 CodeArea 封装测量，再确定页面大小。追加 1 MiB 源内容不等于增加 1 MiB 内存；解码文本、段落／片段／样式结构、可见节点、撤销历史、搜索快照及临时分配都需计入，同样字节数的短行密集日志和长行日志可能有不同成本。
 
 - [ ] 预热字体、CSS 与布局后记录基线；分别测量追加后的稳定堆增量、追加／替换期间峰值和进程驻留内存。等待布局及后台回填完成，结合受控回收后的保留对象分析，不能仅比较两次未经控制的 `freeMemory()`。
 - [ ] 测量 50 MiB 初始加载、后续每次 5 MiB 读取／追加，以及较小 UI 提交批次的成本；对比空文档和已有加载窗口时的追加，同时记录 I/O 缓冲、解码和搜索峰值。覆盖 ASCII、中文、密集短行、超长行、自动换行开／关、无高亮／多条件密集高亮、撤销开／关和搜索结果窗口。
@@ -131,8 +131,8 @@ JVM 堆也包含普通编辑器和应用对象；整程序还包含 JavaFX、线
 
 ## 技术依据
 
-- [Java 17 系统内存接口](https://docs.oracle.com/en/java/javase/17/docs/api/jdk.management/com/sun/management/OperatingSystemMXBean.html)：物理总内存与系统可用内存用于预算，不能把 JVM 内存误当电脑内存。
-- [Java 17 Runtime](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runtime.html)：`maxMemory()` 等描述 JVM 内存，需配合进程内存观测。
-- [CharsetDecoder](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/nio/charset/CharsetDecoder.html)：分块解码保留状态并处理块边界。
+- [Java 25 系统内存接口](https://docs.oracle.com/en/java/javase/25/docs/api/jdk.management/com/sun/management/OperatingSystemMXBean.html)：物理总内存与系统可用内存用于预算，不能把 JVM 内存误当电脑内存。
+- [Java 25 Runtime](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Runtime.html)：`maxMemory()` 等描述 JVM 内存，需配合进程内存观测。
+- [CharsetDecoder](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/charset/CharsetDecoder.html)：分块解码保留状态并处理块边界。
 - [RichTextFX 0.11.7 编辑器实现](https://github.com/FXMisc/RichTextFX/blob/v0.11.7/richtextfx/src/main/java/org/fxmisc/richtext/GenericStyledArea.java)、[文档模型](https://github.com/FXMisc/RichTextFX/blob/v0.11.7/richtextfx/src/main/java/org/fxmisc/richtext/model/ReadOnlyStyledDocument.java)：文档数据、虚拟化视图和撤销管理需要分别计入。
-- [MemoryMXBean](https://docs.oracle.com/en/java/javase/17/docs/api/java.management/java/lang/management/MemoryMXBean.html)：记录堆使用情况，结合对象分析和进程内存观测区分保留成本与操作峰值。
+- [MemoryMXBean](https://docs.oracle.com/en/java/javase/25/docs/api/java.management/java/lang/management/MemoryMXBean.html)：记录堆使用情况，结合对象分析和进程内存观测区分保留成本与操作峰值。

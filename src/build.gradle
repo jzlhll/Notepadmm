@@ -5,10 +5,6 @@ plugins {
 }
 
 javafx {
-    version = '21.0.12'
-    if (rootProject.packagingConfig.javafxPlatform != null) {
-        platform = rootProject.packagingConfig.javafxPlatform
-    }
     modules = [
             'javafx.base',
             'javafx.controls',
@@ -45,21 +41,28 @@ dependencies {
     implementation project(':BaseUiLibs')
     implementation project(':JFoenix')
 
-    implementation 'com.google.code.gson:gson:2.14.0'
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.21'
-    implementation 'org.fxmisc.richtext:richtextfx:0.11.7'
-    implementation 'org.jetbrains:annotations:26.1.0'
-    implementation 'net.java.dev.jna:jna:5.18.1'
-    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.15.0'
+    implementation libs.gson
+    implementation libs.kotlin.stdlib
+    implementation libs.richtextfx
+    implementation libs.annotations
+    implementation libs.jna
+    implementation libs.imageio.webp
 
-    implementation 'org.commonmark:commonmark:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-gfm-tables:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-gfm-strikethrough:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-autolink:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-task-list-items:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-footnotes:0.30.0'
-    implementation 'org.commonmark:commonmark-ext-yaml-front-matter:0.30.0'
-    implementation 'org.jsoup:jsoup:1.21.2'
+    implementation libs.commonmark.core
+    implementation libs.commonmark.tables
+    implementation libs.commonmark.strikethrough
+    implementation libs.commonmark.autolink
+    implementation libs.commonmark.tasks
+    implementation libs.commonmark.footnotes
+    implementation libs.commonmark.frontmatter
+    implementation libs.jsoup
+}
+
+tasks.named('compileKotlin', org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+    // Kotlin 不支持替换 JDK 系统模块；编译时使用接口相同的 JDK 25 版本，避免同名模块冲突。
+    libraries.setFrom(sourceSets.main.compileClasspath.filter {
+        !it.name.startsWith('jdk-jsobject-')
+    })
 }
 
 tasks.named('compileJava', JavaCompile) {
@@ -90,7 +93,9 @@ tasks.named('run', JavaExec) {
                 tasks.named('jar', Jar).get().archiveFile.get().asFile,
                 configurations.runtimeClasspath.files
         )
-        jvmArgs '--module-path', modulePath.asPath
+        def jsObjectJars = rootProject.javafxJsObjectJars(modulePath.files)
+        jvmArgs '--upgrade-module-path', files(jsObjectJars).asPath
+        jvmArgs '--module-path', (modulePath - files(jsObjectJars)).asPath
         classpath = files()
     }
 }

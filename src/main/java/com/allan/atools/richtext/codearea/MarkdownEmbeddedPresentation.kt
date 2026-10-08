@@ -331,7 +331,10 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 if (live && state == Worker.State.SUCCEEDED &&
                     web.engine.executeScript("typeof embeddedReady === 'function' && window.embeddedRevision === $revision") == true) {
                     ready = true
-                    (web.engine.executeScript("window") as JSObject).setMember("embeddedBridge", bridge)
+                    // Kotlin 编译使用 JDK 25 的兼容接口，运行时由 JavaFX 提供未弃用的实现。
+                    @Suppress("DEPRECATION")
+                    val window = web.engine.executeScript("window") as JSObject
+                    window.setMember("embeddedBridge", bridge)
                     web.engine.executeScript("embeddedReady()")
                     syncTasks()
                     syncReadonly()

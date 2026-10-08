@@ -29,6 +29,7 @@ import javafx.util.converter.NumberStringConverter;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
+import java.util.Locale;
 
 /**
  * An example of Number field validation, that is applied on text input controls
@@ -42,6 +43,8 @@ import java.text.ParsePosition;
 public class NumberValidator extends ValidatorBase {
 
     private NumberStringConverter numberStringConverter = new NumberStringConverter(){
+        private final Locale locale = Locale.getDefault();
+
         @Override
         public Number fromString(String string) {
             try {
@@ -52,8 +55,8 @@ public class NumberValidator extends ValidatorBase {
                 if (string.length() < 1) {
                     return null;
                 }
-                // Create and configure the parser to be used
-                NumberFormat parser = getNumberFormat();
+                // 保留默认转换器创建时的区域设置，并校验整个输入。
+                NumberFormat parser = NumberFormat.getNumberInstance(locale);
                 ParsePosition parsePosition = new ParsePosition(0);
                 Number result = parser.parse(string, parsePosition);
                 final int index = parsePosition.getIndex();

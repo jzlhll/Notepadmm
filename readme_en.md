@@ -8,7 +8,7 @@
 
 **Notepadmm is a desktop tool built equally for professional log analysis and Markdown editing.** Multi-pattern search, color-coded tracking, and linked results help you investigate problems, while outlines, images, editable tables, and offline diagrams help you document the findings in the same workspace.
 
-The application is named **ATools** and supports Windows and macOS. It is built with Java 17, Kotlin, JavaFX 21, RichTextFX, and JFoenix, with Gradle managing development and distribution packaging.
+The application is named **ATools** and supports Windows and macOS. It is built with Java 25, Kotlin 2.4.20, JavaFX 27, RichTextFX, and a local JFoenix module, with Gradle 9.6.1 managing development and distribution packaging.
 
 ## Professional log analysis
 
@@ -115,7 +115,7 @@ atools file.txt
 
 ### Run the development build
 
-After installing JDK 17, run the following command from the project root:
+Install JDK 25, copy `local.properties.example` to `local.properties`, and set `buildJdk.home` (use the JDK’s `Contents/Home` directory on macOS). The wrappers and `build.sh` prefer this path, falling back to `JAVA_HOME` / `PATH`. In your IDE, select JDK 25 for both Project SDK and Gradle JVM. Dependency versions are managed in `gradle/libs.versions.toml`. Run from the project root:
 
 ```shell
 ./gradlew :app:run
@@ -127,7 +127,7 @@ On Windows, use:
 gradlew.bat :app:run
 ```
 
-`:app:run` compiles `BaseParty`, `BaseUiLibs`, and `app`, assembles the module path and required VM options, and launches the application directly. It is intended for development and debugging and does not create an installer.
+`:app:run` compiles `JFoenix`, `BaseParty`, `BaseUiLibs`, and `app`, assembles the module path and required VM options, and launches the application directly. It is intended for development and debugging and does not create an installer.
 
 ### Create a distribution
 
@@ -137,7 +137,7 @@ Before packaging for the first time, copy `local.properties.example` to `local.p
 | --- | --- |
 | `mainShAllMacArm64` | Prepares a macOS Apple Silicon (ARM64) distribution and generates `buildRoot/pack.sh`. |
 | `mainShAllMacX64` | Prepares a macOS Intel (x64) distribution and generates `buildRoot/pack.sh`. |
-| `mainShAllWindowsArm64` | Prepares a Windows ARM64 distribution and generates installer and portable jpackage scripts. The target JDK must include Windows ARM64 JavaFX. |
+| `mainShAllWindowsArm64` | Prepares a Windows ARM64 distribution and generates installer and portable jpackage scripts. The target JDK 25 must include Windows ARM64 JavaFX 27 jmods. |
 | `mainShAllWindowsX64` | Prepares a Windows x64 distribution and generates installer and portable jpackage scripts. |
 
 For example, on an Apple Silicon Mac:
@@ -155,6 +155,8 @@ buildRoot\jpackageCmdExe.bat
 ```
 
 On Windows, `jpackageCmdExe.bat` creates an `.exe` installer, while `jpackageCmdGreenExe.bat` creates a portable application directory. On macOS, `pack.sh` creates a `.dmg`. All final artifacts are written to `dist`. The four `mainShAll...` tasks prepare the module JARs, third-party dependencies, and resources; analyze and create a minimal JRE; obfuscate the main application JAR; and generate the platform-specific jpackage scripts. They do not execute the generated scripts.
+
+After upgrading the JDK, JavaFX, or other dependencies, create and install a complete distribution. `fastCopy.sh` only updates project JARs and resources; it does not update the runtime, third-party JARs, or launcher options.
 
 The Gradle Wrapper manages dependencies, the module path, and runtime options. When adding a third-party dependency or project module, see the [build notes](docs/编译注意事项.md).
 

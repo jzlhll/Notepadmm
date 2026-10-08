@@ -4,10 +4,6 @@ plugins {
 }
 
 javafx {
-    version = '21.0.12'
-    if (rootProject.packagingConfig.javafxPlatform != null) {
-        platform = rootProject.packagingConfig.javafxPlatform
-    }
     modules = ['javafx.controls', 'javafx.graphics']
 }
 
