@@ -116,6 +116,7 @@ public final class EditorSessionManager {
         tracked.backupSha256 = entry.backupSha256;
         tracked.lastSnapshotAt = entry.backupFile == null ? 0L : System.currentTimeMillis();
         tracked.contentVersion = area.getEditor().getContentVersion();
+        tracked.dirty = area.getEditor().getDocumentState().isDirty();
         if (entry.chunkedLog) tracked.backupLogState = new com.allan.atools.tools.modulenotepad.log.LogReadState(
                 new com.allan.atools.tools.modulenotepad.log.LogPosition(entry.loadedByteOffset, 1L, 0L),
                 entry.pendingBytes == null ? new byte[0] : entry.pendingBytes, entry.afterCr);
@@ -132,6 +133,8 @@ public final class EditorSessionManager {
         }
         tracked.lastEditAt = System.currentTimeMillis();
         tracked.contentVersion = contentVersion;
+        boolean becameDirty = state.isDirty() && !tracked.dirty;
+        tracked.dirty = state.isDirty();
         cancel(tracked.debounceTask);
         if (!state.isDirty()) {
             tracked.lifecycleGeneration++;
@@ -140,6 +143,8 @@ public final class EditorSessionManager {
             commitCurrentState(true);
             return;
         }
+        // 首次变脏先记录元数据；正文快照仍防抖，缺失时启动恢复会明确告警。
+        if (becameDirty) commitCurrentState(false);
         tracked.debounceTask = scheduler.schedule(
                 () -> Platform.runLater(() -> trySnapshot(state.getSessionId())),
                 SNAPSHOT_DEBOUNCE_MS, TimeUnit.MILLISECONDS);
@@ -184,6 +189,7 @@ public final class EditorSessionManager {
             return;
         }
         tracked.lifecycleGeneration++;
+        tracked.dirty = state.isDirty();
         cancel(tracked.debounceTask);
         cancel(tracked.compensationTask);
         if (result == SaveResult.SUCCESS_DIRTY) {
@@ -441,9 +447,6 @@ public final class EditorSessionManager {
             tab.backupFile = tracked.backupFile;
             tab.backupByteSize = tracked.backupByteSize;
             tab.backupSha256 = tracked.backupSha256;
-            if (state.isDirty() && tracked.backupFile == null) {
-                tab.dirty = false;
-            }
         }
         return tab;
     }
@@ -911,6 +914,7 @@ public final class EditorSessionManager {
         volatile long lastEditAt;
         volatile long lastSnapshotAt;
         volatile long contentVersion;
+        boolean dirty;
         volatile long lifecycleGeneration;
         volatile long backupVersion;
         volatile String backupFile;
@@ -923,6 +927,7 @@ public final class EditorSessionManager {
 
         TrackedDocument(EditorArea area) {
             this.area = area;
+            dirty = area.getEditor().getDocumentState().isDirty();
         }
     }
 

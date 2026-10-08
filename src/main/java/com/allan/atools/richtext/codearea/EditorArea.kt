@@ -5,6 +5,10 @@ import com.allan.atools.UIContext
 import com.allan.atools.tools.modulenotepad.Highlight
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager
+import com.allan.atools.tools.modulenotepad.session.SaveResult
+import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
+import com.allan.atools.ui.JfoenixDialogUtils
+import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.allan.baseparty.Action
 import com.allan.baseparty.memory.RefWatcher
@@ -54,6 +58,75 @@ class EditorArea @JvmOverloads constructor(
 
     fun runAfterMarkdownComposition(action: Runnable) {
         if (markdownComposing) afterMarkdownComposition.add(action) else action.run()
+    }
+
+    /** 按已有文本段精确比较，避免段落缓存未命中时复制超长行；文本段与样式片段独立。 */
+    fun matchesSavedText(savedText: String): Boolean {
+        if (length != savedText.length) return false
+        var offset = 0
+        for ((index, paragraph) in paragraphs.withIndex()) {
+            if (index > 0) {
+                if (savedText[offset] != '\n') return false
+                offset++
+            }
+            for (segment in paragraph.segments) {
+                if (!savedText.regionMatches(offset, segment, 0, segment.length)) return false
+                offset += segment.length
+            }
+        }
+        return offset == savedText.length
+    }
+
+    /** 格式化等整篇编辑保留保存基线，并作为一次独立操作进入撤销历史。 */
+    fun replaceDocumentText(value: String) {
+        if (editor.isDestroyed || !isEditable || isDisabled || markdownComposing || text == value) return
+        val previousAnchor = anchor
+        val previousCaret = caretPosition
+        undoManager.preventMerge()
+        try {
+            replaceText(value)
+            selectRange(Math.min(previousAnchor, length), Math.min(previousCaret, length))
+        } finally {
+            undoManager.preventMerge()
+        }
+    }
+
+    fun reloadWithEncoding(encoding: String) {
+        if (editor.isDestroyed || isDisabled) return
+        val source = editor.sourceFile ?: return
+        if (!source.isFile) return
+        val reload = Runnable {
+            if (!editor.isDestroyed && !isDisabled && editor.sourceFile == source) {
+                AllEditorsManager.Instance
+                    .reOpenCurrentFile(editor.tab, source, encoding)
+            }
+        }
+        if (!editor.documentState.isDirty) {
+            reload.run()
+            return
+        }
+        JfoenixDialogUtils.confirm(
+            Locales.ALERT(), Locales.str("confirmReloadUnsaved"), 0, 0,
+            JfoenixDialogUtils.DialogActionInfo(
+                JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("save")
+            ) {
+                editor.save().whenComplete { result, error ->
+                    javafx.application.Platform.runLater {
+                        if (!editor.isDestroyed) {
+                            if (error != null) {
+                                JfoenixDialogUtils.alert(
+                                    Locales.ALERT(), Locales.str("saveFileFailed"))
+                            } else if (result == SaveResult.SUCCESS_CLEAN
+                                && !editor.documentState.isDirty) reload.run()
+                        }
+                    }
+                }
+            },
+            JfoenixDialogUtils.DialogActionInfo(
+                JfoenixDialogUtils.ConfirmMode.Extra, Locales.str("notSave"), reload::run),
+            JfoenixDialogUtils.DialogActionInfo(
+                JfoenixDialogUtils.ConfirmMode.Cancel, null, null)
+        )
     }
 
     fun toggleMarkdownPreview() {
@@ -202,7 +275,7 @@ class EditorArea @JvmOverloads constructor(
         // 中文标点模式：本 tab 开启时把 KEY_TYPED 收到的半角标点替换为全角（只读时跳过，与默认输入行为一致）
         addEventFilter(KeyEvent.KEY_TYPED) { e ->
             if (e.target is TextInputControl || e.target is WebView) return@addEventFilter
-            if (isEditable && editor.getState().isChinesePunctuation()) {
+            if (isEditable && !markdownComposing && editor.getState().isChinesePunctuation()) {
                 val text = e.character
                 if (text.length == 1) {
                     val mapped = FULLWIDTH_PUNCTUATION[text[0]]

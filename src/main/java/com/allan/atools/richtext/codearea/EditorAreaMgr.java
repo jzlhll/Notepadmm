@@ -51,7 +51,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -102,7 +101,13 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 }
             }
 
-            updateDirtyFromContent();
+            updateDirtyFromContent(false);
+            if (area.getLargeLog() != null) {
+                // 分块日志没有完整正文基线，等编辑或撤销入栈完毕后再读取保存标记。
+                Platform.runLater(() -> {
+                    if (!isDestroyed()) updateDirtyFromContent(true);
+                });
+            }
         }
 
         @Override
@@ -332,7 +337,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 changes, org.fxmisc.richtext.model.PlainTextChange::invert,
                 org.fxmisc.richtext.util.UndoUtils.applyMultiPlainTextChange(area),
                 org.fxmisc.richtext.model.PlainTextChange::mergeWith,
-                org.fxmisc.richtext.model.PlainTextChange::isIdentity));
+                org.fxmisc.richtext.model.PlainTextChange::isIdentity,
+                org.fxmisc.richtext.util.UndoUtils.DEFAULT_PREVENT_MERGE_DELAY));
         if (!documentState.isDirty()) {
             var position = area.getUndoManager().getCurrentPosition();
             position.mark();
@@ -454,7 +460,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         }
         mConfirmStat = ConfirmStat.DialogOpened;
         if (!documentState.isDirty()) {
-            closeAfterCommit(EditorSessionManager.getInstance().untrackAndCommit(area));
+            closeAfterCommit();
             return;
         }
         JfoenixDialogUtils.confirm(Locales.ALERT(),
@@ -463,9 +469,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                 new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept,
                         Locales.str("save"), () -> save().whenComplete((saveResult, throwable) ->
                                 Platform.runLater(() -> {
-                                    if (throwable == null && saveResult == SaveResult.SUCCESS_CLEAN) {
-                                        closeAfterCommit(EditorSessionManager.getInstance()
-                                                .untrackAndCommit(area));
+                                    if (isDestroyed()) return;
+                                    if (throwable == null && saveResult == SaveResult.SUCCESS_CLEAN
+                                            && !documentState.isDirty()) {
+                                        closeAfterCommit();
                                     } else {
                                         mConfirmStat = ConfirmStat.Normal;
                                         if (throwable != null) {
@@ -475,20 +482,35 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                                     }
                                 }))),
                 new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Extra,
-                        Locales.str("notSave"), () -> closeAfterCommit(
-                                EditorSessionManager.getInstance().untrackAndCommit(area))),
+                        Locales.str("notSave"), this::closeAfterCommit),
                 new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel,
                         null, () -> mConfirmStat = ConfirmStat.Normal));
     }
 
     /** 会话提交成功后关闭标签；失败则恢复确认状态并提示。 */
-    private void closeAfterCommit(CompletionStage<SessionCommitResult> commit) {
-        commit.whenComplete((commitResult, throwable) -> Platform.runLater(() -> {
-            if (throwable == null && commitResult == SessionCommitResult.SUCCESS) {
+    private void closeAfterCommit() {
+        if (isDestroyed()) return;
+        boolean wasEditable = area.isEditable();
+        boolean wasDisabled = area.isDisable();
+        long closingVersion = contentVersion.get();
+        area.setEditable(false);
+        area.setDisable(true);
+        EditorSessionManager.getInstance().untrackAndCommit(area)
+                .whenComplete((commitResult, throwable) -> Platform.runLater(() -> {
+            if (isDestroyed()) return;
+            boolean committed = throwable == null && commitResult == SessionCommitResult.SUCCESS;
+            if (committed && closingVersion == contentVersion.get()) {
                 closeWithoutConfirm();
             } else {
+                if (committed) {
+                    // 后台命令仍可能改变正文；重新纳入会话，保留关闭期间产生的编辑。
+                    EditorSessionManager.getInstance().track(area);
+                    updateDirtyFromContent(true);
+                }
+                area.setEditable(wasEditable);
+                area.setDisable(wasDisabled);
                 mConfirmStat = ConfirmStat.Normal;
-                JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("sessionWriteFailed"));
+                if (!committed) JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("sessionWriteFailed"));
             }
         }));
     }
@@ -554,23 +576,28 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         undoManager.preventMerge();
     }
 
-    private void updateDirtyFromContent() {
+    private void updateDirtyFromContent(boolean undoStateReady) {
         if (programmaticReplace) {
             return;
         }
-        documentState.setDirty(!isCurrentContentSaved());
-        updateTabTitle();
+        boolean dirty = !isCurrentContentSaved(undoStateReady);
+        if (dirty != documentState.isDirty()) {
+            documentState.setDirty(dirty);
+            updateTabTitle();
+        }
         EditorSessionManager.getInstance().onTextChanged(area, contentVersion.get());
     }
 
-    private boolean isCurrentContentSaved() {
+    private boolean isCurrentContentSaved(boolean undoStateReady) {
         var savedText = documentState.getSavedText();
-        if (documentState.isSavedUndoPositionValid()
+        // 普通文档直接比较保存正文；撤销通知中的标记属性可能仍缓存着上一次结果。
+        if (undoStateReady && area.getLargeLog() != null && !area.getUndoManager().isPerformingAction()
+                && documentState.isSavedUndoPositionValid()
                 && area.getUndoManager().isAtMarkedPosition()) {
             return true;
         }
         if (savedText == null) return false;
-        return area.getLength() == savedText.length() && area.getText().equals(savedText);
+        return area.matchesSavedText(savedText);
     }
 
     private void updateTabTitle() {
@@ -586,6 +613,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     public CompletionStage<SaveResult> save() {
+        if (isDestroyed()) return CompletableFuture.completedFuture(SaveResult.FAILED);
         if (!documentState.isDirty() && !documentState.isUntitled()
                 && documentState.getExternalState() == EditorDocumentState.ExternalState.UNCHANGED) {
             return CompletableFuture.completedFuture(SaveResult.SUCCESS_CLEAN);
@@ -612,6 +640,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void resolveSaveTarget(boolean forceSaveAs, CompletableFuture<SaveResult> result) {
+        if (isDestroyed()) {
+            result.complete(SaveResult.FAILED);
+            return;
+        }
         File target = forceSaveAs || documentState.isUntitled() ? chooseSaveTarget() : getSourceFile();
         if (target == null) {
             result.complete(SaveResult.CANCELLED);
@@ -681,6 +713,10 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     }
 
     private void prepareSave(File target, CompletableFuture<SaveResult> result) {
+        if (isDestroyed()) {
+            result.complete(SaveResult.FAILED);
+            return;
+        }
         String sourceCode = MarkdownAttachments.rebaseForSaveAs(area, getSourceFile(), target);
         String encoding = state.getFileEncoding();
         if (encoding == null) {
@@ -711,6 +747,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     private void startSave(File target, String sourceCode, String encoding,
                            CompletableFuture<SaveResult> result) {
+        if (isDestroyed()) {
+            result.complete(SaveResult.FAILED);
+            return;
+        }
+        var savingArea = area;
         var largeLog = area.getLargeLog();
         var logSnapshot = largeLog == null ? null : largeLog.prepareSave(sourceCode);
         var prefixBytes = new AtomicLong();
@@ -736,57 +777,59 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
                     }, SAVE_EXECUTOR);
             saveChain = write.handle((ignored, throwable) -> null);
         }
-        write.whenComplete((success, throwable) -> Platform.runLater(() -> area.runAfterMarkdownComposition(() -> {
-            if (throwable != null || !Boolean.TRUE.equals(success) || isDestroyed()) {
-                if (largeLog != null && !isDestroyed()) largeLog.finishSave(null, null, 0L);
-                if (throwable != null) {
-                    Log.e("save content failed: " + target, throwable);
-                }
-                if (!isDestroyed()) {
-                    JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("saveFileFailed"));
-                }
+        write.whenComplete((success, throwable) -> Platform.runLater(() -> {
+            if (isDestroyed()) {
                 result.complete(SaveResult.FAILED);
                 return;
             }
-            if (rebasedSave && java.util.Objects.equals(referenceSourceFile, getSourceFile())) {
-                MarkdownAttachments.applyRebaseForSaveAs(area, referenceSourceFile, target);
-            }
-            bindSavedFile(target);
-            if (largeLog != null) largeLog.finishSave(target.toPath(), encoding, prefixBytes.get());
-            documentState.updateBaseFileMetadata();
-            documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
-            documentState.setSavedText(sourceCode);
-            if (rebasedSave) {
-                if (sourceCode.equals(area.getText())) {
-                    var currentPosition = undoManager.getCurrentPosition();
-                    currentPosition.mark();
-                    documentState.setSavedUndoPosition(currentPosition);
-                } else documentState.invalidateSavedUndoPosition();
-            } else if (savedPosition != null && savedPosition.isValid()) {
-                savedPosition.mark();
-                documentState.setSavedUndoPosition(savedPosition);
-            } else {
-                documentState.invalidateSavedUndoPosition();
-            }
-            boolean clean = isCurrentContentSaved();
-            documentState.setDirty(!clean);
-            updateTabTitle();
-            var saveResult = clean ? SaveResult.SUCCESS_CLEAN : SaveResult.SUCCESS_DIRTY;
-            EditorSessionManager.getInstance().onSaved(area, saveResult);
-            AllEditorsManager.delayToSaveRecentFile(target.getAbsolutePath());
-            notifyWorkspaceRefreshDelayed(target);
-            result.complete(saveResult);
-        })));
+            savingArea.runAfterMarkdownComposition(() -> {
+                if (throwable != null || !Boolean.TRUE.equals(success) || isDestroyed()) {
+                    if (largeLog != null && !isDestroyed()) largeLog.finishSave(null, null, 0L);
+                    if (throwable != null) {
+                        Log.e("save content failed: " + target, throwable);
+                    }
+                    if (!isDestroyed()) {
+                        JfoenixDialogUtils.alert(Locales.ALERT(), Locales.str("saveFileFailed"));
+                    }
+                    result.complete(SaveResult.FAILED);
+                    return;
+                }
+                if (rebasedSave && java.util.Objects.equals(referenceSourceFile, getSourceFile())) {
+                    MarkdownAttachments.applyRebaseForSaveAs(area, referenceSourceFile, target);
+                }
+                bindSavedFile(target);
+                if (largeLog != null) largeLog.finishSave(target.toPath(), encoding, prefixBytes.get());
+                documentState.updateBaseFileMetadata();
+                documentState.setExternalState(EditorDocumentState.ExternalState.UNCHANGED);
+                documentState.setSavedText(sourceCode);
+                if (rebasedSave) {
+                    if (sourceCode.equals(area.getText())) {
+                        var currentPosition = undoManager.getCurrentPosition();
+                        currentPosition.mark();
+                        documentState.setSavedUndoPosition(currentPosition);
+                    } else documentState.invalidateSavedUndoPosition();
+                } else if (savedPosition != null && savedPosition.isValid()) {
+                    savedPosition.mark();
+                    documentState.setSavedUndoPosition(savedPosition);
+                } else {
+                    documentState.invalidateSavedUndoPosition();
+                }
+                boolean clean = isCurrentContentSaved(true);
+                documentState.setDirty(!clean);
+                updateTabTitle();
+                var saveResult = clean ? SaveResult.SUCCESS_CLEAN : SaveResult.SUCCESS_DIRTY;
+                EditorSessionManager.getInstance().onSaved(area, saveResult);
+                AllEditorsManager.delayToSaveRecentFile(target.getAbsolutePath());
+                notifyWorkspaceRefreshDelayed(target);
+                result.complete(saveResult);
+            });
+        }));
     }
 
     private boolean writeSourceFile(File target, String sourceCode, String encoding) {
         try {
-            var path = target.toPath();
-            var parent = path.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Files.writeString(path, sourceCode, Charset.forName(encoding));
+            com.allan.atools.tools.modulenotepad.session.EditorFileWriter.write(
+                    target.toPath(), sourceCode, Charset.forName(encoding));
             return true;
         } catch (IOException | RuntimeException e) {
             Log.e("save content failed: " + target.getAbsolutePath(), e);

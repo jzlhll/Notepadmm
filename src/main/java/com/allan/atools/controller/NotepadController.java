@@ -637,7 +637,7 @@ public final class NotepadController extends AbstractMainController {
                             SnackbarUtils.show(Locales.str("fileIsNotSave"));
                             return;
                         } else {
-                            AllEditorsManager.Instance.reOpenCurrentFile(curTab, UIContext.currentAreaProp.get().getEditor().getSourceFile(), forceEncoding);
+                            area.reloadWithEncoding(forceEncoding);
                         }
                     }
                     GlobalPopupManager.instance().hide();
@@ -658,14 +658,16 @@ public final class NotepadController extends AbstractMainController {
 
             jsonPopBtn.setOnMouseClicked(event -> {
                 var contentMenu = new JSONChooseCreatorImpl().createMenu(action -> {
-                    var text = UIContext.currentAreaProp.get().getText();
+                    var area = UIContext.currentAreaProp.get();
+                    if (area == null || !area.isEditable() || area.isDisabled()) return;
+                    var text = area.getText();
                     var fmt = new JsonFormatLog();
                     if (action.equals(Locales.str("removeUnknownSymbols"))) {
                         var newText = fmt.removeFanxieExtraQuote(text);
-                        UIContext.currentAreaProp.get().getEditor().resetText(newText);
+                        area.replaceDocumentText(newText);
                     } else if (action.equals(Locales.str("jsonFormat"))) {
                         var newText = fmt.format(fmt.removeEnter(text));
-                        UIContext.currentAreaProp.get().getEditor().resetText(newText);
+                        area.replaceDocumentText(newText);
                     }
                 });
                 contentMenu.show(jsonPopBtn,

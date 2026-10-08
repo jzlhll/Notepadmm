@@ -24,6 +24,7 @@ public final class EditorDocumentState {
     private long baseLastModified;
     private long baseFileSize;
     private String initialSaveDirectory;
+    // 标记仅用于分块日志的保存判定；普通文档保留保存边界，但以正文为准。
     private transient UndoManager.UndoPosition savedUndoPosition;
     private transient String savedText;
 

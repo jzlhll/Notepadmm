@@ -1526,6 +1526,7 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void onCellKeyTyped(KeyEvent event) {
+        if (composingText || handlingInputMethod) return;
         if (structurePending) {
             event.consume();
             return;
