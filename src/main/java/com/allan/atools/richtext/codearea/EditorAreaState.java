@@ -1,7 +1,6 @@
 package com.allan.atools.richtext.codearea;
 
 import com.allan.atools.GlobalCfgStores;
-import com.allan.atools.SettingPreferences;
 import com.allan.atools.bean.EditorDocumentOptions;
 import com.allan.atools.text.IEditorAreaState;
 import com.allan.atools.utils.Log;
@@ -35,8 +34,6 @@ final class EditorAreaState implements IEditorAreaState {
 
     private boolean isReadonly = false;
     private boolean isWrap = false;
-    // 文档没有独立配置时，使用全局“输入法中文标点”设置作为初始值
-    private boolean isChinesePunctuation = SettingPreferences.getBoolean(SettingPreferences.editorChinesePunctuationKey);
 
     @Override
     public void setFileEncoding(String fileEncoding) {
@@ -70,17 +67,6 @@ final class EditorAreaState implements IEditorAreaState {
     }
 
     @Override
-    public boolean isChinesePunctuation() {
-        return isChinesePunctuation;
-    }
-
-    @Override
-    public void setChinesePunctuation(boolean chinesePunctuation) {
-        isChinesePunctuation = chinesePunctuation;
-        saveDocumentOptions();
-    }
-
-    @Override
     public void setWrap(boolean wrap) {
         isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || wrap);
         area.setWrapText(isWrap);
@@ -97,7 +83,6 @@ final class EditorAreaState implements IEditorAreaState {
             if (matches(option)) {
                 isWrap = option.wrap();
                 isReadonly = option.readonly();
-                isChinesePunctuation = option.chinesePunctuation();
                 return;
             }
         }
@@ -112,7 +97,7 @@ final class EditorAreaState implements IEditorAreaState {
                 || sourcePath != null && sourcePath.equals(option.file())
                 || sessionId.equals(option.sessionId()));
         options.add(0, new EditorDocumentOptions(sourcePath, sessionId, isWrap,
-                isReadonly, isChinesePunctuation));
+                isReadonly));
         if (options.size() > MAX_DOCUMENT_OPTIONS) {
             options.subList(MAX_DOCUMENT_OPTIONS, options.size()).clear();
         }

@@ -120,7 +120,6 @@ public final class NotepadController extends AbstractMainController {
 
     public Label notepadMainEncodeLabel;
     public Label notepadReadonlyCheckBtn;
-    public Label notepadPunctuationCheckBtn;
     public HBox notepadMainBottomBox;
     public Region workspaceBottomExtension;
     public StackPane mainPane;
@@ -606,7 +605,6 @@ public final class NotepadController extends AbstractMainController {
 
                     refreshWrapTextButton(newValue);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
-                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, newValue.getEditor().getState().isChinesePunctuation());
                     jsonPopBtn.setVisible(true);
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
@@ -614,7 +612,6 @@ public final class NotepadController extends AbstractMainController {
                     refreshWrapTextButton(null);
                     jsonPopBtn.setVisible(false);
                     changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
-                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, null);
                 }
             });
 
@@ -683,15 +680,6 @@ public final class NotepadController extends AbstractMainController {
                 }
             });
 
-            // 标点按钮：切换本 tab 的中文标点效果，初始值来自 tab 打开时快照的全局设置
-            notepadPunctuationCheckBtn.setOnMouseClicked(ev -> {
-                var curArea = UIContext.currentAreaProp.get();
-                if (curArea != null) {
-                    var checked = !curArea.getEditor().getState().isChinesePunctuation();
-                    curArea.getEditor().getState().setChinesePunctuation(checked);
-                    changeBottomTextBtnCheckStyle(notepadPunctuationCheckBtn, checked);
-                }
-            });
         }
     }
 

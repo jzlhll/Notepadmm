@@ -124,12 +124,6 @@
             </VBox.margin>
         </JFXToggleButton>
 
-        <JFXToggleButton fx:id="editorChinesePunctuationBtn" text="%setting.chinesePunctuation">
-            <VBox.margin>
-                <Insets top="-12" left="4"/>
-            </VBox.margin>
-        </JFXToggleButton>
-
         <!--- 第3部分 -->
         <Separator styleClass="full-width-separator" prefHeight="1">
             <VBox.margin>

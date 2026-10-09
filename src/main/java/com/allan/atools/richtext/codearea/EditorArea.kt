@@ -148,14 +148,6 @@ class EditorArea @JvmOverloads constructor(
         @JvmField
         val DEBUG_EDITOR = true && UIContext.DEBUG
 
-        // 半角→全角标点映射，仅"中文标点模式"总开关开启时生效：
-        // macOS 部分第三方输入法（如微信输入法）无法往 JavaFX 编辑器提交全角标点，用此表在 KEY_TYPED 层兜底转换
-        private val FULLWIDTH_PUNCTUATION = mapOf(
-            ',' to '，', '.' to '。', '?' to '？', '!' to '！',
-            ':' to '：', ';' to '；', '(' to '（', ')' to '）',
-            '[' to '【', ']' to '】'
-        )
-
     }
 
     private fun createEditorAreaMgr(
@@ -270,21 +262,6 @@ class EditorArea @JvmOverloads constructor(
                 return@addEventFilter
             }
 
-        }
-
-        // 中文标点模式：本 tab 开启时把 KEY_TYPED 收到的半角标点替换为全角（只读时跳过，与默认输入行为一致）
-        addEventFilter(KeyEvent.KEY_TYPED) { e ->
-            if (e.target is TextInputControl || e.target is WebView) return@addEventFilter
-            if (isEditable && !markdownComposing && editor.getState().isChinesePunctuation()) {
-                val text = e.character
-                if (text.length == 1) {
-                    val mapped = FULLWIDTH_PUNCTUATION[text[0]]
-                    if (mapped != null) {
-                        e.consume()
-                        replaceSelection(mapped.toString())
-                    }
-                }
-            }
         }
 
         addEventFilter(javafx.scene.input.DragEvent.DRAG_OVER) { event ->

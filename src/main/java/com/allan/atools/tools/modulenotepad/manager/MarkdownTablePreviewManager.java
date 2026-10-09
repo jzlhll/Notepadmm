@@ -1657,28 +1657,6 @@ public final class MarkdownTablePreviewManager {
             event.consume();
             return;
         }
-        if (currentArea == null || !currentArea.isEditable()
-                || !currentArea.getEditor().getState().isChinesePunctuation()
-                || event.getCharacter().length() != 1) {
-            return;
-        }
-        Character value = switch (event.getCharacter().charAt(0)) {
-            case ',' -> '，';
-            case '.' -> '。';
-            case '?' -> '？';
-            case '!' -> '！';
-            case ':' -> '：';
-            case ';' -> '；';
-            case '(' -> '（';
-            case ')' -> '）';
-            case '[' -> '【';
-            case ']' -> '】';
-            default -> null;
-        };
-        if (value != null) {
-            event.consume();
-            cellEditor.replaceSelection(value.toString());
-        }
     }
 
     private void wrapCellSelection(String mark) {

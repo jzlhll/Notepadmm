@@ -45,14 +45,13 @@ public final class SettingPreferences {
     public static final String fontThemeIdKey = "fontThemeId";
     public static final String editorFontSizeKey = "resultAreaFoldableStyledAreaFontSize";
     public static final String mainUiSizeModeKey = "mainUiSizeMode";
-    public static final String editorChinesePunctuationKey = "editorChinesePunctuation"; //***** add一处新名字用于外部调用
     public static final String TipsDoubleClickCtrlFKey = "TipsDoubleClickCtrlF1";
     public static final String TipsFakeRuleSupportKey = "TipsFakeRuleSupport1";
     public static final String TipsDoubleClickWordNextKey = "TipsDoubleClickWordNext1";
 
     public static final String[] REMOVE_KEYS = { "search1LineOnlyOnce","useFakeRegex",
             "TipsDoubleClickCtrlF","TipsFakeRuleSupport",
-            "TipsDoubleClickWordNext" };
+            "TipsDoubleClickWordNext", "editorChinesePunctuation" };
 
     private synchronized static void assetInit() {
         var sp = GlobalCfgStores.user();
@@ -75,7 +74,6 @@ public final class SettingPreferences {
                 new SettingProfDef("str", markdownDarkThemeKey, "github-dark"),
                 new SettingProfDef("int", editorFontSizeKey, "15"),
                 new SettingProfDef("int", mainUiSizeModeKey, "0"),
-                new SettingProfDef("bool", editorChinesePunctuationKey, "false"),
                 new SettingProfDef("int", TipsDoubleClickCtrlFKey, "0"),
                 new SettingProfDef("int", TipsFakeRuleSupportKey, "0"),
                 new SettingProfDef("int", TipsDoubleClickWordNextKey, "0"),
