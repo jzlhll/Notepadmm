@@ -94,7 +94,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
         createInfo.width = 1000;
         createInfo.height = 650;
         createInfo.resizable = true;
-        createInfo.title = "ATools";
+        createInfo.title = com.allan.atools.toolsstartup.DebugRuntime.isEnabled() ? "ATools Debug" : "ATools";
         createInfo.iconPath = ResLocation.getURLStr("pictures", "icon.png");
         createInfo.alwaysTop = false;
         createInfo.isSystemWindow = false;

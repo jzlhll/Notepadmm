@@ -77,7 +77,13 @@ tasks.named('jar', Jar) {
     archiveFileName = 'atools.jar'
 }
 
-tasks.named('run', JavaExec) {
+tasks.register('runDebug', JavaExec) {
+    group = 'application'
+    description = '启动使用独立临时数据目录的调试实例。'
+    systemProperty 'atools.debug', 'true'
+}
+
+tasks.withType(JavaExec).matching { it.name in ['run', 'runDebug'] }.configureEach {
     dependsOn tasks.named('jar'), ':BaseParty:jar', ':BaseUiLibs:jar', ':JFoenix:jar'
     workingDir = rootProject.projectDir
     mainModule.set('atools')

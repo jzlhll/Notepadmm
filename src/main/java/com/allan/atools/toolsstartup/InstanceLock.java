@@ -32,6 +32,11 @@ public final class InstanceLock {
             registerShutdownHook();
             return true;
         } catch (Throwable t) {
+            if (DebugRuntime.isEnabled()) {
+                Log.e("instance lock acquisition failed, isolated debug startup aborted", t);
+                closeQuietly();
+                return false;
+            }
             Log.e("instance lock tryAcquire failed, fallback allow start", t);
             closeQuietly();
             return true;

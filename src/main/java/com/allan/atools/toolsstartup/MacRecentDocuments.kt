@@ -23,7 +23,7 @@ object MacRecentDocuments {
 
     @JvmStatic
     fun start() {
-        if (!ResLocation.isOsx || started) return
+        if (!ResLocation.isOsx || DebugRuntime.isEnabled || started) return
         started = true
         requestSync()
     }

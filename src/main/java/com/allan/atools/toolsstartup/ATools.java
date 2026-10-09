@@ -161,10 +161,11 @@ public final class ATools {
     // java.base/jdk.internal.loader.BuiltinClassLoader.loadClass
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
+        DebugRuntime.initialize();
         Log.e("startup: ==================== new launch ====================");
         Log.e("startup: main entered, args count: " + args.length);
         if (!InstanceLock.tryLock()) {
-            if (ResLocation.isOsx && args.length > 0) {
+            if (ResLocation.isOsx && args.length > 0 && !DebugRuntime.isEnabled()) {
                 //命令行带文件转发给已有实例时静默退出，不打扰终端
                 forwardFilesToRunningInstance(args);
             } else {
@@ -192,7 +193,7 @@ public final class ATools {
         // 解释到，linux+window，直接从args中提取；
         // 而mac需要通过openFileHandler来做。Application.getApplication().setOpenFileHandler((AppEvent.OpenFilesEvent
         //而javafx，我找到了如下的代码
-        if (ResLocation.isOsx) { //todo 验证windows 是不是不会触发
+        if (ResLocation.isOsx && !DebugRuntime.isEnabled()) { //todo 验证windows 是不是不会触发
             var desktop = Desktop.getDesktop();
             desktop.setOpenFileHandler(e -> {
                 if (e != null) {
