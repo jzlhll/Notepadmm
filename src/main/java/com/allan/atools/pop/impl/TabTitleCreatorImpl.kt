@@ -1,99 +1,50 @@
 package com.allan.atools.pop.impl
 
-import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
-import com.jfoenix.controls.JFXListView
-import javafx.beans.value.ObservableValue
-import javafx.event.EventHandler
-import javafx.scene.control.*
-import javafx.scene.layout.Region
-import javafx.scene.layout.VBox
+import javafx.scene.control.ContextMenu
+import javafx.scene.control.MenuItem
+import javafx.scene.control.Tab
 
-class TabTitleCreatorImpl : AbstractMenuCreator<String>(){
-    override fun createPop(action: Action<String>?): Region = createPop(action, false)
-
-    @JvmOverloads
-    fun createPop(action: Action<String>?, pinnedFile: Boolean, canOpenInTypora: Boolean = false): Region {
-        val vBox = VBox()
-        val list: JFXListView<Label>
-        list = JFXListView()
-        list.style = "-fx-background-color: -au-popup-bg-color;"
-        list.maxWidth = 280.0
-
-        var label: Label = createLabel(Locales.str("modifyName"))
-        list.items.add(label)
-
-        label = createLabel(Locales.str("closeOthers"))
-        list.items.add(label)
-
-        label = createLabel(Locales.str("editor.openHereDir"))
-        list.items.add(label)
-
-        label = createLabel(Locales.str("editor.copyFullPath"))
-        list.items.add(label)
-
-        label = createLabel(Locales.str(if (pinnedFile) "editor.unpinRecentFile" else "editor.pinRecentFile"))
-        list.items.add(label)
-
-        if (canOpenInTypora) {
-            list.items.add(createLabel(Locales.str("editor.openInTypora")))
-        }
-        list.prefHeight = list.items.size * 36.0 + 1.0
-
-        list.selectionModel.selectedIndexProperty()
-            .addListener { observable: ObservableValue<out Number>?, oldValue: Number?, newValue: Number ->
-                if (newValue.toInt() == 0) {
-                    action?.invoke(EVENT_MODIFY_NAME)
-                } else if (newValue.toInt() == 1) {
-                    action?.invoke(EVENT_CLOSE_OTHERS)
-                } else if (newValue.toInt() == 2) {
-                    action?.invoke(EVENT_OPEN_TO_EXPLORE)
-                } else if (newValue.toInt() == 3) {
-                    action?.invoke(EVENT_COPY_FULL_PATH)
-                } else if (newValue.toInt() == 4) {
-                    action?.invoke(EVENT_PIN_RECENT_FILE)
-                } else if (newValue.toInt() == 5 && canOpenInTypora) {
-                    action?.invoke(EVENT_OPEN_IN_TYPORA)
-                }
-            }
-
-        vBox.children.add(list)
-        return vBox
-    }
-
-    override fun createMenu(action: Action<String>): ContextMenu {
+/** 标签菜单由标签头统一处理右键请求，各项动作以固定标识关联。 */
+class TabTitleCreatorImpl {
+    fun createMenu(action: Action<String>): ContextMenu {
         val contextMenu = ContextMenu()
-        val menu0 = MenuItem(Locales.str("modifyName"))
-        menu0.onAction = EventHandler {
-            action.invoke(
-                EVENT_MODIFY_NAME
-            )
+        // 切换标签或再次右键时，关闭旧菜单的鼠标事件继续交给目标节点。
+        contextMenu.setConsumeAutoHidingEvents(false)
+        listOf(
+            EVENT_MODIFY_NAME to "modifyName",
+            EVENT_MOVE_TO_FRONT to "editor.moveTabToFront",
+            EVENT_CLOSE_OTHERS to "closeOthers",
+            EVENT_OPEN_TO_EXPLORE to "editor.openHereDir",
+            EVENT_COPY_FULL_PATH to "editor.copyFullPath",
+            EVENT_PIN_RECENT_FILE to "editor.pinRecentFile",
+            EVENT_OPEN_IN_TYPORA to "editor.openInTypora"
+        ).forEach { (event, key) ->
+            contextMenu.items.add(MenuItem(Locales.str(key)).apply {
+                userData = event
+                setOnAction { action.invoke(event) }
+            })
         }
-
-        val menu1 = MenuItem(Locales.str("closeOthers"))
-        menu1.onAction = EventHandler {
-            action.invoke(
-                EVENT_CLOSE_OTHERS
-            )
-        }
-        val menu2 = MenuItem(Locales.str("editor.openHereDir"))
-        menu2.onAction = EventHandler {
-            action.invoke(
-                EVENT_OPEN_TO_EXPLORE
-            )
-        }
-        val menu3 = MenuItem(Locales.str("editor.copyFullPath"))
-        menu3.onAction = EventHandler {
-            action.invoke(
-                EVENT_COPY_FULL_PATH
-            )
-        }
-        contextMenu.items.addAll(menu0, menu1, menu2, menu3)
         return contextMenu
     }
 
     companion object {
+        @JvmStatic
+        fun moveToFront(tab: Tab?) {
+            val pane = tab?.tabPane ?: return
+            val index = pane.tabs.indexOf(tab)
+            if (index <= 0) return
+            val selected = pane.selectionModel.selectedItem
+            // 沿用标签的移除／添加通知，重建标题节点时同步刷新原有绑定。
+            pane.tabs.removeAt(index)
+            pane.tabs.add(0, tab)
+            if (selected != null) pane.selectionModel.select(selected)
+        }
+
+        @JvmField
+        val EVENT_MOVE_TO_FRONT: String = "moveTabToFront"
+
         @kotlin.jvm.JvmField
         var EVENT_CLOSE_OTHERS: String = "closeOthers"
 

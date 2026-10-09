@@ -20,14 +20,12 @@ import com.allan.atools.tools.modulenotepad.manager.TyporaManager;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.tools.modulenotepad.session.SaveResult;
 import com.allan.atools.tools.modulenotepad.session.SessionCommitResult;
-import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.utils.*;
 import com.allan.baseparty.*;
 import com.allan.uilibs.richtexts.MyLineNumFactory;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.baseparty.memory.RefWatcher;
-import com.jfoenix.controls.JFXPopup;
 import com.jfoenix.skins.JFXTabPaneSkin;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
@@ -36,7 +34,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.*;
-import javafx.scene.input.MouseButton;
 import javafx.stage.FileChooser;
 import org.fxmisc.richtext.GenericStyledArea;
 import org.fxmisc.undo.UndoManager;
@@ -409,8 +406,11 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         SettingPreferences.getBoolProp(editorLineNumberVisibleKey).removeListener(lineNumberChanged);
         tabHeaderSubscription.unsubscribe();
         tabHeaderSubscription = javafx.util.Subscription.EMPTY;
+        if (tab != null && tab.getContextMenu() != null) {
+            tab.getContextMenu().hide();
+            tab.setContextMenu(null);
+        }
         if (tabLabel != null) {
-            tabLabel.setOnMouseClicked(null);
             tabLabel.setTooltip(null);
             tabLabel = null;
         }
@@ -891,6 +891,48 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         ContextMenu contextMenu = createMenu();
         area.setContextMenu(contextMenu);
 
+        // 标签皮肤已在整个标签头处理右键请求，不再只绑定标题文字的鼠标点击。
+        var titleMenu = new TabTitleCreatorImpl().createMenu(ev -> {
+            var sourceFile = getSourceFile();
+            if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
+                rename();
+            } else if (TabTitleCreatorImpl.EVENT_MOVE_TO_FRONT.equals(ev)) {
+                TabTitleCreatorImpl.moveToFront(tab);
+            } else if (TabTitleCreatorImpl.EVENT_CLOSE_OTHERS.equals(ev)) {
+                AllEditorsManager.Instance.removeAllOtherTabs(tab);
+            } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
+                openCurrentFolder(null);
+            } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
+                var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
+                if (!path.isEmpty()) {
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
+                    SnackbarUtils.show(Locales.str("fullPathCopied"));
+                }
+            } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(ev)) {
+                if (sourceFile != null) {
+                    var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
+                    SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
+                }
+            } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(ev)) {
+                TyporaManager.getInstance().openEditor(this);
+            }
+        });
+        titleMenu.setOnShowing(event -> {
+            var sourceFile = getSourceFile();
+            var pinned = sourceFile != null && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
+            for (var item : titleMenu.getItems()) {
+                if (TabTitleCreatorImpl.EVENT_MOVE_TO_FRONT.equals(item.getUserData())) {
+                    item.setDisable(tab.getTabPane() == null || tab.getTabPane().getTabs().indexOf(tab) <= 0);
+                } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(item.getUserData())) {
+                    item.setText(Locales.str(pinned ? "editor.unpinRecentFile" : "editor.pinRecentFile"));
+                } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(item.getUserData())) {
+                    item.setVisible(TyporaManager.getInstance().isAvailable()
+                            && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile)));
+                }
+            }
+        });
+        tab.setContextMenu(titleMenu);
+
         tabHeaderSubscription = tab.tabPaneProperty().flatMap(TabPane::skinProperty)
                 .subscribe(skin -> Platform.runLater(this::initTitleClick));
     }
@@ -900,7 +942,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             return;
         }
         if (tabLabel != null) {
-            tabLabel.setOnMouseClicked(null);
             tabLabel.setTooltip(null);
         }
         var tabPane = tab.getTabPane();
@@ -909,41 +950,6 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         if (tabLabel == null) {
             return;
         }
-        tabLabel.setOnMouseClicked(event-> {
-            if (event.getButton() == MouseButton.SECONDARY) {
-                var sourceFile = getSourceFile();
-                var pinned = sourceFile != null
-                        && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
-                var region = new TabTitleCreatorImpl().createPop(ev -> {
-                    GlobalPopupManager.instance().hide();
-                    Log.d("ev " + ev);
-                    if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
-                        rename();
-                    } else if (TabTitleCreatorImpl.EVENT_CLOSE_OTHERS.equals(ev)) {
-                        AllEditorsManager.Instance.removeAllOtherTabs(tab);
-                    } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
-                        openCurrentFolder(null);
-                    } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
-                        var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
-                        if (!path.isEmpty()) {
-                            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
-                            SnackbarUtils.show(Locales.str("fullPathCopied"));
-                        }
-                    } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(ev)) {
-                        if (sourceFile != null) {
-                            var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
-                            SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
-                        }
-                    } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(ev)) {
-                        TyporaManager.getInstance().openEditor(this);
-                    }
-                }, pinned, TyporaManager.getInstance().isAvailable()
-                        && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile)));
-
-                GlobalPopupManager.instance().setContent(region).setHeight(300).show(tabLabel, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
-            }
-        });
-
         var sourceFile = getSourceFile();
         if (sourceFile != null) {
             tabLabel.setTooltip(new Tooltip(sourceFile.getAbsolutePath()));
