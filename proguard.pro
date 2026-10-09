@@ -69,6 +69,10 @@
 -keeppackagenames com.allan.atools.controller
 -keeppackagenames com.allan.atools.tools
 -keeppackagenames com.allan.atools.toolsstartup
+
+# JNA 按反射读取回调方法和 Structure 字段，保留试验性输入法桥接的成员名称。
+-keep class com.allan.atools.toolsstartup.MacInputMethodPunctuation { *; }
+-keep class com.allan.atools.toolsstartup.MacInputMethodPunctuation$* { *; }
 -keeppackagenames com.allan.atools.richtext
 -keeppackagenames com.allan.atools.ui.controls
 -keeppackagenames com.allan.atools.bean

@@ -57,6 +57,7 @@ public final class AToolsApplication extends Application{
             Log.e("startup: main view created");
             stage.show();
             Log.e("startup: main stage shown");
+            MacInputMethodPunctuation.start();
             MacRecentDocuments.start();
             StartupDelayManager.getInstance().start();
         } catch (RuntimeException | Error e) {
