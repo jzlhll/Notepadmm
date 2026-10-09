@@ -1169,7 +1169,7 @@ public final class MarkdownTablePreviewManager {
     private final class CellGraphic extends StackPane {
         private final RowGraphic graphic;
         private final int column;
-        private final TextFlow text = new TextFlow();
+        private final MarkdownTableTextFlow text = new MarkdownTableTextFlow();
         private MarkdownTableLayout.Cell displayed;
 
         CellGraphic(RowGraphic graphic, int column) {

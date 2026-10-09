@@ -4,6 +4,7 @@ import com.allan.atools.GlobalConfig;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import org.fxmisc.richtext.TextExt;
 import org.commonmark.ext.gfm.strikethrough.Strikethrough;
 import org.commonmark.node.*;
 
@@ -77,6 +78,7 @@ final class MarkdownTableLayout {
 
     static void fill(TextFlow flow, List<Run> runs, Font font, boolean header,
                      java.util.function.Function<Run, javafx.scene.Node> images) {
+        if (flow instanceof MarkdownTableTextFlow tableFlow) tableFlow.clearCodeBackgrounds();
         while (flow.getChildren().size() > runs.size()) {
             flow.getChildren().remove(flow.getChildren().size() - 1);
         }
@@ -100,8 +102,8 @@ final class MarkdownTableLayout {
                 else flow.getChildren().set(index, picture);
                 continue;
             }
-            if (index == flow.getChildren().size()) flow.getChildren().add(new Text());
-            else if (!(flow.getChildren().get(index) instanceof Text)) flow.getChildren().set(index, new Text());
+            if (index == flow.getChildren().size()) flow.getChildren().add(new TextExt());
+            else if (!(flow.getChildren().get(index) instanceof TextExt)) flow.getChildren().set(index, new TextExt());
             var text = (Text) flow.getChildren().get(index);
             text.setUserData(run.destination());
             text.setUnderline(run.link());
@@ -121,7 +123,8 @@ final class MarkdownTableLayout {
             text.setStrikethrough(run.strike());
             if (run.link()) {
                 text.getStyleClass().add("markdown-link");
-            } else if (run.code()) {
+            }
+            if (run.code()) {
                 text.getStyleClass().add("markdown-inline-code");
             }
         }
