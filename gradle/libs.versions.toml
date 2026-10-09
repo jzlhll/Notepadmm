@@ -11,6 +11,7 @@ imageio = "3.15.3"
 commonmark = "0.30.0"
 jsoup = "1.23.2"
 proguard = "7.10.0"
+pdfbox = "3.0.8"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -28,6 +29,7 @@ commonmark-footnotes = { module = "org.commonmark:commonmark-ext-footnotes", ver
 commonmark-frontmatter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 proguard = { module = "com.guardsquare:proguard-base", version.ref = "proguard" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

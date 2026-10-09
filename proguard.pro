@@ -86,6 +86,11 @@
     public void open(java.lang.String);
     public void task(int, boolean);
 }
+# PDF 分页页面通过固定方法名返回排版完成状态。
+-keepclassmembers class com.allan.atools.tools.modulenotepad.manager.MarkdownPdfExport$ExportTask$Bridge {
+    public void ready(java.lang.String);
+    public void failed(java.lang.String);
+}
 # 会话清单、备份条目与枚举类名与字段名必须保留（Gson 按原名反射 fromJson/toJson）
 -keep class com.allan.atools.tools.modulenotepad.session.** { *; }
 -dontnote com.allan.atools.tools.modulenotepad.session.**

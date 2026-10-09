@@ -31,6 +31,9 @@ object MarkdownRemoteImageLoader {
     fun load(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): Image =
         loadDecoded(destination, diagnostic, width, height).image
 
+    fun loadBytes(destination: String, diagnostic: MarkdownImageLoadLog): ByteArray =
+        imageData(imageUri(destination), diagnostic).bytes
+
     @JvmStatic
     fun loadDecoded(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): MarkdownImageDecoder.Result {
         val uri = imageUri(destination)

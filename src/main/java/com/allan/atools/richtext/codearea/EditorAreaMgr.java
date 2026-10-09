@@ -1082,6 +1082,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         MenuItem screenShot =       new MenuItem(Locales.str("editor.screenshot"));
         MenuItem removeUnknownSymbols = new MenuItem(Locales.str("removeUnknownSymbols"));
         MenuItem formatJson =        new MenuItem(Locales.str("jsonFormat"));
+        MenuItem print = new MenuItem(Locales.str("document.print"));
+        print.setOnAction(event -> com.allan.atools.tools.modulenotepad.manager.TextPrintSupport.print(area));
         //Add Event Handler
         //save.setOnAction(this::saveContent);
 
@@ -1130,6 +1132,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         contextMenu.getItems().add(openTerminalHere);
         contextMenu.getItems().add(openFolder);
         contextMenu.getItems().add(reload);
+        contextMenu.getItems().add(print);
 
         contextMenu.setOnShowing(event -> {
             boolean hasSelection = !area.getSelectedText().isEmpty();
@@ -1142,6 +1145,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
             openTerminalHere.setVisible(!hasSelection && named);
             openFolder.setVisible(!hasSelection && named);
             reload.setVisible(!hasSelection && named);
+            print.setVisible(!MarkdownEditorSupport.supportsMarkdown(area));
         });
 
         return contextMenu;

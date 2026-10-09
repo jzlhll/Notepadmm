@@ -25,6 +25,8 @@ module atools {
     requires org.commonmark.ext.footnotes;
     requires org.commonmark.ext.front.matter;
     requires org.jsoup;
+    requires org.apache.pdfbox;
+    requires org.apache.pdfbox.io;
     requires org.fxmisc.richtext;
     requires org.fxmisc.flowless;
     requires wellbehavedfx;

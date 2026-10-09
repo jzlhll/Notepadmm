@@ -486,6 +486,8 @@ class MarkdownEditingActions(private val area: EditorArea) {
         copyMenu.items.add(copyAddress)
         val export = MenuItem(Locales.str("markdown.exportHtml"))
         export.setOnAction { area.markdownClipboard.exportHtml() }
+        val pdf = MenuItem(Locales.str("markdown.exportPdf"))
+        pdf.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPdfExport.export(area) }
         val stats = MenuItem(Locales.str("markdown.wordCount"))
         stats.setOnAction {
             if (area.editor.isRealtimeProcessingLimitReached) { com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.previewLimit")); return@setOnAction }
@@ -507,13 +509,14 @@ class MarkdownEditingActions(private val area: EditorArea) {
         preview.setOnAction { if (!area.markdownComposing) area.toggleMarkdownPreview() }
         val fullPreview = MenuItem(Locales.str("markdown.preview"))
         fullPreview.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.show(area) }
-        area.contextMenu.items.addAll(SeparatorMenuItem(), menu, copyMenu, export, stats, preview, fullPreview)
+        area.contextMenu.items.addAll(SeparatorMenuItem(), menu, copyMenu, export, pdf, stats, preview, fullPreview)
         area.contextMenu.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWING) {
             val enabled = MarkdownEditorSupport.supportsMarkdown(area)
             menu.isVisible = enabled
             menu.isDisable = !area.isEditable || area.editor.isRealtimeProcessingLimitReached
             copyMenu.isVisible = enabled
             export.isVisible = enabled
+            pdf.isVisible = enabled
             stats.isVisible = enabled
             preview.isVisible = enabled
             fullPreview.isVisible = enabled

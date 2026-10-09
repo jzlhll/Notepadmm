@@ -1,0 +1,18 @@
+/* PDF 使用固定纸宽和浅色纸面，关闭交互控件及滚动容器。 */
+html,body { margin:0; padding:0; background:white !important; color:#222 !important; }
+html { overflow:hidden; }
+body { font-size:14px; }
+article { width:100%; max-width:none; margin:0; padding:0; box-sizing:border-box; }
+.preview-block { display:flow-root; }
+button,.code-tools,.image-retry,.md-task-source { display:none !important; }
+[hidden] { display:none !important; }
+input[type=checkbox] { pointer-events:none; }
+a { text-decoration:underline; }
+pre { overflow:visible; }
+pre code { white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
+table { display:table; overflow:visible; }
+th,td { overflow-wrap:anywhere; word-break:break-word; }
+.md-math[data-display=true],.mermaid-diagram { overflow:visible; }
+.pdf-fit { position:relative; width:100%; }
+.pdf-fit > * { transform-origin:top left; }
+img,.mermaid-diagram svg { max-height:var(--pdf-page-height); object-fit:contain; }

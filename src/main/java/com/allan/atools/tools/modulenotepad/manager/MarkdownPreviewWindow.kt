@@ -261,9 +261,10 @@ class MarkdownPreviewWindow private constructor() {
             it.node is org.commonmark.node.FencedCodeBlock && MarkdownMermaidSupport.isSupported(it.node)
         }
 
-        fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = MarkdownThemes.previewCss(dark)): String {
+        fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = MarkdownThemes.previewCss(dark),
+                           extraCss: String = "", extraScript: String = ""): String {
             return renderFragment(MarkdownHtmlRenderer.body(state, base), base, dark, themeCss,
-                hasFormula(state), hasDiagram(state))
+                hasFormula(state), hasDiagram(state), extraCss, extraScript)
         }
 
         fun renderFragment(body: String, base: String?, dark: Boolean, themeCss: String,
