@@ -8,6 +8,7 @@ import com.allan.atools.richtext.codearea.MarkdownTableDocumentState;
 import com.allan.atools.richtext.codearea.MarkdownTableParser;
 import com.allan.atools.richtext.codearea.MarkdownParagraphWrapSupport;
 import com.allan.atools.threads.ThreadUtils;
+import com.allan.atools.ui.controls.AccessibleTextArea;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.uilibs.richtexts.CodeArea;
@@ -22,6 +23,7 @@ import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
@@ -78,7 +80,7 @@ public final class MarkdownTablePreviewManager {
         updateToolbar();
     };
     private final EventHandler<MouseEvent> areaMouseDragged = this::onAreaMouseDragged;
-    private final TextArea cellEditor = new TextArea() {
+    private final TextArea cellEditor = new AccessibleTextArea() {
         @Override
         public void paste() {
             pasteClipboard(false);
@@ -143,6 +145,15 @@ public final class MarkdownTablePreviewManager {
     };
     private long layoutGeneration;
     private boolean movingCellEditor;
+    private boolean cellEditorFocusPending;
+    private Scene cellEditorFocusScene;
+    private final EventHandler<MouseEvent> cancelCellEditorFocusRestore = event -> {
+        if (this.activeTable != null && !isDescendant(event.getTarget(), cellEditor)) {
+            cellEditorFocusPending = false;
+            // 用户主动点击优先于行重建和单元格激活时排队的焦点请求。
+            this.cellActivationRevision++;
+        }
+    };
     private boolean handlingInputMethod;
     private boolean composingText;
     private long inputMethodRevision;
@@ -287,10 +298,34 @@ public final class MarkdownTablePreviewManager {
                 event.consume();
             }
         });
+        cellEditor.sceneProperty().addListener((observable, previous, scene) -> {
+            // 正文替换会回收虚拟段落；暂时脱离场景不代表用户结束格内编辑。
+            if (previous != null && previous.getFocusOwner() == cellEditor && activeTable != null) {
+                cellEditorFocusPending = true;
+            }
+            if (scene != null) {
+                if (cellEditorFocusScene != scene) {
+                    if (cellEditorFocusScene != null) {
+                        cellEditorFocusScene.removeEventFilter(MouseEvent.MOUSE_PRESSED, cancelCellEditorFocusRestore);
+                    }
+                    cellEditorFocusScene = scene;
+                    scene.addEventFilter(MouseEvent.MOUSE_PRESSED, cancelCellEditorFocusRestore);
+                }
+                scheduleCellEditorFocusRestore();
+            }
+        });
         cellEditor.focusedProperty().addListener((observable, oldValue, focused) -> {
-            if (!focused && !movingCellEditor) {
+            if (focused) {
+                cellEditorFocusPending = false;
+            } else {
+                if (activeTable != null && (movingCellEditor || writingCell || writingRow != null
+                        || cellEditor.getScene() == null)) cellEditorFocusPending = true;
+                long activation = cellActivationRevision;
                 Platform.runLater(() -> {
-                    if (currentArea != null && currentArea.isFocused() && !cellEditor.isFocused() && !structurePending) {
+                    if (activation != cellActivationRevision) return;
+                    restoreCellEditorFocus();
+                    if (currentArea != null && currentArea.isFocused() && !cellEditor.isFocused()
+                            && !cellEditorFocusPending && !structurePending) {
                         endCellEditing(false);
                     }
                     updateToolbar();
@@ -347,6 +382,10 @@ public final class MarkdownTablePreviewManager {
         }
         currentArea = null;
         endCellEditing(false);
+        if (cellEditorFocusScene != null) {
+            cellEditorFocusScene.removeEventFilter(MouseEvent.MOUSE_PRESSED, cancelCellEditorFocusRestore);
+            cellEditorFocusScene = null;
+        }
         toolbars.clear();
         currentArea = null;
         layoutTimer.stop();
@@ -737,7 +776,8 @@ public final class MarkdownTablePreviewManager {
     }
 
     private void updateSelection() {
-        if (structurePending || writingStructure) return;
+        if (structurePending || writingStructure || writingCell || writingRow != null
+                || movingCellEditor || cellEditorFocusPending) return;
         if (!cellEditor.isFocused()) {
             var selectedCell = selectedCell();
             if (selectedCell != null && currentArea.isFocused()) {
@@ -865,8 +905,11 @@ public final class MarkdownTablePreviewManager {
                 } else if (graphic.layoutRevision != layout.revision) {
                     graphic.refresh();
                 }
-                break;
+                return;
             }
+            // 撤销期间映射暂时失效，虚拟段落可能只创建了隐藏源码节点。
+            // 恢复映射后即使样式和布局版本未变，也必须补建缺失的表格行。
+            recreateParagraphGraphic(line);
         }
     }
 
@@ -1097,6 +1140,9 @@ public final class MarkdownTablePreviewManager {
         CellGraphic(RowGraphic graphic, int column) {
             this.graphic = graphic;
             this.column = column;
+            sceneProperty().addListener((observable, previous, scene) -> {
+                if (scene != null) refresh();
+            });
             text.setMinWidth(0);
             text.setMaxWidth(Double.MAX_VALUE);
             setAlignment(Pos.TOP_LEFT);
@@ -1169,7 +1215,8 @@ public final class MarkdownTablePreviewManager {
             setMaxWidth(width);
             if (activeTable != null && activeTable.id().equals(layout.table.id())
                     && activeRow == graphic.row && activeColumn == column) {
-                reparentCellEditor(this);
+                // 构造中的新行尚未挂载，不能提前把有焦点的输入框移到离屏节点。
+                if (getScene() != null) reparentCellEditor(this);
             } else if (getChildren().size() != 1 || getChildren().get(0) != text) {
                 getChildren().setAll(text);
             }
@@ -1266,6 +1313,7 @@ public final class MarkdownTablePreviewManager {
         if (cellEditor.getParent() == target) {
             return;
         }
+        cellEditorFocusPending |= cellEditor.isFocused();
         movingCellEditor = true;
         try {
             Parent parent = cellEditor.getParent();
@@ -1284,6 +1332,26 @@ public final class MarkdownTablePreviewManager {
         } finally {
             movingCellEditor = false;
         }
+        scheduleCellEditorFocusRestore();
+    }
+
+    private void scheduleCellEditorFocusRestore() {
+        if (!cellEditorFocusPending) return;
+        long activation = cellActivationRevision;
+        Platform.runLater(() -> {
+            if (activation == cellActivationRevision) restoreCellEditorFocus();
+        });
+    }
+
+    private void restoreCellEditorFocus() {
+        if (!cellEditorFocusPending || movingCellEditor || destroyed || currentArea == null || activeTable == null) {
+            return;
+        }
+        var scene = cellEditor.getScene();
+        if (scene == null || scene != currentArea.getScene()) return;
+        // 节点暂时离开场景时 JavaFX 可能将焦点转给任意控件，不能据此判断用户已离开。
+        cellEditorFocusPending = false;
+        cellEditor.requestFocus();
     }
 
     private void endCellEditing(boolean focusDocument) {
@@ -1292,6 +1360,7 @@ public final class MarkdownTablePreviewManager {
         }
         hideCellMenu();
         cellActivationRevision++;
+        cellEditorFocusPending = false;
         var previousTable = activeTable;
         int previousRow = activeRow;
         activeTable = null;
@@ -1330,13 +1399,15 @@ public final class MarkdownTablePreviewManager {
         String encoded = MarkdownTableCellText.encode(value, cell.source());
         if (cell.synthetic()) {
             var replacement = MarkdownTableParser.materializeRow(row, activeColumn, encoded);
+            cellEditorFocusPending |= cellEditor.isFocused();
             writingRow = replacement.getRow();
             try {
                 currentArea.replaceText(row.startOffset(), row.endOffset(), replacement.getSource());
+                updateActiveRowHeight();
             } finally {
                 writingRow = null;
+                scheduleCellEditorFocusRestore();
             }
-            updateActiveRowHeight();
             return;
         }
         // 紧邻分隔符时保留空白，末尾反斜线不能转义列分隔符。
@@ -1350,14 +1421,17 @@ public final class MarkdownTablePreviewManager {
         if (current.equals(encoded)) {
             return;
         }
+        // 必须在正文替换前记录焦点，脱离场景后的通知可能已读不到原焦点归属。
+        cellEditorFocusPending |= cellEditor.isFocused();
         writingCell = true;
         try {
             currentArea.replaceText(cell.startOffset(), cell.endOffset(), encoded);
             cell.setSource(encoded);
+            updateActiveRowHeight();
         } finally {
             writingCell = false;
+            scheduleCellEditorFocusRestore();
         }
-        updateActiveRowHeight();
     }
 
     private void updateActiveRowHeight() {
