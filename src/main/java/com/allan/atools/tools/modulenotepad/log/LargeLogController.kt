@@ -5,6 +5,8 @@ import com.allan.atools.tools.modulenotepad.session.EditorSessionManager
 import com.allan.atools.ui.SnackbarUtils
 import com.allan.atools.utils.Log
 import javafx.application.Platform
+import javafx.beans.value.ChangeListener
+import javafx.event.EventHandler
 import javafx.scene.input.ScrollEvent
 import java.nio.file.Path
 import java.util.concurrent.CancellationException
@@ -32,6 +34,8 @@ class LargeLogController(
     private var wantedChars = 0
     private val displayLeases = ArrayList<LogMemoryBudget.Lease>()
     private val pendingJumps = ArrayList<Pair<Int, Runnable>>()
+    private val scrollChanged = ChangeListener<Number> { _, _, _ -> loadNearEnd() }
+    private val scrollEvent = EventHandler<ScrollEvent> { event -> if (event.deltaY < 0) loadNearEnd() }
     var loadingText = false
         private set
 
@@ -40,8 +44,8 @@ class LargeLogController(
     init {
         area.largeLog = this
         area.editor.enableLargeLog()
-        area.estimatedScrollYProperty().addListener { _, _, _ -> loadNearEnd() }
-        area.addEventFilter(ScrollEvent.SCROLL) { event -> if (event.deltaY < 0) loadNearEnd() }
+        area.estimatedScrollYProperty().addListener(scrollChanged)
+        area.addEventFilter(ScrollEvent.SCROLL, scrollEvent)
     }
 
     private fun loadNearEnd() {
@@ -247,6 +251,8 @@ class LargeLogController(
     override fun close() {
         if (closed) return
         closed = true
+        area.estimatedScrollYProperty().removeListener(scrollChanged)
+        area.removeEventFilter(ScrollEvent.SCROLL, scrollEvent)
         cancelLoading()
         pendingJumps.clear()
         synchronized(sourceLock) { source?.close(); source = null }

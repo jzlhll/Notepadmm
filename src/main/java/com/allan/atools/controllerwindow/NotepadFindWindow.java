@@ -60,6 +60,11 @@ public final class NotepadFindWindow {
      * 这种显示模式show()的时候，我们将用这个填充findWindow的搜索文字
      */
     public void show(String selectedText) {
+        if (com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown(
+                com.allan.atools.UIContext.currentAreaProp.get())) {
+            com.allan.atools.tools.modulenotepad.manager.MarkdownSearchSupport.focusBottom(selectedText);
+            return;
+        }
         assetFindStage();
         if (!TextUtils.isEmpty(selectedText)) {
             controller.updateSelectedText(selectedText);

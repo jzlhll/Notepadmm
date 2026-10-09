@@ -9,15 +9,15 @@ public final class MarkdownEditorSupport {
 
     public static boolean supportsMarkdown(EditorArea area) {
         if (area == null) return false;
-        String name = area.getEditor().getDocumentState().getDisplayName().toLowerCase(Locale.ROOT);
-        return name.endsWith(".md") || name.endsWith(".markdown");
+        return isMarkdownName(area.getEditor().getDocumentState().getDisplayName());
     }
 
     public static boolean isMarkdownFile(File file) {
-        if (file == null) {
-            return false;
-        }
-        String name = file.getName().toLowerCase(Locale.ROOT);
+        return file != null && isMarkdownName(file.getName());
+    }
+
+    public static boolean isMarkdownName(String fileName) {
+        String name = fileName.toLowerCase(Locale.ROOT);
         return name.endsWith(".md") || name.endsWith(".markdown");
     }
 

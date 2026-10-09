@@ -188,7 +188,7 @@ public final class NotepadFindController extends AbstractController {
             var mainController = UIContext.context();
             var mgr = AllEditorsManager.Instance;
             var currentCodeArea = UIContext.currentAreaProp.get();
-            if (currentCodeArea != null) {
+            if (currentCodeArea != null && !com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown(currentCodeArea)) {
                 var searchParam = //SearchParams.generate(findTextField.getText(), mgr.getCurrentTabFilePath());
                         SearchParams.generate(findTextField.getText(), caseMatchCheckBox.isSelected(),
                                 allWordsCheckBox.isSelected(), currentType(), mgr.getCurrentTabFilePath());

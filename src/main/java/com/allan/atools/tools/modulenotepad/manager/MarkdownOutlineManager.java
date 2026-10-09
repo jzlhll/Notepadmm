@@ -3,6 +3,7 @@ package com.allan.atools.tools.modulenotepad.manager;
 import com.allan.atools.UIContext;
 import com.allan.atools.controller.NotepadController;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.MarkdownEditorSupport;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action0;
@@ -14,9 +15,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.MouseButton;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Future;
 
 /** 管理“当前文档”中的 Markdown 标题目录。 */
@@ -39,6 +38,8 @@ public final class MarkdownOutlineManager {
             (observable, oldValue, newValue) -> onOutlineVisibilityChanged();
 
     private EditorArea currentArea;
+    private boolean boundMarkdown;
+    private boolean boundOverLimit;
     private List<MarkdownHeading> shownHeadings = List.of();
     private boolean outlineDirty;
     private boolean destroyed;
@@ -68,12 +69,17 @@ public final class MarkdownOutlineManager {
     }
 
     private void bindEditor(EditorArea area) {
+        boolean markdown = MarkdownEditorSupport.supportsMarkdown(area);
+        boolean overLimit = isOverLimit(area);
+        if (currentArea == area && boundMarkdown == markdown && boundOverLimit == overLimit) return;
         invalidateRefresh();
         unbindEditor();
         currentArea = area;
+        boundMarkdown = markdown;
+        boundOverLimit = overLimit;
         clearOutline();
 
-        if (!isMarkdown(area)) {
+        if (!markdown) {
             outlineDirty = false;
             return;
         }
@@ -81,7 +87,7 @@ public final class MarkdownOutlineManager {
         area.getEditor().textChanged.addAction(textChangedAction);
         area.caretPositionProperty().addListener(caretChanged);
         outlineDirty = true;
-        if (isOverLimit(area)) {
+        if (overLimit) {
             outlineDirty = false;
             return;
         }
@@ -100,7 +106,8 @@ public final class MarkdownOutlineManager {
 
     private void onTextChanged() {
         outlineDirty = true;
-        if (isOverLimit(currentArea)) {
+        boundOverLimit = isOverLimit(currentArea);
+        if (boundOverLimit) {
             invalidateRefresh();
             clearOutline();
             outlineDirty = false;
@@ -123,7 +130,7 @@ public final class MarkdownOutlineManager {
     private void startRefresh(long requestId) {
         var area = currentArea;
         if (destroyed || !outlineDirty
-                || !isOutlineShown() || !isMarkdown(area)) {
+                || !isOutlineShown() || !MarkdownEditorSupport.supportsMarkdown(area)) {
             refreshScheduler.complete(requestId, null);
             return;
         }
@@ -152,8 +159,7 @@ public final class MarkdownOutlineManager {
                                List<MarkdownHeading> headings) {
         refreshScheduler.complete(parsedRequestId, () -> {
             parseTask = null;
-            if (headings != null && !destroyed && area == currentArea && isOutlineShown()
-                    && area.getEditor().getContentVersion() == contentVersion && !isOverLimit(area)) {
+            if (headings != null) {
                 applyHeadings(area, contentVersion, headings);
             }
         });
@@ -213,10 +219,6 @@ public final class MarkdownOutlineManager {
 
     private boolean isOverLimit(EditorArea area) {
         return area == null || area.getEditor().isRealtimeProcessingLimitReached();
-    }
-
-    private static boolean isMarkdown(EditorArea area) {
-        return com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown(area);
     }
 
     private void invalidateRefresh() {

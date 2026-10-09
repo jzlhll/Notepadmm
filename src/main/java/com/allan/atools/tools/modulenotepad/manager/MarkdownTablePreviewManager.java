@@ -68,6 +68,8 @@ public final class MarkdownTablePreviewManager {
     private static final String SOURCE_HEADER_CLASS = "markdown-table-source-header";
     private final LatestRefreshScheduler refreshScheduler =
             new LatestRefreshScheduler(180, 420, this::startRefresh);
+    private final MarkdownTableSearchPresentation searchPresentation = new MarkdownTableSearchPresentation();
+    private final InvalidationListener searchStylesChanged = observable -> updateSearchPresentation();
     private final InvalidationListener layoutChanged = observable -> requestLayoutRefresh();
     private final InvalidationListener selectionChanged = observable -> {
         hideCellMenu();
@@ -217,6 +219,7 @@ public final class MarkdownTablePreviewManager {
         viewportChanges = area.viewportDirtyEvents().subscribe(event -> requestLayoutRefresh());
         area.caretPositionProperty().addListener(selectionChanged);
         area.selectionProperty().addListener(selectionChanged);
+        area.getMarkdownPresentation().styleRevisionProperty().addListener(searchStylesChanged);
         area.editableProperty().addListener(editableChanged);
         area.widthProperty().addListener(layoutChanged);
         area.sceneProperty().addListener(layoutChanged);
@@ -240,6 +243,7 @@ public final class MarkdownTablePreviewManager {
             cellEditor.setFont(font);
             parsedVersion = saved.version();
             rebuildLineIndex();
+            updateSearchPresentation();
             updatePresentation();
             requestLayoutRefresh();
         } else refreshScheduler.startNow();
@@ -375,6 +379,7 @@ public final class MarkdownTablePreviewManager {
         if (area != null) {
             area.caretPositionProperty().removeListener(selectionChanged);
             area.selectionProperty().removeListener(selectionChanged);
+            area.getMarkdownPresentation().styleRevisionProperty().removeListener(searchStylesChanged);
             area.editableProperty().removeListener(editableChanged);
             area.widthProperty().removeListener(layoutChanged);
             area.sceneProperty().removeListener(layoutChanged);
@@ -399,6 +404,7 @@ public final class MarkdownTablePreviewManager {
         layoutJobs.clear();
         presentationJobs.clear();
         tables = List.of();
+        searchPresentation.clear();
         tableByLine.clear();
         rowIndexByLine.clear();
         inlineContents = Map.of();
@@ -510,7 +516,7 @@ public final class MarkdownTablePreviewManager {
         }
         // 前方换行改变虚拟段落索引，只重新绑定发生位移的表格行；单元格布局继续复用。
         for (var table : shiftedTables) {
-            if (table.valid() && table.mode() == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table)) {
+            if (table.valid() && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table)) {
                 recreateTableGraphics(table);
             }
         }
@@ -561,6 +567,7 @@ public final class MarkdownTablePreviewManager {
                 tables = area.getMarkdownTableDocumentState().getTables();
                 inlineContents = Map.copyOf(contents);
                 rebuildLineIndex();
+                updateSearchPresentation();
                 if (pendingUndoCaretOffset >= 0) {
                     var target = MarkdownTableUndoSupport.findCell(area.getMarkdownTableDocumentState(), pendingUndoCaretOffset);
                     if (target != null) {
@@ -835,6 +842,16 @@ public final class MarkdownTablePreviewManager {
         }
     }
 
+    private void updateSearchPresentation() {
+        if (currentArea == null || deferWhileComposing(this::updateSearchPresentation)) return;
+        if (!searchPresentation.refresh(currentArea, tables)) return;
+        if (!structurePending && activeTable != null && searchPresentation.isExpanded(activeTable)) {
+            endCellEditing(cellEditor.isFocused());
+        }
+        updatePresentation();
+        updateToolbar();
+    }
+
     private void updatePresentation() {
         if (currentArea == null) return;
         presentationJobs.clear();
@@ -922,14 +939,14 @@ public final class MarkdownTablePreviewManager {
         }
 
         private boolean presented(MarkdownTableDocumentState.Table table) {
-            return table != null && table.valid() && (table.mode() == MarkdownTableDocumentState.Mode.SOURCE
-                    || table.mode() == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table));
+            return table != null && table.valid() && (searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.SOURCE
+                    || searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE && hasTableLayout(table));
         }
 
         private void present(MarkdownTableDocumentState.Table table, int line, boolean visible) {
-            boolean preview = table != null && table.valid() && table.mode() == MarkdownTableDocumentState.Mode.TABLE
+            boolean preview = table != null && table.valid() && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE
                     && hasTableLayout(table);
-            boolean source = table != null && table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE;
+            boolean source = table != null && table.valid() && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.SOURCE;
             setPreviewStyle(line, preview ? paragraphHeight(table, line) : null, source);
             if (!visible || !preview) return;
             var layout = layouts.get(table.id());
@@ -1001,11 +1018,11 @@ public final class MarkdownTablePreviewManager {
     private Node createGraphic(int line, Node base) {
         var table = tableByLine.get(line);
         var layout = table == null ? null : layouts.get(table.id());
-        if (table != null && table.valid() && table.mode() == MarkdownTableDocumentState.Mode.SOURCE
+        if (table != null && table.valid() && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.SOURCE
                 && line == table.firstLine()) {
             return new MarkdownTableSourceHeader(currentArea, base, createToolbar(table), () -> layoutWidth);
         }
-        if (table == null || !table.valid() || table.mode() != MarkdownTableDocumentState.Mode.TABLE
+        if (table == null || !table.valid() || searchPresentation.mode(table) != MarkdownTableDocumentState.Mode.TABLE
                 || layout == null || !hasTableLayout(table)) {
             return base;
         }
@@ -1074,7 +1091,7 @@ public final class MarkdownTablePreviewManager {
         }
 
         private boolean ready() {
-            return layout.table.valid() && layout.table.mode() == MarkdownTableDocumentState.Mode.TABLE
+            return layout.table.valid() && searchPresentation.mode(layout.table) == MarkdownTableDocumentState.Mode.TABLE
                     && structureRevision == layout.structureRevision && row < layout.cells.length
                     && layout.cells.length == layout.table.rows().size()
                     && layout.widths.length == layout.table.alignments().size();
@@ -1293,7 +1310,8 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         var layout = layouts.get(table.id());
-        if (!table.valid() || layout == null || layout.cells == null
+        if (!table.valid() || searchPresentation.mode(table) != MarkdownTableDocumentState.Mode.TABLE
+                || layout == null || layout.cells == null
                 || row < 0 || row >= layout.cells.length || column >= layout.widths.length) {
             return;
         }
@@ -1522,7 +1540,7 @@ public final class MarkdownTablePreviewManager {
         }
         int line = table.rows().get(row).line();
         layout.rowHeights.put(row, Math.ceil(height));
-        if (present && currentArea != null && table.mode() == MarkdownTableDocumentState.Mode.TABLE) {
+        if (present && currentArea != null && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE) {
             setPreviewStyle(line, paragraphHeight(table, line), false);
             refreshRowGraphics(table, row);
         }
@@ -1976,7 +1994,8 @@ public final class MarkdownTablePreviewManager {
 
     private void refreshToolbar(MarkdownTableToolbar bar, MarkdownTableDocumentState.Table table) {
         bar.refresh(currentArea != null && currentArea.isEditable(), table != null && table.valid(),
-                structurePending, table != null && table.mode() == MarkdownTableDocumentState.Mode.SOURCE);
+                structurePending, table != null && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.SOURCE,
+                table != null && searchPresentation.isExpanded(table));
     }
 
     private void updateToolbar() {
@@ -2011,7 +2030,7 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         var table = tableAtOffset(hit.getAsInt());
-        if (table == null || table.mode() != MarkdownTableDocumentState.Mode.TABLE) {
+        if (table == null || searchPresentation.mode(table) != MarkdownTableDocumentState.Mode.TABLE) {
             return;
         }
         int anchor = currentArea.getAnchor();
@@ -2064,7 +2083,7 @@ public final class MarkdownTablePreviewManager {
                 org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).getMajor();
         var table = tableByLine.get(line);
         int row = rowIndexByLine.getOrDefault(line, -1);
-        if (table == null || !table.valid() || table.mode() != MarkdownTableDocumentState.Mode.TABLE || row < 0) {
+        if (table == null || !table.valid() || searchPresentation.mode(table) != MarkdownTableDocumentState.Mode.TABLE || row < 0) {
             return null;
         }
         var cells = table.rows().get(row).cells();
@@ -2111,7 +2130,7 @@ public final class MarkdownTablePreviewManager {
         if (deferWhileComposing(() -> toggleMode(table))) {
             return;
         }
-        if (table == null || structurePending) {
+        if (table == null || structurePending || searchPresentation.isExpanded(table)) {
             return;
         }
         var latest = latestTable(table);
@@ -2252,7 +2271,7 @@ public final class MarkdownTablePreviewManager {
         pendingTableId = table.id();
         pendingRow = row;
         pendingColumn = column;
-        pendingSourceOffset = table.mode() == MarkdownTableDocumentState.Mode.SOURCE
+        pendingSourceOffset = searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.SOURCE
                 ? currentArea.getCaretPosition() - table.startOffset() : -1;
         currentArea.getUndoManager().preventMerge();
         activeTable = table;
@@ -2276,7 +2295,7 @@ public final class MarkdownTablePreviewManager {
                 continue;
             }
             var layout = layouts.get(table.id());
-            if (table.mode() == MarkdownTableDocumentState.Mode.TABLE
+            if (searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE
                     && (layout == null || layout.table != table || layout.cells == null)) {
                 return;
             }
@@ -2301,7 +2320,7 @@ public final class MarkdownTablePreviewManager {
                 } else if (column >= table.alignments().size()) {
                     column = table.alignments().size() - 1;
                 }
-                if (table.mode() == MarkdownTableDocumentState.Mode.TABLE) {
+                if (searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE) {
                     activateCell(table, row, column, 12);
                     if (undoCaretOffset >= 0) {
                         var cell = table.rows().get(row).cells().get(column);
@@ -2339,6 +2358,10 @@ public final class MarkdownTablePreviewManager {
             if (table.id().equals(id) && table.valid() && activeRow < table.rows().size()
                     && activeColumn < table.alignments().size()) {
                 activeTable = table;
+                if (searchPresentation.isExpanded(table)) {
+                    endCellEditing(cellEditor.isFocused());
+                    return;
+                }
                 syncEditorFromDocument();
                 return;
             }

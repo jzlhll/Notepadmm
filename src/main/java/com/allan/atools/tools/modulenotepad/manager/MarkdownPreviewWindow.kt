@@ -127,7 +127,7 @@ class MarkdownPreviewWindow private constructor() {
                 renderedSnapshot = null
                 pageReady = false
                 hint.text = Locales.str("markdown.previewLimit")
-                view.engine.loadContent("<html><body>${escape(hint.text)}</body></html>")
+                view.engine.loadContent("<html><body>${MarkdownHtmlRenderer.escape(hint.text)}</body></html>")
             }
             return
         }
@@ -153,7 +153,7 @@ class MarkdownPreviewWindow private constructor() {
                 val content = if (update) gson.toJson(mapOf("body" to MarkdownHtmlRenderer.body(state, base),
                     "fontSize" to fontSize, "fontFamily" to fontFamily, "readonly" to readonly))
                 else renderDocument(state, base, dark, themeCss)
-                    .replace("<body ", "<body data-readonly=\"$readonly\" style=\"font-size:${fontSize}px;font-family:${escape(fontFamily)}\" ")
+                    .replace("<body ", "<body data-readonly=\"$readonly\" style=\"font-size:${fontSize}px;font-family:${MarkdownHtmlRenderer.escape(fontFamily)}\" ")
                 Platform.runLater {
                     scheduler.complete(requestId) {
                         task = null
@@ -204,13 +204,7 @@ class MarkdownPreviewWindow private constructor() {
             val current = area ?: return
             if (!current.isEditable || current.markdownComposing || current.editor.contentVersion != renderedVersion) return
             val offset = renderedSnapshot?.lines?.getOrNull(position)?.taskOffset ?: return
-            if (offset < 0) return
-            val start = current.selection.start
-            val end = current.selection.end
-            current.undoManager.preventMerge()
-            current.replaceText(offset, offset + 1, if (checked) "x" else " ")
-            current.selectRange(start, end)
-            current.undoManager.preventMerge()
+            current.markdownEditing.setTaskChecked(offset, checked)
         }
     }
 
@@ -244,10 +238,6 @@ class MarkdownPreviewWindow private constructor() {
         @JvmStatic
         fun close() { instance?.stage?.close(); instance = null }
 
-        fun renderBody(state: MarkdownStructureSnapshot): String {
-            return MarkdownHtmlRenderer.body(state)
-        }
-
         private val katexLibrary by lazy { MarkdownPreviewWindow::class.java.getResource("/markdown/katex/katex.min.js")!!.readText() }
         private val katexCss by lazy {
             val source = MarkdownPreviewWindow::class.java.getResource("/markdown/katex/katex.min.css")!!.readText()
@@ -278,13 +268,11 @@ class MarkdownPreviewWindow private constructor() {
 
         fun renderFragment(body: String, base: String?, dark: Boolean, themeCss: String,
                            formula: Boolean, diagram: Boolean, extraCss: String = "", extraScript: String = ""): String {
-            val baseTag = if (base == null) "" else "<base href=\"${escape(base)}\">"
+            val baseTag = if (base == null) "" else "<base href=\"${MarkdownHtmlRenderer.escape(base)}\">"
             val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
                 (if (diagram) "<script>$mermaidLibrary</script>" else "")
             return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$previewStyle$themeCss$extraCss</style>$libraries</head>" +
-                "<body data-copy-label=\"${escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>$body</article><script>$previewScript</script><script>$extraScript</script></body></html>"
+                "<body data-copy-label=\"${MarkdownHtmlRenderer.escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>$body</article><script>$previewScript</script><script>$extraScript</script></body></html>"
         }
-
-        fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
     }
 }

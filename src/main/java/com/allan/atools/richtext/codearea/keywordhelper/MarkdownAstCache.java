@@ -26,9 +26,6 @@ public final class MarkdownAstCache {
         Parsed(Node root) { this.root = root; }
     }
 
-    public MarkdownAstCache() {
-    }
-
     /** 仅此适配点依赖 CommonMark 0.30.0 内部实现，编译与运行都需定向导出该包。 */
     static InlineParser createInlineParser(InlineParserContext context) {
         return new org.commonmark.internal.InlineParserImpl(context);
@@ -47,11 +44,6 @@ public final class MarkdownAstCache {
             latestSnapshot = value.snapshot;
             return value.snapshot;
         }
-    }
-
-    /** 只读取已完成的不可变快照，按键快速判断不能等待后台解析锁。 */
-    public MarkdownStructureSnapshot peekSnapshot() {
-        return latestSnapshot;
     }
 
     private Parsed entry(String text) {

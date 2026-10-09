@@ -6,7 +6,6 @@ import javafx.beans.InvalidationListener
 import javafx.beans.property.ReadOnlyDoubleProperty
 import javafx.beans.property.ReadOnlyDoubleWrapper
 import javafx.beans.property.SimpleDoubleProperty
-import javafx.geometry.Bounds
 import javafx.scene.input.ScrollEvent
 import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.Region
@@ -56,12 +55,6 @@ class EditorScrollPane(val editorArea: EditorArea) :
     companion object {
         const val MIN_ZOOM_PERCENT = 100
         const val MAX_ZOOM_PERCENT = 250
-
-        @JvmStatic
-        fun viewportBoundsOnScreen(area: EditorArea): Bounds? {
-            val viewport = area.parent as? EditorZoomViewport ?: return area.localToScreen(area.boundsInLocal)
-            return viewport.localToScreen(viewport.boundsInLocal)
-        }
     }
 
     fun changeZoom(delta: Int) {

@@ -8,17 +8,6 @@ import java.io.File;
 final class EditorKeywordHelperFactory {
     private EditorKeywordHelperFactory() {}
 
-//    static AbstractEditorKeywordHelper createKeywordHelper(String extension) {
-//        return switch (extension) {
-//            case "java" -> new EditorKeywordHelperImplJava();
-//            case "cs" -> new EditorKeywordHelperImplCSharp();
-//            case "c", "cpp", "h" -> new EditorKeywordHelperImplCC();
-//            case "xml" -> new EditorKeywordHelperImplXml();
-//            case "module-info" -> new EditorKeywordHelperImplModuleInfo();
-//            default -> null; //no case
-//        };
-//    }
-
     static EditorKeywordHelperAbstract create(File file) {
         var extension = sFilePathToExtension.invoke(file);
         if (extension == null) {
@@ -29,14 +18,14 @@ final class EditorKeywordHelperFactory {
             case "kotlin" -> new EditorKeywordHelperImplKotlin();
             case "markdown" -> new EditorKeywordHelperImplMarkdown();
             case "cs" -> new EditorKeywordHelperImplCSharp();
-            case "c", "cpp", "h" -> new EditorKeywordHelperImplCC();
+            case "cpp" -> new EditorKeywordHelperImplCC();
             case "xml" -> new EditorKeywordHelperImplXml();
             case "module-info" -> new EditorKeywordHelperImplModuleInfo();
             default -> null; //no case
         };
     }
 
-    static ActionR<File, String> sFilePathToExtension = (file) -> {
+    private static final ActionR<File, String> sFilePathToExtension = (file) -> {
         if (file == null) {
             return null;
         }

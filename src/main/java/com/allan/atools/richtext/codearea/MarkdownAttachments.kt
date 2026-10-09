@@ -2,6 +2,7 @@ package com.allan.atools.richtext.codearea
 
 import com.allan.atools.UIContext
 import com.allan.atools.threads.ThreadUtils
+import com.allan.atools.tools.modulenotepad.manager.MarkdownHtmlRenderer
 import com.allan.atools.ui.SnackbarUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
@@ -84,7 +85,7 @@ class MarkdownAttachments(private val area: EditorArea) {
                         val destination = org.jsoup.parser.Parser.unescapeEntities(group.value, true)
                         val encoded = rebased(destination) ?: continue
                         val start = first.inputIndex + tag.range.first + group.range.first
-                        replacements.add(Triple(start, start + group.value.length, MarkdownPreviewEscape.escape(encoded)))
+                        replacements.add(Triple(start, start + group.value.length, MarkdownHtmlRenderer.escape(encoded)))
                     }
                     continue
                 }
@@ -254,16 +255,12 @@ class MarkdownAttachments(private val area: EditorArea) {
         dialog.headerText = Locales.str("markdown.imageWidth")
         val width = dialog.showAndWait().orElse(null)?.toIntOrNull() ?: return
         if (width !in 1..10000 || state.text != area.text || !area.isEditable || area.markdownComposing) return
-        val titleAttribute = if (title.isEmpty()) "" else " title=\"${MarkdownPreviewEscape.escape(title)}\""
-        val result = "<img src=\"${MarkdownPreviewEscape.escape(destination)}\" alt=\"${MarkdownPreviewEscape.escape(alt)}\" width=\"$width\"$titleAttribute>"
+        val titleAttribute = if (title.isEmpty()) "" else " title=\"${MarkdownHtmlRenderer.escape(title)}\""
+        val result = "<img src=\"${MarkdownHtmlRenderer.escape(destination)}\" alt=\"${MarkdownHtmlRenderer.escape(alt)}\" width=\"$width\"$titleAttribute>"
         area.undoManager.preventMerge()
         area.replaceText(from, to, result)
         area.moveTo(from + result.length)
         area.undoManager.preventMerge()
     }
 
-}
-
-private object MarkdownPreviewEscape {
-    fun escape(value: String) = value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 }

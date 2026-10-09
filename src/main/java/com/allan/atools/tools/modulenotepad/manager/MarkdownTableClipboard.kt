@@ -1,6 +1,7 @@
 package com.allan.atools.tools.modulenotepad.manager
 
 import com.allan.atools.richtext.codearea.EditorArea
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownTableParser
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState.Alignment
 import javafx.scene.input.Clipboard
@@ -36,7 +37,8 @@ fun copyMarkdownTableData(area: EditorArea, tableId: String, scope: MarkdownTabl
     val content = ClipboardContent()
     if (tsv) {
         val rendered = HashMap<String, String>()
-        MarkdownTableParser.parse(area.text) { source, node ->
+        val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
+        MarkdownTableParser.parse(state.text, state.root) { source, node ->
             rendered[source] = if (source.isEmpty()) "" else MarkdownTableLayout.parse(node).joinToString("") { it.text() }
         } ?: return
         val text = serializeTsv(values.map { cells -> cells.map { rendered[it] ?: MarkdownTableCellText.decode(it) } })

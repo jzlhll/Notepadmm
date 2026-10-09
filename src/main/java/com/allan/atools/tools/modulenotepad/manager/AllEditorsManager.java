@@ -285,7 +285,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     @Override
     public void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront) {
-        openFile(textFile, checkAlreadyHasFile, toFront, null, null, false);
+        openFile(textFile, checkAlreadyHasFile, toFront, null, null, false, null);
     }
 
     @Override
@@ -300,7 +300,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         }
         var state = EditorDocumentState.untitled(
                 "New" + index, initialDirectory, EncodingUtil.CHOISE_ENCODING_UTF8);
-        return createEditorTab(state, "", true, true);
+        return createEditorTab(state, "", true, true, null);
     }
 
     @Override
@@ -334,15 +334,8 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             state.setExternalState(EditorDocumentState.ExternalState.MODIFIED);
         }
         var area = createEditorTab(state, entry.chunkedLog && !entry.dirty ? null
-                : hasSavedState ? savedText : restoredText, false, false);
+                : hasSavedState ? savedText : restoredText, false, false, entry);
         if (area != null) {
-            if (entry.chunkedLog) {
-                if (area.getLargeLog() != null) area.getLargeLog().close();
-                var logState = entry.dirty && entry.loadedByteOffset > 0 ? new com.allan.atools.tools.modulenotepad.log.LogReadState(
-                        new com.allan.atools.tools.modulenotepad.log.LogPosition(entry.loadedByteOffset, 1L, 0L),
-                        entry.pendingBytes == null ? new byte[0] : entry.pendingBytes, entry.afterCr) : null;
-                new LargeLogController(area, logState, entry.dirty ? 0L : entry.loadedByteOffset, entry.caretPosition);
-            }
             if (hasUnsavedDifference) {
                 area.getEditor().restoreUnsavedText(restoredText);
             }
@@ -359,7 +352,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     }
 
     private EditorArea createEditorTab(EditorDocumentState state, String text,
-                                       boolean select, boolean announceError) {
+                                       boolean select, boolean announceError, SessionTab restoredSession) {
         Tab newTab = new Tab();
         RefWatcher.watchs(newTab, state.getDisplayName());
         newTab.setUserData(state);
@@ -369,7 +362,17 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                     state.getSourceFile(), newTab, text == null ? "" : text, state);
             editorCodeArea.getEditor().getState().setFileEncoding(state.getEncoding());
             editorCodeArea.getBottomSearchBtnsMgr().init();
-            if (text == null) new LargeLogController(editorCodeArea, null, 0L, 0);
+            if (restoredSession != null && restoredSession.chunkedLog) {
+                var logState = restoredSession.dirty && restoredSession.loadedByteOffset > 0
+                        ? new com.allan.atools.tools.modulenotepad.log.LogReadState(
+                        new com.allan.atools.tools.modulenotepad.log.LogPosition(restoredSession.loadedByteOffset, 1L, 0L),
+                        restoredSession.pendingBytes == null ? new byte[0] : restoredSession.pendingBytes, restoredSession.afterCr)
+                        : null;
+                new LargeLogController(editorCodeArea, logState,
+                        restoredSession.dirty ? 0L : restoredSession.loadedByteOffset, restoredSession.caretPosition);
+            } else if (text == null) {
+                new LargeLogController(editorCodeArea, null, 0L, 0);
+            }
             var vpane = new EditorScrollPane(editorCodeArea);
             vpane.getStyleClass().add("editor-virtualized-scroll-pane");
             newTab.setContent(vpane);
@@ -393,10 +396,6 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
         openFile(file, true, true, null, null, false, opened);
     }
 
-    private void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert) {
-        openFile(textFile, checkAlreadyHasFile, toFront, forceEncoding, reOpenExistTab, ignoreAlert, null);
-    }
-
     private void openFile(File textFile, boolean checkAlreadyHasFile, boolean toFront, String forceEncoding, Tab reOpenExistTab, boolean ignoreAlert,
                           java.util.function.Consumer<EditorArea> opened) {
         if (!Platform.isFxApplicationThread()) {
@@ -417,7 +416,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
                 return;
             }
         }
-        if (!ignoreAlert && textFile.length() > Util.MAX_ALERT_FILE_SIZE) {
+        if (!ignoreAlert && textFile.length() > LogMemoryBudget.INITIAL_BYTES) {
             final var forceEncodingFinal = forceEncoding;
             JfoenixDialogUtils.confirm(Locales.str("notification"), Locales.str("itIsTooBig"), 18, 400,
                     new JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, Locales.str("sure"), ()->{
@@ -540,42 +539,15 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
             return area;
         }
 
-        Tab newTab = new Tab();
-        RefWatcher.watchs(newTab, "openFile");
-
-        newTab.setOnClosed(event -> onTabCloseAction(newTab));
-
         Log.d("open file encoding " + detectedEncoding + ", chunked " + (text == null));
         Log.d("open file: " + textFile);
-
-        try {
-            var documentState = EditorDocumentState.named(textFile, detectedEncoding);
-            EditorArea editorCodeArea = new EditorArea(textFile, newTab, text == null ? "" : text, documentState);
-
-            editorCodeArea.getEditor().getState().setFileEncoding(detectedEncoding);
-            editorCodeArea.getBottomSearchBtnsMgr().init();
-            if (text == null) new LargeLogController(editorCodeArea, null, 0L, 0);
-            Log.d("change encoding " + detectedEncoding);
-            var vpane = new EditorScrollPane(editorCodeArea);
-            vpane.getStyleClass().add("editor-virtualized-scroll-pane");
-            newTab.setContent(vpane);
-            UIContext.context().tabPane.getTabs().add(newTab);
-            if (toFront) {
-                UIContext.context().tabPane.getSelectionModel().select(newTab);
-            }
-            // position the caret at the beginning
+        var area = createEditorTab(EditorDocumentState.named(textFile, detectedEncoding),
+                text, toFront, true, null);
+        if (area != null) {
             saveListFilePaths();
-
             delayToSaveRecentFile(textFile.getAbsolutePath());
-            changeNotHasFileText(false);
-            return editorCodeArea;
-        } catch (Exception e) {
-            e.printStackTrace();
-            String warnMessage = Locales.str("openTabFailed");
-            Log.e("openTextIn Tab open failed: " + warnMessage, e);
-            JfoenixDialogUtils.alert(Locales.ALERT(), warnMessage);
-            return null;
         }
+        return area;
     }
 
     private static final AtomicInteger mIndexesClosed = new AtomicInteger(0);
@@ -686,7 +658,7 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
 
     @Override
     public void reOpenCurrentFile(Tab tab, File file, String forceEncoding) {
-        openFile(file, true, true, forceEncoding, tab, false);
+        openFile(file, true, true, forceEncoding, tab, false, null);
     }
 
     /**

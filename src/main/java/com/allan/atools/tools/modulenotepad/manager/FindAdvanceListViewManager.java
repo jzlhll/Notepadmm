@@ -181,7 +181,7 @@ public final class FindAdvanceListViewManager {
         controller.advanceStartBtn.setOnMouseClicked(mouseEvent -> {
             NotepadController mainController = UIContext.context();
             var curArea = UIContext.currentAreaProp.get();
-            if (curArea != null) {
+            if (curArea != null && !com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown(curArea)) {
                 var arr = advanceSearchParamsManager.getCurrentParamsUseful();
                 if (arr.length == 0) {
                     JfoenixDialogUtils.setWindow(NotepadFindWindow.getInstance().getWindow());

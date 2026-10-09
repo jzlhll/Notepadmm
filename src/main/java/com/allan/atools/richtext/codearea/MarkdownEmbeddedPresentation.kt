@@ -184,7 +184,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                         val fragment = fragments[entry.block.start]
                         val html = fragment?.first.orEmpty().ifEmpty {
                             if (state.text.substring(entry.block.start, entry.block.end).trimStart().startsWith("<!--"))
-                                "<span class=\"source-placeholder\">${MarkdownPreviewWindow.escape(Locales.str("markdown.hiddenComment"))}</span>"
+                                "<span class=\"source-placeholder\">${MarkdownHtmlRenderer.escape(Locales.str("markdown.hiddenComment"))}</span>"
                             else ""
                         }
                         if (html.isEmpty()) { entry.html = null; continue }
@@ -539,13 +539,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             fun task(line: Int, checked: Boolean) {
                 if (!live || !ready || entry !in entries || !area.isEditable || area.markdownComposing || version != area.editor.contentVersion || file != area.editor.sourceFile) return
                 val offset = snapshot?.lines?.getOrNull(line + entry.block.firstLine - entry.renderedLine)?.taskOffset ?: return
-                if (offset < 0) return
-                val start = area.selection.start
-                val end = area.selection.end
-                area.undoManager.preventMerge()
-                area.replaceText(offset, offset + 1, if (checked) "x" else " ")
-                area.selectRange(start, end)
-                area.undoManager.preventMerge()
+                area.markdownEditing.setTaskChecked(offset, checked)
             }
             fun retry(index: Int) { loadImage(index) }
         }

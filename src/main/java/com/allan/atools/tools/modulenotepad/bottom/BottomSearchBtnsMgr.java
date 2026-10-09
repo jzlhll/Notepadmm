@@ -212,10 +212,6 @@ public final class BottomSearchBtnsMgr {
         changeRuleBtn(params.type);
     }
 
-    public Cache getBottomCache() {
-        return handler.cache;
-    }
-
     EventHandler<MouseEvent> caseBtnClick = e -> caseBtnReal();
     private void caseBtnReal() {
         boolean newValue;

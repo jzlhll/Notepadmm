@@ -45,12 +45,6 @@ object LogMemoryBudget {
         return Lease(bytes)
     }
 
-    @JvmStatic
-    fun isLog(path: Path): Boolean {
-        val extension = path.fileName.toString().substringAfterLast('.', "")
-        return extension.equals("txt", true) || extension.equals("log", true)
-    }
-
     /** 所有大文本延迟分块读取；小文件也须为文档模型预留堆余量。 */
     @JvmStatic
     fun readEditable(path: Path, charset: Charset): String? {

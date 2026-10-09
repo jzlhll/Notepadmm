@@ -21,6 +21,7 @@ import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownMermaidManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownOutlineManager;
+import com.allan.atools.tools.modulenotepad.manager.MarkdownSearchSupport;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownTablePreviewManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
@@ -163,6 +164,7 @@ public final class NotepadController extends AbstractMainController {
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
             (observable, oldValue, newValue) -> {
                 refreshCurrentDocumentPath();
+                MarkdownSearchSupport.refresh();
                 updateMarkdownTablePreviewManager(newValue);
                 updateMarkdownImageManager(newValue);
                 if (markdownMermaidManager != null) {
@@ -540,6 +542,7 @@ public final class NotepadController extends AbstractMainController {
 
     public void refreshCurrentDocumentInfo() {
         refreshCurrentDocumentPath();
+        MarkdownSearchSupport.refresh();
         com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.refreshCurrentFile(UIContext.currentAreaProp.get());
         BottomMarkdownZoom.refresh();
         refreshWrapTextButton(UIContext.currentAreaProp.get());

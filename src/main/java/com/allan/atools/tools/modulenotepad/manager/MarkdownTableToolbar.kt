@@ -45,9 +45,9 @@ class MarkdownTableToolbar(val tableId: String, optimize: Runnable, toggle: Runn
         addEventHandler(MouseEvent.MOUSE_DRAGGED) { it.consume() }
     }
 
-    fun refresh(editable: Boolean, valid: Boolean, pending: Boolean, source: Boolean) {
+    fun refresh(editable: Boolean, valid: Boolean, pending: Boolean, source: Boolean, searching: Boolean) {
         optimizeButton.isDisable = !editable || !valid || pending
-        modeButton.isDisable = !valid || pending
+        modeButton.isDisable = !valid || pending || searching
         exitButton.isDisable = !valid || pending
         modeButton.text = Locales.str(if (source) "markdownTableToolbarPreview" else "markdownTableToolbarSource")
         val reason = when {

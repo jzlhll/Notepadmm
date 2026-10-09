@@ -13,6 +13,8 @@ import org.jsoup.safety.Safelist
 
 /** 预览、剪贴板和 HTML 导出共用正文输出及有限 HTML 范围。 */
 object MarkdownHtmlRenderer {
+    fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
     private fun allowed() = Safelist.relaxed().addTags("details", "summary", "u", "sub", "sup", "mark", "input", "section", "nav", "hr", "del", "s")
         .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-text", "data-source-map", "data-display", "data-checked", "role", "aria-label", "title")
         .addAttributes("input", "type", "checked", "disabled").addEnforcedAttribute("input", "type", "checkbox")

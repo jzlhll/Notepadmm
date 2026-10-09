@@ -134,7 +134,7 @@ class EditorArea @JvmOverloads constructor(
         markdownPreviewEnabled = !markdownPreviewEnabled
         if (!markdownPreviewEnabled) markdownPresentation.clear()
         else markdownPresentation.snapshot?.let { if (it.text == text) markdownPresentation.apply(it) }
-        (editor as EditorAreaMgrCode).trigger(null, null, null)
+        (editor as EditorAreaMgrCode).refreshMarkdownPresentation()
         UIContext.context().refreshCurrentDocumentInfo()
         if (top >= 0) javafx.application.Platform.runLater {
             if (!editor.isDestroyed && top < paragraphs.size) showParagraphAtTop(top)

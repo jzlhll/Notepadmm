@@ -117,6 +117,7 @@ public final class NotepadHeadButtons {
             }
             NotepadFindWindow.getInstance().show(UIContext.currentAreaProp.get().getSelectedText());
         });
+        MarkdownSearchSupport.refresh();
 
         //mMain.notepadMainActionBarFileOpenBtn.setTooltip(new Tooltip(Locales.str("openFile")));
         mMain.notepadMainActionBarFileOpenBtn.setOnMouseClicked(e -> fileOpenClick(e));

@@ -15,9 +15,6 @@ class MarkdownEditingActions(private val area: EditorArea) {
     private val quote = Regex("^[ \\t]*(?:>[ \\t]?)+[ \\t]*")
     private val item = Regex("^([ \\t]*)([-+*]|[0-9]{1,9}[.)])([ \\t]+)(\\[[ xX]][ \\t]+)?")
 
-    private fun snapshot(): MarkdownStructureSnapshot =
-        area.markdownCommands.snapshot()
-
     private fun change(start: Int, end: Int, replacement: String, selectStart: Int, selectEnd: Int = selectStart) {
         if (!area.isEditable || area.markdownComposing) return
         area.undoManager.preventMerge()
@@ -30,7 +27,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
     fun canFormat(block: Boolean = false, inlineCode: Boolean = false): Boolean {
         if (!MarkdownEditorSupport.supportsMarkdown(area) || !area.isEditable || area.markdownComposing
             || area.editor.isRealtimeProcessingLimitReached) return false
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         if (if (block) state.intersectsLiteralBlocks(area.selection.start, area.selection.end)
             else state.intersectsLiteral(area.selection.start, area.selection.end, inlineCode)) {
             com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.literalFormat"))
@@ -92,7 +89,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
             if (prefixEnd == 0 || area.caretPosition - area.getAbsolutePosition(area.currentParagraph, 0) != prefixEnd) return false
         }
         if (area.markdownCommands.deferKey(event)) return true
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         val line = state.lines[state.lineAt(area.caretPosition)]
         if ((line.frontMatter || state.isLiteral(area.caretPosition)) && !line.code) return false
         when (event.code) {
@@ -219,19 +216,26 @@ class MarkdownEditingActions(private val area: EditorArea) {
         val hitStyles = area.getStyleOfChar(hit.asInt)
         if (CodeArea.MARKDOWN_TASK_MARKER_CLASS !in hitStyles || "markdown-task-example" in hitStyles) return false
         if (area.markdownCommands.defer { toggleTask(event) }) return true
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         val offset = state.lines[state.lineAt(hit.asInt)].taskOffset
         if (offset < 0 || hit.asInt !in offset - 1..offset + 1) return false
+        setTaskChecked(offset, area.getText(offset, offset + 1) == " ")
+        return true
+    }
+
+    fun setTaskChecked(offset: Int, checked: Boolean) {
+        if (!area.isEditable || area.markdownComposing || offset < 1 || offset + 1 >= area.length) return
+        val value = if (checked) "x" else " "
+        if (area.getText(offset, offset + 1) == value) return
         val start = area.selection.start
         val end = area.selection.end
         val styles = area.getStyleOfChar(offset - 1)
         area.undoManager.preventMerge()
-        area.replaceText(offset, offset + 1, if (area.getText(offset, offset + 1) == " ") "x" else " ")
+        area.replaceText(offset, offset + 1, value)
         // 字符插入会使用默认样式，立即恢复整段标记，使复选框状态无需等待后台高亮。
         if (CodeArea.MARKDOWN_TASK_MARKER_CLASS in styles) area.setStyle(offset - 1, offset + 2, styles)
         area.selectRange(start, end)
         area.undoManager.preventMerge()
-        return true
     }
 
     fun wrap(mark: String) {
@@ -257,7 +261,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
             else change(start, end, mark + mark, start + length)
             return
         }
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         val wrappers = state.elements.filter {
             when (mark) {
                 "**" -> it.node is org.commonmark.node.StrongEmphasis
@@ -333,7 +337,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (area.markdownCommands.defer { prefixLines(prefix) }) return
         if (!canFormat(true)) return
         val (start, end) = lineRange()
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         val original = area.getText(start, end).split('\n')
         if (prefix == "> ") {
             val remove = original.withIndex().all { (index, source) -> source.isBlank() || state.lines[state.lineAt(start) + index].quoteDepth > 0 && quote.find(source) != null }
@@ -375,7 +379,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (area.markdownCommands.defer { heading(level) }) return
         if (level !in 0..6 || !canFormat(true)) return
         var (start, end) = lineRange()
-        val state = snapshot()
+        val state = area.markdownCommands.snapshot()
         val entries = state.elements.filter { it.node is org.commonmark.node.Heading }
         val setext = entries.filter { entry ->
             val spans = entry.node.sourceSpans
@@ -412,7 +416,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
             prefix + if (outdent) rest.replace(Regex("^(?: {1,4}|\\t)"), "") else "    $rest"
         }
         val insertAtCaret = if (!hadSelection && !outdent) {
-            val state = snapshot()
+            val state = area.markdownCommands.snapshot()
             state.lines[state.lineAt(caret)].listDepth == 0
         } else false
         if (insertAtCaret) {
@@ -425,7 +429,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         if (area.markdownCommands.defer { editLink() }) return
         if (!canFormat()) return
         val source = area.text
-        val edit = MarkdownLinkEditing.request(source, area.selection.start, area.selection.end, area.caretPosition, snapshot()) ?: return
+        val edit = MarkdownLinkEditing.request(source, area.selection.start, area.selection.end, area.caretPosition, area.markdownCommands.snapshot()) ?: return
         if (source != area.text || !area.isEditable || area.markdownComposing) return
         change(edit.start, edit.end, edit.text, edit.start, edit.start + edit.text.length)
     }
@@ -474,7 +478,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         val copyAddress = MenuItem(Locales.str("markdown.copyLinkAddress"))
         copyAddress.setOnAction {
             area.markdownCommands.run {
-                if (!area.editor.isRealtimeProcessingLimitReached) snapshot().linkAt(area.caretPosition)?.let { link ->
+                if (!area.editor.isRealtimeProcessingLimitReached) area.markdownCommands.snapshot().linkAt(area.caretPosition)?.let { link ->
                     javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(link.destination) })
                 }
             }
@@ -486,7 +490,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
         stats.setOnAction {
             if (area.editor.isRealtimeProcessingLimitReached) { com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.previewLimit")); return@setOnAction }
             area.markdownCommands.run {
-                val document = snapshot()
+                val document = area.markdownCommands.snapshot()
                 val selected = if (area.selection.length == 0) document else
                     com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, area.selection.start, area.selection.end)
                 val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(selected.root)

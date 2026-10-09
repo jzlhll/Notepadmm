@@ -11,7 +11,6 @@ import org.commonmark.node.FencedCodeBlock
 
 /** 围栏和表格入口操作保留源码位置，使用主文档撤销链。 */
 class MarkdownCodeActions(private val area: EditorArea) {
-    private fun state() = area.markdownCommands.snapshot()
     private fun replace(start: Int, end: Int, text: String, caret: Int) {
         if (!area.isEditable || area.markdownComposing) return
         area.undoManager.preventMerge()
@@ -22,7 +21,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     }
     private fun block(): FencedCodeBlock? {
         if (area.editor.isRealtimeProcessingLimitReached) return null
-        return state().elements.firstOrNull {
+        return area.markdownCommands.snapshot().elements.firstOrNull {
             it.node is FencedCodeBlock && it.ranges.any { range -> area.caretPosition in range.start..range.end }
         }?.node as? FencedCodeBlock
     }
@@ -83,7 +82,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
     fun exitCode() {
         if (area.markdownCommands.defer { exitCode() }) return
         val node = block() ?: return
-        val snapshot = state()
+        val snapshot = area.markdownCommands.snapshot()
         val first = node.sourceSpans.first()
         val opening = area.getText(snapshot.lines[first.lineIndex].start, snapshot.lines[first.lineIndex].end)
         val fence = Regex("(?:`{3,}|~{3,})").find(opening) ?: return

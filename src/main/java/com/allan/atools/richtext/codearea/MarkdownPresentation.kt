@@ -1,14 +1,18 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import javafx.beans.property.ReadOnlyLongWrapper
 
 /** 只更新当前版本的段落装饰，不替换源码或创建文本撤销记录。 */
 class MarkdownPresentation(private val area: EditorArea) {
     private val embedded = MarkdownEmbeddedPresentation(area)
     private val appliedLines = ArrayList<MarkdownStructureSnapshot.Line?>()
     private var appliedPreview: Boolean? = null
+    private val styleRevision = ReadOnlyLongWrapper()
     var snapshot: MarkdownStructureSnapshot? = null
         private set
+
+    fun styleRevisionProperty() = styleRevision.readOnlyProperty
 
     fun apply(value: MarkdownStructureSnapshot) {
         snapshot = value
@@ -42,6 +46,7 @@ class MarkdownPresentation(private val area: EditorArea) {
         appliedPreview = preview
         area.markdownSyntax.apply(value)
         if (preview) embedded.apply(value) else embedded.clear()
+        styleRevision.set(styleRevision.get() + 1)
     }
 
     /** 段落样式随文本移动；只失效编辑触及的段落，结构变化再由新快照扩展更新范围。 */

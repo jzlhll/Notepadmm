@@ -17,7 +17,6 @@ import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.Tab;
 import javafx.util.Duration;
-import org.commonmark.node.Node;
 import org.reactfx.Subscription;
 
 import java.io.File;
@@ -125,16 +124,8 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         return helper;
     }
 
-    public Node parseMarkdown(String text) {
-        return markdownAstCache.parse(text);
-    }
-
     public MarkdownStructureSnapshot markdownSnapshot(String text) {
         return markdownAstCache.snapshot(text);
-    }
-
-    public MarkdownStructureSnapshot cachedMarkdownSnapshot() {
-        return markdownAstCache.peekSnapshot();
     }
 
     public MarkdownStructureSnapshot currentMarkdownSnapshot() {
@@ -214,6 +205,10 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
     @Override
     public void trigger(SearchParams temporaryText, SearchParams searchText, Action0 endSetStyleCallback) {
         requestStyle(temporaryText, searchText, endSetStyleCallback, true);
+    }
+
+    public void refreshMarkdownPresentation() {
+        requestStyle(latestTemporaryText, latestSearchText, null, true);
     }
 
     /** 正文订阅已负责版本刷新，底部搜索只在条件改变时重新计算样式。 */

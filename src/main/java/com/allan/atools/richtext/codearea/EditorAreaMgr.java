@@ -1236,26 +1236,7 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
 
     @Override
     public void find(SearchParams params, Action<OneFileSearchResults> action) {
-        if (area.getLargeLog() != null) {
-            area.getLargeLog().search(new SearchParams[]{params}, action);
-            return;
-        }
-        ThreadUtils.execute(()-> {
-            String text = area.getText();
-            int[] totalLines = {0};
-            var ans = FinderFactory.find(text,
-                    SettingPreferences.getBoolean(SettingPreferences.searchResultHasNumberKey),
-                    new SearchParams[] {params},
-                    totalLines);
-            var result = new OneFileSearchResults()
-                    .addFile(getSourceFile())
-                    .addSessionId(documentState.getSessionId())
-                    .addDisplayName(documentState.getDisplayName())
-                    .addArea(this)
-                    .addTotalLen(text == null ? 0 : text.length())
-                    .addResults(ans);
-            action.invoke(result);
-        });
+        findAdvance(new SearchParams[]{params}, action);
     }
 
     @Override
