@@ -3,15 +3,6 @@ package com.allan.atools.ui;
 import javafx.scene.paint.Color;
 
 public final class ColorPickerUtil {
-//    private static double[] getPreDefColors(JFXColorPicker picker) {
-//        var obj = ReflectionUtils.iteratorGetPrivateField(picker, "preDefinedColors");
-//        if (obj instanceof double[] preColors) {
-//            return preColors;
-//        }
-//
-//        return null;
-//    }
-
     public static Color[] getMatchedColors(String bgColor) {
         if (bgColor.startsWith("#")) {
             bgColor = bgColor.substring(1);
@@ -287,53 +278,4 @@ public final class ColorPickerUtil {
                 62, 39, 35,
         };
     }
-//
-//    public static void prepareForJFxColorPicker() {
-//    }
-//
-//    public static void changeCustomColorBtnName(JFXColorPicker picker) {
-//        Log.d(Locales.str("customColor"));
-//        ThreadUtils.executeDelay(150, ()-> {
-//            Object skinBase = null;
-//            Object popupContent = null;
-//            while (true) {
-//                if (ThreadUtils.sBeClosing) {
-//                    break;
-//                }
-//
-//                try {
-//                    if (skinBase == null) {
-//                        var skinObject = ReflectionUtils.iteratorGetPrivateField(picker, "skinBase");
-//                        if (skinObject instanceof JFXColorPickerSkin) {
-//                            skinBase = skinObject;
-//                            Log.d("get skin base");
-//                        }
-//                    }
-//                    //不else
-//                    if (skinBase != null && popupContent == null) {
-//                        popupContent = ReflectionUtils.getPrivateField(skinBase, "popupContent");
-//                        Log.d("get popup Content");
-//                    }
-//                    //不else
-//                    if (popupContent != null) {
-//                        var customColorLinkObject = ReflectionUtils.getPrivateField(popupContent, "customColorLink");
-//                        Log.d("get customColorLinkObject");
-//                        if (customColorLinkObject instanceof JFXButton btn) {
-//                            Log.d("run customColorLinkObject");
-//                            //Platform.runLater(()-> btn.setText(Locales.str("customColor")));
-//                            break;
-//                        }
-//                    }
-//
-//                    Thread.sleep(100);
-//                } catch (NoSuchFieldException e) {
-//                    e.printStackTrace();
-//                } catch (IllegalAccessException e) {
-//                    e.printStackTrace();
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        });
-//    }
 }

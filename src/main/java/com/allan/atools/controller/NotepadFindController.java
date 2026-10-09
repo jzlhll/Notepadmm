@@ -162,10 +162,6 @@ public final class NotepadFindController extends AbstractController {
         stage.setWidth(660.0);
         stage.setHeight(550.0);
 
-        //规避 JFoenix 库 JFXGenericPickerSkin.removeParentFakeFocusListener 反射 helper 为空导致的 NPE 噪音
-        textColorPicker.focusedProperty().addListener((obs, old, val) -> {});
-        bgColorPicker.focusedProperty().addListener((obs, old, val) -> {});
-
         var preColors = ColorPickerUtil.preDefColors();
         textColorPicker.setPreDefinedColors(preColors);
         bgColorPicker.setPreDefinedColors(preColors);

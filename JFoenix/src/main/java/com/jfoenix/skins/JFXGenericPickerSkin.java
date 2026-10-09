@@ -118,13 +118,24 @@ public abstract class JFXGenericPickerSkin<T> extends ComboBoxPopupControl<T>{
     };
 
     private void removeParentFakeFocusListener(ComboBoxBase<T> comboBoxBase) {
+        // 颜色选择器没有编辑器，不会触发父类的 FakeFocusTextField 强制转换。
+        if (getEditor() == null) {
+            return;
+        }
         // handle FakeFocusField cast exception
         try {
             final ReadOnlyBooleanProperty focusedProperty = comboBoxBase.focusedProperty();
             ExpressionHelper value = ReflectionHelper.getFieldContent(focusedProperty.getClass().getSuperclass(), focusedProperty, "helper");
+            if (value == null) {
+                return;
+            }
             ChangeListener[] changeListeners = ReflectionHelper.getFieldContent(value.getClass(), value, "changeListeners");
+            if (changeListeners == null) {
+                ChangeListener listener = ReflectionHelper.getFieldContent(value.getClass(), value, "listener");
+                changeListeners = new ChangeListener[] {listener};
+            }
             // remove parent focus listener to prevent editor class cast exception
-            for(int i = changeListeners.length - 1; i > 0; i--) {
+            for(int i = changeListeners.length - 1; i >= 0; i--) {
                 if (changeListeners[i] != null && changeListeners[i].getClass().getName().contains("ComboBoxPopupControl")) {
                     focusedProperty.removeListener(changeListeners[i]);
                     break;

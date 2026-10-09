@@ -40,8 +40,6 @@ import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
@@ -75,6 +73,8 @@ import java.util.List;
  * @since 2016-03-09
  */
 public class JFXDecorator extends VBox {
+    public static final int HEIGHT_BUTTONS_CONTAINER = 26;
+    public static final int HEIGHT_BUTTONS_IMAGE_HEIGHT = HEIGHT_BUTTONS_CONTAINER - 5;
 
     private Stage primaryStage;
 
@@ -312,11 +312,8 @@ public class JFXDecorator extends VBox {
     private void initializeContainers(Node node, boolean fullScreen, boolean max, boolean min) {
         buttonsContainer = new HBox();
         buttonsContainer.getStyleClass().add("jfx-decorator-buttons-container");
-        buttonsContainer.setBackground(new Background(new BackgroundFill(Color.BLACK,
-            CornerRadii.EMPTY,
-            Insets.EMPTY)));
         // BINDING
-        buttonsContainer.setPadding(new Insets(4));
+        buttonsContainer.setPadding(new Insets(-2, 4, -2, 4));
         buttonsContainer.setAlignment(Pos.CENTER_RIGHT);
 
         // customize decorator buttons
@@ -354,7 +351,7 @@ public class JFXDecorator extends VBox {
         graphicTextContainer.setAlignment(Pos.CENTER_LEFT);
         graphicTextContainer.setPickOnBounds(false);
         HBox.setHgrow(graphicTextContainer, Priority.ALWAYS);
-        HBox.setMargin(graphicContainer, new Insets(0, 8, 0, 8));
+        HBox.setMargin(graphicContainer, new Insets(0, 2, 0, 2));
 
         buttonsContainer.getChildren().setAll(graphicTextContainer);
         buttonsContainer.getChildren().addAll(btns);
@@ -365,6 +362,9 @@ public class JFXDecorator extends VBox {
             }
         });
         buttonsContainer.setMinWidth(180);
+        graphicContainer.setMaxHeight(22);
+        buttonsContainer.setMinHeight(HEIGHT_BUTTONS_CONTAINER);
+        buttonsContainer.setMaxHeight(HEIGHT_BUTTONS_CONTAINER);
         contentPlaceHolder.getStyleClass().add("jfx-decorator-content-container");
         contentPlaceHolder.setMinSize(0, 0);
         StackPane clippedContainer = new StackPane(node);
@@ -375,7 +375,7 @@ public class JFXDecorator extends VBox {
         contentPlaceHolder.setBorder(new Border(new BorderStroke(Color.BLACK,
             BorderStrokeStyle.SOLID,
             CornerRadii.EMPTY,
-            new BorderWidths(0, 4, 4, 4))));
+            new BorderWidths(0, 3, 1, 3))));
         // BINDING
 
         Rectangle clip = new Rectangle();

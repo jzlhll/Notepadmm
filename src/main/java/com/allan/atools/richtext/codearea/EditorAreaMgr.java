@@ -24,7 +24,6 @@ import com.allan.atools.pop.GlobalPopupManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.atools.utils.*;
 import com.allan.baseparty.*;
-import com.allan.baseparty.utils.ReflectionUtils;
 import com.allan.uilibs.richtexts.MyLineNumFactory;
 import com.allan.baseparty.handler.TextUtils;
 import com.allan.baseparty.memory.RefWatcher;
@@ -33,13 +32,11 @@ import com.jfoenix.skins.JFXTabPaneSkin;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import org.fxmisc.richtext.GenericStyledArea;
 import org.fxmisc.undo.UndoManager;
@@ -395,10 +392,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         }
         return true;
     }
-    /**
-     * 反射找出本tab的title tabLabel
-     */
     private Label tabLabel;
+    private javafx.util.Subscription tabHeaderSubscription = javafx.util.Subscription.EMPTY;
 
     private final ChangeListener<Boolean> lineNumberChanged = (observable, oldValue, newValue) ->
             updateLineNumberVisible(newValue);
@@ -412,6 +407,8 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
     @Override
     public void destroy() {
         SettingPreferences.getBoolProp(editorLineNumberVisibleKey).removeListener(lineNumberChanged);
+        tabHeaderSubscription.unsubscribe();
+        tabHeaderSubscription = javafx.util.Subscription.EMPTY;
         if (tabLabel != null) {
             tabLabel.setOnMouseClicked(null);
             tabLabel.setTooltip(null);
@@ -894,102 +891,63 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         ContextMenu contextMenu = createMenu();
         area.setContextMenu(contextMenu);
 
-        initTitleClick();
+        tabHeaderSubscription = tab.tabPaneProperty().flatMap(TabPane::skinProperty)
+                .subscribe(skin -> Platform.runLater(this::initTitleClick));
     }
 
     private void initTitleClick() {
-        ThreadUtils.executeDelay(1000, ()-> {
-            if (area == null) {
-                return;
-            }
-
-            var tp = tab.getTabPane();
-            JFXTabPaneSkin skin = null;
-            int maxCount = 0;
-            do {
-                if (tp != null) {
-                    skin = (JFXTabPaneSkin) tp.getSkin();
-                }
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                if (ThreadUtils.sBeClosing || tab == null || area == null) {
-                    return;
-                }
-                if(maxCount++ == 100) break;
-            } while (skin == null);
-
-            if (skin == null) {
-                return;
-            }
-
-            try {
-                var head = ReflectionUtils.getPrivateFieldValue(skin, "header");
-                var headersRegion = ReflectionUtils.getPrivateFieldValue(head, "headersRegion");
-                if (headersRegion instanceof StackPane headerRegionStackPane) {
-                    for (Node cur : headerRegionStackPane.getChildren()) {
-                        var tabInNode = ReflectionUtils.getPrivateFieldValue(cur, "tab");
-                        if (tabInNode == this.tab) {
-                            var tl = ReflectionUtils.getPrivateFieldValue(cur, "tabLabel");
-                            if (tl instanceof Label) {
-                                tabLabel = (Label) tl;
-                            }
-
-                            break;
+        if (area == null || tab == null) {
+            return;
+        }
+        if (tabLabel != null) {
+            tabLabel.setOnMouseClicked(null);
+            tabLabel.setTooltip(null);
+        }
+        var tabPane = tab.getTabPane();
+        tabLabel = tabPane != null && tabPane.getSkin() instanceof JFXTabPaneSkin skin
+                ? skin.getTabLabel(tab) : null;
+        if (tabLabel == null) {
+            return;
+        }
+        tabLabel.setOnMouseClicked(event-> {
+            if (event.getButton() == MouseButton.SECONDARY) {
+                var sourceFile = getSourceFile();
+                var pinned = sourceFile != null
+                        && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
+                var region = new TabTitleCreatorImpl().createPop(ev -> {
+                    GlobalPopupManager.instance().hide();
+                    Log.d("ev " + ev);
+                    if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
+                        rename();
+                    } else if (TabTitleCreatorImpl.EVENT_CLOSE_OTHERS.equals(ev)) {
+                        AllEditorsManager.Instance.removeAllOtherTabs(tab);
+                    } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
+                        openCurrentFolder(null);
+                    } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
+                        var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
+                        if (!path.isEmpty()) {
+                            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
+                            SnackbarUtils.show(Locales.str("fullPathCopied"));
                         }
-                    }
-                }
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                e.printStackTrace();
-            }
-
-            Platform.runLater(()-> {
-                //再init title的点击事件和悬浮提示
-                if (tabLabel != null) {
-                    tabLabel.setOnMouseClicked(event-> {
-                        if (event.getButton() == MouseButton.SECONDARY) {
-                            var sourceFile = getSourceFile();
-                            var pinned = sourceFile != null
-                                    && AllEditorsManager.isPinnedRecentFile(sourceFile.getAbsolutePath());
-                            var region = new TabTitleCreatorImpl().createPop(ev -> {
-                                GlobalPopupManager.instance().hide();
-                                Log.d("ev " + ev);
-                                if (TabTitleCreatorImpl.EVENT_MODIFY_NAME.equals(ev)) {
-                                    rename();
-                                } else if (TabTitleCreatorImpl.EVENT_CLOSE_OTHERS.equals(ev)) {
-                                    AllEditorsManager.Instance.removeAllOtherTabs(tab);
-                                } else if (TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE.equals(ev)) {
-                                    openCurrentFolder(null);
-                                } else if (TabTitleCreatorImpl.EVENT_COPY_FULL_PATH.equals(ev)) {
-                                    var path = sourceFile == null ? "" : sourceFile.getAbsolutePath();
-                                    if (!path.isEmpty()) {
-                                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(path), null);
-                                        SnackbarUtils.show(Locales.str("fullPathCopied"));
-                                    }
-                                } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(ev)) {
-                                    if (sourceFile != null) {
-                                        var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
-                                        SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
-                                    }
-                                } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(ev)) {
-                                    TyporaManager.getInstance().openEditor(this);
-                                }
-                            }, pinned, TyporaManager.getInstance().isAvailable()
-                                    && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile)));
-
-                            GlobalPopupManager.instance().setContent(region).setHeight(300).show(tabLabel, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
+                    } else if (TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE.equals(ev)) {
+                        if (sourceFile != null) {
+                            var pinnedNow = AllEditorsManager.togglePinnedRecentFile(sourceFile.getAbsolutePath());
+                            SnackbarUtils.show(Locales.str(pinnedNow ? "editor.pinnedRecentFileDone" : "editor.unpinnedRecentFileDone"));
                         }
-                    });
-
-                    var sourceFile = getSourceFile();
-                    if (sourceFile != null) {
-                        tabLabel.setTooltip(new Tooltip(sourceFile.getAbsolutePath()));
+                    } else if (TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA.equals(ev)) {
+                        TyporaManager.getInstance().openEditor(this);
                     }
-                }
-            });
+                }, pinned, TyporaManager.getInstance().isAvailable()
+                        && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile)));
+
+                GlobalPopupManager.instance().setContent(region).setHeight(300).show(tabLabel, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
+            }
         });
+
+        var sourceFile = getSourceFile();
+        if (sourceFile != null) {
+            tabLabel.setTooltip(new Tooltip(sourceFile.getAbsolutePath()));
+        }
     }
 
     @Override
@@ -1092,10 +1050,12 @@ public class EditorAreaMgr implements IEditorAreaEx<Collection<String>, String, 
         EditorSessionManager.getInstance().onCaretOrStructureChanged();
 
         markCurrentFileTs();
-        if (tabLabel.getTooltip() == null) {
-            tabLabel.setTooltip(new Tooltip(newf.getAbsolutePath()));
-        } else {
-            tabLabel.getTooltip().setText(newf.getAbsolutePath());
+        if (tabLabel != null) {
+            if (tabLabel.getTooltip() == null) {
+                tabLabel.setTooltip(new Tooltip(newf.getAbsolutePath()));
+            } else {
+                tabLabel.getTooltip().setText(newf.getAbsolutePath());
+            }
         }
 
         ThreadUtils.globalHandler().postDelayed(editorFocus::addFocusChanged, 180);

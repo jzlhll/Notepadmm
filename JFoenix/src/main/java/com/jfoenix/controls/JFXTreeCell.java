@@ -108,7 +108,7 @@ public class JFXTreeCell<T> extends TreeCell<T> {
         selectedPane.setVisible(isSelected() ? true : false);
     }
 
-    private void updateDisplay(T item, boolean empty) {
+    protected void updateDisplay(T item, boolean empty) {
         if (item == null || empty) {
             hbox = null;
             setText(null);

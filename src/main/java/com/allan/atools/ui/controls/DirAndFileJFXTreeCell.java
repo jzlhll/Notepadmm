@@ -1,80 +1,28 @@
 package com.allan.atools.ui.controls;
 
-import com.allan.baseparty.utils.ReflectionUtils;
 import com.allan.uilibs.controls.TreeItemEx;
-import com.jfoenix.controls.JFXRippler;
-import com.jfoenix.utils.JFXNodeUtils;
+import com.jfoenix.controls.JFXTreeCell;
 import javafx.geometry.Insets;
-import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.OverrunStyle;
-import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
-import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
+import javafx.scene.layout.HBox;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 
 import static com.allan.atools.utils.FileExtersions.*;
 
 /**
- * JFXTreeCell is simple material design implementation of a tree cell.
- *
- * @author Shadi Shaheen
- * @version 1.0
- * @since 2017-02-15
+ * 工作区文件树单元格，按文件类型显示样式并保留横向滚动余量。
  */
-public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
+public final class DirAndFileJFXTreeCell<T> extends JFXTreeCell<T> {
     private static final double HORIZONTAL_SCROLL_END_SPACE = 32;
 
-    private static final class JFXRipplerImpl extends JFXRippler {
-        JFXRipplerImpl(DirAndFileJFXTreeCell<?> cell) {
-            super(cell);
-        }
-
-        @Override
-        protected Node getMask() {
-            Region clip = new Region();
-            JFXNodeUtils.updateBackground(getBackground(), clip);
-            double width = control.getLayoutBounds().getWidth();
-            double height = control.getLayoutBounds().getHeight();
-            clip.resize(width, height);
-            return clip;
-        }
-
-        @Override
-        protected void positionControl(Node control) {
-            // do nothing
-        }
-
-        @Override
-        public void releaseRipple() {
-            super.releaseRipple();
-        }
-
-        Group getRippleGenerator() {
-            return rippler;
-        }
-    }
-
-    final JFXRipplerImpl cellRippler = new JFXRipplerImpl(this);
-
-    private Method ripplerClearMethod; //cellRippler.rippler.clear();
-
     private HBox hbox;
-    private final StackPane selectedPane = new StackPane();
 
     public DirAndFileJFXTreeCell(boolean isDir) {
         setTextOverrun(OverrunStyle.CLIP);
-        selectedPane.getStyleClass().add("selection-bar");
-        selectedPane.setBackground(new Background(new BackgroundFill(Color.RED, CornerRadii.EMPTY, Insets.EMPTY)));
-        selectedPane.setPrefWidth(3);
-        selectedPane.setMouseTransparent(true);
-        selectedProperty().addListener((o, oldVal, newVal) -> selectedPane.setVisible(newVal));
-
         setPadding(new Insets(0,0,0,-8)); // 移除 graphic 与文字之间的多余间距
     }
 
@@ -82,31 +30,6 @@ public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
     protected double computePrefWidth(double height) {
         double width = super.computePrefWidth(height);
         return getText() == null ? width : width + HORIZONTAL_SCROLL_END_SPACE;
-    }
-
-    @Override
-    protected void layoutChildren() {
-        super.layoutChildren();
-        if (!getChildren().contains(selectedPane)) {
-            getChildren().add(0, cellRippler);
-            var rippler = cellRippler.getRippleGenerator();
-            if (rippler != null) {
-                ripplerClearMethod = ReflectionUtils.iteratorGetPrivateMethod(rippler, "clear");
-            }
-            if (ripplerClearMethod != null) {
-                try {
-                    ripplerClearMethod.invoke(rippler);
-                } catch (IllegalAccessException | InvocationTargetException e) {
-                    e.printStackTrace();
-                }
-            }
-            //cellRippler.rippler.clear();
-            getChildren().add(0, selectedPane);
-        }
-        cellRippler.resizeRelocate(0, 0, getWidth(), getHeight());
-        cellRippler.releaseRipple();
-        selectedPane.resizeRelocate(0, 0, selectedPane.prefWidth(-1), getHeight());
-        selectedPane.setVisible(isSelected());
     }
 
     public enum OpenMode {
@@ -156,7 +79,8 @@ public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
         return "tree-cell-other";
     }
 
-    private void updateDisplay(T item, boolean empty) {
+    @Override
+    protected void updateDisplay(T item, boolean empty) {
         if (item == null || empty) {
             hbox = null;
             setText(null);
@@ -211,12 +135,5 @@ public final class DirAndFileJFXTreeCell<T> extends TreeCell<T> {
                 }
             }
         }
-    }
-
-    @Override
-    protected void updateItem(T item, boolean empty) {
-        super.updateItem(item, empty);
-        updateDisplay(item, empty);
-        setMouseTransparent(item == null || empty);
     }
 }

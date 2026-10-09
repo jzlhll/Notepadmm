@@ -187,6 +187,18 @@ public class JFXTabPaneSkin extends SkinBase<JFXTabPane> {
     }
 
     private boolean removedTabs = false;
+
+    /**
+     * 返回标签标题节点；标签尚未加入或皮肤已销毁时返回 null。
+     */
+    public Label getTabLabel(Tab tab) {
+        if (getSkinnable() == null || tab == null) {
+            return null;
+        }
+        TabHeaderContainer tabHeaderContainer = header.getTabHeaderContainer(tab);
+        return tabHeaderContainer == null ? null : tabHeaderContainer.tabLabel;
+    }
+
     private void removeTabs(List<? extends Tab> removedTabs) {
         for (Tab tab : removedTabs) {
             TabHeaderContainer tabHeaderContainer = header.getTabHeaderContainer(tab);
