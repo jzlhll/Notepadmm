@@ -2,6 +2,24 @@ package com.allan.atools.tools.modulenotepad.manager
 
 /** 格内换行与源码的双向映射；代码片段中的 HTML 保持字面量。 */
 object MarkdownTableCellText {
+    data class Change(val start: Int, val end: Int, val text: String)
+
+    /** 只写回实际变化，保留撤销记录中的插入位置及连续输入合并行为。 */
+    @JvmStatic
+    @JvmOverloads
+    fun change(original: String, replacement: String, startHint: Int = original.length, endHint: Int = 0): Change {
+        var start = 0
+        while (start < startHint && start < original.length && start < replacement.length && original[start] == replacement[start]) start++
+        if (start > 0 && start < original.length && Character.isHighSurrogate(original[start - 1]) &&
+            Character.isLowSurrogate(original[start])) start--
+        var suffix = 0
+        while (suffix < original.length - endHint && suffix < original.length - start && suffix < replacement.length - start &&
+            original[original.lastIndex - suffix] == replacement[replacement.lastIndex - suffix]) suffix++
+        if (suffix > 0 && Character.isLowSurrogate(original[original.length - suffix]) &&
+            original.length - suffix > start && Character.isHighSurrogate(original[original.length - suffix - 1])) suffix--
+        return Change(start, original.length - suffix, replacement.substring(start, replacement.length - suffix))
+    }
+
     private val breaks = Regex("<br\\s*/?>", RegexOption.IGNORE_CASE)
     private val htmlTag = Regex("""</?[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\s*=\s*(?:'[^']*'|"[^"]*"|[^\s"'=<>`]+))?)*\s*/?>""")
 
@@ -114,6 +132,17 @@ object MarkdownTableCellText {
             if (offset > range.first) value -= (offset - range.first).coerceAtMost(range.count()) - 1
         }
         return value
+    }
+
+    @JvmStatic
+    fun editorOffset(source: String, offset: Int): Int {
+        var value = offset
+        var removed = 0
+        for (range in breakRanges(source)) {
+            if (offset > range.first - removed) value += range.count() - 1
+            removed += range.count() - 1
+        }
+        return value.coerceIn(0, source.length)
     }
 
     @JvmStatic

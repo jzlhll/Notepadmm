@@ -8,7 +8,6 @@ import com.allan.atools.richtext.codearea.MarkdownTableDocumentState;
 import com.allan.atools.richtext.codearea.MarkdownTableParser;
 import com.allan.atools.richtext.codearea.MarkdownParagraphWrapSupport;
 import com.allan.atools.threads.ThreadUtils;
-import com.allan.atools.ui.controls.AccessibleTextArea;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.uilibs.richtexts.CodeArea;
@@ -32,7 +31,6 @@ import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ScrollBar;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.skin.TextAreaSkin;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.KeyCode;
@@ -80,7 +78,7 @@ public final class MarkdownTablePreviewManager {
         updateToolbar();
     };
     private final EventHandler<MouseEvent> areaMouseDragged = this::onAreaMouseDragged;
-    private final TextArea cellEditor = new AccessibleTextArea() {
+    private final MarkdownTableCellEditor cellEditor = new MarkdownTableCellEditor() {
         @Override
         public void paste() {
             pasteClipboard(false);
@@ -156,9 +154,13 @@ public final class MarkdownTablePreviewManager {
     };
     private boolean handlingInputMethod;
     private boolean composingText;
+    private boolean committingInputMethod;
     private long inputMethodRevision;
     private Runnable afterComposition;
     private boolean structurePending;
+    private boolean applyingUndoRedo;
+    private boolean undoChangesInCells;
+    private int pendingUndoCaretOffset = -1;
     private final ArrayDeque<Boolean> pendingUndo = new ArrayDeque<>();
     private long cellActivationRevision;
 
@@ -269,7 +271,12 @@ public final class MarkdownTablePreviewManager {
                 if (composingText) {
                     return;
                 }
-                writeActiveCell(cellEditor.getText());
+                committingInputMethod = true;
+                try {
+                    writeActiveCell(cellEditor.getText());
+                } finally {
+                    committingInputMethod = false;
+                }
                 if (layoutPending || !layoutJobs.isEmpty()) {
                     layoutTimer.start();
                 }
@@ -467,7 +474,21 @@ public final class MarkdownTablePreviewManager {
                 - removed.chars().filter(character -> character == '\n').count();
         var shiftedTables = lineDelta == 0 ? List.<MarkdownTableDocumentState.Table>of()
                 : tables.stream().filter(table -> position + removed.length() <= table.startOffset()).toList();
-        if ((writingCell || writingStructure || writingRow != null) && activeTable != null) {
+        boolean undoCell = applyingUndoRedo && undoChangesInCells
+                && MarkdownTableUndoSupport.applyCellChange(area.getMarkdownTableDocumentState(), position, removed, inserted);
+        if (applyingUndoRedo) {
+            var change = MarkdownTableCellText.change(removed, inserted);
+            pendingUndoCaretOffset = position + change.getStart() + change.getText().length();
+            undoChangesInCells &= undoCell;
+        }
+        if (undoCell) {
+            var target = MarkdownTableUndoSupport.findCell(area.getMarkdownTableDocumentState(), pendingUndoCaretOffset);
+            if (target != null) {
+                pendingTableId = target.getTable().id();
+                pendingRow = target.getRow();
+                pendingColumn = target.getColumn();
+            }
+        } else if ((writingCell || writingStructure || writingRow != null) && activeTable != null) {
             if (writingRow != null) {
                 area.getMarkdownTableDocumentState().applyRowChange(activeTable.id(), activeRow, writingRow);
             } else if (writingCell) {
@@ -540,6 +561,20 @@ public final class MarkdownTablePreviewManager {
                 tables = area.getMarkdownTableDocumentState().getTables();
                 inlineContents = Map.copyOf(contents);
                 rebuildLineIndex();
+                if (pendingUndoCaretOffset >= 0) {
+                    var target = MarkdownTableUndoSupport.findCell(area.getMarkdownTableDocumentState(), pendingUndoCaretOffset);
+                    if (target != null) {
+                        pendingTableId = target.getTable().id();
+                        pendingRow = target.getRow();
+                        pendingColumn = target.getColumn();
+                    } else {
+                        int offset = Math.min(pendingUndoCaretOffset, area.getLength());
+                        structurePending = false;
+                        endCellEditing(false);
+                        area.moveTo(offset);
+                        area.requestFocus();
+                    }
+                }
                 if (pendingTableId != null && tables.stream().noneMatch(table -> table.id().equals(pendingTableId) && table.valid())) {
                     structurePending = false;
                     endCellEditingAtFallback();
@@ -1376,6 +1411,7 @@ public final class MarkdownTablePreviewManager {
         pendingRow = -1;
         pendingColumn = -1;
         pendingSourceOffset = -1;
+        pendingUndoCaretOffset = -1;
         if (previousTable != null && currentArea != null && !destroyed) {
             updateRowHeight(previousTable, previousRow, true);
             queueLayouts(false);
@@ -1423,9 +1459,25 @@ public final class MarkdownTablePreviewManager {
         }
         // 必须在正文替换前记录焦点，脱离场景后的通知可能已读不到原焦点归属。
         cellEditorFocusPending |= cellEditor.isFocused();
+        var replacement = cellEditor.getActiveReplacement();
+        MarkdownTableCellText.Change change;
+        String original = decodeCell(current);
+        if (replacement != null && original.equals(replacement.getOriginal())) {
+            change = MarkdownTableCellText.change(current, encoded,
+                    MarkdownTableCellText.editorOffset(current, replacement.getStart()),
+                    MarkdownTableCellText.editorOffset(current, replacement.getEnd()));
+        } else if (committingInputMethod) {
+            int delta = value.length() - original.length();
+            int start = Math.max(0, cellEditor.getCaretPosition() - Math.max(0, delta));
+            int end = Math.min(original.length(), start + Math.max(0, -delta));
+            change = MarkdownTableCellText.change(current, encoded,
+                    MarkdownTableCellText.editorOffset(current, start), MarkdownTableCellText.editorOffset(current, end));
+        } else {
+            change = MarkdownTableCellText.change(current, encoded);
+        }
         writingCell = true;
         try {
-            currentArea.replaceText(cell.startOffset(), cell.endOffset(), encoded);
+            currentArea.replaceText(cell.startOffset() + change.getStart(), cell.startOffset() + change.getEnd(), change.getText());
             cell.setSource(encoded);
             updateActiveRowHeight();
         } finally {
@@ -1898,7 +1950,10 @@ public final class MarkdownTablePreviewManager {
             pendingColumn = activeColumn;
         }
         structurePending = true;
-        cellEditor.setEditable(false);
+        cellEditorFocusPending |= cellEditor.isFocused();
+        pendingUndoCaretOffset = -1;
+        undoChangesInCells = true;
+        applyingUndoRedo = true;
         writingStructure = true;
         try {
             if (redo) {
@@ -1907,9 +1962,29 @@ public final class MarkdownTablePreviewManager {
                 currentArea.getUndoManager().undo();
             }
         } finally {
+            applyingUndoRedo = false;
             writingStructure = false;
         }
         currentArea.getUndoManager().preventMerge();
+        var target = undoChangesInCells && pendingUndoCaretOffset >= 0
+                ? MarkdownTableUndoSupport.findCell(currentArea.getMarkdownTableDocumentState(), pendingUndoCaretOffset) : null;
+        if (target != null) {
+            var cell = target.getTable().rows().get(target.getRow()).cells().get(target.getColumn());
+            int caret = sourceOffsetToEditor(cell.source(), pendingUndoCaretOffset - cell.startOffset());
+            pendingUndoCaretOffset = -1;
+            pendingTableId = null;
+            pendingRow = -1;
+            pendingColumn = -1;
+            pendingSourceOffset = -1;
+            structurePending = false;
+            activateCell(target.getTable(), target.getRow(), target.getColumn(), 12);
+            syncEditorFromDocument();
+            cellEditor.positionCaret(caret);
+            updateActiveRowHeight();
+            resumePendingUndo();
+        } else {
+            cellEditor.setEditable(false);
+        }
         refreshScheduler.startNow();
     }
 
@@ -2237,6 +2312,8 @@ public final class MarkdownTablePreviewManager {
             pendingColumn = -1;
             int sourceOffset = pendingSourceOffset;
             pendingSourceOffset = -1;
+            int undoCaretOffset = pendingUndoCaretOffset;
+            pendingUndoCaretOffset = -1;
             if (row >= 0 && !table.rows().isEmpty()) {
                 if (row >= table.rows().size()) {
                     row = table.rows().size() - 1;
@@ -2248,6 +2325,10 @@ public final class MarkdownTablePreviewManager {
                 }
                 if (table.mode() == MarkdownTableDocumentState.Mode.TABLE) {
                     activateCell(table, row, column, 12);
+                    if (undoCaretOffset >= 0) {
+                        var cell = table.rows().get(row).cells().get(column);
+                        cellEditor.positionCaret(sourceOffsetToEditor(cell.source(), undoCaretOffset - cell.startOffset()));
+                    }
                 } else {
                     endCellEditing(false);
                     currentArea.moveTo(table.rows().get(row).cells().get(column).startOffset());
