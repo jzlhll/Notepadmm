@@ -26,8 +26,12 @@ public final class MarkdownAstCache {
         Parsed(Node root) { this.root = root; }
     }
 
-    /** 仅此适配点依赖 CommonMark 0.30.0 内部实现，编译与运行都需定向导出该包。 */
     static InlineParser createInlineParser(InlineParserContext context) {
+        return MarkdownStrikethroughParser.create(context);
+    }
+
+    /** 仅此适配点依赖 CommonMark 0.30.0 内部实现，编译与运行都需定向导出该包。 */
+    static InlineParser createCommonMarkInlineParser(InlineParserContext context) {
         return new org.commonmark.internal.InlineParserImpl(context);
     }
 

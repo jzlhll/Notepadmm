@@ -29,8 +29,11 @@ object MarkdownInlineFormatting {
         fun wrapper(from: Int, to: Int) = wrappers.firstOrNull {
             from in it.start..(it.start + mark.length) && to in (it.end - mark.length)..it.end ||
                 from >= it.start + mark.length && to <= it.end - mark.length &&
-                state.text.substring(it.start + mark.length, from).all { character -> character in "*_~" } &&
-                state.text.substring(to, it.end - mark.length).all { character -> character in "*_~" }
+                state.text.substring(it.start + mark.length, from).all { character ->
+                    character in "*_~" || mark == "~~" && character.isWhitespace()
+                } && state.text.substring(to, it.end - mark.length).all { character ->
+                    character in "*_~" || mark == "~~" && character.isWhitespace()
+                }
         }
         // 已有跨行强调只解除自身分隔符，保留容器前缀和原有换行。
         wrapper(start, end)?.let {

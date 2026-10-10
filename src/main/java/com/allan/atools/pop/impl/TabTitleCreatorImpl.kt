@@ -13,8 +13,8 @@ class TabTitleCreatorImpl {
         // 切换标签或再次右键时，关闭旧菜单的鼠标事件继续交给目标节点。
         contextMenu.setConsumeAutoHidingEvents(false)
         listOf(
-            EVENT_MODIFY_NAME to "modifyName",
             EVENT_MOVE_TO_FRONT to "editor.moveTabToFront",
+            EVENT_MODIFY_NAME to "modifyName",
             EVENT_CLOSE_OTHERS to "closeOthers",
             EVENT_OPEN_TO_EXPLORE to "editor.openHereDir",
             EVENT_COPY_FULL_PATH to "editor.copyFullPath",

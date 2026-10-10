@@ -4,10 +4,10 @@ set -e
 cd "$(dirname "$0")"
 
 usage() {
-    echo "用法: $0 [-0 | -f | --fast | -p | --package]"
+    echo "用法: $0 [-0 | -s | --sync | -p | --package]"
     echo ""
     echo "  -0            只编译，不执行 buildRoot 下的脚本"
-    echo "  -f, --fast    编译后执行 buildRoot/fastCopy.sh（日常开发使用，同步到 /Applications）"
+    echo "  -s, --sync    编译后执行 buildRoot/fastCopy.sh（日常开发使用，同步到 /Applications）"
     echo "  -p, --package 编译后生成 dmg，自动替换 /Applications/ATools.app 并启动"
     echo "  -h, --help    显示本帮助"
 }
@@ -119,7 +119,7 @@ build_action=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -0) build_action="0" ;;
-        -f|--fast) build_action="1" ;;
+        -s|--sync) build_action="1" ;;
         -p|--package) build_action="2" ;;
         -h|--help) usage; exit 0 ;;
         *) echo "未知参数: $1"; echo ""; usage; exit 1 ;;

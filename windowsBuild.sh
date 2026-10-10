@@ -16,7 +16,7 @@ build_action=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -0) build_action="0" ;;
-        -f|--fast) echo "Windows 暂不支持 fastCopy 快速同步，请使用 -p 打包或 -0 只编译。"; exit 1 ;;
+        -s|--sync) echo "Windows 暂不支持 fastCopy 快速同步，请使用 -p 打包或 -0 只编译。"; exit 1 ;;
         -p|--package) build_action="2" ;;
         -h|--help) usage; exit 0 ;;
         *) echo "未知参数: $1"; echo ""; usage; exit 1 ;;

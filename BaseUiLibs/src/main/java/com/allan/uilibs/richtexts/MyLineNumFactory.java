@@ -12,6 +12,8 @@ import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
 import org.fxmisc.richtext.GenericStyledArea;
+import org.reactfx.collection.LiveList;
+import org.reactfx.value.Val;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,7 +62,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         return new MyLineNumFactory<>(area, format, isFolded, removeFoldStyle );
     }
 
-    private final GenericStyledArea<PS, ?, ?> area;
+    private final Val<Integer> nParagraphs;
     private final IntFunction<String> format;
 
     private MyLineNumFactory(
@@ -69,7 +71,7 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
             Predicate<PS> isFolded,
             UnaryOperator<PS> removeFoldStyle )
     {
-        this.area = area;
+        this.nParagraphs = LiveList.sizeOf(area.getParagraphs());
         this.format = format;
     }
 
@@ -82,7 +84,8 @@ public final class MyLineNumFactory<PS> implements IntFunction<Node> {
         lineNo.setPadding(DEFAULT_INSETS);
         lineNo.setAlignment(Pos.TOP_RIGHT);
         lineNo.getStyleClass().add("lineno");
-        lineNo.setText(format(idx + 1, area.getParagraphs().size()));
+        // 分批加载跨越行数位数时同步栏宽，节点离开界面后停止监听。
+        lineNo.textProperty().bind(nParagraphs.map(max -> format(idx + 1, max)).conditionOnShowing(lineNo));
 
         return lineNo;
     }

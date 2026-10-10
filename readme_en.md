@@ -115,7 +115,7 @@ atools file.txt
 
 ### Run the development build
 
-Install JDK 25, copy `local.properties.example` to `local.properties`, and set `buildJdk.home` (use the JDK’s `Contents/Home` directory on macOS). The wrappers, `iosBuild.sh`, and `windowsBuild.sh` prefer this path, falling back to `JAVA_HOME` / `PATH`. In your IDE, select JDK 25 for both Project SDK and Gradle JVM. Dependency versions are managed in `gradle/libs.versions.toml`. Run from the project root:
+Install JDK 25, copy `local.properties.example` to `local.properties`, and set `buildJdk.home` (use the JDK’s `Contents/Home` directory on macOS). The wrappers, `macOSBuild.sh`, and `windowsBuild.sh` prefer this path, falling back to `JAVA_HOME` / `PATH`. In your IDE, select JDK 25 for both Project SDK and Gradle JVM. Dependency versions are managed in `gradle/libs.versions.toml`. Run from the project root:
 
 ```shell
 ./gradlew :app:run
@@ -156,7 +156,7 @@ buildRoot\jpackageCmdExe.bat
 
 On Windows, `jpackageCmdExe.bat` creates an `.exe` installer, while `jpackageCmdGreenExe.bat` creates a portable application directory. On macOS, `pack.sh` creates a `.dmg`. All final artifacts are written to `dist`. The four `mainShAll...` tasks prepare the module JARs, third-party dependencies, and resources; analyze and create a minimal JRE; obfuscate the main application JAR; and generate the platform-specific jpackage scripts. They do not execute the generated scripts.
 
-For a single build command, use `./iosBuild.sh -p` on macOS or `./windowsBuild.sh -p` in MSYS2, Git Bash, or Cygwin on Windows. Both scripts provide architecture selection, default to the current architecture after three seconds, and close a running ATools after a three-second countdown before packaging. The macOS script mounts the newly generated DMG, verifies the app signature, replaces `/Applications/ATools.app`, and launches it; replacement failures restore the previous app, and administrator privileges are requested when needed. The Windows script only creates the EXE installer. Both support `-0` to prepare distribution files without packaging. Only `iosBuild.sh` supports `-f` for fast synchronization and relaunch.
+For a single build command, use `./macOSBuild.sh -p` on macOS or `./windowsBuild.sh -p` in MSYS2, Git Bash, or Cygwin on Windows. Both scripts provide architecture selection, default to the current architecture after three seconds, and close a running ATools after a three-second countdown before packaging. The macOS script mounts the newly generated DMG, verifies the app signature, replaces `/Applications/ATools.app`, and launches it; replacement failures restore the previous app, and administrator privileges are requested when needed. The Windows script only creates the EXE installer. Both support `-0` to prepare distribution files without packaging. Only `macOSBuild.sh` supports `-s` / `--sync` for fast synchronization and relaunch.
 
 After upgrading the JDK, JavaFX, or other dependencies, create and install a complete distribution. `fastCopy.sh` only updates project JARs and resources; it does not update the runtime, third-party JARs, or launcher options.
 

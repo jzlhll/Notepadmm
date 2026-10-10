@@ -2,7 +2,7 @@
 # Windows 路径推荐使用正斜杠，例如 C:/Java/jdk-25，避免反斜杠被 properties 转义。
 # 路径不加引号，使用下面的 key=value 格式；macOS 的路径应指向 Contents/Home。
 
-# 本机开发 JDK 25；gradlew、gradlew.bat、iosBuild.sh 和 windowsBuild.sh 优先使用此路径，未填写时使用 JAVA_HOME / PATH。
+# 本机开发 JDK 25；gradlew、gradlew.bat、macOSBuild.sh 和 windowsBuild.sh 优先使用此路径，未填写时使用 JAVA_HOME / PATH。
 buildJdk.home=/Library/Java/JavaVirtualMachines/zulu-25-arm64.jdk/Contents/Home
 
 # macOS Apple Silicon JDK，用于生成名称带 mac-arm64 的安装包。

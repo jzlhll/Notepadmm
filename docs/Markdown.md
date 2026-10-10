@@ -36,6 +36,8 @@
 
 代码高亮覆盖 Java、Kotlin／kt、Swift、Objective-C、C／C++、Go、Groovy／Gradle、JavaScript／TypeScript、Python、JSON、YAML、XML／HTML、CSS、Bash／Shell、SQL 等及常用别名，语言选择对话框同步支持范围。
 
+删除线支持 `~~内容~~` 和内侧留白的 `~~ 内容 ~~`，保留原始空白；正文、表格、完整预览和 HTML 导出共用解析结果。未闭合或仅包含空白的分隔符保持普通文本。
+
 扩展语法为 `$…$`、独立 `$$` 围栏公式、`[^标签]`、`[TOC]`、`==…==` 和无空白片段的 `^…^`／`~…~`。受限 HTML 包括 `br`、`img`、`u`、`sub`／`sup`、`details`／`summary`；图片 `width` 使用受限整数。未闭合或未识别内容保留可编辑源码。显示层占位保持 UTF-16 索引，不向源码写入隐藏字符；原始空白、尾空格和换行不自动整理。
 
 ## 快捷键

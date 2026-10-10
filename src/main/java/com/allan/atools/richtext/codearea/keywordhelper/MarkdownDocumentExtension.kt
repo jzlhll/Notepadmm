@@ -22,6 +22,7 @@ class MarkdownEmoji(val shortcode: String, val literal: String) : CustomNode()
 /** 扩展参与同一 AST：代码和转义内容不会被二次正则解析为公式或强调。 */
 class MarkdownDocumentExtension : Parser.ParserExtension, HtmlRenderer.HtmlRendererExtension {
     override fun extend(builder: Parser.Builder) {
+        builder.inlineParserFactory(MarkdownStrikethroughParser::create)
         builder.customBlockParserFactory(object : org.commonmark.parser.block.AbstractBlockParserFactory() {
             override fun tryStart(state: org.commonmark.parser.block.ParserState, matched: org.commonmark.parser.block.MatchedBlockParser): org.commonmark.parser.block.BlockStart? {
                 if (state.indent >= 4 || state.line.content.subSequence(state.nextNonSpaceIndex, state.line.content.length).toString().trim() != "$$")
