@@ -207,9 +207,11 @@ class MarkdownClipboard(private val area: EditorArea) {
         val base = area.editor.sourceFile?.parentFile?.toURI()?.toASCIIString()
         val manager = area.editor as EditorAreaMgrCode
         val request = copySequence
-        val previousText = clipboard.string
-        val previousHtml = clipboard.html
-        val previousTypes = clipboard.contentTypes.toSet()
+        val previousContent = MarkdownClipboardSnapshot.capture(clipboard)
+        if (previousContent == null) {
+            SnackbarUtils.show(Locales.str("markdown.copyFailed"))
+            return
+        }
         copyOwner = this
         copyTask = ThreadUtils.submit {
             try {
@@ -224,7 +226,7 @@ class MarkdownClipboard(private val area: EditorArea) {
                     copyTask = null
                     copyOwner = null
                     // 外部应用或其他原生复制改变剪贴板后，旧的后台结果不能覆盖新内容。
-                    if (clipboard.string != previousText || clipboard.html != previousHtml || clipboard.contentTypes != previousTypes) return@runLater
+                    if (!previousContent.matches(clipboard)) return@runLater
                     val content = ClipboardContent()
                     when (mode) {
                         "plain" -> content.putString(plain)
