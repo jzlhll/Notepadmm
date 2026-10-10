@@ -45,6 +45,8 @@ dependencies {
     implementation libs.kotlin.stdlib
     implementation libs.richtextfx
     implementation libs.annotations
+    // jsoup 的 JSpecify 注解不传递给使用方，Kotlin 推断泛型类型时仍需读取。
+    compileOnly libs.jspecify
     implementation libs.jna
     implementation libs.imageio.webp
 

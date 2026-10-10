@@ -35,6 +35,7 @@ module atools {
     requires com.jfoenix;
     requires org.fxmisc.undo;
     requires org.jetbrains.annotations;
+    requires static org.jspecify;
     requires kotlin.stdlib;
     requires com.sun.jna;
     exports com.allan.atools.bean;
