@@ -1,71 +1,84 @@
 package com.allan.atools.richtext.codearea
 
-import javafx.scene.image.Image
-import javafx.scene.image.PixelFormat
-import javafx.scene.input.Clipboard
-import javafx.scene.input.DataFormat
-import java.io.File
-import java.nio.ByteBuffer
-import java.security.MessageDigest
+import com.allan.atools.utils.Log
+import com.allan.atools.utils.ResLocation
+import com.sun.jna.Function
+import com.sun.jna.Native
+import com.sun.jna.NativeLibrary
 
-/** 比较各格式的实际内容，避免同类型的新剪贴板内容被后台复制覆盖。 */
-class MarkdownClipboardSnapshot private constructor(private val contents: Map<DataFormat, Any>) {
-    private data class ImageContent(val width: Int, val height: Int, val digest: ByteBuffer)
-
-    fun matches(clipboard: Clipboard): Boolean = capture(clipboard)?.contents == contents
+/** 记录系统剪贴板修订号，避免后台复制覆盖较新的内容。 */
+class MarkdownClipboardSnapshot private constructor(private val revision: Long) {
+    fun matches(): Boolean = readRevision() == revision
 
     companion object {
-        fun capture(clipboard: Clipboard): MarkdownClipboardSnapshot? {
-            return try {
-                val types = clipboard.contentTypes.toSet()
-                val contents = LinkedHashMap<DataFormat, Any>()
-                for (type in types) {
-                    contents[type] = freeze(clipboard.getContent(type)) ?: return null
-                }
-                // 读取不同格式时也可能发生外部复制；类型变化时不能接受这份快照。
-                if (clipboard.contentTypes != types) null else MarkdownClipboardSnapshot(contents)
-            } catch (_: Exception) {
-                null
+        private var unavailable = false
+        private val counter: Counter? by lazy {
+            when {
+                ResLocation.isOsx -> MacCounter()
+                ResLocation.isWindow -> WindowsCounter()
+                else -> null
             }
         }
 
-        private fun freeze(value: Any?): Any? {
-            return when (value) {
-                is String, is Boolean, is Char, is Byte, is Short, is Int, is Long, is Float, is Double, is File -> value
-                is ByteArray -> ByteBuffer.wrap(value.copyOf()).asReadOnlyBuffer()
-                is ByteBuffer -> {
-                    val buffer = value.asReadOnlyBuffer()
-                    val bytes = ByteArray(buffer.remaining())
-                    buffer.get(bytes)
-                    ByteBuffer.wrap(bytes).asReadOnlyBuffer()
-                }
-                is List<*> -> {
-                    val items = ArrayList<Any>(value.size)
-                    for (item in value) items.add(freeze(item) ?: return null)
-                    items
-                }
-                is Image -> {
-                    val reader = value.pixelReader ?: return null
-                    val width = value.width.toInt()
-                    val height = value.height.toInt()
-                    if (width <= 0 || height <= 0) return null
-                    val digest = MessageDigest.getInstance("SHA-256")
-                    // 分块读取全部像素，摘要内存不随图片尺寸增长。
-                    val pixels = ByteArray(4096 * 4)
-                    val format = PixelFormat.getByteBgraInstance()
-                    for (y in 0 until height) {
-                        var x = 0
-                        while (x < width) {
-                            val count = Math.min(4096, width - x)
-                            reader.getPixels(x, y, count, 1, format, pixels, 0, count * 4)
-                            digest.update(pixels, 0, count * 4)
-                            x += count
-                        }
-                    }
-                    ImageContent(width, height, ByteBuffer.wrap(digest.digest()).asReadOnlyBuffer())
-                }
-                // 不能可靠比较的自定义内容不作为允许后台覆盖的依据。
-                else -> null
+        fun capture(): MarkdownClipboardSnapshot? = readRevision()?.let { MarkdownClipboardSnapshot(it) }
+
+        private fun readRevision(): Long? {
+            if (unavailable) return null
+            return try {
+                counter?.read()
+            } catch (error: Exception) {
+                unavailable = true
+                Log.e("Clipboard revision read failed", error)
+                null
+            } catch (error: LinkageError) {
+                unavailable = true
+                Log.e("Clipboard revision bridge unavailable", error)
+                null
+            }
+        }
+    }
+
+    private interface Counter {
+        fun read(): Long?
+    }
+
+    /** 系统维护的序号覆盖文本、图片、文件和自定义格式，无需读取内容。 */
+    private class WindowsCounter : Counter {
+        private val sequence = NativeLibrary.getInstance("user32")
+            .getFunction("GetClipboardSequenceNumber", Function.ALT_CONVENTION)
+
+        override fun read(): Long? {
+            val value = sequence.invokeInt(emptyArray()).toLong() and 0xffffffffL
+            // 系统返回零表示无法取得剪贴板访问权，不能视为有效修订号。
+            return if (value == 0L) null else value
+        }
+    }
+
+    /** 只读取通用剪贴板的所有权计数，每次调用独立释放临时 Objective-C 对象。 */
+    private class MacCounter : Counter {
+        init {
+            check(Native.POINTER_SIZE == 8 && Native.LONG_SIZE == 8) { "Unsupported macOS native ABI" }
+        }
+
+        private val appKit = NativeLibrary.getInstance("/System/Library/Frameworks/AppKit.framework/AppKit")
+        private val objc = NativeLibrary.getInstance("/usr/lib/libobjc.A.dylib")
+        private val message = objc.getFunction("objc_msgSend")
+        private val getClass = objc.getFunction("objc_getClass")
+        private val registerSelector = objc.getFunction("sel_registerName")
+        private val poolClass = checkNotNull(getClass.invokePointer(arrayOf("NSAutoreleasePool")))
+        private val pasteboardClass = checkNotNull(getClass.invokePointer(arrayOf("NSPasteboard")))
+        private val newSelector = checkNotNull(registerSelector.invokePointer(arrayOf("new")))
+        private val drainSelector = checkNotNull(registerSelector.invokePointer(arrayOf("drain")))
+        private val generalSelector = checkNotNull(registerSelector.invokePointer(arrayOf("generalPasteboard")))
+        private val changeSelector = checkNotNull(registerSelector.invokePointer(arrayOf("changeCount")))
+
+        override fun read(): Long {
+            val pool = checkNotNull(message.invokePointer(arrayOf(poolClass, newSelector)))
+            return try {
+                val pasteboard = checkNotNull(message.invokePointer(arrayOf(pasteboardClass, generalSelector)))
+                message.invokeLong(arrayOf(pasteboard, changeSelector))
+            } finally {
+                message.invokeVoid(arrayOf(pool, drainSelector))
             }
         }
     }
