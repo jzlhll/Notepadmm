@@ -241,86 +241,8 @@ class MarkdownEditingActions(private val area: EditorArea) {
     fun wrap(mark: String) {
         if (area.markdownCommands.defer { wrap(mark) }) return
         if (!canFormat(inlineCode = mark == "`")) return
-        val start = area.selection.start
-        val end = area.selection.end
-        if (mark != "`") {
-            wrapEmphasis(mark)
-            return
-        }
-        val edit = MarkdownInlineCode.toggle(area.text, start, end)
+        val edit = MarkdownInlineFormatting.toggle(area.markdownCommands.snapshot(), area.selection.start, area.selection.end, mark) ?: return
         change(edit.start, edit.end, edit.text, edit.selectionStart, edit.selectionEnd)
-    }
-
-    private fun wrapEmphasis(mark: String) {
-        val start = area.selection.start
-        val end = area.selection.end
-        if (start == end) {
-            val length = mark.length
-            if (start >= length && end + length <= area.length && area.getText(start - length, start) == mark && area.getText(end, end + length) == mark)
-                change(start - length, end + length, "", start - length)
-            else change(start, end, mark + mark, start + length)
-            return
-        }
-        val state = area.markdownCommands.snapshot()
-        val wrappers = state.elements.filter {
-            when (mark) {
-                "**" -> it.node is org.commonmark.node.StrongEmphasis
-                "*" -> it.node is org.commonmark.node.Emphasis
-                "~~" -> it.node is org.commonmark.ext.gfm.strikethrough.Strikethrough
-                else -> false
-            }
-        }.mapNotNull { entry ->
-            val first = entry.ranges.firstOrNull() ?: return@mapNotNull null
-            val last = entry.ranges.last()
-            MarkdownStructureSnapshot.Range(first.start, last.end)
-        }
-        fun wrapper(from: Int, to: Int) = wrappers.firstOrNull {
-            from in it.start..(it.start + mark.length) && to in (it.end - mark.length)..it.end
-        }
-        // 已有跨行强调只解除自身分隔符，保留容器前缀和原有换行。
-        wrapper(start, end)?.let {
-            val body = state.text.substring(it.start + mark.length, it.end - mark.length)
-            change(it.start, it.end, body, it.start, it.start + body.length)
-            return
-        }
-        val parts = ArrayList<Pair<MarkdownStructureSnapshot.Range, MarkdownStructureSnapshot.Range?>>()
-        for (entry in state.elements) {
-            if (entry.node !is org.commonmark.node.Paragraph && entry.node !is org.commonmark.node.Heading) continue
-            val spans = ArrayList<org.commonmark.node.SourceSpan>()
-            var child = entry.node.firstChild
-            while (child != null) { spans.addAll(child.sourceSpans); child = child.next }
-            if (spans.isEmpty()) continue
-            val contentStart = spans.first().inputIndex
-            val contentEnd = spans.last().let { it.inputIndex + it.length }
-            for (span in entry.node.sourceSpans) {
-                var from = Math.max(start, Math.max(contentStart, span.inputIndex))
-                val line = state.lines[span.lineIndex]
-                if (line.taskOffset >= 0) from = Math.max(from, line.taskOffset + 2)
-                var to = Math.min(end, Math.min(contentEnd, span.inputIndex + span.length))
-                while (from < to && state.text[from].isWhitespace()) from++
-                while (to > from && state.text[to - 1].isWhitespace()) to--
-                if (from < to) parts.add(MarkdownStructureSnapshot.Range(from, to) to wrapper(from, to))
-            }
-        }
-        if (parts.isEmpty()) return
-        val remove = parts.all { it.second != null }
-        val edits = parts.mapNotNull { (range, existing) ->
-            if (remove && existing != null) Triple(existing.start, existing.end,
-                state.text.substring(existing.start + mark.length, existing.end - mark.length))
-            else if (existing == null) Triple(range.start, range.end, mark + state.text.substring(range.start, range.end) + mark)
-            else null
-        }.sortedBy { it.first }
-        if (edits.isEmpty()) return
-        val from = Math.min(start, edits.first().first)
-        val to = Math.max(end, edits.last().second)
-        val result = StringBuilder(state.text.substring(from, to))
-        edits.asReversed().forEach { (begin, finish, value) -> result.replace(begin - from, finish - from, value) }
-        if (parts.size == 1) {
-            val edit = edits.first()
-            val selectedStart = edit.first + if (remove) 0 else mark.length
-            val selectedEnd = edit.first + edit.third.length - if (remove) 0 else mark.length
-            change(from, to, result.toString(), selectedStart, selectedEnd)
-        } else change(from, to, result.toString(), from, from + result.length)
     }
 
     private fun lineRange(): Pair<Int, Int> {

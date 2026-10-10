@@ -9,6 +9,11 @@ open class MarkdownTableCellEditor : AccessibleTextArea() {
     var activeReplacement: Replacement? = null
         private set
 
+    override fun copy() {
+        com.allan.atools.richtext.codearea.MarkdownClipboard.cancelPendingCopy()
+        super.copy()
+    }
+
     override fun replaceText(start: Int, end: Int, text: String) {
         val previous = activeReplacement
         activeReplacement = Replacement(start, end, getText())

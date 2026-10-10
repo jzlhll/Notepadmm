@@ -30,10 +30,7 @@ class MarkdownTableImageCache {
     fun node(destination: String, alt: String, document: File?): Node {
         val box = StackPane().apply { setMinSize(120.0, 80.0); setPrefSize(120.0, 80.0); setMaxSize(120.0, 80.0); accessibleText = alt }
         Tooltip.install(box, Tooltip(alt.ifEmpty { destination }))
-        val uri = try {
-            val value = URI(destination.replace(" ", "%20"))
-            if (value.scheme == null) document?.parentFile?.toURI()?.resolve(value) else value
-        } catch (_: Exception) { null }
+        val uri = MarkdownImageLocation.resolve(document, destination)
         if (uri == null || uri.scheme.lowercase(java.util.Locale.ROOT) !in setOf("http", "https", "file")) {
             box.children.setAll(Label(alt.ifEmpty { "Image" })); return box
         }
@@ -100,7 +97,7 @@ class MarkdownTableImageCache {
                 val image = try {
                     val loaded = if (entry.url.scheme.equals("file", true)) {
                         stage = "read"
-                        val bytes = entry.url.toURL().openStream().use { it.readNBytes(20 * 1024 * 1024 + 1) }
+                        val bytes = MarkdownImageLocation.file(entry.url).inputStream().use { it.readNBytes(20 * 1024 * 1024 + 1) }
                         diagnostic.event("read bytes=${bytes.size}")
                         if (bytes.size > 20 * 1024 * 1024) throw java.io.IOException("Table image exceeds byte limit")
                         stage = "decode"

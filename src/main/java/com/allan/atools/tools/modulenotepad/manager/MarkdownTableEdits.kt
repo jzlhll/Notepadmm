@@ -5,6 +5,10 @@ import com.allan.atools.richtext.codearea.MarkdownTableDocumentState.Table
 
 /** 表格结构变更先生成完整源码，再由主文档一次替换和撤销。 */
 object MarkdownTableEdits {
+    private const val MAX_ROWS = 1_000
+    private const val MAX_COLUMNS = 100
+    private const val MAX_CELLS = 10_000
+    private const val MAX_SOURCE_LENGTH = 2 * 1024 * 1024
     data class Edit(val source: String, val row: Int, val column: Int)
 
     private data class Row(val prefix: String, val cells: MutableList<String>, val extra: List<String>)
@@ -117,16 +121,39 @@ object MarkdownTableEdits {
 
     private fun pasteValues(table: Table, row: Int, column: Int, values: List<List<String>>, markdown: Boolean): Edit? {
         if (row !in table.rows().indices || column !in table.alignments().indices || values.isEmpty()) return null
+        val width = values.fold(0) { result, cells -> Math.max(result, cells.size) }
+        val rows = Math.max(table.rows().size.toLong(), row.toLong() + values.size)
+        val columns = Math.max(table.alignments().size.toLong(), column.toLong() + width)
+        if (rows > MAX_ROWS || columns > MAX_COLUMNS || rows * columns > MAX_CELLS) return null
+        // 在扩展矩阵前预算转义后的源码，分隔符、缩进和原有单元格也计入。
+        var length = (rows + 1) * (columns * 7 + table.indent().length + table.lineEnding().length)
+        table.rows().forEach { existing ->
+            length += existing.prefix().length
+            existing.cells().forEach { length += it.source().length }
+            existing.extraCells().forEach { length += it.length + 3L }
+        }
+        if (length > MAX_SOURCE_LENGTH) return null
+        val encoded = ArrayList<List<String>>(values.size)
+        for (cells in values) {
+            val next = ArrayList<String>(cells.size)
+            for (value in cells) {
+                if (value.length > MAX_SOURCE_LENGTH || length + value.length > MAX_SOURCE_LENGTH) return null
+                val source = if (markdown) MarkdownTableCellText.encode(value, value) else encodePlainText(value)
+                length += source.length
+                if (length > MAX_SOURCE_LENGTH) return null
+                next.add(source)
+            }
+            encoded.add(next)
+        }
         val content = Content(table)
-        val width = values.maxOf { it.size }
         while (content.alignments.size < column + width) {
             content.alignments.add(Alignment.DEFAULT)
             content.rows.forEach { it.cells.add("") }
         }
         while (content.rows.size < row + values.size) content.rows.add(content.emptyRow())
-        values.forEachIndexed { y, cells ->
+        encoded.forEachIndexed { y, cells ->
             cells.forEachIndexed { x, value ->
-                content.rows[row + y].cells[column + x] = if (markdown) MarkdownTableCellText.encode(value, value) else encodePlainText(value)
+                content.rows[row + y].cells[column + x] = value
             }
         }
         return content.result(row, column)
@@ -141,6 +168,7 @@ object MarkdownTableEdits {
     /** 支持电子表格中的引号、双引号转义和格内换行；行尾换行不额外生成空行。 */
     @JvmStatic
     fun parseTsv(text: String): List<List<String>>? {
+        if (text.length > MAX_SOURCE_LENGTH) return null
         val rows = ArrayList<List<String>>()
         val cells = ArrayList<String>()
         val cell = StringBuilder()
@@ -163,6 +191,7 @@ object MarkdownTableEdits {
                 } else cell.append(c)
             } else when (c) {
                 '\t' -> {
+                    if (cells.size + 1 >= MAX_COLUMNS) return null
                     cells.add(cell.toString())
                     cell.setLength(0)
                     closedQuote = false
@@ -171,6 +200,7 @@ object MarkdownTableEdits {
                     if (c == '\r' && text.getOrNull(index + 1) == '\n') index++
                     cells.add(cell.toString())
                     rows.add(cells.toList())
+                    if (rows.size > MAX_ROWS) return null
                     cells.clear()
                     cell.setLength(0)
                     closedQuote = false
@@ -193,6 +223,8 @@ object MarkdownTableEdits {
             cells.add(cell.toString())
             rows.add(cells.toList())
         }
+        val width = rows.fold(0) { result, values -> Math.max(result, values.size) }
+        if (rows.size > MAX_ROWS || rows.size.toLong() * width > MAX_CELLS) return null
         return rows
     }
 }

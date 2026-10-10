@@ -24,6 +24,7 @@ fun copyMarkdownTableRow(area: EditorArea, tableId: String, rowIndex: Int) {
 /** Markdown 保留源码，TSV 使用格内可见文字；附加类型支持应用内多格往返。 */
 fun copyMarkdownTableData(area: EditorArea, tableId: String, scope: MarkdownTableCopyScope,
                           rowIndex: Int, column: Int, tsv: Boolean) {
+    com.allan.atools.richtext.codearea.MarkdownClipboard.cancelPendingCopy()
     val table = area.markdownTableDocumentState.tables.firstOrNull { it.id() == tableId && it.valid() }
         ?: return
     if (column !in table.alignments().indices || rowIndex !in table.rows().indices) return

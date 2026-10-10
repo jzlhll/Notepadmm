@@ -86,6 +86,10 @@ public final class MarkdownTablePreviewManager {
             pasteClipboard(false);
         }
     };
+    private final MarkdownTablePendingInput pendingInput = new MarkdownTablePendingInput(cellEditor,
+            () -> this.structurePending,
+            () -> !this.structurePending && !this.destroyed && this.currentArea != null && this.activeTable != null
+                    && cellEditor.isEditable() && !this.handlingInputMethod);
     private final Map<Integer, MarkdownTableDocumentState.Table> tableByLine = new HashMap<>();
     private final Set<Integer> presentationLines = new HashSet<>();
     private final Map<Integer, Integer> rowIndexByLine = new HashMap<>();
@@ -150,6 +154,7 @@ public final class MarkdownTablePreviewManager {
     private final EventHandler<MouseEvent> cancelCellEditorFocusRestore = event -> {
         if (this.activeTable != null && !isDescendant(event.getTarget(), cellEditor)) {
             cellEditorFocusPending = false;
+            pendingInput.clear();
             // 用户主动点击优先于行重建和单元格激活时排队的焦点请求。
             this.cellActivationRevision++;
         }
@@ -272,6 +277,7 @@ public final class MarkdownTablePreviewManager {
                     return;
                 }
                 handlingInputMethod = false;
+                pendingInput.resume();
                 if (composingText) {
                     return;
                 }
@@ -1412,6 +1418,7 @@ public final class MarkdownTablePreviewManager {
             return;
         }
         hideCellMenu();
+        pendingInput.clear();
         cellActivationRevision++;
         cellEditorFocusPending = false;
         var previousTable = activeTable;
@@ -1681,31 +1688,14 @@ public final class MarkdownTablePreviewManager {
         if (currentArea == null || !currentArea.isEditable() || structurePending || composingText || handlingInputMethod) return;
         int start = cellEditor.getSelection().getStart();
         int end = cellEditor.getSelection().getEnd();
-        String selected = cellEditor.getSelectedText();
         var source = cellEditor.getText();
         var state = new com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache().snapshot(source);
         if (state.intersectsLiteral(start, end, mark.equals("`"))) return;
+        var edit = com.allan.atools.richtext.codearea.MarkdownInlineFormatting.toggle(state, start, end, mark);
+        if (edit == null) return;
         currentArea.getUndoManager().preventMerge();
-        if (mark.equals("`")) {
-            var edit = com.allan.atools.richtext.codearea.MarkdownInlineCode.toggle(source, start, end);
-            cellEditor.replaceText(edit.getStart(), edit.getEnd(), edit.getText());
-            cellEditor.selectRange(edit.getSelectionStart(), edit.getSelectionEnd());
-            currentArea.getUndoManager().preventMerge();
-            return;
-        }
-        if (selected.startsWith(mark) && selected.endsWith(mark) && selected.length() >= mark.length() * 2) {
-            var value = selected.substring(mark.length(), selected.length() - mark.length());
-            cellEditor.replaceText(start, end, value);
-            cellEditor.selectRange(start, start + value.length());
-        } else if (start >= mark.length() && end + mark.length() <= source.length()
-                && source.substring(start - mark.length(), start).equals(mark)
-                && source.substring(end, end + mark.length()).equals(mark)) {
-            cellEditor.replaceText(start - mark.length(), end + mark.length(), selected);
-            cellEditor.selectRange(start - mark.length(), end - mark.length());
-        } else {
-            cellEditor.replaceText(start, end, mark + selected + mark);
-            cellEditor.selectRange(start + mark.length(), end + mark.length());
-        }
+        cellEditor.replaceText(edit.getStart(), edit.getEnd(), edit.getText());
+        cellEditor.selectRange(edit.getSelectionStart(), edit.getSelectionEnd());
         currentArea.getUndoManager().preventMerge();
     }
 
@@ -2192,20 +2182,20 @@ public final class MarkdownTablePreviewManager {
         var clipboard = Clipboard.getSystemClipboard();
         var markdownCells = MarkdownTableClipboardKt.markdownClipboardCells(clipboard);
         if (markdownCells != null) {
-            int row = activeRow;
-            int column = activeColumn;
-            applyTableEdit(activeTable, table -> MarkdownTableEdits.pasteMarkdown(table, row, column, markdownCells));
+            pasteTableValues(markdownCells, true);
             return;
         }
         String tsv = MarkdownTableClipboardKt.tableClipboardTsv(clipboard);
+        if (tsv == null && MarkdownTableClipboardKt.hasTableCells(clipboard)) {
+            com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.tablePasteLimit"));
+            return;
+        }
         String value = tsv != null ? tsv : clipboard.getString();
         if (value != null && (forceCells || tsv != null || value.indexOf('\t') >= 0)) {
             var matrix = MarkdownTableEdits.parseTsv(value);
             if (matrix != null) {
-                int row = activeRow;
-                int column = activeColumn;
-                applyTableEdit(activeTable, table -> MarkdownTableEdits.paste(table, row, column, matrix));
-            } else cellEditor.replaceSelection(value);
+                pasteTableValues(matrix, false);
+            } else com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.tablePasteLimit"));
             return;
         }
         if (!forceCells) {
@@ -2220,15 +2210,25 @@ public final class MarkdownTablePreviewManager {
             if (clipboard.hasHtml() && clipboard.getHtml().length() <= 2 * 1024 * 1024) {
                 var cells = com.allan.atools.richtext.codearea.MarkdownClipboard.htmlTableCells(clipboard.getHtml());
                 if (cells != null) {
-                    int row = activeRow;
-                    int column = activeColumn;
-                    applyTableEdit(activeTable, table -> MarkdownTableEdits.pasteMarkdown(table, row, column, cells));
+                    pasteTableValues(cells, true);
                 } else cellEditor.replaceSelection(com.allan.atools.richtext.codearea.MarkdownClipboard.fromHtml(clipboard.getHtml()));
                 return;
             }
         }
         if (value == null) return;
         cellEditor.replaceSelection(value);
+    }
+
+    private void pasteTableValues(List<List<String>> values, boolean markdown) {
+        var target = latestTable(activeTable);
+        if (!canModify(target)) return;
+        var edit = markdown ? MarkdownTableEdits.pasteMarkdown(target, activeRow, activeColumn, values)
+                : MarkdownTableEdits.paste(target, activeRow, activeColumn, values);
+        if (edit == null) {
+            com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.tablePasteLimit"));
+        } else if (!edit.getSource().equals(safeTableSource(target))) {
+            replaceTable(target, edit.getSource(), edit.getRow(), edit.getColumn());
+        }
     }
 
     private void optimize(MarkdownTableDocumentState.Table table) {
@@ -2338,6 +2338,7 @@ public final class MarkdownTablePreviewManager {
                 currentArea.moveTo(Math.min(target, currentArea.getLength()));
                 currentArea.requestFocus();
             }
+            pendingInput.resume();
             return;
         }
         pendingTableId = null;
