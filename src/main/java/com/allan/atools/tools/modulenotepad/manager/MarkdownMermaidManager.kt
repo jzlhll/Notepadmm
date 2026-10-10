@@ -41,12 +41,19 @@ class MarkdownMermaidManager(area: EditorArea?) {
         val closed: Boolean,
         var showSource: Boolean = false,
         var error: String? = null,
-        var rendered: MermaidDiagramView.Rendered? = null
-    )
+        var searchExpanded: Boolean = false,
+        var width: Double = 0.0,
+        var height: Double = 0.0
+    ) {
+        val sourceVisible get() = showSource || searchExpanded
+    }
 
     private var currentArea: EditorArea? = null
     private var diagrams = listOf<Diagram>()
     private val saved = WeakHashMap<EditorArea, List<Diagram>>()
+    private val renderedCache = LinkedHashMap<String, MermaidDiagramView.Rendered>(16, 0.75f, true)
+    private var renderedBytes = 0L
+    private val searchStylesChanged = InvalidationListener { updateSearchPresentation() }
     private val views = WeakHashMap<MermaidDiagramView, Diagram>()
     private val modeButtons = WeakHashMap<Button, Diagram>()
     private var textChanges: Subscription? = null
@@ -60,8 +67,8 @@ class MarkdownMermaidManager(area: EditorArea?) {
     private val layoutChanged = InvalidationListener { requestLayout() }
     private val themeChanged = InvalidationListener {
         themeVersion++
-        saved.values.forEach { list -> list.forEach { it.rendered = null } }
-        diagrams.forEach { it.rendered = null }
+        renderedCache.clear()
+        renderedBytes = 0
         refreshGraphics()
     }
 
@@ -81,6 +88,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         area.addParagraphGraphicDecorator(this, ::createGraphic)
         area.widthProperty().addListener(layoutChanged)
         area.paddingProperty().addListener(layoutChanged)
+        area.markdownPresentation.styleRevisionProperty().addListener(searchStylesChanged)
         textChanges = area.plainTextChanges().subscribe { change ->
             parsedVersion = -1
             val first = area.offsetToPosition(change.position, Forward).major
@@ -100,7 +108,8 @@ class MarkdownMermaidManager(area: EditorArea?) {
                     diagram.lastLine = Math.max(first + inserted, diagram.lastLine + difference)
                     diagram.showSource = true
                     diagram.error = null
-                    diagram.rendered = null
+                    diagram.width = 0.0
+                    diagram.height = 0.0
                 }
             }
             if (area.editor.isRealtimeProcessingLimitReached) clearPresentation() else {
@@ -125,6 +134,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         area.removeParagraphGraphicDecorator(this)
         area.widthProperty().removeListener(layoutChanged)
         area.paddingProperty().removeListener(layoutChanged)
+        area.markdownPresentation.styleRevisionProperty().removeListener(searchStylesChanged)
         currentArea = null
         diagrams = emptyList()
     }
@@ -134,6 +144,8 @@ class MarkdownMermaidManager(area: EditorArea?) {
         unbind()
         scheduler.dispose()
         saved.clear()
+        renderedCache.clear()
+        renderedBytes = 0
         SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).removeListener(themeChanged)
         UIContext.getFontSizeProperty().removeListener(layoutChanged)
     }
@@ -176,17 +188,23 @@ class MarkdownMermaidManager(area: EditorArea?) {
                                     && old.closed == diagram.closed) return@map old
                                 diagram.showSource = old.showSource || !diagram.closed
                                 if (old.source == diagram.source) {
-                                    diagram.rendered = old.rendered
+                                    diagram.width = old.width
+                                    diagram.height = old.height
                                     diagram.error = old.error
                                 }
+                            }
+                            renderedCache[diagram.source]?.let { cached ->
+                                diagram.width = cached.width
+                                diagram.height = cached.height
                             }
                             diagram
                         }
                         diagrams = next
                         parsedVersion = version
                         val removed = oldDiagrams.filter { it !in next }
-                        val changed = next.filter { diagram -> diagram !in oldDiagrams || !presentationActive ||
-                            removed.any { it.firstLine <= diagram.lastLine && it.lastLine >= diagram.firstLine } }
+                        val searchChanged = updateSearchPresentation(false)
+                        val changed = (next.filter { diagram -> diagram !in oldDiagrams || !presentationActive ||
+                            removed.any { it.firstLine <= diagram.lastLine && it.lastLine >= diagram.firstLine } } + searchChanged).distinct()
                         area.suspendVisibleParsWhileInvoke {
                             // 正文修改不销毁未改变的 WebView；只清理消失的图表、刷新新增或变化的图表。
                             removed.forEach { old ->
@@ -204,6 +222,49 @@ class MarkdownMermaidManager(area: EditorArea?) {
         }
     }
 
+    private fun updateSearchPresentation(refresh: Boolean = true): List<Diagram> {
+        val area = currentArea ?: return emptyList()
+        val changed = diagrams.filter { diagram ->
+            val first = diagram.firstLine
+            val last = diagram.lastLine
+            val expanded = first in area.paragraphs.indices && last in area.paragraphs.indices &&
+                area.getStyleSpans(area.getAbsolutePosition(first, 0),
+                    area.getAbsolutePosition(last, area.getParagraph(last).length())).any { span ->
+                    span.length > 0 && ("search" in span.style || "temporary" in span.style)
+                }
+            if (expanded == diagram.searchExpanded) false else {
+                diagram.searchExpanded = expanded
+                true
+            }
+        }
+        if (refresh) {
+            changed.forEach { refreshGraphics(it) }
+            updateModeButtons()
+        }
+        return changed
+    }
+
+    private fun remember(diagram: Diagram, rendered: MermaidDiagramView.Rendered) {
+        diagram.width = rendered.width
+        diagram.height = rendered.height
+        renderedCache.remove(diagram.source)?.let { renderedBytes -= cacheBytes(diagram.source, it) }
+        val bytes = cacheBytes(diagram.source, rendered)
+        if (bytes > 16L * 1024 * 1024) return
+        renderedCache[diagram.source] = rendered
+        renderedBytes += bytes
+        val iterator = renderedCache.entries.iterator()
+        while ((renderedBytes > 16L * 1024 * 1024 || renderedCache.size > 64) && iterator.hasNext()) {
+            val entry = iterator.next()
+            renderedBytes -= cacheBytes(entry.key, entry.value)
+            iterator.remove()
+        }
+    }
+
+    private fun cacheBytes(source: String, rendered: MermaidDiagramView.Rendered) =
+        2L * (source.length.toLong() + rendered.svg.length) + 96
+
+    private fun diagramWidth(diagram: Diagram) = if (diagram.width > 0) Math.min(availableWidth(), diagram.width) else availableWidth()
+
     private fun requestLayout() {
         if (layoutPending || destroyed) return
         layoutPending = true
@@ -220,7 +281,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         area.suspendVisibleParsWhileInvoke {
             (if (target == null) diagrams else listOf(target)).forEach { diagram ->
                 for (line in diagram.firstLine..diagram.lastLine) {
-                    val style = if (!diagram.showSource) {
+                    val style = if (!diagram.sourceVisible) {
                         CodeArea.MERMAID_PREVIEW_HEIGHT_PREFIX + if (line == diagram.firstLine)
                             previewHeight(diagram) + MarkdownMermaidGraphic.HEADER_HEIGHT + 16.0 else 0.0
                     } else if (line == diagram.firstLine) {
@@ -232,7 +293,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
                     }
                 }
                 if (!recreate) views.filterValues { it === diagram }.keys.forEach { view ->
-                    view.setPrefSize(Math.min(availableWidth(), diagram.rendered?.width ?: availableWidth()),
+                    view.setPrefSize(diagramWidth(diagram),
                         previewHeight(diagram))
                 }
             }
@@ -277,9 +338,8 @@ class MarkdownMermaidManager(area: EditorArea?) {
     }
 
     private fun previewHeight(diagram: Diagram): Double {
-        val rendered = diagram.rendered ?: return 180.0
-        val width = Math.min(availableWidth(), rendered.width)
-        return ceil(width * rendered.height / rendered.width)
+        if (diagram.width <= 0 || diagram.height <= 0) return 180.0
+        return ceil(diagramWidth(diagram) * diagram.height / diagram.width)
     }
 
     private fun createGraphic(line: Int, base: Node?): Node? {
@@ -287,21 +347,21 @@ class MarkdownMermaidManager(area: EditorArea?) {
         if (!presentationActive) return base
         val diagram = diagrams.firstOrNull { line in it.firstLine..it.lastLine } ?: return base
         if (line != diagram.firstLine) {
-            if (diagram.showSource) return base
+            if (diagram.sourceVisible) return base
             return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
         }
         val header = createToolbar(diagram, area)
-        if (diagram.showSource) return MarkdownMermaidGraphic(area, base, header, null, ::availableWidth)
+        if (diagram.sourceVisible) return MarkdownMermaidGraphic(area, base, header, null, ::availableWidth)
         val renderedTheme = themeVersion
-        val view = MermaidDiagramView(diagram.source, Colors.isDark(), diagram.rendered,
+        val view = MermaidDiagramView(diagram.source, Colors.isDark(), renderedCache[diagram.source],
             onRendered = { rendered ->
-                if (renderedTheme == themeVersion && currentArea === area && diagrams.contains(diagram) && !diagram.showSource) {
-                    diagram.rendered = rendered
+                if (renderedTheme == themeVersion && currentArea === area && diagrams.contains(diagram) && !diagram.sourceVisible) {
+                    remember(diagram, rendered)
                     refreshGraphics(diagram, recreate = false)
                 }
             },
             onFailure = { message ->
-                if (renderedTheme == themeVersion && currentArea === area && diagrams.contains(diagram) && !diagram.showSource) {
+                if (renderedTheme == themeVersion && currentArea === area && diagrams.contains(diagram) && !diagram.sourceVisible) {
                     diagram.error = message
                     diagram.showSource = true
                     refreshGraphics(diagram)
@@ -323,17 +383,17 @@ class MarkdownMermaidManager(area: EditorArea?) {
             if (event.deltaX != 0.0) area.scrollXBy(-event.deltaX)
             event.consume()
         })
-        view.setPrefSize(Math.min(availableWidth(), diagram.rendered?.width ?: availableWidth()),
+        view.setPrefSize(diagramWidth(diagram),
             previewHeight(diagram))
         return MarkdownMermaidGraphic(area, base, header, view, ::availableWidth)
     }
 
     private fun createToolbar(diagram: Diagram, area: EditorArea): HBox {
-        val modeButton = Button(Locales.str(if (diagram.showSource) "markdownMermaidShowDiagram" else "markdownTableShowSource"))
+        val modeButton = Button(Locales.str(if (diagram.sourceVisible) "markdownMermaidShowDiagram" else "markdownTableShowSource"))
         modeButton.styleClass.add("markdown-table-toolbar-button")
         modeButton.isFocusTraversable = false
         modeButton.minWidth = Region.USE_PREF_SIZE
-        modeButton.isDisable = diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)
+        modeButton.isDisable = diagram.searchExpanded || diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)
         modeButtons[modeButton] = diagram
         modeButton.sceneProperty().addListener { _, _, scene ->
             if (scene == null) Platform.runLater {
@@ -342,7 +402,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         }
         modeButton.setOnAction {
             if (currentArea !== area || !presentationActive || !diagrams.contains(diagram) || area.markdownComposing) return@setOnAction
-            if (diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)) return@setOnAction
+            if (diagram.searchExpanded || diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)) return@setOnAction
             diagram.showSource = !diagram.showSource
             diagram.error = null
             refreshGraphics(diagram)
@@ -372,7 +432,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
     private fun updateModeButtons() {
         val area = currentArea ?: return
         modeButtons.forEach { (button, diagram) ->
-            button.isDisable = diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)
+            button.isDisable = diagram.searchExpanded || diagram.showSource && (!diagram.closed || parsedVersion != area.editor.contentVersion)
         }
     }
 }
