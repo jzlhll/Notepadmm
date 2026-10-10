@@ -390,13 +390,22 @@ class MarkdownEditingActions(private val area: EditorArea) {
             start = Math.min(start, state.lines[entry.node.sourceSpans.first().lineIndex].start)
             end = Math.max(end, state.lines[entry.node.sourceSpans.last().lineIndex].end)
         }
+        val groups = state.syntaxGroups.associateBy { it.start to it.end }
+        val headingMarkers = entries.flatMap { entry ->
+            val first = entry.ranges.firstOrNull()
+            val last = entry.ranges.lastOrNull()
+            if (first == null || last == null) emptyList() else groups[first.start to last.end]?.markers.orEmpty()
+        }
         val result = area.getText(start, end).split('\n').mapIndexedNotNull { index, content ->
             val line = state.lines[state.lineAt(start) + index]
             if (line.code || content.isBlank()) content else {
-                val container = quote.find(content)?.value.orEmpty()
-                val rest = content.substring(container.length)
-                if (line.heading > 0 && rest.trim().matches(Regex("[=-]+"))) null else {
-                    val body = rest.replace(Regex("^ {0,3}#{1,6}(?:[ \\t]+|$)"), "")
+                val stripped = StringBuilder(content)
+                headingMarkers.filter { it.start >= line.start && it.end <= line.end }.sortedByDescending { it.start }
+                    .forEach { stripped.delete(it.start - line.start, it.end - line.start) }
+                val container = quote.find(stripped)?.value.orEmpty()
+                val rest = stripped.substring(container.length)
+                if (line.heading > 0 && content.substring(quote.find(content)?.value?.length ?: 0).trim().matches(Regex("[=-]+"))) null else {
+                    val body = if (line.heading > 0) rest else rest.replace(Regex("^ {0,3}#{1,6}(?:[ \\t]+|$)"), "")
                     container + if (level == 0) body else "#".repeat(level) + " " + body
                 }
             }
