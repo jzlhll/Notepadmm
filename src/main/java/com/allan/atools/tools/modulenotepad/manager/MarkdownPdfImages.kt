@@ -24,14 +24,14 @@ class MarkdownPdfImages(private val sourceFile: File?, private val width: Double
         val images = HashMap<URI, String>()
         for (image in document.select("img[src]")) {
             if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
-            val uri = base.resolve(URI(image.attr("src").replace('\\', '/').replace(" ", "%20")))
+            val uri = MarkdownImageLocation.resolve(sourceFile, image.attr("src")) ?: error("Unsupported image location")
             val destination = images.getOrPut(uri) {
                 val diagnostic = MarkdownImageLoadLog("pdf", uri.toString(), sourceFile,
                     image.attr("data-source-line").toIntOrNull()?.plus(1) ?: 0)
                 try {
                     val bytes = when (uri.scheme.lowercase(Locale.ROOT)) {
                         "http", "https" -> MarkdownRemoteImageLoader.loadBytes(uri.toString(), diagnostic)
-                        "file" -> File(URI(uri.toASCIIString().substringBefore('#'))).inputStream().use { it.readNBytes(20 * 1024 * 1024 + 1) }
+                        "file" -> MarkdownImageLocation.file(uri).inputStream().use { it.readNBytes(20 * 1024 * 1024 + 1) }
                         "data" -> {
                             val value = uri.toString()
                             require(value.length <= 28 * 1024 * 1024 && ',' in value) { "Image data exceeds byte limit" }

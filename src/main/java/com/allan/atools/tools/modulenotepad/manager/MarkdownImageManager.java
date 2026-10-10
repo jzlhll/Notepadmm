@@ -28,7 +28,6 @@ import org.reactfx.Subscription;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -690,41 +689,19 @@ public final class MarkdownImageManager {
     }
 
     private static Resolved resolve(File mdFile, String destination) {
-        String dest = destination.trim();
-        if (dest.isEmpty()) {
+        var uri = MarkdownImageLocation.resolve(mdFile, destination);
+        if (uri == null) return null;
+        String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+        if (scheme.equals("http") || scheme.equals("https")) {
+            return new Resolved(uri.toASCIIString(), null, true);
+        }
+        if (!scheme.equals("file")) return null;
+        try {
+            var file = MarkdownImageLocation.file(uri);
+            return new Resolved(uri.toASCIIString(), file, false);
+        } catch (IllegalArgumentException exception) {
             return null;
         }
-        String lower = dest.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("http://") || lower.startsWith("https://")) {
-            return new Resolved(dest, null, true);
-        }
-        if (lower.startsWith("data:")) {
-            return null;
-        }
-        if (lower.startsWith("file://")) {
-            try {
-                return new Resolved(dest, new File(new URI(dest)), false);
-            } catch (Exception e) {
-                return null;
-            }
-        }
-        // 兼容 Windows 反斜杠路径（如 ..\pictures\x.png）
-        String path = dest.replace('\\', '/');
-        File direct = new File(path);
-        if (direct.isAbsolute()) {
-            return new Resolved(direct.toURI().toString(), direct, false);
-        }
-        if (mdFile != null && mdFile.getParentFile() != null) {
-            File relative = new File(mdFile.getParentFile(), path);
-            if (!relative.isFile()) {
-                try {
-                    File decoded = new File(mdFile.getParentFile(), new URI(path.replace(" ", "%20")).getPath());
-                    if (decoded.isFile()) relative = decoded;
-                } catch (java.net.URISyntaxException ignored) { }
-            }
-            return new Resolved(relative.toURI().toString(), relative, false);
-        }
-        return null;
     }
 
     private record FoundImage(int lineIndex, String destination, String alt, double styleZoom, double width) {

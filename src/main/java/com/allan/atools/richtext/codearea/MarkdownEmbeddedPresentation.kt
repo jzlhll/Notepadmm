@@ -23,7 +23,6 @@ import netscape.javascript.JSObject
 import org.jsoup.Jsoup
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.net.URI
 import java.util.Base64
 import java.util.WeakHashMap
 import java.util.concurrent.Future
@@ -442,12 +441,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val diagnostic = MarkdownImageLoadLog("embedded", url, currentFile, entry.block.firstLine + 1)
             imageTasks.add(MarkdownImageTasks.submit {
                 try {
-                    val uri = URI(url.replace(" ", "%20"))
-                    val resolved = if (uri.isAbsolute) uri else (currentFile?.parentFile?.toURI() ?: File(".").toURI()).resolve(uri)
+                    val resolved = MarkdownImageLocation.resolve(currentFile, url) ?: error("Unsupported image location")
                     val decoded = when (resolved.scheme.lowercase()) {
                         "http", "https" -> MarkdownRemoteImageLoader.loadDecoded(resolved.toASCIIString(), diagnostic, 0.0, 0.0)
                         "file" -> {
-                            val source = File(resolved)
+                            val source = MarkdownImageLocation.file(resolved)
                             require(source.length() <= 20L * 1024 * 1024) { "Image exceeds byte limit" }
                             MarkdownImageDecoder.decode(source, 0.0, 0.0)
                         }

@@ -318,6 +318,9 @@ tasks.register('generateJpackageScripts') {
                     baseCommand.collect { shellQuote(it.toString()) }.join(' ') + '\n' +
                     "mv ${shellQuote("../dist/${originalOutputName}.dmg")} ${shellQuote("../dist/${architectureOutputName}.dmg")}\n"
             script.setExecutable(true, false)
+            // 记录本次打包的完整路径，安装脚本无需从 dist 中猜测版本或架构。
+            new File(packagingConfig.buildRoot, 'package-dmg.path').text =
+                    new File(packagingConfig.distDir, "${architectureOutputName}.dmg").absolutePath + '\n'
 
             def copyScript = new File(packagingConfig.buildRoot, 'fastCopy.sh')
             def installedApp = "/Applications/${packagingConfig.appName}.app"

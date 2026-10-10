@@ -23,7 +23,7 @@
 - 启动前检查 ATools／Java 进程、锁及数据路径，记录自测 PID；禁止操作用户实例、删除或绕过其锁，禁止复制用户会话、打开用户原始文档或修改系统 `HOME`／`CODEX_HOME`。
 - 使用 `rtk proxy ./gradlew :app:runDebug --args='临时样例文件的绝对路径'`，或以独立 Java 进程启动当前编译产物并加入 JVM 参数 `-Datools.debug=true`；确认参数传入应用 JVM。`DebugRuntime.initialize()` 在日志及配置初始化前创建独立临时 `user.home`，锁、配置、日志和会话写入其 `.atools_notepadmm/`，标题为 `ATools Debug`，每次启动使用新目录及独立锁。
 - 隔离须双向成立：debug 与正式版互不阻止启动，不共享锁、应用身份或文件转发；确认独立锁路径、持锁进程及无获取锁异常，不能仅凭窗口或成功日志判断（`InstanceLock` 异常时会放行）。检查 JVM 目录外的共享状态；debug 须关闭 macOS 最近文档同步及系统打开文件／退出事件注册。禁止通过 `open -a ATools`、文件关联或双击启动，无法确认隔离时不启动并报告原因。
-- 自测允许必要的 Gradle 编译及运行，仅生成开发产物；禁止安装、发布、覆盖 `/Applications/ATools.app`、执行 `build.sh -f`，或修改用户安装包、系统关联及最近文档。
+- 自测允许必要的 Gradle 编译及运行，仅生成开发产物；禁止安装、发布、覆盖 `/Applications/ATools.app`、执行 `iosBuild.sh -f`，或修改用户安装包、系统关联及最近文档。
 - 用临时样例覆盖触发步骤及相关交互；结束时只关闭自己启动且已记录 PID 的实例，清理自建资源，保留失败日志和证据。交付报告验证项目、结果、未覆盖项及具体原因；仅文档修改说明无需运行，不能以“待用户验收”代替未完成自测的说明。
 
 ## Skills

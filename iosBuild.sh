@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -e
 
 cd "$(dirname "$0")"
@@ -8,9 +8,111 @@ usage() {
     echo ""
     echo "  -0            只编译，不执行 buildRoot 下的脚本"
     echo "  -f, --fast    编译后执行 buildRoot/fastCopy.sh（日常开发使用，同步到 /Applications）"
-    echo "  -p, --package 编译后执行 buildRoot/pack.sh（生成 dmg 安装包）"
+    echo "  -p, --package 编译后生成 dmg，自动替换 /Applications/ATools.app 并启动"
     echo "  -h, --help    显示本帮助"
 }
+
+# 关闭现有应用并等待退出，避免打包或替换时文件仍被占用。
+stop_running_app() {
+    if ! /usr/bin/pgrep -x ATools >/dev/null 2>&1; then
+        return
+    fi
+
+    trap 'printf "\n已取消结束程序和后续操作。\n"; exit 130' INT TERM
+    seconds_left=3
+    while [ "$seconds_left" -gt 0 ]; do
+        printf "\r%d 秒后结束现有 ATools，按 Ctrl+C 取消。" "$seconds_left"
+        sleep 1
+        seconds_left=$((seconds_left - 1))
+    done
+    printf "\n"
+    /usr/bin/pkill -x ATools 2>/dev/null || true
+
+    seconds_left=10
+    while /usr/bin/pgrep -x ATools >/dev/null 2>&1; do
+        if [ "$seconds_left" -eq 0 ]; then
+            echo "错误: ATools 尚未退出，请手动关闭后重试。"
+            exit 1
+        fi
+        sleep 1
+        seconds_left=$((seconds_left - 1))
+    done
+    trap - INT TERM
+}
+
+# 使用本次打包产物安装；临时应用与备份均放在目标目录所在文件系统。
+install_package() (
+    dmg_path=$1
+    mount_dir=""
+    install_dir=""
+    install_complete=false
+    installer_command=()
+
+    cleanup_install() {
+        install_status=$?
+        trap - EXIT INT TERM
+        keep_backup=false
+        if [ "$install_complete" = false ] && [ -n "$install_dir" ] &&
+            "${installer_command[@]}" /bin/test -d "$install_dir/previous.app"; then
+            # 若替换已完成但收到中断，先移走新应用，避免 mv 将备份嵌入应用目录。
+            if [ -e "$app_path" ] && ! "${installer_command[@]}" /bin/mv "$app_path" "$install_dir/incomplete.app"; then
+                keep_backup=true
+            elif ! "${installer_command[@]}" /bin/mv "$install_dir/previous.app" "$app_path"; then
+                keep_backup=true
+            fi
+            if [ "$keep_backup" = true ]; then
+                echo "错误: 恢复旧应用失败，备份保留在 $install_dir/previous.app。"
+                install_status=1
+            fi
+        fi
+        if [ -n "$install_dir" ] && [ "$keep_backup" = false ]; then
+            if ! "${installer_command[@]}" /bin/rm -rf "$install_dir"; then
+                echo "警告: 未能清理安装临时目录: $install_dir"
+            fi
+        fi
+        if [ -n "$mount_dir" ]; then
+            if /usr/bin/hdiutil detach "$mount_dir"; then
+                /bin/rmdir "$mount_dir" || true
+            elif ! /bin/rmdir "$mount_dir" 2>/dev/null; then
+                echo "错误: 无法卸载 DMG，请手动卸载: $mount_dir"
+                install_status=1
+            fi
+        fi
+        exit "$install_status"
+    }
+    trap cleanup_install EXIT
+    trap 'exit 130' INT TERM
+
+    if [ ! -f "$dmg_path" ]; then
+        echo "错误: 找不到本次生成的 DMG: $dmg_path"
+        exit 1
+    fi
+    if [ ! -w /Applications ]; then
+        echo "安装到 /Applications 需要管理员权限。"
+        /usr/bin/sudo -v
+        installer_command=(/usr/bin/sudo)
+    fi
+
+    install_dir=$("${installer_command[@]}" /usr/bin/mktemp -d '/Applications/.ATools-install.XXXXXX')
+    mount_dir=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/ATools-dmg.XXXXXX")
+    /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path"
+    if [ ! -d "$mount_dir/ATools.app" ]; then
+        echo "错误: DMG 中找不到 ATools.app。"
+        exit 1
+    fi
+
+    "${installer_command[@]}" /usr/bin/ditto "$mount_dir/ATools.app" "$install_dir/ATools.app"
+    "${installer_command[@]}" /usr/bin/codesign --verify --deep --strict "$install_dir/ATools.app"
+    stop_running_app
+    # stop_running_app 会重置退出信号处理，此处恢复安装清理逻辑。
+    trap 'exit 130' INT TERM
+    if [ -e "$app_path" ]; then
+        "${installer_command[@]}" /bin/mv "$app_path" "$install_dir/previous.app"
+    fi
+    "${installer_command[@]}" /bin/mv "$install_dir/ATools.app" "$app_path"
+    install_complete=true
+    echo "已安装本次打包的应用: $app_path"
+)
 
 # ---------- 步骤 0：解析参数 ----------
 build_action=""
@@ -89,15 +191,8 @@ case "$os_name" in
         current_os="macOS"
         app_path='/Applications/ATools.app'
         ;;
-    MINGW*|MSYS*|CYGWIN*)
-        current_os="Windows"
-        # Windows 下优先使用 gradlew.bat
-        if [ -f "./gradlew.bat" ]; then
-            gradlew_cmd="./gradlew.bat"
-        fi
-        ;;
     *)
-        echo "当前系统不支持运行此脚本。"
+        echo "此脚本仅支持 macOS；Windows 请使用 windowsBuild.sh。"
         exit 1
         ;;
 esac
@@ -105,22 +200,12 @@ esac
 # 检测当前架构与对应的默认 Gradle task
 case "$arch_name" in
     arm64|aarch64)
-        if [ "$current_os" = "macOS" ]; then
-            current_arch="ARM（Apple Silicon）"
-            current_task="mainShAllMacArm64"
-        elif [ "$current_os" = "Windows" ]; then
-            current_arch="ARM（Windows Arm64）"
-            current_task="mainShAllWindowsArm64"
-        fi
+        current_arch="ARM（Apple Silicon）"
+        current_task="mainShAllMacArm64"
         ;;
     x86_64)
-        if [ "$current_os" = "macOS" ]; then
-            current_arch="Intel（x64）"
-            current_task="mainShAllMacX64"
-        elif [ "$current_os" = "Windows" ]; then
-            current_arch="Intel（x64）"
-            current_task="mainShAllWindowsX64"
-        fi
+        current_arch="Intel（x64）"
+        current_task="mainShAllMacX64"
         ;;
     *)
         current_arch="未知（${arch_name}）"
@@ -131,13 +216,8 @@ esac
 # ---------- 步骤 1：选择编译架构 ----------
 echo "请选择需要编译的 ${current_os} 架构："
 echo "0) 当前电脑平台：${current_arch}（直接回车默认选此项）"
-if [ "$current_os" = "macOS" ]; then
-    echo "1) ARM（Apple Silicon）"
-    echo "2) Intel（x64）"
-else
-    echo "1) ARM（Windows Arm64）"
-    echo "2) Intel（x64）"
-fi
+echo "1) ARM（Apple Silicon）"
+echo "2) Intel（x64）"
 
 architecture=""
 seconds_left=3
@@ -161,22 +241,12 @@ case "$architecture" in
         "$gradlew_cmd" "$current_task"
         ;;
     1)
-        if [ "$current_os" = "macOS" ]; then
-            echo "已选择：1) ARM（Apple Silicon）"
-            "$gradlew_cmd" mainShAllMacArm64
-        else
-            echo "已选择：1) ARM（Windows Arm64）"
-            "$gradlew_cmd" mainShAllWindowsArm64
-        fi
+        echo "已选择：1) ARM（Apple Silicon）"
+        "$gradlew_cmd" mainShAllMacArm64
         ;;
     2)
-        if [ "$current_os" = "macOS" ]; then
-            echo "已选择：2) Intel（x64）"
-            "$gradlew_cmd" mainShAllMacX64
-        else
-            echo "已选择：2) Intel（x64）"
-            "$gradlew_cmd" mainShAllWindowsX64
-        fi
+        echo "已选择：2) Intel（x64）"
+        "$gradlew_cmd" mainShAllMacX64
         ;;
     *)
         echo "输入无效，已取消编译。"
@@ -199,13 +269,16 @@ case "$build_action" in
         ./buildRoot/fastCopy.sh
         ;;
     2)
+        stop_running_app
         echo "已选择：2) 执行 pack.sh"
         ./buildRoot/pack.sh
+        IFS= read -r dmg_path < ./buildRoot/package-dmg.path
+        install_package "$dmg_path"
         ;;
 esac
 
-# ---------- 步骤 3：macOS 下自动结束并重启应用（仅 fast 模式执行） ----------
-if [ "$build_action" = "1" ] && [ "$current_os" = "macOS" ] && [ -n "$app_path" ]; then
+# ---------- 步骤 3：同步或安装后自动重启应用 ----------
+if [ "$build_action" != "0" ]; then
     if [ ! -d "$app_path" ]; then
         echo "警告: 找不到待启动的应用: $app_path，跳过重启步骤。"
         exit 0
@@ -218,12 +291,8 @@ if [ "$build_action" = "1" ] && [ "$current_os" = "macOS" ] && [ -n "$app_path" 
     }
     trap cancel_restart INT TERM
 
-    if /usr/bin/pgrep -x ATools >/dev/null 2>&1; then
-        echo ""
-        echo "3 秒后结束现有 ATools，按 Ctrl+C 取消。"
-        sleep 3
-        /usr/bin/pkill -x ATools 2>/dev/null || true
-    fi
+    stop_running_app
+    trap cancel_restart INT TERM
 
     echo ""
     restart_now=""

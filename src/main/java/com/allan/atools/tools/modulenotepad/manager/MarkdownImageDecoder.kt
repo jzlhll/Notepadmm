@@ -36,7 +36,11 @@ object MarkdownImageDecoder {
     private fun decode(input: ImageInputStream, open: () -> InputStream, requestedWidth: Double, requestedHeight: Double): Result {
         if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
         val readers = ImageIO.getImageReaders(input)
-        if (!readers.hasNext()) throw IOException("Unsupported image format")
+        if (!readers.hasNext()) {
+            val bytes = open().use { it.readNBytes(20 * 1024 * 1024 + 1) }
+            if (bytes.size > 20 * 1024 * 1024) throw IOException("Image exceeds byte limit")
+            return MarkdownSvgDecoder.decode(bytes, requestedWidth, requestedHeight)
+        }
         val reader = readers.next()
         try {
             reader.input = input

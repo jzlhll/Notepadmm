@@ -115,7 +115,7 @@ atools file.txt
 
 ### 运行开发版
 
-安装 JDK 25，将 `local.properties.example` 复制为 `local.properties`，填写 `buildJdk.home`（macOS 需指向 JDK 的 `Contents/Home`），然后在项目根目录执行。Wrapper 和 `build.sh` 优先使用此路径，未填写时使用 `JAVA_HOME` / `PATH`；IDE 的 Project SDK 和 Gradle JVM 也需选择 JDK 25。依赖版本统一在 `gradle/libs.versions.toml` 管理。
+安装 JDK 25，将 `local.properties.example` 复制为 `local.properties`，填写 `buildJdk.home`（macOS 需指向 JDK 的 `Contents/Home`），然后在项目根目录执行。Wrapper、`iosBuild.sh` 和 `windowsBuild.sh` 优先使用此路径，未填写时使用 `JAVA_HOME` / `PATH`；IDE 的 Project SDK 和 Gradle JVM 也需选择 JDK 25。依赖版本统一在 `gradle/libs.versions.toml` 管理。
 
 ```shell
 ./gradlew :app:run
@@ -155,6 +155,18 @@ buildRoot\jpackageCmdExe.bat
 ```
 
 Windows 的 `jpackageCmdExe.bat` 生成 `.exe` 安装包，`jpackageCmdGreenExe.bat` 生成免安装应用目录；macOS 的 `pack.sh` 生成 `.dmg`。最终产物统一输出到 `dist`。四个 `mainShAll...` 任务本身负责整理模块 JAR、第三方依赖和资源，分析并创建最小 JRE，混淆主应用 JAR，最后生成对应平台的 jpackage 脚本，不会直接执行该脚本。
+
+一键编译打包使用以下入口，均提供架构选择及 3 秒默认倒计时：
+
+```shell
+# macOS：打包后自动安装到 /Applications/ATools.app 并启动
+./iosBuild.sh -p
+
+# Windows：在 MSYS2、Git Bash 或 Cygwin 中生成 EXE 安装包，不自动安装
+./windowsBuild.sh -p
+```
+
+两个入口的 `-0` 都只编译并准备发行内容。`iosBuild.sh` 用于 macOS；`-p` 在打包前倒计时关闭 ATools，成功后挂载本次 DMG，校验签名并替换整个应用，替换失败时恢复旧应用，需要时申请管理员权限；`-f` 保留快速同步及重启能力。`windowsBuild.sh` 的 `-p` 同样在打包前倒计时关闭 ATools，暂不支持 `-f` 快速同步。
 
 升级 JDK、JavaFX 或其他第三方依赖后，需要完整重新打包并安装；`fastCopy.sh` 只更新项目 JAR 和资源，不更新运行时、第三方 JAR 或启动参数。
 
