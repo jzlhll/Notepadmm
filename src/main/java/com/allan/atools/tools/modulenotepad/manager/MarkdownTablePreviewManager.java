@@ -1689,8 +1689,7 @@ public final class MarkdownTablePreviewManager {
         int start = cellEditor.getSelection().getStart();
         int end = cellEditor.getSelection().getEnd();
         var source = cellEditor.getText();
-        var state = new com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache().snapshot(source);
-        if (state.intersectsLiteral(start, end, mark.equals("`"))) return;
+        var state = com.allan.atools.richtext.codearea.keywordhelper.MarkdownInlineSnapshot.create(source);
         var edit = com.allan.atools.richtext.codearea.MarkdownInlineFormatting.toggle(state, start, end, mark);
         if (edit == null) return;
         currentArea.getUndoManager().preventMerge();
