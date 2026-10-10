@@ -284,6 +284,11 @@ class EditorArea @JvmOverloads constructor(
         EditorSessionManager.getInstance().track(this)
     }
 
+    override fun copy() {
+        MarkdownClipboard.cancelPendingCopy()
+        super.copy()
+    }
+
     override fun paste() {
         if (!isEditable || markdownComposing) return
         if (!MarkdownEditorSupport.supportsMarkdown(this) || !markdownClipboard.paste()) super.paste()
@@ -365,6 +370,7 @@ class EditorArea @JvmOverloads constructor(
 //        } catch (NoSuchFieldException | IllegalAccessException e) {
 //            e.printStackTrace();
 //        }
+        markdownClipboard.destroy()
         markdownCommands.destroy()
         viewPosition.destroy()
         markdownSyntax.destroy()

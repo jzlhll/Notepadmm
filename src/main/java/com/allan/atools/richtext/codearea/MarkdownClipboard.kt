@@ -20,11 +20,23 @@ import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.concurrent.Future
 
 /** 剪贴板保留 Markdown 类型，跨应用同时提供纯文本与有限 HTML。 */
 class MarkdownClipboard(private val area: EditorArea) {
     companion object {
         private val markdownFormat = DataFormat.lookupMimeType("text/markdown") ?: DataFormat("text/markdown")
+        private var copySequence = 0L
+        private var copyTask: Future<*>? = null
+        private var copyOwner: MarkdownClipboard? = null
+
+        @JvmStatic
+        fun cancelPendingCopy() {
+            copySequence++
+            copyTask?.cancel(true)
+            copyTask = null
+            copyOwner = null
+        }
 
         @JvmStatic
         fun fromHtml(html: String): String {
@@ -181,25 +193,62 @@ class MarkdownClipboard(private val area: EditorArea) {
     }
 
     fun copy(mode: String) {
-        val source = if (area.selection.length > 0) area.selectedText else area.text
+        cancelPendingCopy()
+        val documentText = area.text
+        val start = area.selection.start
+        val end = area.selection.end
+        val source = if (start < end) documentText.substring(start, end) else documentText
+        val clipboard = Clipboard.getSystemClipboard()
         if (mode == "markdown") {
-            Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(source); this[markdownFormat] = source })
+            clipboard.setContent(ClipboardContent().apply { putString(source); this[markdownFormat] = source })
             return
         }
         if (area.editor.isRealtimeProcessingLimitReached) { SnackbarUtils.show(Locales.str("markdown.previewLimit")); return }
         val base = area.editor.sourceFile?.parentFile?.toURI()?.toASCIIString()
-        val document = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
-        val state = if (area.selection.length == 0) document else
-            com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, area.selection.start, area.selection.end)
-        val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(state.root)
-        val content = ClipboardContent()
-        when (mode) {
-            "plain" -> content.putString(plain)
-            "formatted" -> { content.putString(plain); content.putHtml(absoluteHtml(MarkdownHtmlRenderer.body(state, base), base)); content[markdownFormat] = source }
-            else -> { content.putString(source); content[markdownFormat] = source }
+        val manager = area.editor as EditorAreaMgrCode
+        val request = copySequence
+        val previousText = clipboard.string
+        val previousHtml = clipboard.html
+        val previousTypes = clipboard.contentTypes.toSet()
+        copyOwner = this
+        copyTask = ThreadUtils.submit {
+            try {
+                val document = manager.markdownSnapshot(documentText)
+                val state = if (start == end) document else
+                    com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, start, end)
+                val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(state.root)
+                val html = if (mode == "formatted") absoluteHtml(MarkdownHtmlRenderer.body(state, base), base) else null
+                if (Thread.currentThread().isInterrupted) return@submit
+                Platform.runLater {
+                    if (request != copySequence || area.editor.isDestroyed) return@runLater
+                    copyTask = null
+                    copyOwner = null
+                    // 外部应用或其他原生复制改变剪贴板后，旧的后台结果不能覆盖新内容。
+                    if (clipboard.string != previousText || clipboard.html != previousHtml || clipboard.contentTypes != previousTypes) return@runLater
+                    val content = ClipboardContent()
+                    when (mode) {
+                        "plain" -> content.putString(plain)
+                        "formatted" -> { content.putString(plain); content.putHtml(html); content[markdownFormat] = source }
+                        else -> { content.putString(source); content[markdownFormat] = source }
+                    }
+                    clipboard.setContent(content)
+                }
+            } catch (error: Exception) {
+                if (!Thread.currentThread().isInterrupted) {
+                    Log.e("Copy markdown content failed", error)
+                    Platform.runLater {
+                        if (request == copySequence && !area.editor.isDestroyed) {
+                            copyTask = null
+                            copyOwner = null
+                            SnackbarUtils.show(Locales.str("markdown.copyFailed"))
+                        }
+                    }
+                }
+            }
         }
-        Clipboard.getSystemClipboard().setContent(content)
     }
+
+    fun destroy() { if (copyOwner === this) cancelPendingCopy() }
 
     fun exportHtml() {
         if (area.editor.isRealtimeProcessingLimitReached) { SnackbarUtils.show(Locales.str("markdown.previewLimit")); return }

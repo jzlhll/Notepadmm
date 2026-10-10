@@ -24,7 +24,7 @@ object MarkdownHtmlRenderer {
         .preserveRelativeLinks(true)
 
     @JvmStatic
-    fun body(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false): String {
+    fun body(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false, nodes: List<Node>? = null): String {
         val headings = state.headings.associateBy { it.line }
         val renderer = HtmlRenderer.builder().extensions(MarkdownExtensions.all())
             .escapeHtml(false).sanitizeUrls(true).urlSanitizer(org.commonmark.renderer.html.DefaultUrlSanitizer(listOf("http", "https", "mailto", "file", "data"))).softbreak("<br>\n")
@@ -38,7 +38,8 @@ object MarkdownHtmlRenderer {
                         ?.let { attributes["id"] = it.anchor }
                 }
             }.nodeRendererFactory { context -> TechnicalRenderer(context, state, sourceMap) }.build()
-        val clean = Jsoup.clean(renderer.render(state.root), base ?: "file:///", allowed(),
+        val output = if (nodes == null) renderer.render(state.root) else nodes.joinToString("") { renderer.render(it) }
+        val clean = Jsoup.clean(output, base ?: "file:///", allowed(),
             org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
         val document = Jsoup.parseBodyFragment(clean)
         // CommonMark 的任务扩展只输出 input；给所属列表项明确分类，不能同时保留圆点。

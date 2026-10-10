@@ -30,6 +30,7 @@ import javax.imageio.ImageIO
 
 /** 复杂块共用完整排版，保留全文源码坐标；离屏释放 WebView，选择、搜索及输入时回到源码。 */
 class MarkdownEmbeddedPresentation(private val area: EditorArea) {
+    private data class CachedFragment(val html: String, val comparable: String, val start: Int, val line: Int)
     private class Entry(var block: MarkdownEmbeddedBlocks.Block) {
         var html: String? = null
         var comparableHtml: String? = null
@@ -131,20 +132,41 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             return
         }
         val base = file?.parentFile?.toURI()?.toASCIIString()
+        val reusable = if (!reload && renderedDependencies == state.htmlDependencies) entries.filter { entry ->
+            val source = entry.source
+            source != null && entry.html != null && entry.comparableHtml != null &&
+                source.length == entry.block.end - entry.block.start && state.text.regionMatches(entry.block.start, source, 0, source.length)
+        }.associate { entry -> entry.block.start to CachedFragment(entry.html!!, entry.comparableHtml!!, entry.renderedStart, entry.renderedLine) }
+        else emptyMap()
         renderTask = ThreadUtils.submit {
             try {
-                val document = Jsoup.parseBodyFragment(MarkdownHtmlRenderer.body(state, base, true))
+                val blocks = state.embeddedBlocks
+                val blocksByStart = blocks.associateBy { it.start }
+                val pendingBlocks = blocks.filter { it.start !in reusable }
+                val nodes = ArrayList<org.commonmark.node.Node>()
+                var partial = state.htmlDependencies.none { it.kind == "note-reference" || it.kind == "note-definition" }
+                var node = state.root.firstChild
+                var blockIndex = 0
+                while (node != null) {
+                    val first = node.sourceSpans.firstOrNull()?.inputIndex
+                    val end = node.sourceSpans.lastOrNull()?.let { it.inputIndex + it.length }
+                    if (first != null && end != null) {
+                        while (blockIndex < pendingBlocks.size && pendingBlocks[blockIndex].end <= first) blockIndex++
+                        val block = pendingBlocks.getOrNull(blockIndex)
+                        if (block != null && first < block.end && end > block.start) {
+                            nodes.add(node)
+                            if (first < block.start || end > block.end) partial = false
+                        }
+                    }
+                    node = node.next
+                }
+                // 全文 AST 保留引用解析和目录上下文；脚注编号及跨块 HTML 继续使用完整输出。
+                val document = Jsoup.parseBodyFragment(if (pendingBlocks.isEmpty()) "" else
+                    MarkdownHtmlRenderer.body(state, base, true, if (partial) nodes else null))
                 // 脚注库把第一条定义的坐标写到整组容器上；各定义必须按自己的源码范围拆开。
                 document.select("section.footnotes").removeAttr("data-source-start").removeAttr("data-source-line")
                 val sourceNodes = document.select("[data-source-start]")
-                val targets = document.select("[id]").mapNotNull { element ->
-                    val source = element.parents().firstOrNull { it.hasAttr("data-source-start") }
-                    val position = element.attr("data-source-start").toIntOrNull()
-                        ?: source?.attr("data-source-start")?.toIntOrNull()
-                    position?.let { element.id() to it }
-                }.toMap()
-                val blocks = state.embeddedBlocks
-                val buffers = blocks.associate { it.start to StringBuilder() }
+                val buffers = pendingBlocks.associate { it.start to StringBuilder() }
                 for (element in sourceNodes) {
                     val offset = element.attr("data-source-start").toIntOrNull() ?: continue
                     var low = 0
@@ -154,7 +176,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                         if (blocks[middle].start <= offset) low = middle + 1 else high = middle - 1
                     }
                     val block = blocks.getOrNull(high) ?: continue
-                    if (offset >= block.end || element.parents().any { parent ->
+                    if (block.start !in buffers || offset >= block.end || element.parents().any { parent ->
                         parent.attr("data-source-start").toIntOrNull()?.let { it >= block.start && it < block.end } == true
                     }) continue
                     val html = if (element.normalName() == "li" && element.parent()?.parent()?.hasClass("footnotes") == true)
@@ -163,9 +185,26 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     buffers.getValue(block.start).append(html)
                 }
                 // HTML 归一化也留在后台，界面线程只比较结果并更新实际变化的页面。
-                val fragments = buffers.mapValues { (_, buffer) ->
+                val fragments = reusable.mapValues { (start, cached) ->
+                    val line = blocksByStart.getValue(start).firstLine
+                    val html = SOURCE_COORDINATES.replace(cached.html) { match ->
+                        val delta = if (match.groupValues[1] == "start") start - cached.start else line - cached.line
+                        "data-source-${match.groupValues[1]}=\"${match.groupValues[2].toInt() + delta}\""
+                    }
+                    html to cached.comparable
+                } + buffers.mapValues { (_, buffer) ->
                     val html = buffer.toString()
                     html to stableHtml(html)
+                }
+                val targets = state.headings.associate { it.anchor to state.lines[it.line].start }.toMutableMap()
+                for (block in blocks) {
+                    val fragment = fragments[block.start]?.first ?: continue
+                    Jsoup.parseBodyFragment(fragment).select("[id]").forEach { element ->
+                        val source = element.parents().firstOrNull { it.hasAttr("data-source-start") }
+                        val position = element.attr("data-source-start").toIntOrNull()
+                            ?: source?.attr("data-source-start")?.toIntOrNull()
+                        if (position != null) targets[element.id()] = position
+                    }
                 }
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
@@ -634,7 +673,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     }
 
     companion object {
-        private val SOURCE_COORDINATES = Regex("data-source-(?:start|line)=\"[0-9]+\"")
+        private val SOURCE_COORDINATES = Regex("data-source-(start|line)=\"([0-9]+)\"")
         private val CHECKED_ATTRIBUTE = Regex("\\schecked(?:=\"[^\"]*\")?")
         private val INPUT_TAG = Regex("<input\\b[^>]*>")
     }
