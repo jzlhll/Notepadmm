@@ -34,6 +34,7 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
     private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
     private static final String MARKDOWN_EMOJI_STYLE = "markdown-emoji";
+    private static final int MARKDOWN_LEFT_PADDING = 170;
     public static final String MARKDOWN_EMOJI_GLYPH_PREFIX = "markdown-emoji-glyph:";
     public static final String MARKDOWN_EMOJI_RENDERED_CLASS = "markdown-emoji-rendered";
     public static final String MARKDOWN_LIST_BULLET_PREFIX = "markdown-list-bullet:";
@@ -135,13 +136,13 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
         String inlineStyle = "";
         String previewHeight = null;
         double headerHeight = 0;
-        double sourceLeftPadding = 95;
+        double sourceLeftPadding = MARKDOWN_LEFT_PADDING + 10;
         if (styleClasses != null) for (String style : styleClasses) {
             if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 headerHeight = Double.parseDouble(style.substring(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX.length()));
             } else if (style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 headerHeight = Double.parseDouble(style.substring(TABLE_SOURCE_HEADER_HEIGHT_PREFIX.length()));
-                sourceLeftPadding = 85;
+                sourceLeftPadding = MARKDOWN_LEFT_PADDING;
             }
         }
         String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 " + sourceLeftPadding + ";" : "";
@@ -165,14 +166,14 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 if (fields.length == 6) {
                     int quote = Integer.parseInt(fields[1]);
                     int list = Integer.parseInt(fields[2]);
-                    int left = 85 + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
+                    int left = MARKDOWN_LEFT_PADDING + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
                     if (quote > 0) {
                         // JavaFX 会将最内层引用边框的 inset 与宽度计入内容留白，padding 只补足剩余间距。
-                        left -= 85 + (quote - 1) * 12 + 2;
+                        left -= MARKDOWN_LEFT_PADDING + (quote - 1) * 12 + 2;
                     } else if (styleClasses.contains("md-heading-1") || styleClasses.contains("md-heading-2")
                             || styleClasses.contains("md-thematic-break")) {
                         // 标题下划线与分隔线的边框已计入正文左侧留白，避免 padding 再叠加一次。
-                        left -= 85;
+                        left -= MARKDOWN_LEFT_PADDING;
                     }
                     markdownLayout = "-fx-padding: " + (Double.parseDouble(fields[3]) + headerHeight)
                             + " 10 " + fields[4] + " " + left + ";";
@@ -183,13 +184,13 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                         for (int depth = 0; depth < quote; depth++) {
                             colors.add("transparent transparent transparent -au-md-quote-border");
                             widths.add("0 0 0 2");
-                            insets.add("0 0 0 " + (85 + depth * 12));
+                            insets.add("0 0 0 " + (MARKDOWN_LEFT_PADDING + depth * 12));
                         }
                         markdownLayout += "-fx-border-color:" + String.join(",", colors)
                                 + ";-fx-border-width:" + String.join(",", widths)
                                 + ";-fx-border-insets:" + String.join(",", insets) + ";";
                         if (!Boolean.parseBoolean(fields[5])) {
-                            markdownLayout += "-fx-background-color:-au-md-quote-bg;-fx-background-insets:0 0 0 85;";
+                            markdownLayout += "-fx-background-color:-au-md-quote-bg;-fx-background-insets:0 0 0 " + MARKDOWN_LEFT_PADDING + ";";
                         }
                     }
                 }

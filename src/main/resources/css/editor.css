@@ -23,6 +23,14 @@
   -fx-padding: 0 0 0 85px;
 }
 
+.styled-text-area.editor-area.markdown-document-editor {
+  -fx-padding: 0 170px 0 0;
+}
+
+.styled-text-area.markdown-document-editor .paragraph-text {
+  -fx-padding: 0 0 0 170px;
+}
+
 /* 编辑器滚动条使用细圆角滑块，轨道与正文背景融合。 */
 .editor-virtualized-scroll-pane,
 .editor-virtualized-scroll-pane > .scroll-bar {

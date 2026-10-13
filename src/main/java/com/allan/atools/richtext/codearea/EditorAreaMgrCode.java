@@ -55,6 +55,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         mKeywordHelper = createKeywordHelper(sourceFile);
         area.getStyleClass().remove("markdown-editor");
         if (mKeywordHelper instanceof EditorKeywordHelperImplMarkdown) area.getStyleClass().add("markdown-editor");
+        MarkdownDocumentLayout.apply(area, getDocumentState().getDisplayName());
         ensureKeywordStylesheet(mKeywordHelper);
         MarkdownThemes.attachEditor(area);
         if (mKeywordHelper != null) {
@@ -87,6 +88,7 @@ public final class EditorAreaMgrCode extends EditorAreaMgr {
         mKeywordHelper = createKeywordHelper(sourceFile);
         getArea().getStyleClass().remove("markdown-editor");
         if (mKeywordHelper instanceof EditorKeywordHelperImplMarkdown) getArea().getStyleClass().add("markdown-editor");
+        MarkdownDocumentLayout.apply(getArea(), getDocumentState().getDisplayName());
         ensureKeywordStylesheet(mKeywordHelper);
         bindStyleTextChanges();
         if (mKeywordHelper == null) {
