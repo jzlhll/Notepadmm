@@ -158,6 +158,11 @@ public final class JfoenixDialogUtils {
             }
             alert.hideWithAnimation();
         });
+        confirmButton.setDefaultButton(true);
+        edit.setOnAction(event -> {
+            confirmButton.fire();
+            event.consume();
+        });
         layout.setActions(closeButton, confirmButton);
         alert.setContent(layout);
         layout.requestFocus();

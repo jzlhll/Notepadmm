@@ -121,6 +121,10 @@
 }
 
 /* ===== 表格单元格预览 ===== */
+.markdown-table-line-gutter {
+    -fx-background-color: -au-editor-lineno-color;
+}
+
 .markdown-table-preview-row {
     -fx-background-color: -au-editor-bg-color;
 }

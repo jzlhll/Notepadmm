@@ -1086,6 +1086,7 @@ public final class MarkdownTablePreviewManager {
             }
             addEventFilter(ScrollEvent.SCROLL, event -> scrollTable(layout.table, event));
             if (base != null) {
+                getStyleClass().add("markdown-table-line-gutter");
                 base.setOpacity(0);
                 getChildren().add(base);
             }
