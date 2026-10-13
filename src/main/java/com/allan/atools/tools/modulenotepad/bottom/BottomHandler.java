@@ -155,7 +155,9 @@ final class BottomHandler extends Handler {
             Log.d("Styler: trigger when triggerSelection TemporarySearch flag " + flag);
         }
         removeMessages(MSG_TRIGGER_SEARCH);
-        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH, from(ClickType.Temp), 0, flag), DELAY_TRIGGER_SEARCH_TEMPORARY_TS);
+        // 新选区保留防抖，空选区立即刷新缓存和着色。
+        long delay = TextUtils.isEmpty(out.getTemporaryWord()) ? 0 : DELAY_TRIGGER_SEARCH_TEMPORARY_TS;
+        sendMessageDelayed(obtainMessage(MSG_TRIGGER_SEARCH, from(ClickType.Temp), 0, flag), delay);
     }
 
     void triggerSearchParamsChanged(final long flag) {

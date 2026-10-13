@@ -6,6 +6,8 @@ import com.allan.atools.UIContext;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.bean.SearchParamsIndicator;
 import com.allan.atools.richtext.codearea.EditorArea;
+import com.allan.atools.richtext.codearea.EditorAreaMgrCode;
+import com.allan.atools.richtext.codearea.EditorTemporaryHighlight;
 import com.allan.atools.tools.modulenotepad.Highlight;
 import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.SnackbarUtils;
@@ -39,7 +41,13 @@ public final class BottomSearchBtnsMgr {
     public BottomSearchBtnsMgr(EditorArea editorImpl) {
         editorArea = editorImpl;
         handler = new BottomHandler(this);
-        selectionListenerDelay.setOnFinished(event -> isEnableSelectionListener = true);
+        selectionListenerDelay.setOnFinished(event -> {
+            isEnableSelectionListener = true;
+            // 搜索跳转产生的非空选区仍不触发临时搜索，补同步期间已经收起的选区。
+            if (!editorArea.getEditor().isDestroyed() && editorArea.getSelection().getLength() == 0) {
+                onSelectionChanged(null);
+            }
+        });
     }
 
     public void destroy() {
@@ -61,19 +69,31 @@ public final class BottomSearchBtnsMgr {
             handler.triggerSearchWhenTextChanged(flag);
         });
 
-        editorArea.getEditor().selectionChanged.addAction(selectStr-> {
-            if (isEnableSelectionListener) {
-                if (!TextUtils.equalsAllowNullOrEmptyEqual(selectStr, temporaryWord)) {
-                    var flag = lastChangeSearchFlag.incrementAndGet();
-                    if(Styler.DEBUG_STYLER) Log.v("Styler: bottom selection changed 22 flag=" + flag);
-                    temporaryWord = selectStr;
-                    handler.triggerSelectionTemporarySearch(flag);
-                } else {
-                    if(Styler.DEBUG_STYLER) Log.v("Styler: bottom selection not changed ignore");
-                }
-            }
-        });
+        editorArea.getEditor().selectionChanged.addAction(this::onSelectionChanged);
         temporaryWord = null;
+    }
+
+    private void onSelectionChanged(String selectStr) {
+        boolean empty = TextUtils.isEmpty(selectStr);
+        if (editorArea.getEditor().isDestroyed() || !empty && !isEnableSelectionListener) return;
+        boolean changed = !TextUtils.equalsAllowNullOrEmptyEqual(selectStr, temporaryWord);
+        if (!changed) return;
+        temporaryWord = empty ? null : selectStr;
+        long flag = lastChangeSearchFlag.incrementAndGet();
+        if (empty) {
+            // 同步更新现有样式请求状态，阻止仍携带旧临时词的后台结果回写。
+            if (editorArea.getEditor().isEditorCodeMode()) {
+                ((EditorAreaMgrCode) editorArea.getEditor()).triggerSearch(null,
+                        mSearchParamAndIndicatorParam.searchParams, null);
+            }
+            editorArea.runAfterMarkdownComposition(() -> editorArea.getMarkdownSyntax().runAfterPointer(() -> {
+                if (editorArea.getEditor().isDestroyed() || editorArea.getSelection().getLength() != 0
+                        || !TextUtils.isEmpty(temporaryWord)) return;
+                EditorTemporaryHighlight.clear(editorArea);
+            }));
+        }
+        if (Styler.DEBUG_STYLER) Log.v("Styler: bottom selection changed flag=" + flag);
+        handler.triggerSelectionTemporarySearch(flag);
     }
 
     private boolean isEnableSelectionListener = true;
