@@ -12,13 +12,11 @@
 .styled-text-area.markdown-editor .paragraph-text.md-heading-2 {
     -fx-border-color: -au-md-heading-border;
     -fx-border-width: 0 0 1 0;
-    -fx-border-insets: 0 0 0 170px;
 }
 .styled-text-area.editor-area .paragraph-text.md-body-paragraph { -fx-line-spacing: 3px; }
 .styled-text-area.editor-area .paragraph-text.md-thematic-break {
     -fx-border-color: -au-md-quote-border;
     -fx-border-width: 0 0 1 0;
-    -fx-border-insets: 0 0 0 170px;
 }
 /* 使用自带等宽字体，避免系统 monospace 回退字体中的下划线过细、贴近行底。 */
 .markdown-code, .markdown-inline-code { -fx-font-family: "JetBrains Mono"; }
@@ -35,41 +33,35 @@
 
 /* ===== 代码块整块圆角矩形背景（由 MarkdownPresentation 统一应用段落样式） =====
  * 应用于段落 TextFlow（Region）：首行上圆角 + 末行下圆角拼接成 3px 圆角整块。
- * 左缘 = TextFlow 左缘 + 170px（editor.css .paragraph-text 的左内边距，即正文起始线）；
- * 右缘 = TextFlow 右缘（.editor-area 的右 padding 已把 VirtualFlow 收窄 170px），
- * 两边均与编辑器的 padding 边缘对齐。 */
+ * 左缘跟随正文动态留白，右缘由编辑器右 padding 收窄后的 TextFlow 边界决定；
+ * CodeArea 统一计算背景、边框和正文的内联布局，两边随窗口宽度保持对齐。 */
 .md-code-block-first {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 3 3 0 0;
-    -fx-background-insets: 0 0 0 170px;
 }
 
 .md-code-block-mid {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 170px;
 }
 
 .md-code-block-last {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 0 0 3 3;
-    -fx-background-insets: 0 0 0 170px;
 }
 
 .md-code-block-single {
     -fx-background-color: -au-md-code-bg;
     -fx-background-radius: 3;
-    -fx-background-insets: 0 0 0 170px;
 }
 
 /* 代码块内容内空：在编辑器文本 padding 基础上左右再内缩 10px，文字不贴圆角背景边缘。
  * RichTextFX 会在 TextFlow 背景外增加行距，代码块须清零以免各行之间露出底色。
- * 复合选择器优先级需高于 editor.css 的 .paragraph-text 规则。 */
+ * 内空由 CodeArea 与动态正文边距一起计算。 */
 .styled-text-area.editor-area .paragraph-text.md-code-block-first,
 .styled-text-area.editor-area .paragraph-text.md-code-block-mid,
 .styled-text-area.editor-area .paragraph-text.md-code-block-last,
 .styled-text-area.editor-area .paragraph-text.md-code-block-single {
     -fx-line-spacing: 0;
-    -fx-padding: 0 10px 0 180px;
 }
 
 .styled-text-area.editor-area .paragraph-text.md-code-block-empty {
@@ -354,20 +346,16 @@
 .styled-text-area.editor-area .paragraph-text.md-front-matter { -fx-line-spacing: 0; }
 .md-front-matter-first {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 170px;
     -fx-background-radius: 4 4 0 0;
 }
 .md-front-matter-mid {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 170px;
 }
 .md-front-matter-last {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 170px;
     -fx-background-radius: 0 0 4 4;
 }
 .md-front-matter-single {
     -fx-background-color: -au-md-code-bg;
-    -fx-background-insets: 0 0 0 170px;
     -fx-background-radius: 4;
 }

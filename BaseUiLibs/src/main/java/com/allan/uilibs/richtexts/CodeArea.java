@@ -4,6 +4,8 @@ import com.allan.baseparty.Action;
 import com.allan.baseparty.utils.ReflectionUtils;
 import javafx.beans.NamedArg;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.Node;
 import javafx.scene.Cursor;
@@ -34,7 +36,6 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private static final String MARKDOWN_ITALIC_STYLE = "markdown-italic";
     private static final String MARKDOWN_BOLD_STYLE = "markdown-bold";
     private static final String MARKDOWN_EMOJI_STYLE = "markdown-emoji";
-    private static final int MARKDOWN_LEFT_PADDING = 170;
     public static final String MARKDOWN_EMOJI_GLYPH_PREFIX = "markdown-emoji-glyph:";
     public static final String MARKDOWN_EMOJI_RENDERED_CLASS = "markdown-emoji-rendered";
     public static final String MARKDOWN_LIST_BULLET_PREFIX = "markdown-list-bullet:";
@@ -103,14 +104,20 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
     private CodeArea(@NamedArg("document") EditableStyledDocument<Collection<String>, String, Collection<String>> document,
                      @NamedArg("preserveStyle") boolean preserveStyle,
                      boolean markdownStyleEnabled) {
+        this(document, preserveStyle, markdownStyleEnabled, new SimpleDoubleProperty(85));
+    }
+
+    private CodeArea(EditableStyledDocument<Collection<String>, String, Collection<String>> document,
+                     boolean preserveStyle, boolean markdownStyleEnabled, DoubleProperty textLeftPadding) {
         super(Collections.<String>emptyList(),
-                CodeArea::applyParagraphStyle,
+                (paragraph, styles) -> applyParagraphStyle(paragraph, styles, textLeftPadding),
                 new ArrayList<String>(1),
                 markdownStyleEnabled ? CodeArea::applyMarkdownTextStyle : CodeArea::applyTextStyle,
                 document,
                 preserveStyle
         );
 
+        textLeftPadding.bind(Bindings.createDoubleBinding(() -> getPadding().getRight(), paddingProperty()));
         getInitialTextStyle().add("editor-default-label");
 
         setStyleCodecs(
@@ -130,22 +137,46 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
      * 普通条目作为样式类追加；pref-height: 开头的条目转为 -fx-pref-height 内联样式，
      * 利用 Region.prefHeight(double) 优先返回该属性的机制撑高行高（ParagraphBox.computePrefHeight 只算文本高度）。
      */
-    private static void applyParagraphStyle(javafx.scene.text.TextFlow paragraph, Collection<String> styleClasses) {
+    private static void applyParagraphStyle(javafx.scene.text.TextFlow paragraph, Collection<String> styleClasses,
+                                           DoubleProperty textLeftPadding) {
         // 虚拟段落节点会复用，先移除上一轮的 Markdown 类，避免源码模式残留排版。
         paragraph.getStyleClass().removeIf(style -> style.startsWith("md-") || style.startsWith("markdown-"));
+        boolean preview = false;
+        for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
+            boolean previewHeight = style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)
+                    || style.startsWith(MERMAID_PREVIEW_HEIGHT_PREFIX) || style.startsWith(DETAILS_PREVIEW_HEIGHT_PREFIX)
+                    || style.startsWith(EMBEDDED_PREVIEW_HEIGHT_PREFIX);
+            if (previewHeight || style.equals("md-front-matter-delimiter-collapsed")) preview = true;
+            if (!previewHeight && !style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)
+                    && !style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)
+                    && !style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX) && !style.startsWith("md-layout:")) {
+                paragraph.getStyleClass().add(style);
+            }
+        }
+        paragraph.setMouseTransparent(preview);
+        // 只重排仍被虚拟列表持有的段落，边距变化不写入文档样式或触发全文解析。
+        paragraph.styleProperty().unbind();
+        paragraph.styleProperty().bind(Bindings.createStringBinding(
+                () -> createParagraphStyle(styleClasses, textLeftPadding.get()), textLeftPadding));
+    }
+
+    private static String createParagraphStyle(Collection<String> styleClasses, double textLeftPadding) {
         String inlineStyle = "";
         String previewHeight = null;
         double headerHeight = 0;
-        double sourceLeftPadding = MARKDOWN_LEFT_PADDING + 10;
+        boolean blockBackground = styleClasses != null && styleClasses.stream().anyMatch(
+                style -> style.startsWith("md-code-block-") || style.startsWith("md-front-matter"));
+        double sourceLeftPadding = textLeftPadding + 10;
         if (styleClasses != null) for (String style : styleClasses) {
             if (style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 headerHeight = Double.parseDouble(style.substring(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX.length()));
             } else if (style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX)) {
                 headerHeight = Double.parseDouble(style.substring(TABLE_SOURCE_HEADER_HEIGHT_PREFIX.length()));
-                sourceLeftPadding = MARKDOWN_LEFT_PADDING;
+                sourceLeftPadding = textLeftPadding;
             }
         }
-        String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 " + sourceLeftPadding + ";" : "";
+        String markdownLayout = headerHeight > 0 ? "-fx-padding: " + headerHeight + " 10 0 " + sourceLeftPadding + ";"
+                : "-fx-padding:0 " + (blockBackground ? 10 : 0) + " 0 " + (textLeftPadding + (blockBackground ? 10 : 0)) + ";";
         for (String style : styleClasses == null ? Collections.<String>emptyList() : styleClasses) {
             if (style.startsWith(PARAGRAPH_PREVIEW_HEIGHT_PREFIX)) {
                 previewHeight = style.substring(PARAGRAPH_PREVIEW_HEIGHT_PREFIX.length()) + "px";
@@ -166,14 +197,14 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                 if (fields.length == 6) {
                     int quote = Integer.parseInt(fields[1]);
                     int list = Integer.parseInt(fields[2]);
-                    int left = MARKDOWN_LEFT_PADDING + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
+                    double left = textLeftPadding + quote * 12 + Math.max(0, list - 1) * 14 + (Boolean.parseBoolean(fields[5]) ? 10 : 0);
                     if (quote > 0) {
                         // JavaFX 会将最内层引用边框的 inset 与宽度计入内容留白，padding 只补足剩余间距。
-                        left -= MARKDOWN_LEFT_PADDING + (quote - 1) * 12 + 2;
+                        left -= textLeftPadding + (quote - 1) * 12 + 2;
                     } else if (styleClasses.contains("md-heading-1") || styleClasses.contains("md-heading-2")
                             || styleClasses.contains("md-thematic-break")) {
                         // 标题下划线与分隔线的边框已计入正文左侧留白，避免 padding 再叠加一次。
-                        left -= MARKDOWN_LEFT_PADDING;
+                        left -= textLeftPadding;
                     }
                     markdownLayout = "-fx-padding: " + (Double.parseDouble(fields[3]) + headerHeight)
                             + " 10 " + fields[4] + " " + left + ";";
@@ -184,27 +215,30 @@ public abstract class CodeArea extends StyledTextArea<Collection<String>, Collec
                         for (int depth = 0; depth < quote; depth++) {
                             colors.add("transparent transparent transparent -au-md-quote-border");
                             widths.add("0 0 0 2");
-                            insets.add("0 0 0 " + (MARKDOWN_LEFT_PADDING + depth * 12));
+                            insets.add("0 0 0 " + (textLeftPadding + depth * 12));
                         }
                         markdownLayout += "-fx-border-color:" + String.join(",", colors)
                                 + ";-fx-border-width:" + String.join(",", widths)
                                 + ";-fx-border-insets:" + String.join(",", insets) + ";";
                         if (!Boolean.parseBoolean(fields[5])) {
-                            markdownLayout += "-fx-background-color:-au-md-quote-bg;-fx-background-insets:0 0 0 " + MARKDOWN_LEFT_PADDING + ";";
+                            markdownLayout += "-fx-background-color:-au-md-quote-bg;-fx-background-insets:0 0 0 " + textLeftPadding + ";";
                         }
                     }
                 }
-            } else {
-                paragraph.getStyleClass().add(style);
             }
+        }
+        if (blockBackground) markdownLayout += "-fx-background-insets:0 0 0 " + textLeftPadding + ";";
+        if (styleClasses != null && !styleClasses.contains("md-quote-paragraph")
+                && (styleClasses.contains("md-heading-1") || styleClasses.contains("md-heading-2")
+                || styleClasses.contains("md-thematic-break"))) {
+            markdownLayout += "-fx-border-insets:0 0 0 " + textLeftPadding + ";";
         }
         if (styleClasses != null && styleClasses.contains("md-front-matter-delimiter-collapsed")) previewHeight = "0px";
         if (previewHeight != null) {
             inlineStyle = "-fx-min-height: " + previewHeight + ";-fx-pref-height: " + previewHeight
                     + ";-fx-max-height: " + previewHeight + ";-fx-pref-width: 0;-fx-opacity: 0;";
         }
-        paragraph.setStyle(markdownLayout + inlineStyle);
-        paragraph.setMouseTransparent(previewHeight != null);
+        return markdownLayout + inlineStyle;
     }
 
     private static void applyMarkdownTextStyle(TextExt text, Collection<String> styleClasses) {

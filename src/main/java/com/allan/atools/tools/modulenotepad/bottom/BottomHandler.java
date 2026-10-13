@@ -215,6 +215,8 @@ final class BottomHandler extends Handler {
         curParams = out.mSearchParamAndIndicatorParam.searchParams.copy();
         tempWord = out.getTemporaryWord();
         curTempParams = curParams.copy(tempWord, false, true);
+        curTempParams.type = SearchParams.Type.Normal;
+        curTempParams.useCaseMatch = true;
 
         SearchParams[] searchParams;
         boolean isEmptyCur = TextUtils.isEmpty(curParams.words);

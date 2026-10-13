@@ -162,6 +162,10 @@ public final class ATools {
     // (BuiltinClassLoader.java:641)
     public static void main(String[] args) {
         DebugRuntime.initialize();
+        // 避开 macOS Metal 在跨屏缩放时创建渲染纹理的原生崩溃；保留显式 JVM 配置。
+        if (ResLocation.isOsx && System.getProperty("prism.order") == null) {
+            System.setProperty("prism.order", "es2,sw");
+        }
         Log.e("startup: ==================== new launch ====================");
         Log.e("startup: main entered, args count: " + args.length);
         if (!InstanceLock.tryLock()) {

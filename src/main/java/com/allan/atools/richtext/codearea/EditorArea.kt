@@ -42,6 +42,7 @@ class EditorArea @JvmOverloads constructor(
     val viewPosition: EditorViewPosition
     private var followZoomCaretRequested = false
     private var taskPointerDown = false
+    val documentLayout = MarkdownDocumentLayout(this)
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
     val markdownSyntax = MarkdownSyntaxPresentation(this)
@@ -300,11 +301,13 @@ class EditorArea @JvmOverloads constructor(
     }
 
     override fun layoutChildren() {
+        documentLayout.refresh()
         val followZoomCaret = followZoomCaretRequested
         followZoomCaretRequested = false
         val wrapMarkdown = isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached
         paragraphWrapping.refresh(wrapMarkdown, collect = false)
         super.layoutChildren()
+        documentLayout.refresh()
         paragraphWrapping.refresh(wrapMarkdown)
         // 等原有光标跟随完成布局，再处理缩放视口的横向裁剪。
         if (followZoomCaret) {

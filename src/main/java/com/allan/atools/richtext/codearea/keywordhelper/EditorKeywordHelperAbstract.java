@@ -30,29 +30,40 @@ public abstract class EditorKeywordHelperAbstract {
     }
 
     final String[] paramsToPatterns(SearchParams temporary, SearchParams search) {
-        //todo temp的字段就采用\b全词匹配并匹配大小写
-        String tempPattern = temporary == null ? null : (TextUtils.isEmpty(temporary.words) ? null : "\\b" + temporary.words + "\\b");
-        String searchPattern;
-        //todo 现在是不做正则修正。并且不管type是否为rule
-        if (search == null || TextUtils.isEmpty(search.words)) {
-            searchPattern = null;
-        } else if (search.useWholeWords) {
-            if (search.useCaseMatch) {
-                searchPattern = "\\b" + search.words + "\\b";
+        // 临时选词始终按原文、全词及大小写匹配，不继承搜索框的正则模式。
+        String tempPattern = temporary == null || TextUtils.isEmpty(temporary.words)
+                ? null : literalPattern(temporary.words, true);
+        String searchPattern = null;
+        if (search != null && !TextUtils.isEmpty(search.words)) {
+            if (search.type == SearchParams.Type.Normal) {
+                searchPattern = literalPattern(search.words, search.useWholeWords);
             } else {
-                searchPattern = "(?i)\\b" + search.words + "\\b";
+                searchPattern = search.useWholeWords ? "\\b(?:" + search.words + ")\\b" : search.words;
             }
-        } else {
-            if (search.useCaseMatch) {
-                searchPattern = search.words;
-            } else {
-                searchPattern = "(?i)" + search.words;
+            if (!search.useCaseMatch) {
+                searchPattern = "(?i:" + searchPattern + ")";
             }
         }
 
         mIsTemporaryEnabled = tempPattern != null;
         mIsSearchEnabled = searchPattern != null;
         return new String[]{tempPattern, searchPattern};
+    }
+
+    private static String literalPattern(String words, boolean wholeWords) {
+        String pattern = Pattern.quote(words);
+        if (wholeWords) {
+            // 符号本身就是分隔符，仅文字端需要全词边界；边界支持中文等 Unicode 文字。
+            int first = words.codePointAt(0);
+            int last = words.codePointBefore(words.length());
+            if (Character.isLetterOrDigit(first) || first == '_') {
+                pattern = "(?U:\\b)" + pattern;
+            }
+            if (Character.isLetterOrDigit(last) || last == '_') {
+                pattern += "(?U:\\b)";
+            }
+        }
+        return pattern;
     }
 
     public final StyleUpdate computeStyleUpdate(String text, SearchParams temporary, SearchParams search,
