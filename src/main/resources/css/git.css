@@ -1,0 +1,80 @@
+/* Git 徽标保留文件树现有的文件类型文字颜色。 */
+.git-status-badge {
+    -fx-font-family: monospace;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-min-width: 18px;
+    -fx-alignment: center;
+    -fx-padding: 1px 3px;
+    -fx-background-radius: 4px;
+}
+.git-status-added { -fx-text-fill: -au-git-added-text; -fx-background-color: -au-git-added-bg; }
+.git-status-deleted { -fx-text-fill: -au-git-deleted-text; -fx-background-color: -au-git-deleted-bg; }
+.git-status-changed { -fx-text-fill: -au-git-changed-text; -fx-background-color: -au-git-hunk-bg; }
+.git-status-conflict { -fx-text-fill: -au-git-deleted-text; -fx-background-color: -au-git-word-deleted; }
+.git-diff-window { -fx-background-color: -au-main-bg-color; }
+.git-diff-window .label { -fx-text-fill: -au-default-text-color; }
+/* 对比内容占满窗口，操作栏与侧标题使用轻边框区分层级。 */
+.git-diff-toolbar, .git-diff-side-title {
+    -fx-background-color: -au-main-bg-color2;
+    -fx-border-color: transparent transparent -au-main-window-border-color transparent;
+    -fx-border-width: 0 0 1px 0;
+}
+.git-diff-toolbar .button, .git-diff-toolbar .toggle-button, .git-diff-toolbar .combo-box {
+    -fx-background-color: -au-main-bg-color;
+    -fx-text-fill: -au-default-text-color;
+    -fx-background-radius: 5px;
+    -fx-border-radius: 5px;
+    -fx-border-color: -au-main-window-border-color;
+    -fx-padding: 5px 9px;
+}
+.git-diff-toolbar .button:hover, .git-diff-toolbar .toggle-button:hover {
+    -fx-background-color: -au-workspace-bg-color;
+}
+.git-diff-toolbar .toggle-button:selected {
+    -fx-background-color: -au-git-hunk-bg;
+    -fx-border-color: -au-git-changed-text;
+    -fx-text-fill: -au-git-changed-text;
+}
+.git-diff-window .split-pane {
+    -fx-background-color: -au-editor-bg-color;
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+.git-diff-window .split-pane-divider {
+    -fx-background-color: -au-main-window-border-color;
+    -fx-padding: 0 1px 0 0;
+}
+.git-diff-status-bar {
+    -fx-background-color: -au-main-bg-color2;
+    -fx-border-color: -au-main-window-border-color transparent transparent transparent;
+    -fx-border-width: 1px 0 0 0;
+}
+.git-diff-side-title { -fx-font-weight: bold; -fx-padding: 10px 14px; }
+.git-diff-area {
+    -fx-background-color: -au-editor-bg-color;
+    -fx-font-family: "JetBrains Mono", monospace;
+    -fx-font-size: 15px;
+    -fx-padding: 0;
+}
+.git-diff-area .text { -fx-fill: -au-editor-text-color; }
+.git-diff-area .caret { -fx-stroke: -au-editor-caret-color; }
+.git-diff-area .paragraph-box { -fx-padding: 0; }
+.git-diff-area .paragraph-text { -fx-padding: 1px 8px; -fx-min-height: 26px; -fx-pref-height: 26px; -fx-max-height: 26px; }
+.git-diff-area .git-diff-number {
+    -fx-background-color: -au-workspace-bg-color;
+    -fx-text-fill: -au-default-desc-color;
+    -fx-font-family: monospace;
+    -fx-font-size: 15px;
+    -fx-padding: 1px 10px 1px 5px;
+    -fx-min-height: 26px;
+    -fx-pref-height: 26px;
+    -fx-max-height: 26px;
+}
+.git-diff-area .git-diff-added { -fx-background-color: -au-git-added-bg; }
+.git-diff-area .git-diff-deleted { -fx-background-color: -au-git-deleted-bg; }
+.git-diff-area .git-diff-fold { -fx-background-color: -au-workspace-bg-color; -fx-padding: 1px 14px; }
+.git-diff-area .git-diff-fold .text { -fx-fill: -au-default-desc-color; }
+.git-diff-area .git-diff-meta, .git-diff-area .git-diff-note, .git-diff-area .git-diff-gap { -fx-background-color: -au-workspace-bg-color; }
+.git-diff-area .git-diff-word-added { -rtfx-background-color: -au-git-word-added; }
+.git-diff-area .git-diff-word-deleted { -rtfx-background-color: -au-git-word-deleted; }

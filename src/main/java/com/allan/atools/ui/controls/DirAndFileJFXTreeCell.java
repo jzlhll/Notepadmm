@@ -1,6 +1,7 @@
 package com.allan.atools.ui.controls;
 
 import com.allan.uilibs.controls.TreeItemEx;
+import com.allan.atools.tools.modulenotepad.workspace.GitWorkspaceSupport;
 import com.jfoenix.controls.JFXTreeCell;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
@@ -81,6 +82,7 @@ public final class DirAndFileJFXTreeCell<T> extends JFXTreeCell<T> {
 
     @Override
     protected void updateDisplay(T item, boolean empty) {
+        setTooltip(null);
         if (item == null || empty) {
             hbox = null;
             setText(null);
@@ -90,7 +92,7 @@ public final class DirAndFileJFXTreeCell<T> extends JFXTreeCell<T> {
             boolean isDir = false;
             if (treeItem instanceof TreeItemEx<?> treeItemEx) {
                 if(treeItemEx.ex instanceof File file) {
-                    isDir = file.isDirectory();
+                    isDir = GitWorkspaceSupport.isDirectory(getTreeView(), file);
                 }
             }
 
@@ -134,6 +136,7 @@ public final class DirAndFileJFXTreeCell<T> extends JFXTreeCell<T> {
                     }
                 }
             }
+            GitWorkspaceSupport.decorateCell(this);
         }
     }
 }

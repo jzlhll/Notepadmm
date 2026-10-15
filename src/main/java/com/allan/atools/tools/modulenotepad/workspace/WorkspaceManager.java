@@ -25,6 +25,8 @@ import javafx.application.Platform;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.TreeCell;
+import javafx.scene.Node;
 import javafx.scene.control.TreeItem;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
@@ -65,6 +67,7 @@ public final class WorkspaceManager implements IWorkspace {
 
     private TreeItemEx<?> currentItem;
     private ContextMenu rightClickContextMenu;
+    private final GitWorkspaceSupport gitSupport = new GitWorkspaceSupport();
     private Tooltip sidebarToggleTooltip;
     private File pendingWorkspaceDir;
 
@@ -148,6 +151,7 @@ public final class WorkspaceManager implements IWorkspace {
     }
 
     private void hideWorkspace(boolean saveState) {
+        gitSupport.cancel();
         isWorkspaceShown = false;
         workspaceWidthReady = false;
         pendingWorkspaceDir = null;
@@ -356,11 +360,22 @@ public final class WorkspaceManager implements IWorkspace {
                         } else {
                             SnackbarUtils.show(Locales.str("cannotOpenThisFile"));
                         }
-                    } else {
+                    } else if (gitSupport.canBrowse(f)) {
                         openWorkspace(f);
+                    } else {
+                        SnackbarUtils.show(Locales.str("git.deletedHint"));
                     }
                 }
             } else if (event.getButton() == MouseButton.SECONDARY) {
+                Node picked = event.getPickResult().getIntersectedNode();
+                while (picked != null && !(picked instanceof TreeCell<?>)) {
+                    picked = picked.getParent();
+                }
+                if (!(picked instanceof TreeCell<?> cell) || cell.isEmpty()) {
+                    if (rightClickContextMenu != null) rightClickContextMenu.hide();
+                    return;
+                }
+                c.workspaceTree.getSelectionModel().select(cell.getIndex());
                 if (c.workspaceTree.getSelectionModel().getSelectedItem() instanceof TreeItemEx<?> treeItemEx) {
                     currentItem = treeItemEx;
                     createDeleteAndRenameContextMenu().show(event.getPickResult().getIntersectedNode(),
@@ -375,7 +390,7 @@ public final class WorkspaceManager implements IWorkspace {
     }
 
     private void openWorkspace(File dir, boolean mustDelayAddedStageFocus) {
-        if (dir == null || !dir.exists()) {
+        if (dir == null || !(gitSupport.canBrowse(dir) || dir.equals(currentDir) && !dir.exists())) {
             return;
         }
 
@@ -423,14 +438,12 @@ public final class WorkspaceManager implements IWorkspace {
             }));
         } else {
             if(DEBUG) Log.d(TAG, "treeItems: just directly action...>>>...<<<...");
-            if (!dir.exists()) {
-                return;
-            }
-
             pendingWorkspaceDir = null;
             currentDir = dir;
             var path = dir.getAbsolutePath();
             restoreWorkspaceViews();
+            UIContext.context().workspaceCreateFileBtn.setDisable(!dir.isDirectory());
+            UIContext.context().workspaceCreateDirBtn.setDisable(!dir.isDirectory());
 
             if(DEBUG) Log.d(TAG, "treeItems: real doing.....");
             var ctrl = UIContext.context();
@@ -482,10 +495,11 @@ public final class WorkspaceManager implements IWorkspace {
                 }
             }
 
+            gitSupport.refresh(dir, ctrl.workspaceTree, ctrl.workspaceText);
             if(DEBUG) Log.d(TAG, "treeItems: real done!");
             ThreadUtils.globalHandler().post(()-> {
                 var user = GlobalCfgStores.user();
-                user.setString(KEY_WORKSPACE_FILE, path);
+                if (dir.isDirectory()) user.setString(KEY_WORKSPACE_FILE, path);
                 user.setBoolean(KEY_WORKSPACE_IS_OPENED, true);
             });
         }
@@ -674,13 +688,25 @@ public final class WorkspaceManager implements IWorkspace {
             TyporaManager.getInstance().openFile(file);
         });
 
+        MenuItem gitDiff = new MenuItem(Locales.str("git.viewDiff"));
+        gitDiff.setOnAction(event -> {
+            if (currentItem != null && currentItem.ex instanceof File file) {
+                GitDiffWindow.show(UIContext.context().getStage(), currentDir, file);
+            }
+        });
+
         var menu = new ContextMenu();
-        menu.getItems().addAll(deleteMenu, modifyNameMenu, openToDir, openInTypora);
+        menu.getItems().addAll(gitDiff, deleteMenu, modifyNameMenu, openToDir, openInTypora);
         // 菜单会缓存，显示时重新读取异步检测结果及当前右键目标。
-        menu.setOnShowing(event -> openInTypora.setVisible(
-                TyporaManager.getInstance().isAvailable()
-                        && currentItem != null && currentItem.ex instanceof File file
-                        && TyporaManager.getInstance().supports(file) && file.isFile()));
+        menu.setOnShowing(event -> {
+            File file = currentItem != null && currentItem.ex instanceof File selected ? selected : null;
+            gitDiff.setVisible(file != null && gitSupport.isRepositoryPath(file));
+            deleteMenu.setDisable(file == null || !file.exists());
+            modifyNameMenu.setDisable(file == null || !file.exists());
+            openToDir.setDisable(file == null || !file.exists());
+            openInTypora.setVisible(TyporaManager.getInstance().isAvailable()
+                    && file != null && TyporaManager.getInstance().supports(file) && file.isFile());
+        });
         rightClickContextMenu = menu;
         return menu;
     }

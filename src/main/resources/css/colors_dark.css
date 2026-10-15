@@ -69,4 +69,13 @@
     -au-file-mask-media-color: #9b9192;
     -au-file-mask-image-color: #12a182;
     -au-file-mask-other-color: #444444;
+    /* 工作区 Git 状态和差异视图。 */
+    -au-git-added-text: #87daa2;
+    -au-git-deleted-bg: #482a31;
+    -au-git-deleted-text: #ffaaa3;
+    -au-git-added-bg: #203e2d;
+    -au-git-changed-text: #9ac5ff;
+    -au-git-hunk-bg: #293d59;
+    -au-git-word-added: #306745;
+    -au-git-word-deleted: #773d46;
 }
