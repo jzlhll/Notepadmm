@@ -5,8 +5,10 @@
 
 .main-window-root {
    -fx-background-color: -au-main-bg-color;
+   -fx-background-radius: 9;
    -fx-border-color: -au-main-window-border-color;
-   -fx-border-width: 2;
+   -fx-border-radius: 9;
+   -fx-border-width: 3;
 }
 
 .custom-main-bg2 {

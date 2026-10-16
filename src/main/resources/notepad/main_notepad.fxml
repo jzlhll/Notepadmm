@@ -9,6 +9,12 @@
            xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
            style="-fx-background-color: transparent;">
 <VBox fx:id="notepadRoot" styleClass="main-window-root,custom-main-bg">
+    <!-- 内容圆角扣除 3px 外框，避免子节点背景覆盖弧形边框。 -->
+    <VBox fx:id="notepadWindowContent" VBox.vgrow="ALWAYS">
+        <clip>
+            <Rectangle width="${notepadWindowContent.width}" height="${notepadWindowContent.height}"
+                       arcWidth="12" arcHeight="12"/>
+        </clip>
     <HBox fx:id="notepadMainHeadBox" styleClass="notepad-main-head" alignment="CENTER_LEFT" VBox.vgrow="NEVER">
         <HBox fx:id="notepadWindowTitleBox" styleClass="window-title-section" alignment="CENTER_LEFT" spacing="8">
             <HBox styleClass="window-controls" alignment="CENTER_LEFT" spacing="8">
@@ -307,5 +313,6 @@
         </JFXRippler>
         </HBox>
     </HBox>
+    </VBox>
 </VBox>
 </StackPane>

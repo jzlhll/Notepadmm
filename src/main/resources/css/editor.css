@@ -1,5 +1,9 @@
-.lineno {
+.lineno,
+.editor-line-number-background {
  -fx-background-color: -au-editor-lineno-color;
+}
+
+.lineno {
  -fx-font-family: monospace;
 }
 
@@ -12,7 +16,7 @@
 }
 
 .styled-text-area.editor-area {
-  -fx-padding: 0 85px 0 0;
+  -fx-padding: 0 36px 0 0;
 }
 
 .styled-text-area.editor-area .paragraph-box {
@@ -20,7 +24,7 @@
 }
 
 .styled-text-area.editor-area .paragraph-text {
-  -fx-padding: 0 0 0 85px;
+  -fx-padding: 0 0 0 36px;
 }
 
 .styled-text-area.editor-area.markdown-document-editor {

@@ -82,6 +82,13 @@ class EditorScrollPane(val editorArea: EditorArea) :
 /** 将缩放后的虚拟文档尺寸和滚动位置映射到编辑器坐标。 */
 class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     private val zoom = SimpleDoubleProperty(1.0)
+    // 留白使用滚动条占位前的尺寸，滚动条只改变正文视口，不参与留白计算。
+    val documentLayoutWidth: Double
+        get() = (parent as? EditorScrollPane)?.width ?: width
+
+    val documentLayoutHeight: Double
+        get() = ((parent as? EditorScrollPane)?.height ?: height) / zoom.get()
+
     private val panX = Var.newSimpleVar(0.0)
     private val scale = Scale(1.0, 1.0, 0.0, 0.0)
     private val clipRect = Rectangle().apply {
@@ -96,18 +103,31 @@ class EditorZoomViewport(private val area: EditorArea) : Region(), Virtualized {
     private val emojiPulse = Runnable {
         if (decorationsDirty) {
             decorationsDirty = false
-            val texts = MarkdownVisibleParagraphs.texts(area)
-            emojiRendering.refresh(texts)
-            taskRendering.refresh(texts)
+            if (MarkdownEditorSupport.supportsMarkdown(area)) {
+                area.refreshMarkdownParagraphWrapping()
+                val texts = MarkdownVisibleParagraphs.texts(area)
+                emojiRendering.refresh(texts)
+                taskRendering.refresh(texts)
+            } else {
+                emojiRendering.clear()
+                taskRendering.clear()
+            }
         }
     }
     private val totalWidth: Val<Double> = Val.combine(
         area.totalWidthEstimateProperty(), area.widthProperty(), area.insetsProperty(), zoom
     ) { textWidth, areaWidth, insets, factor ->
-        Math.max(areaWidth.toDouble(), textWidth + insets.left + insets.right) * factor.toDouble()
+        // 自动换行时原生内容宽度可以小于视口，不能用编辑区宽度补齐：
+        // 纵向滚动条出现前的旧宽度会误触发横向滚动条，反复改变换行和行高。
+        val contentWidth = textWidth + insets.left + insets.right
+        val width = if (factor.toDouble() > 1.0) Math.max(areaWidth.toDouble(), contentWidth) else contentWidth
+        width * factor.toDouble()
     }
-    private val totalHeight: Val<Double> = Val.combine(area.totalHeightEstimateProperty(), zoom) {
-            height, factor -> height * factor.toDouble()
+    // RichTextFX 的文档高度不含编辑器内边距，滚动范围需补齐上下留白。
+    private val totalHeight: Val<Double> = Val.combine(
+        area.totalHeightEstimateProperty(), area.insetsProperty(), zoom
+    ) { height, insets, factor ->
+        (height + insets.top + insets.bottom) * factor.toDouble()
     }
     private val scrollX: Var<Double> = Val.combine(area.estimatedScrollXProperty(), panX, zoom) {
             offset, pan, factor -> offset * factor.toDouble() + pan

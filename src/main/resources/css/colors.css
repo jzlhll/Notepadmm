@@ -5,9 +5,9 @@
     -au-button-highlight-color: #4285F4;
     -au-head-button-color: #222222;
     -au-popup-text-color: #000000;
-    -au-popup-bg-color: #ffffff;
+    -au-popup-bg-color: #FAFAFA;
 
-    -au-list-view-bg-color: #ffffff;
+    -au-list-view-bg-color: #FAFAFA;
     -au-split-pane-divider-color: #F0F0F0;
 
     /*allan editor光标颜色*/
@@ -33,8 +33,8 @@
     /*allan 整体来讲默认的文字颜色*/
     -au-default-desc-color: #555555;
 
-    -au-main-bg-color: white;
-    -au-main-bg-color2: #fcfcfe;
+    -au-main-bg-color: #FAFAFA;
+    -au-main-bg-color2: #FAFAFA;
     /*allan 主窗口边框色*/
     -au-main-window-border-color: #EEEEEE;
     -au-workspace-bg-color: #f5f5f5;
@@ -53,9 +53,9 @@
      /*allan code area 选中某个字段的背景颜色 */
     -au-editor-selection-words-color: #add6ff;
     /*allan code area的左边行号背景*/
-    -au-editor-lineno-color: -au-scroll-bg-color;
+    -au-editor-lineno-color: #F6F6F6;
     /*allan code area的背景色*/
-    -au-editor-bg-color: #fffefe;
+    -au-editor-bg-color: #FAFAFA;
      /*allan code area的文字颜色*/
     -au-editor-text-color: #010101;
 

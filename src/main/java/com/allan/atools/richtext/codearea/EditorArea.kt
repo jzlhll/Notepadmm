@@ -23,6 +23,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.InputMethodEvent
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Region
 import java.io.File
 
 class EditorArea @JvmOverloads constructor(
@@ -42,6 +43,11 @@ class EditorArea @JvmOverloads constructor(
     val viewPosition: EditorViewPosition
     private var followZoomCaretRequested = false
     private var taskPointerDown = false
+    private val lineNumberBackground = Region().apply {
+        styleClass.add("editor-line-number-background")
+        isManaged = false
+        isMouseTransparent = true
+    }
     val documentLayout = MarkdownDocumentLayout(this)
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
@@ -162,6 +168,7 @@ class EditorArea @JvmOverloads constructor(
 
     init {
         styleClass.add("editor-area")
+        children.add(0, lineNumberBackground)
         editor = createEditorAreaMgr(this, sourceFile, tab, documentState)
         markdownCommands = MarkdownCommandRunner(this)
         markdownEditing = MarkdownEditingActions(this)
@@ -300,6 +307,11 @@ class EditorArea @JvmOverloads constructor(
         super.requestFollowCaret()
     }
 
+    /** 布局脉冲结束后识别新挂载的 Markdown 段落，调整仅安排到下一轮布局。 */
+    fun refreshMarkdownParagraphWrapping() {
+        paragraphWrapping.refresh(isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached)
+    }
+
     override fun layoutChildren() {
         documentLayout.refresh()
         val followZoomCaret = followZoomCaretRequested
@@ -307,8 +319,9 @@ class EditorArea @JvmOverloads constructor(
         val wrapMarkdown = isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached
         paragraphWrapping.refresh(wrapMarkdown, collect = false)
         super.layoutChildren()
-        documentLayout.refresh()
-        paragraphWrapping.refresh(wrapMarkdown)
+        // 将行号底色铺满编辑区高度，正文上下留白仍由编辑器 padding 控制。
+        val lineNumberWidth = lookup(".lineno")?.layoutBounds?.width ?: 0.0
+        lineNumberBackground.resizeRelocate(insets.left, 0.0, lineNumberWidth, height)
         // 等原有光标跟随完成布局，再处理缩放视口的横向裁剪。
         if (followZoomCaret) {
             (parent as? EditorZoomViewport)?.followCaret()

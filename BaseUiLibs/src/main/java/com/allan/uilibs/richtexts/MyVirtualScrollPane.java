@@ -26,6 +26,7 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
     private final ScrollBar hbar;
     private final ScrollBar vbar;
     private final V content;
+    private boolean scrollBarLayoutPending;
     private final ChangeListener<Boolean> contentFocusedListener;
     private final ChangeListener<Double> hbarValueListener;
     private ChangeListener<Double> hPosEstimateListener;
@@ -203,9 +204,17 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
                     needsVBar;
         });
 
-        // request layout later, because if currently in layout, the request is ignored
-        shouldDisplayHorizontal.addListener(obs -> Platform.runLater(this::requestLayout));
-        shouldDisplayVertical.addListener(obs -> Platform.runLater(this::requestLayout));
+        // 只在显隐值实际变化时重排；合并两个滚动条的请求，避免估算失效持续安排布局。
+        ChangeListener<Boolean> visibilityChanged = (obs, oldValue, newValue) -> {
+            if (scrollBarLayoutPending) return;
+            scrollBarLayoutPending = true;
+            Platform.runLater(() -> {
+                scrollBarLayoutPending = false;
+                requestLayout();
+            });
+        };
+        shouldDisplayHorizontal.addListener(visibilityChanged);
+        shouldDisplayVertical.addListener(visibilityChanged);
 
         hbar.visibleProperty().bind(shouldDisplayHorizontal);
         vbar.visibleProperty().bind(shouldDisplayVertical);

@@ -8,7 +8,8 @@
  * 浅色参考 Typora GitHub，深色参考 GitHub Night；排版适配 RichTextFX。
  */
 .markdown-editor {
-    -au-editor-bg-color: #ffffff;
+    -au-editor-bg-color: #FAFAFA;
+    -au-editor-lineno-color: #F6F6F6;
     -au-editor-text-color: #333333;
     -au-editor-caret-color: #333333;
     -au-editor-selection-words-color: #b3d4fc;
@@ -22,7 +23,7 @@
     -au-md-syntax: #b9bcc1;
     -au-md-quote: #777777;
     -au-md-quote-border: #dfe2e5;
-    -au-md-quote-bg: #ffffff;
+    -au-md-quote-bg: #FAFAFA;
     -au-md-code-bg: #f8f8f8;
     -au-md-code-fill: #333333;
     -au-md-code-fence: #dfe2e5;

@@ -9,6 +9,7 @@
  */
 .markdown-editor {
     -au-editor-bg-color: #0d1117;
+    -au-editor-lineno-color: #11151B;
     -au-editor-text-color: #c9d1d9;
     -au-editor-caret-color: #c9d1d9;
     -au-editor-selection-words-color: #355274;

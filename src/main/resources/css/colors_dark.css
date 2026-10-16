@@ -53,7 +53,7 @@
      /*allan code area 选中某个字段的背景颜色 */
     -au-editor-selection-words-color: rgb(50,89,61);
     /*allan code area的左边行号背景*/
-    -au-editor-lineno-color: -au-scroll-bg-color;
+    -au-editor-lineno-color: #161617;
     /*allan code area的背景色*/
     -au-editor-bg-color: #121213;
      /*allan code area的文字颜色*/

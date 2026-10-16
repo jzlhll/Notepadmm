@@ -6,9 +6,8 @@ import com.allan.atools.text.IEditorAreaState;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.utils.ReflectionUtils;
 import com.google.gson.reflect.TypeToken;
-import javafx.application.Platform;
+import org.reactfx.collection.MemoizationList;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -27,9 +26,7 @@ final class EditorAreaState implements IEditorAreaState {
         isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || isWrap);
         area.setEditable(!isReadonly);
         area.setWrapText(isWrap);
-        if (isWrap) {
-            Platform.runLater(this::forgetFlowCellSizes);
-        }
+        if (isWrap) forgetFlowCellSizes();
     }
 
     private boolean isReadonly = false;
@@ -69,10 +66,13 @@ final class EditorAreaState implements IEditorAreaState {
     @Override
     public void setWrap(boolean wrap) {
         isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || wrap);
-        area.setWrapText(isWrap);
-        // 切换 wrap 后，flowless 缓存的 cell 最小宽度(minBreadth)不会自动失效，导致 totalWidthEstimate
-        // 滞后偏大、横向滚动条不消失。反射清除 SizeTracker 的尺寸备忘，强制下次 layout 按新 wrap 重算
-        Platform.runLater(this::forgetFlowCellSizes);
+        if (area.isWrapText() != isWrap) {
+            // 换行状态与尺寸缓存在同一次更新中切换，不让延迟布局使用新旧混合的尺寸。
+            area.suspendVisibleParsWhileInvoke(() -> {
+                area.setWrapText(isWrap);
+                forgetFlowCellSizes();
+            });
+        }
         saveDocumentOptions();
     }
 
@@ -120,12 +120,13 @@ final class EditorAreaState implements IEditorAreaState {
             if (virtualFlow == null) return;
             Object sizeTracker = ReflectionUtils.iteratorGetPrivateFieldValue(virtualFlow, "sizeTracker");
             if (sizeTracker == null) return;
-            Method forget = sizeTracker.getClass().getDeclaredMethod("forgetSizeOf", int.class);
-            forget.setAccessible(true);
+            var breadths = (MemoizationList<?>) ReflectionUtils.iteratorGetPrivateFieldValue(sizeTracker, "breadths");
+            var lengths = (MemoizationList<?>) ReflectionUtils.iteratorGetPrivateFieldValue(sizeTracker, "lengths");
+            if (breadths == null || lengths == null) return;
             int count = area.getParagraphs().size();
-            for (int i = 0; i < count; i++) {
-                forget.invoke(sizeTracker, i);
-            }
+            // 按范围失效，避免逐段清除时反复发布部分更新的宽度和高度估算。
+            breadths.forget(0, count);
+            lengths.forget(0, count);
             area.estimatedScrollXProperty().setValue(0.0);
             area.requestLayout();
         } catch (Exception e) {

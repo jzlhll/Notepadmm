@@ -114,7 +114,7 @@
     scroll pane @@@@@@@@@@@@@@
 */
 .scroll-pane {
-   -fx-background-color: white;
+   -fx-background-color: -au-main-bg-color;
    -fx-background-insets: 0;
    -fx-padding: 0;
 }
@@ -135,7 +135,7 @@
 split-pane @@@@@@@@@@@@@@
 */
 .split-pane {
-   -fx-background-color: white;
+   -fx-background-color: -au-main-bg-color;
 }
 
 .split-pane > .viewport {
