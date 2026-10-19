@@ -34,7 +34,7 @@ object TextPrintSupport {
             job = printer
             printer.jobSettings.jobName = area.editor.documentState.displayName
             if (!printer.showPrintDialog(UIContext.mainWindow)) { printer.cancelJob(); return }
-            if (area.editor.isDestroyed || ThreadUtils.sBeClosing) { printer.cancelJob(); return }
+            if (area.editor.isDestroyed() || ThreadUtils.sBeClosing) { printer.cancelJob(); return }
             val prefix = area.text
             val snapshot = area.largeLog?.snapshot(prefix)
             val family = area.lookupAll(".text").filterIsInstance<Text>().firstOrNull()?.font?.family ?: "Monospaced"

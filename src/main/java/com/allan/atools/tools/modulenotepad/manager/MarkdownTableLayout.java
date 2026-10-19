@@ -12,12 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** 表格行内展示数据、字体测量及短列紧凑、长列自适应的列宽分配。 */
-final class MarkdownTableLayout {
+public final class MarkdownTableLayout {
     static final double HORIZONTAL_INSETS = 26;
     static final double VERTICAL_INSETS = 20;
     static final double SCROLL_HEIGHT = 12;
 
-    record Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code,
+    public record Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code,
                String destination, String image) {
         Run(String text, boolean bold, boolean italic, boolean strike, boolean link, boolean code) {
             this(text, bold, italic, strike, link, code, null, null);
@@ -213,7 +213,7 @@ final class MarkdownTableLayout {
     }
 
     /** 仅保留同一单元格当前字体及当前列宽对应的测量值。 */
-    static final class Cell {
+    public static final class Cell {
         final String source;
         final List<Run> runs;
         final Font font;

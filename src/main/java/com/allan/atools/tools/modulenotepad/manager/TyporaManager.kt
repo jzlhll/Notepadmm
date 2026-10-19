@@ -109,10 +109,10 @@ object TyporaManager {
     }
 
     fun openEditor(editor: EditorAreaMgr) {
-        if (!isAvailable() || editor.isDestroyed) return
+        if (!isAvailable() || editor.isDestroyed()) return
         editor.save().whenComplete { result, throwable ->
             ThreadUtils.checkJfxAndEnqueue {
-                if (editor.isDestroyed || ThreadUtils.sBeClosing) return@checkJfxAndEnqueue
+                if (editor.isDestroyed() || ThreadUtils.sBeClosing) return@checkJfxAndEnqueue
                 when {
                     throwable != null -> {
                         Log.e("Save before opening Typora failed", throwable)

@@ -69,7 +69,7 @@ class MarkdownCommandRunner(private val area: EditorArea) {
     fun run(action: () -> Unit) = submit(action, null)
 
     private fun submit(action: () -> Unit, fallback: (() -> Unit)?) {
-        if (disposed || area.editor.isDestroyed) return
+        if (disposed || area.editor.isDestroyed()) return
         if (pending) { deferred.add { submit(action, fallback) }; return }
         if (current() != null) { action(); return }
         if (area.markdownComposing || area.editor.isRealtimeProcessingLimitReached) { fallback?.invoke(); return }
@@ -87,7 +87,7 @@ class MarkdownCommandRunner(private val area: EditorArea) {
                 null
             }
             Platform.runLater {
-                if (disposed || area.editor.isDestroyed) return@runLater
+                if (disposed || area.editor.isDestroyed()) return@runLater
                 task = null
                 pending = false
                 try {

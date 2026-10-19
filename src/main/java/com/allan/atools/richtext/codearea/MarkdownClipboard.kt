@@ -222,7 +222,7 @@ class MarkdownClipboard(private val area: EditorArea) {
                 val html = if (mode == "formatted") absoluteHtml(MarkdownHtmlRenderer.body(state, base), base) else null
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
-                    if (request != copySequence || area.editor.isDestroyed) return@runLater
+                    if (request != copySequence || area.editor.isDestroyed()) return@runLater
                     copyTask = null
                     copyOwner = null
                     val content = ClipboardContent()
@@ -239,7 +239,7 @@ class MarkdownClipboard(private val area: EditorArea) {
                 if (!Thread.currentThread().isInterrupted) {
                     Log.e("Copy markdown content failed", error)
                     Platform.runLater {
-                        if (request == copySequence && !area.editor.isDestroyed) {
+                        if (request == copySequence && !area.editor.isDestroyed()) {
                             copyTask = null
                             copyOwner = null
                             SnackbarUtils.show(Locales.str("markdown.copyFailed"))

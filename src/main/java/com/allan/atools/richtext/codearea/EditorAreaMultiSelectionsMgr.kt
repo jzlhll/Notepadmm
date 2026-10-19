@@ -90,7 +90,7 @@ class EditorAreaMultiSelectionsMgr(private val area: EditorArea) {
     private val caretPosChangedAction = Action5<Int, Int, Int, Int, Int> { _, _, _, _, _ ->
         multiSelectionChangedAction(null)
     }
-    private val selectionChangedAction = Action<String> { multiSelectionChangedAction(null) }
+    private val selectionChangedAction = Action<String?> { multiSelectionChangedAction(null) }
     private val visibleParagraphChangedAction = Action0 { multiSelectionChangedAction("scrolled") }
 
     private fun listeners() {

@@ -195,7 +195,7 @@ class MarkdownAttachments(private val area: EditorArea) {
                     "![${label.replace("[", "\\[").replace("]", "\\]")}](<$path>)"
                 }
                 Platform.runLater {
-                    if (!area.editor.isDestroyed && area.isEditable && !area.markdownComposing
+                    if (!area.editor.isDestroyed() && area.isEditable && !area.markdownComposing
                         && area.editor.contentVersion == version && area.editor.sourceFile == document) {
                         area.undoManager.preventMerge()
                         if (insertion != null) insertion.accept(markdown)

@@ -80,7 +80,7 @@ object MarkdownPdfExport {
             if (replace.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return
         }
         // 文件对话框运行嵌套事件循环，快照在用户确认输出路径后获取。
-        if (area.editor.isDestroyed || area.editor.isRealtimeProcessingLimitReached) {
+        if (area.editor.isDestroyed() || area.editor.isRealtimeProcessingLimitReached) {
             SnackbarUtils.show(Locales.str("markdown.previewLimit")); return
         }
         val paper = if (orientation == landscape) PDRectangle(PDRectangle.A4.height, PDRectangle.A4.width) else PDRectangle.A4

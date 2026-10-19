@@ -86,7 +86,7 @@ class LargeLogController(
         val numbered = com.allan.atools.SettingPreferences.getBoolean(com.allan.atools.SettingPreferences.searchResultHasNumberKey)
         val work = Runnable {
             try {
-                snapshot.openReader { closed || area.editor.isDestroyed || area.editor.contentVersion != version }.use { reader ->
+                snapshot.openReader { closed || area.editor.isDestroyed() || area.editor.contentVersion != version }.use { reader ->
                     result.addResults(com.allan.atools.text.FinderFactory.find(reader, numbered, rules, intArrayOf(0)))
                 }
             } catch (_: CancellationException) {
@@ -156,7 +156,7 @@ class LargeLogController(
         val initial = state
         val firstLoad = !started
         val contentVersion = area.editor.contentVersion
-        val path = area.editor.sourceFile.toPath()
+        val path = area.editor.sourceFile!!.toPath()
         val encoding = area.editor.documentState.encoding
         try {
             task = LogTasks.pages.submit {

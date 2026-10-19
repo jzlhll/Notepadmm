@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'org.jetbrains.kotlin.jvm'
     id 'org.openjfx.javafxplugin'
 }
 
@@ -7,7 +8,12 @@ javafx {
     modules = ['javafx.controls', 'javafx.graphics']
 }
 
+kotlin {
+    sourceSets.main.kotlin.srcDirs = ['src/main/java']
+}
+
 dependencies {
+    api libs.kotlin.stdlib
     api project(':BaseParty')
     api project(':JFoenix')
     api libs.richtextfx
@@ -15,4 +21,12 @@ dependencies {
 
 tasks.named('jar', Jar) {
     archiveFileName = 'atools.baseuilibs.jar'
+}
+
+// 混合源码编译时将 Kotlin 产物并入命名模块，供 Java 源码解析。
+tasks.named('compileJava', JavaCompile) {
+    dependsOn tasks.named('compileKotlin')
+    options.compilerArgumentProviders.add({
+        ['--patch-module', "atools.baseuilibs=${sourceSets.main.output.asPath}"]
+    } as CommandLineArgumentProvider)
 }

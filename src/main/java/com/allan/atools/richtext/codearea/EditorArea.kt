@@ -86,7 +86,7 @@ class EditorArea @JvmOverloads constructor(
 
     /** 格式化等整篇编辑保留保存基线，并作为一次独立操作进入撤销历史。 */
     fun replaceDocumentText(value: String) {
-        if (editor.isDestroyed || !isEditable || isDisabled || markdownComposing || text == value) return
+        if (editor.isDestroyed() || !isEditable || isDisabled || markdownComposing || text == value) return
         val previousAnchor = anchor
         val previousCaret = caretPosition
         undoManager.preventMerge()
@@ -99,11 +99,11 @@ class EditorArea @JvmOverloads constructor(
     }
 
     fun reloadWithEncoding(encoding: String) {
-        if (editor.isDestroyed || isDisabled) return
+        if (editor.isDestroyed() || isDisabled) return
         val source = editor.sourceFile ?: return
         if (!source.isFile) return
         val reload = Runnable {
-            if (!editor.isDestroyed && !isDisabled && editor.sourceFile == source) {
+            if (!editor.isDestroyed() && !isDisabled && editor.sourceFile == source) {
                 AllEditorsManager.Instance
                     .reOpenCurrentFile(editor.tab, source, encoding)
             }
@@ -119,7 +119,7 @@ class EditorArea @JvmOverloads constructor(
             ) {
                 editor.save().whenComplete { result, error ->
                     javafx.application.Platform.runLater {
-                        if (!editor.isDestroyed) {
+                        if (!editor.isDestroyed()) {
                             if (error != null) {
                                 JfoenixDialogUtils.alert(
                                     Locales.ALERT(), Locales.str("saveFileFailed"))
@@ -144,7 +144,7 @@ class EditorArea @JvmOverloads constructor(
         (editor as EditorAreaMgrCode).refreshMarkdownPresentation()
         UIContext.context().refreshCurrentDocumentInfo()
         if (top >= 0) javafx.application.Platform.runLater {
-            if (!editor.isDestroyed && top < paragraphs.size) showParagraphAtTop(top)
+            if (!editor.isDestroyed() && top < paragraphs.size) showParagraphAtTop(top)
         }
     }
 
@@ -288,7 +288,7 @@ class EditorArea @JvmOverloads constructor(
             }
         }
 
-        RefWatcher.watchs(this, if (editor.sourceFile == null) "" else editor.sourceFile.path)
+        RefWatcher.watchs(this, editor.sourceFile?.path.orEmpty())
         EditorSessionManager.getInstance().track(this)
     }
 

@@ -1,5 +1,6 @@
 module atools.baseuilibs {
     requires atools.baseparty;
+    requires kotlin.stdlib;
 
     requires org.fxmisc.undo;
     requires java.base;

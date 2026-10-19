@@ -10,7 +10,7 @@ import java.net.URI
 object MarkdownNavigation {
     @JvmStatic
     fun open(area: EditorArea, uri: URI) {
-        if (area.editor.isDestroyed) return
+        if (area.editor.isDestroyed()) return
         val path = uri.path.orEmpty()
         val anchor = uri.fragment.orEmpty()
         if (path.isEmpty()) { jump(area, anchor); return }
@@ -37,7 +37,7 @@ object MarkdownNavigation {
     }
 
     private fun jump(area: EditorArea, anchor: String) {
-        if (anchor.isEmpty() || area.editor.isDestroyed || area.editor.isRealtimeProcessingLimitReached) return
+        if (anchor.isEmpty() || area.editor.isDestroyed() || area.editor.isRealtimeProcessingLimitReached) return
         val manager = area.editor as? EditorAreaMgrCode ?: return
         val state = manager.markdownSnapshot(area.text)
         val heading = state.headings.firstOrNull { it.anchor == anchor } ?: run {
