@@ -14,7 +14,7 @@ import java.util.Locale;
 
 final class EditorAreaState implements IEditorAreaState {
     private static final String KEY_DOCUMENT_OPTIONS = "editorDocumentOptions";
-    private static final int MAX_DOCUMENT_OPTIONS = 200;
+    private static final int MAX_DOCUMENT_OPTIONS = 100;
     private static final TypeToken<List<EditorDocumentOptions>> TYPE_DOCUMENT_OPTIONS = new TypeToken<>() {};
 
     private final EditorArea area;
@@ -22,6 +22,10 @@ final class EditorAreaState implements IEditorAreaState {
     public EditorAreaState(EditorArea area, EditorDocumentState documentState) {
         this.area = area;
         this.documentState = documentState;
+        var file = documentState.getSourceFile();
+        isWrap = file == null
+                || file.getName().toLowerCase(Locale.ROOT).endsWith(".txt")
+                || MarkdownEditorSupport.isMarkdownFile(file);
         restoreDocumentOptions();
         isWrap = supportsWrap() && (MarkdownEditorSupport.isMarkdownFile(documentState.getSourceFile()) || isWrap);
         area.setEditable(!isReadonly);
