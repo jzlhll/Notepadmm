@@ -1,15 +1,15 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
-import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.Tab
 
 /** 标签菜单由标签头统一处理右键请求，各项动作以固定标识关联。 */
 class TabTitleCreatorImpl {
-    fun createMenu(action: Action<String>): ContextMenu {
-        val contextMenu = ContextMenu()
+    fun createMenu(action: Action<String>): AppContextMenu {
+        val contextMenu = AppContextMenu()
         // 切换标签或再次右键时，关闭旧菜单的鼠标事件继续交给目标节点。
         contextMenu.setConsumeAutoHidingEvents(false)
         listOf(

@@ -1,5 +1,6 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.utils.EncodingUtil
 import com.allan.baseparty.Action
@@ -12,7 +13,7 @@ import javafx.scene.layout.Region
 
 class EncodingChooseCreatorImpl : AbstractMenuCreator<String>() {
     override fun createMenu(action: Action<String>): ContextMenu {
-        val contextMenu = ContextMenu()
+        val contextMenu = AppContextMenu()
         contextMenu.items.addAll(
             createMenuItem(action, EncodingUtil.CHOISE_ENCODING_UTF8, EncodingUtil.CHOISE_ENCODING_UTF8),
             createMenuItem(action, EncodingUtil.CHOISE_ENCODING_UTF8_NO_BOM, EncodingUtil.CHOISE_ENCODING_UTF8_NO_BOM),

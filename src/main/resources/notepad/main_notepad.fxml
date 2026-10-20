@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import com.allan.atools.ui.controls.DirAndFileJFXTreeView?>
+<?import com.allan.atools.ui.controls.AppMenuButton?>
 <?import com.jfoenix.controls.*?>
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
@@ -130,7 +131,7 @@
                             <VBox>
                                 <HBox fx:id="workspaceToolbarBox" alignment="CENTER_LEFT" spacing="2"
                                       styleClass="workspace-toolbar">
-                                    <MenuButton fx:id="workspaceText" minWidth="0" maxWidth="Infinity"
+                                    <AppMenuButton fx:id="workspaceText" minWidth="0" maxWidth="Infinity"
                                                 textOverrun="ELLIPSIS"
                                                 styleClass="workspace-directory-button"/>
                                     <Region minWidth="0" HBox.hgrow="ALWAYS"/>
@@ -140,7 +141,7 @@
                                                      styleClass="workspace-parent-icon" mouseTransparent="true"/>
                                         </graphic>
                                     </Button>
-                                    <MenuButton fx:id="workspaceMoreBtn" text="···"
+                                    <AppMenuButton fx:id="workspaceMoreBtn" text="···" showArrow="false"
                                                 styleClass="workspace-action-button"/>
                                 </HBox>
                                 <VBox fx:id="workspaceEmptyBox" visible="false" managed="false"

@@ -38,11 +38,11 @@ class WorkspaceToolbar(
             tooltip = Tooltip(Locales.str("workspaceMore"))
             accessibleText = Locales.str("workspaceMore")
             items.setAll(moreItems())
-            setOnShowing { items.setAll(moreItems()) }
+            setBeforeShow { items.setAll(moreItems()) }
         }
         controller.workspaceText.apply {
             items.setAll(directoryItems())
-            setOnShowing { items.setAll(directoryItems()) }
+            setBeforeShow { items.setAll(directoryItems()) }
         }
     }
 

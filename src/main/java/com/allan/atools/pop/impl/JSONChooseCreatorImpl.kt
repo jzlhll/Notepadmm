@@ -1,5 +1,6 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.utils.EncodingUtil
 import com.allan.atools.utils.Locales
@@ -15,7 +16,7 @@ import javafx.event.EventHandler
 
 class JSONChooseCreatorImpl : AbstractMenuCreator<String>() {
     override fun createMenu(action: Action<String>): ContextMenu {
-        val contextMenu = ContextMenu()
+        val contextMenu = AppContextMenu()
         contextMenu.items.addAll(
             createMenuItem(action, Locales.str("removeUnknownSymbols")),
             createMenuItem(action, Locales.str("jsonFormat")),

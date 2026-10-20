@@ -8,6 +8,7 @@ import com.allan.atools.utils.Log;
 import com.allan.atools.utils.TimerCounter;
 import com.allan.atools.text.beans.AllFilesSearchResults;
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.pop.PopupMenus;
 import com.allan.atools.tools.modulenotepad.local.AdvanceSearchedStyledDocument;
 import com.allan.uilibs.richtexts.MyVirtualScrollPane;
 import javafx.scene.control.ContextMenu;
@@ -178,7 +179,7 @@ public abstract class AbstractResultUpdater {
             if (event.getSource() instanceof TitledPane titledPane
                     && titledPane.getContent() instanceof MyVirtualScrollPane<?> pane
                     && pane.getContent() instanceof ResultAreaImpl resultArea) {
-                if (!resultArea.getContextMenu().isShowing()) {
+                if (!PopupMenus.isMenuShowing(resultArea.getContextMenu())) {
                     resultArea.requestFocus();
                     ContextMenu menu = resultArea.getContextMenu();
                     if (menu != null) {

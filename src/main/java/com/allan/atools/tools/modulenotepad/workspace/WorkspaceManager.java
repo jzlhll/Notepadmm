@@ -1,5 +1,6 @@
 package com.allan.atools.tools.modulenotepad.workspace;
 
+import com.allan.atools.pop.AppContextMenu;
 import com.allan.atools.UIContext;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controllerwindow.PictureWindow;
@@ -633,10 +634,10 @@ public final class WorkspaceManager implements IWorkspace {
             }
         });
 
-        var menu = new ContextMenu();
+        var menu = new AppContextMenu();
         menu.getItems().addAll(toolbar.creationItems(currentDir));
         // 菜单会缓存，显示时重新读取异步检测结果及当前右键目标。
-        menu.setOnShowing(event -> {
+        menu.setBeforeShow(() -> {
             File file = currentItem != null && currentItem.ex instanceof File selected ? selected : null;
             File directory = file == null ? currentDir
                     : GitWorkspaceSupport.isDirectory(UIContext.context().workspaceTree, file) ? file : file.getParentFile();

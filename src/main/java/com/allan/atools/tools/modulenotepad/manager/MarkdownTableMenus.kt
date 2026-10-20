@@ -1,9 +1,9 @@
 package com.allan.atools.tools.modulenotepad.manager
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.richtext.codearea.MarkdownShortcuts
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState
 import com.allan.atools.utils.Locales
-import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
@@ -82,7 +82,7 @@ class MarkdownTableMenus(private val state: MarkdownTablePreviewState) {
         editLink.setOnAction { editing.editCellLink() }
         formats.items.add(editLink)
         formats.isDisable = !area.isEditable || structurePending
-        val menu = ContextMenu(undo, redo, SeparatorMenuItem(), cut, copy, copyAs,
+        val menu = AppContextMenu(undo, redo, SeparatorMenuItem(), cut, copy, copyAs,
             paste, pasteCells, pasteText, selectAll, SeparatorMenuItem(), formats, rowActions, columnActions,
             SeparatorMenuItem(), exitBefore, exitAfter)
         cellMenu = menu
@@ -108,7 +108,7 @@ class MarkdownTableMenus(private val state: MarkdownTablePreviewState) {
         selectAll.setOnAction { cellEditor.selectAll() }
         deleteRow.setOnAction { editing.applyTableEdit(table) { MarkdownTableEdits.deleteRow(it, row, column) } }
         deleteColumn.setOnAction { editing.applyTableEdit(table) { MarkdownTableEdits.deleteColumn(it, row, column) } }
-        menu.setOnShowing {
+        menu.setBeforeShow {
             val editable = area.isEditable && !structurePending
             undo.isDisable = !editable || !area.undoManager.isUndoAvailable
             redo.isDisable = !editable || !area.undoManager.isRedoAvailable

@@ -368,14 +368,8 @@
    -fx-font-weight: normal;
 }
 
-.workspace-directory-button > .label {
-   -fx-padding: 0 2 0 0;
-   -fx-text-fill: -au-default-text-color;
-   -fx-alignment: CENTER_LEFT;
-}
-
 .workspace-directory-button > .arrow-button {
-   -fx-padding: 0 4 0 4;
+   -fx-padding: 0 4 0 0;
 }
 
 .workspace-directory-button > .arrow-button > .arrow {
@@ -399,22 +393,6 @@
    -fx-stroke-width: 1.5;
    -fx-stroke-line-cap: round;
    -fx-stroke-line-join: round;
-}
-
-.workspace-action-button > .label {
-   -fx-padding: 0;
-   -fx-text-fill: -au-default-desc-color;
-   -fx-alignment: CENTER;
-}
-
-.workspace-action-button > .arrow-button,
-.workspace-action-button > .arrow-button > .arrow {
-   -fx-padding: 0;
-   -fx-min-width: 0;
-   -fx-pref-width: 0;
-   -fx-max-width: 0;
-   -fx-background-color: transparent;
-   -fx-shape: null;
 }
 
 /* 鼠标点击后保留的焦点和菜单展开状态不产生持续背景。 */
@@ -802,3 +780,71 @@
 }
 .markdown-theme-unavailable { -fx-opacity: 0.6; }
 .markdown-theme-error { -fx-text-fill: -au-red-color; }
+
+/* 场景内菜单直接以最终尺寸显示，不使用窗口缩放、透明度过渡或位图缓存。 */
+.app-menu-panel {
+   -fx-background-color: -au-menu-bg-color;
+   -fx-background-radius: 6;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 6;
+   -fx-border-width: 3;
+   -fx-padding: 9 6;
+   -fx-font-size: 15;
+   -fx-font-weight: normal;
+}
+
+.app-menu-panel .jfx-list-view,
+.app-menu-panel .jfx-list-cell:odd,
+.app-menu-panel .jfx-list-cell:even {
+   -fx-background-color: -au-menu-bg-color;
+}
+
+.app-menu-scroll,
+.app-menu-scroll > .viewport,
+.app-menu-list {
+   -fx-background-color: transparent;
+   -fx-background-insets: 0;
+   -fx-padding: 0;
+}
+
+.app-menu-list {
+   -fx-spacing: 2;
+}
+
+.app-menu-item {
+   -fx-padding: 5 8;
+   -fx-background-color: transparent;
+   -fx-background-radius: 3;
+}
+
+.app-menu-item:active {
+   -fx-background-color: -au-editor-selection-words-color;
+}
+
+.app-menu-item .label {
+   -fx-text-fill: -au-popup-text-color;
+}
+
+.app-menu-mark {
+   -fx-min-width: 16;
+   -fx-pref-width: 16;
+   -fx-alignment: CENTER;
+   -fx-font-size: 12;
+}
+
+.app-menu-item:disabled .label,
+.app-menu-item .app-menu-submenu-arrow,
+.app-menu-item .app-menu-shortcut {
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.app-menu-submenu-arrow {
+   -fx-font-size: 18;
+}
+
+.app-menu-separator {
+   -fx-min-height: 1;
+   -fx-pref-height: 1;
+   -fx-max-height: 1;
+   -fx-background-color: -au-main-window-border-color;
+}

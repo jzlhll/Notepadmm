@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea;
 
+import com.allan.atools.pop.AppContextMenu;
 import com.allan.atools.UIContext;
 import com.allan.atools.Colors;
 import com.allan.atools.SettingPreferences;
@@ -180,7 +181,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         });
 
         //Add Menu items in Context Menu
-        ContextMenu contextMenu = new ContextMenu();
+        ContextMenu contextMenu = new AppContextMenu();
         contextMenu.getItems().add(clearMenu);
         contextMenu.getItems().add(clearOthersMenu);
         contextMenu.getItems().add(clearAllMenu);

@@ -1,5 +1,6 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.UIContext
 import com.allan.atools.pop.AbstractMenuCreator
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
@@ -17,7 +18,7 @@ import java.io.File
 class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
 
     override fun createMenu(action: Action<Int>): ContextMenu {
-        val contextMenu = ContextMenu()
+        val contextMenu = AppContextMenu()
         val menu0 = MenuItem(Locales.str("openFile"))
         menu0.onAction = EventHandler {
             action.invoke(

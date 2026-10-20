@@ -26,6 +26,7 @@ import com.allan.atools.tools.modulenotepad.manager.MarkdownTablePreviewManager;
 import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.tools.modulenotepad.session.EditorSessionManager;
 import com.allan.atools.pop.GlobalPopupManager;
+import com.allan.atools.pop.PopupMenus;
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager;
 import com.allan.atools.toolsstartup.ATools;
 import com.allan.atools.ui.SnackbarUtils;
@@ -33,6 +34,7 @@ import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.ui.SettingDrawer;
 import com.allan.atools.ui.MainWindowChrome;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
+import com.allan.atools.ui.controls.AppMenuButton;
 import com.allan.atools.utils.*;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXTabPane;
@@ -46,7 +48,6 @@ import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
@@ -138,7 +139,7 @@ public final class NotepadController extends AbstractMainController {
     public HBox workspaceTabSwitchBox;
     public ToggleButton workspaceFilesTabBtn;
     public ToggleButton workspaceDocTabBtn;
-    public MenuButton workspaceText;
+    public AppMenuButton workspaceText;
     public HBox workspaceToolbarBox;
     public VBox workspaceEmptyBox;
     public Label workspaceEmptyHintLabel;
@@ -148,7 +149,7 @@ public final class NotepadController extends AbstractMainController {
     public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
     public VBox workspaceVBox;
     public Button workspaceGoUpBtn;
-    public MenuButton workspaceMoreBtn;
+    public AppMenuButton workspaceMoreBtn;
     public Label notepadMainInsertEmptyLineBtn;
     public Label jsonPopBtn;
     private AnchorPane notepadMainResultLayout;
@@ -710,6 +711,10 @@ public final class NotepadController extends AbstractMainController {
 
     @Override
     public void notifyStageFocused() {
+        // 弹出菜单持有交互时，窗口激活不刷新文件树或抢回编辑器焦点。
+        if (PopupMenus.hasShowingPopup(getStage())) {
+            return;
+        }
         super.notifyStageFocused();
         var scene = getStage().getScene();
         var focusOwner = scene == null ? null : scene.getFocusOwner();

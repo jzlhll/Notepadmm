@@ -5,6 +5,7 @@ import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
+import com.allan.atools.pop.PopupMenus;
 import com.allan.atools.tools.modulenotepad.manager.*;
 import com.allan.atools.ui.ColorPickerUtil;
 import com.allan.atools.ui.JfoenixDialogUtils;
@@ -168,6 +169,9 @@ public final class NotepadFindController extends AbstractController {
 
         //避免其他控件选中，出现样式
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> {
+            if (PopupMenus.hasShowingPopup(stage)) {
+                return;
+            }
             if (!newValue) {
                 AllStagesManager.getInstance().getMainStage().show();
             } else {
@@ -390,8 +394,8 @@ public final class NotepadFindController extends AbstractController {
                         + "  " + tip + "  "
                         + "\n");
                 lb.setFont(new Font(16));
-                var popup = new JFXPopup(lb);
-                popup.show(findMode2HelpBtn, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
+                lb.setWrapText(true);
+                PopupMenus.showPopupContent(findMode2HelpBtn, lb);
             });
 
             findMode1HelpBtn.setOnMouseClicked(mouseEvent -> {
@@ -400,8 +404,8 @@ public final class NotepadFindController extends AbstractController {
                         + "  " + tip + "  "
                         + "\n");
                 lb.setFont(new Font(16));
-                var popup = new JFXPopup(lb);
-                popup.show(findMode1HelpBtn, JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.LEFT);
+                lb.setWrapText(true);
+                PopupMenus.showPopupContent(findMode1HelpBtn, lb);
             });
 
             initFindComboxData();

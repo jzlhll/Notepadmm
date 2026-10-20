@@ -16,6 +16,7 @@ import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.geometry.Pos
 import javafx.scene.layout.Region
+import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import java.io.IOException
 import java.nio.file.Files
@@ -55,7 +56,7 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         list.minWidth = 73.3
         list.prefWidth = 73.3
         list.maxWidth = 73.3
-        list.minHeight = 510.0
+        list.minHeight = 0.0
         list.prefHeight = 510.0
         list.maxHeight = 510.0
         fontSizes.forEach { fontSize ->
@@ -96,6 +97,7 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
                     ex.printStackTrace()
                 }
             }
+        VBox.setVgrow(list, Priority.ALWAYS)
         vBox.children.add(list)
         return vBox
     }

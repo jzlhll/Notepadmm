@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.pop.impl.TabTitleCreatorImpl
 import com.allan.atools.text.IEditorAreaState
 import com.allan.atools.ui.JfoenixDialogUtils
@@ -679,7 +680,7 @@ open class EditorAreaMgr(
                 TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA -> TyporaManager.getInstance().openEditor(this)
             }
         }
-        titleMenu.setOnShowing {
+        titleMenu.setBeforeShow {
             val sourceFile = sourceFile
             val pinned = sourceFile != null && AllEditorsManager.isPinnedRecentFile(sourceFile.absolutePath)
             for (item in titleMenu.items) {
@@ -810,8 +811,8 @@ open class EditorAreaMgr(
             val formatter = JsonFormatLog()
             replaceSelectedTextWithPadding(formatter.format(formatter.removeEnter(area.selectedText)))
         }
-        val menu = ContextMenu(copyLine, screenShot, copy, removeUnknownSymbols, formatJson, openTerminalHere, openFolder, reload, print)
-        menu.setOnShowing {
+        val menu = AppContextMenu(copyLine, screenShot, copy, removeUnknownSymbols, formatJson, openTerminalHere, openFolder, reload, print)
+        menu.setBeforeShow {
             val hasSelection = area.selectedText.isNotEmpty()
             copy.isVisible = hasSelection
             removeUnknownSymbols.isVisible = hasSelection

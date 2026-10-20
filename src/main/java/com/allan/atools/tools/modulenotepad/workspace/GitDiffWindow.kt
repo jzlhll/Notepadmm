@@ -1,5 +1,6 @@
 package com.allan.atools.tools.modulenotepad.workspace
 
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
 import com.allan.atools.utils.Locales
@@ -132,7 +133,7 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
         area.isEditable = false
         area.isWrapText = false
         area.styleClass.add("git-diff-area")
-        area.contextMenu = ContextMenu(MenuItem(Locales.str("copy")).apply { setOnAction { area.copy() } },
+        area.contextMenu = AppContextMenu(MenuItem(Locales.str("copy")).apply { setOnAction { area.copy() } },
             MenuItem(Locales.str("git.selectAll")).apply { setOnAction { area.selectAll() } })
         return area
     }
