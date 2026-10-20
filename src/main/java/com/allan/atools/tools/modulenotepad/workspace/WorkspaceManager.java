@@ -4,19 +4,15 @@ import com.allan.atools.UIContext;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.controllerwindow.PictureWindow;
 import com.allan.atools.threads.ThreadUtils;
-import com.allan.atools.ui.IconfontCreator;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.ui.controls.DirAndFileJFXTreeCell;
-import com.allan.atools.utils.CacheLocation;
 import com.allan.atools.utils.IO;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.Utils;
 import com.allan.uilibs.controls.TreeItemEx;
-import com.allan.atools.Colors;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
-import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons;
 import com.allan.atools.tools.modulenotepad.manager.TyporaManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.baseparty.Action0;
@@ -24,6 +20,7 @@ import com.allan.baseparty.handler.TextUtils;
 import javafx.application.Platform;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeCell;
 import javafx.scene.Node;
@@ -33,9 +30,6 @@ import javafx.scene.layout.Region;
 import javafx.stage.DirectoryChooser;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -67,6 +61,7 @@ public final class WorkspaceManager implements IWorkspace {
 
     private TreeItemEx<?> currentItem;
     private ContextMenu rightClickContextMenu;
+    private WorkspaceToolbar toolbar;
     private final GitWorkspaceSupport gitSupport = new GitWorkspaceSupport();
     private Tooltip sidebarToggleTooltip;
     private File pendingWorkspaceDir;
@@ -77,20 +72,6 @@ public final class WorkspaceManager implements IWorkspace {
             openWorkspace(currentDir, true);
         }
     };
-
-    public static void refreshSize() {
-        var c = UIContext.context();
-        IconfontCreator.setText(c.workspaceSortBtn, "paixu",
-                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton);
-        IconfontCreator.setText(c.workspaceCreateFileBtn, "add-select",
-                c.getMainWorkspaceIconSize(19), Colors.ColorHeadButton);
-        IconfontCreator.setText(c.workspaceCreateDirBtn, "xinjianwenjianjia1",
-                c.getMainWorkspaceIconSize(16), Colors.ColorHeadButton);
-        IconfontCreator.setText(c.workspaceGoUpBtn, "arrowup",
-                c.getMainWorkspaceIconSize(18), Colors.ColorHeadButton);
-        IconfontCreator.setText(c.workspaceRefreshBtn, "exchangerate",
-                c.getMainWorkspaceIconSize(17), Colors.ColorHeadButton);
-    }
 
     private boolean changeSortByFileOrTime() {
         isSortByFileOrTime = !isSortByFileOrTime;
@@ -195,7 +176,7 @@ public final class WorkspaceManager implements IWorkspace {
     }
 
     /**
-     * 没有任何历史工作区时：隐藏路径与按钮行，展示提示与"打开工作区"长条按钮
+     * 没有任何历史工作区时，隐藏目录标题行并展示打开工作区入口。
      */
     private void showEmptyWorkspaceState() {
         var c = UIContext.context();
@@ -221,8 +202,6 @@ public final class WorkspaceManager implements IWorkspace {
         setSplitPanePosition();
         c.workspaceToolbarBox.setVisible(false);
         c.workspaceToolbarBox.setManaged(false);
-        c.workspaceText.setVisible(false);
-        c.workspaceText.setManaged(false);
         c.workspaceTree.setVisible(false);
         c.workspaceTree.setManaged(false);
         c.workspaceEmptyBox.setVisible(true);
@@ -233,8 +212,6 @@ public final class WorkspaceManager implements IWorkspace {
         var c = UIContext.context();
         c.workspaceToolbarBox.setVisible(true);
         c.workspaceToolbarBox.setManaged(true);
-        c.workspaceText.setVisible(true);
-        c.workspaceText.setManaged(true);
         c.workspaceTree.setVisible(true);
         c.workspaceTree.setManaged(true);
         c.workspaceEmptyBox.setVisible(false);
@@ -278,14 +255,18 @@ public final class WorkspaceManager implements IWorkspace {
     private void initOnce() {
         if(DEBUG) Log.d(TAG, "init once");
         var c = UIContext.context();
-        if (c.workspaceRefreshBtn.getOnMouseClicked() != null) {
+        if (toolbar != null) {
             return;
         }
 
 
         if(DEBUG) Log.d(TAG, "init once real@ Workspace Width " + workspaceWidth);
 
-        refreshSize();
+        toolbar = new WorkspaceToolbar(c, () -> currentDir, this::openWorkspace,
+                () -> isSortByFileOrTime, () -> {
+                    changeSortByFileOrTime();
+                    openWorkspace(currentDir);
+                }, this::selectDirAsWorkspaceDialog);
 
         c.workspaceVBox.widthProperty().addListener((observable, oldValue, newValue) -> {
             if (!workspaceWidthReady || !isWorkspaceShown || !isWorkspaceVBoxAdded
@@ -298,49 +279,6 @@ public final class WorkspaceManager implements IWorkspace {
             ThreadUtils.globalHandler().removeCallback(saveWorkspaceVBoxWidthRunnable);
             ThreadUtils.globalHandler().postDelayed(saveWorkspaceVBoxWidthRunnable, 1200);
         });
-
-        c.workspaceSortBtn.setTooltip(new Tooltip(Locales.str("sortBtn")));
-        c.workspaceSortBtn.setOnMouseClicked(event -> {
-            changeSortByFileOrTime();
-            openWorkspace(currentDir);
-        });
-
-        c.workspaceCreateFileBtn.setTooltip(new Tooltip(Locales.str("newFile")));
-        c.workspaceCreateFileBtn.setOnMouseClicked(event -> {
-            NotepadHeadButtons.newATempFile(currentDir.getAbsolutePath());
-        });
-
-        c.workspaceCreateDirBtn.setTooltip(new Tooltip(Locales.str("newDir")));
-        c.workspaceCreateDirBtn.setOnMouseClicked(event ->
-                JfoenixDialogUtils.editInput(Locales.str("newDir"), "", s -> {
-            if (!TextUtils.isEmpty(s)) {
-                File dir = new File(Utils.combine(currentDir.getAbsolutePath(), s));
-                if (dir.exists()) {
-                    SnackbarUtils.show(Locales.str("thisDirAlreadyExist"));
-                } else {
-                    boolean suc = dir.mkdir();
-                    if (!suc) {
-                        SnackbarUtils.show(Locales.str("thisDirCreateFail"));
-                    } else {
-                        openWorkspace(dir);
-                    }
-                }
-            }
-        }));
-
-        c.workspaceGoUpBtn.setTooltip(new Tooltip(Locales.str("goUpDir")));
-        c.workspaceGoUpBtn.setOnMouseClicked(event -> {
-            File parentDir = null;
-            try {
-                var parent = IO.getParentPath(currentDir.getAbsolutePath(), false);
-                parentDir = new File(parent);
-            } catch (Exception e) {}
-
-            openWorkspace(parentDir);
-        });
-
-        c.workspaceRefreshBtn.setTooltip(new Tooltip(Locales.str("refresh")));
-        c.workspaceRefreshBtn.setOnMouseClicked(event -> openWorkspace(currentDir));
 
         c.workspaceEmptyHintLabel.setText(Locales.str("workspaceEmptyHint"));
         c.workspaceOpenBtn.setTooltip(new Tooltip(Locales.str("openWorkspace")));
@@ -371,16 +309,16 @@ public final class WorkspaceManager implements IWorkspace {
                 while (picked != null && !(picked instanceof TreeCell<?>)) {
                     picked = picked.getParent();
                 }
-                if (!(picked instanceof TreeCell<?> cell) || cell.isEmpty()) {
-                    if (rightClickContextMenu != null) rightClickContextMenu.hide();
-                    return;
+                currentItem = null;
+                if (picked instanceof TreeCell<?> cell && !cell.isEmpty()) {
+                    c.workspaceTree.getSelectionModel().select(cell.getIndex());
+                    if (c.workspaceTree.getSelectionModel().getSelectedItem() instanceof TreeItemEx<?> treeItemEx) {
+                        currentItem = treeItemEx;
+                    }
                 }
-                c.workspaceTree.getSelectionModel().select(cell.getIndex());
-                if (c.workspaceTree.getSelectionModel().getSelectedItem() instanceof TreeItemEx<?> treeItemEx) {
-                    currentItem = treeItemEx;
-                    createDeleteAndRenameContextMenu().show(event.getPickResult().getIntersectedNode(),
-                            javafx.geometry.Side.BOTTOM, 0, 0);
-                }
+                var menu = createDeleteAndRenameContextMenu();
+                menu.hide();
+                menu.show(c.workspaceTree, event.getScreenX(), event.getScreenY());
             }
         });
     }
@@ -442,8 +380,8 @@ public final class WorkspaceManager implements IWorkspace {
             currentDir = dir;
             var path = dir.getAbsolutePath();
             restoreWorkspaceViews();
-            UIContext.context().workspaceCreateFileBtn.setDisable(!dir.isDirectory());
-            UIContext.context().workspaceCreateDirBtn.setDisable(!dir.isDirectory());
+            var parent = dir.getParentFile();
+            UIContext.context().workspaceGoUpBtn.setDisable(parent == null || !parent.isDirectory());
 
             if(DEBUG) Log.d(TAG, "treeItems: real doing.....");
             var ctrl = UIContext.context();
@@ -456,7 +394,7 @@ public final class WorkspaceManager implements IWorkspace {
             }
             base.getChildren().clear();
 
-            ctrl.workspaceText.setText(path);
+            ctrl.workspaceText.setText(dir.getName().isEmpty() ? path : dir.getName());
             var listFile = dir.listFiles();
             if (listFile != null) {
                 var list = Arrays.asList(listFile);
@@ -696,10 +634,16 @@ public final class WorkspaceManager implements IWorkspace {
         });
 
         var menu = new ContextMenu();
-        menu.getItems().addAll(gitDiff, deleteMenu, modifyNameMenu, openToDir, openInTypora);
+        menu.getItems().addAll(toolbar.creationItems(currentDir));
         // 菜单会缓存，显示时重新读取异步检测结果及当前右键目标。
         menu.setOnShowing(event -> {
             File file = currentItem != null && currentItem.ex instanceof File selected ? selected : null;
+            File directory = file == null ? currentDir
+                    : GitWorkspaceSupport.isDirectory(UIContext.context().workspaceTree, file) ? file : file.getParentFile();
+            menu.getItems().setAll(toolbar.creationItems(directory));
+            if (file != null) {
+                menu.getItems().addAll(new SeparatorMenuItem(), gitDiff, deleteMenu, modifyNameMenu, openToDir, openInTypora);
+            }
             gitDiff.setVisible(file != null && gitSupport.isRepositoryPath(file));
             deleteMenu.setDisable(file == null || !file.exists());
             modifyNameMenu.setDisable(file == null || !file.exists());

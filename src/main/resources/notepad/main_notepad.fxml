@@ -117,59 +117,32 @@
                 <VBox fx:id="workspaceVBox" minWidth="126" maxWidth="400"
                       styleClass="workspace-column-background">
                     <Label text="ATools" styleClass="workspace-app-title"/>
-                    <GridPane fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" hgap="3">
-                        <VBox.margin>
-                            <Insets top="6"/>
-                        </VBox.margin>
-                        <columnConstraints>
-                            <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
-                            <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
-                        </columnConstraints>
-                        <ToggleButton fx:id="workspaceFilesTabBtn" text="%workspaceTab" maxWidth="Infinity"
-                                      styleClass="workspace-tab-switch-btn" GridPane.columnIndex="0"/>
-                        <ToggleButton fx:id="workspaceDocTabBtn" text="%currentDocumentTab" maxWidth="Infinity"
-                                      styleClass="workspace-tab-switch-btn" GridPane.columnIndex="1"/>
-                    </GridPane>
+                    <HBox fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" spacing="14">
+                        <ToggleButton fx:id="workspaceFilesTabBtn" text="%workspaceTab"
+                                      styleClass="workspace-tab-switch-btn"/>
+                        <ToggleButton fx:id="workspaceDocTabBtn" text="%currentDocumentTab"
+                                      styleClass="workspace-tab-switch-btn"/>
+                    </HBox>
                     <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane"
                                 tabMinHeight="0" tabMaxHeight="0">
                         <Tab closable="false" text="%workspaceTab">
                             <StackPane>
                             <VBox>
-                                <HBox fx:id="workspaceToolbarBox" prefWidth="160">
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceGoUpBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceSortBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
-                                    <Pane HBox.hgrow="ALWAYS"/>
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceCreateDirBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceCreateFileBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
-
-                                    <JFXRippler styleClass="jfx-rippler-red-custom">
-                                        <HBox.margin>
-                                            <Insets left="0" right="1"/>
-                                        </HBox.margin>
-                                        <Label fx:id="workspaceRefreshBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
-                                    </JFXRippler>
+                                <HBox fx:id="workspaceToolbarBox" alignment="CENTER_LEFT" spacing="2"
+                                      styleClass="workspace-toolbar">
+                                    <MenuButton fx:id="workspaceText" minWidth="0" maxWidth="Infinity"
+                                                textOverrun="ELLIPSIS"
+                                                styleClass="workspace-directory-button"/>
+                                    <Region minWidth="0" HBox.hgrow="ALWAYS"/>
+                                    <Button fx:id="workspaceGoUpBtn" disable="true" styleClass="workspace-action-button">
+                                        <graphic>
+                                            <SVGPath content="M 7 13 L 7 1 M 1 7 L 7 1 L 13 7"
+                                                     styleClass="workspace-parent-icon" mouseTransparent="true"/>
+                                        </graphic>
+                                    </Button>
+                                    <MenuButton fx:id="workspaceMoreBtn" text="···"
+                                                styleClass="workspace-action-button"/>
                                 </HBox>
-                                <Label fx:id="workspaceText" styleClass="small-desc-label,workspace-path-label" textOverrun="CENTER_ELLIPSIS"/>
                                 <VBox fx:id="workspaceEmptyBox" visible="false" managed="false"
                                       spacing="12" VBox.vgrow="ALWAYS">
                                     <padding>
@@ -177,7 +150,7 @@
                                     </padding>
                                     <Label fx:id="workspaceEmptyHintLabel" styleClass="small-desc-label,workspace-empty-hint"
                                            maxWidth="Infinity" wrapText="true" textAlignment="CENTER"/>
-                                    <JFXButton fx:id="workspaceOpenBtn" text="+" maxWidth="Infinity"
+                                    <JFXButton fx:id="workspaceOpenBtn" text="%openWorkspace" maxWidth="Infinity"
                                                styleClass="workspace-open-btn"/>
                                 </VBox>
                                 <DirAndFileJFXTreeView fx:id="workspaceTree" VBox.vgrow="ALWAYS"

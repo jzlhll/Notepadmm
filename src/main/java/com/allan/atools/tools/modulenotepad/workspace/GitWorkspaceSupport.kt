@@ -7,6 +7,7 @@ import com.allan.atools.utils.ResLocation
 import com.allan.uilibs.controls.TreeItemEx
 import javafx.application.Platform
 import javafx.scene.control.Label
+import javafx.scene.control.Labeled
 import javafx.scene.control.Tooltip
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeView
@@ -27,7 +28,7 @@ class GitWorkspaceSupport {
         GitRepository.pathOf(file).startsWith(it.root)
     } == true
 
-    fun refresh(directory: File, tree: TreeView<String>, pathLabel: Label) {
+    fun refresh(directory: File, tree: TreeView<String>, pathLabel: Labeled) {
         cancel()
         snapshot = null
         tree.properties.remove(SNAPSHOT_KEY)

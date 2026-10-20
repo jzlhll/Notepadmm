@@ -46,6 +46,7 @@ import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
@@ -57,7 +58,6 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -135,10 +135,10 @@ public final class NotepadController extends AbstractMainController {
 
     public DirAndFileJFXTreeView<String> workspaceTree;
     public JFXTabPane workspaceTabPane;
-    public GridPane workspaceTabSwitchBox;
+    public HBox workspaceTabSwitchBox;
     public ToggleButton workspaceFilesTabBtn;
     public ToggleButton workspaceDocTabBtn;
-    public Label workspaceText;
+    public MenuButton workspaceText;
     public HBox workspaceToolbarBox;
     public VBox workspaceEmptyBox;
     public Label workspaceEmptyHintLabel;
@@ -147,11 +147,8 @@ public final class NotepadController extends AbstractMainController {
     public Label currentDocumentEmptyHintLabel;
     public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
     public VBox workspaceVBox;
-    public Label workspaceRefreshBtn;
-    public Label workspaceGoUpBtn;
-    public Label workspaceCreateDirBtn;
-    public Label workspaceCreateFileBtn;
-    public Label workspaceSortBtn;
+    public Button workspaceGoUpBtn;
+    public MenuButton workspaceMoreBtn;
     public Label notepadMainInsertEmptyLineBtn;
     public Label jsonPopBtn;
     private AnchorPane notepadMainResultLayout;
@@ -244,7 +241,6 @@ public final class NotepadController extends AbstractMainController {
         StackPane.setMargin(snackContainer, new Insets(0, 0, 22 + mode * 2, 0));
 
         NotepadHeadButtons.refreshSize();
-        WorkspaceManager.refreshSize();
         BottomEntry.refreshSize();
         BottomSearchBtnsMgr.refreshSize();
     }
@@ -490,13 +486,15 @@ public final class NotepadController extends AbstractMainController {
         }
         currentDocumentEmptyHintLabel.setText(Locales.str("currentDocumentEmptyHint"));
 
-        //工作区侧栏顶部分段切换，驱动隐藏头部的tab pane
+        // 工作区侧栏页签驱动隐藏头部的 tab pane。
         var workspaceTabSwitchGroup = new ToggleGroup();
         workspaceFilesTabBtn.setToggleGroup(workspaceTabSwitchGroup);
         workspaceDocTabBtn.setToggleGroup(workspaceTabSwitchGroup);
         workspaceFilesTabBtn.setSelected(true);
         workspaceTabSwitchGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue == workspaceFilesTabBtn) {
+            if (newValue == null && oldValue != null) {
+                oldValue.setSelected(true);
+            } else if (newValue == workspaceFilesTabBtn) {
                 workspaceTabPane.getSelectionModel().select(0);
             } else if (newValue == workspaceDocTabBtn) {
                 workspaceTabPane.getSelectionModel().select(1);

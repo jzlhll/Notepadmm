@@ -165,18 +165,18 @@
 }
 
 .workspace-app-title {
-   -fx-font-size: 20;
+   -fx-font-size: 16;
    -fx-font-weight: bold;
    -fx-text-fill: -au-default-text-color;
-   -fx-padding: 12 8 4 8;
+   -fx-padding: 12 10 8 10;
 }
 
 .main-ui-size-large .workspace-app-title {
-   -fx-font-size: 21;
+   -fx-font-size: 17;
 }
 
 .main-ui-size-larger .workspace-app-title {
-   -fx-font-size: 22;
+   -fx-font-size: 18;
 }
 
 .notepad-bottom-bar {
@@ -257,7 +257,7 @@
    -fx-padding: 1 0 1 0;
 }
 
-/* 工作区侧栏：隐藏原生tab头（配合tabMinHeight/tabMaxHeight=0），顶部用分段控件切换 */
+/* 工作区侧栏隐藏原生 tab 头，由顶部文字页签切换。 */
 .workspace-tab-pane > .tab-header-area {
    -fx-min-height: 0;
    -fx-pref-height: 0;
@@ -304,66 +304,172 @@
 
 .workspace-tab-switch-box {
    -fx-background-color: transparent;
-   -fx-background-radius: 0;
-   -fx-padding: 3;
+   -fx-padding: 0 10 0 10;
 }
 
 .workspace-tab-switch-box .workspace-tab-switch-btn {
-   -fx-max-width: Infinity;
-   -fx-min-height: 24;
-   -fx-pref-height: 24;
-   -fx-max-height: 24;
-   -fx-padding: 0 2 0 2;
-   -fx-background-radius: 8;
+   -fx-min-height: 38;
+   -fx-pref-height: 38;
+   -fx-padding: 0 1 5 1;
+   -fx-background-insets: 0;
+   -fx-background-radius: 0;
    -fx-background-color: transparent;
+   -fx-border-color: transparent;
+   -fx-border-width: 0 0 2 0;
    -fx-text-fill: -au-default-desc-color;
+   -fx-cursor: hand;
 }
 
 .workspace-tab-switch-box .workspace-tab-switch-btn:hover {
-   -fx-background-color: rgba(128, 128, 128, 0.18);
-}
-
-.workspace-tab-switch-box .workspace-tab-switch-btn:selected {
-   -fx-background-color: rgba(66, 133, 244, 0.2);
    -fx-text-fill: -au-default-text-color;
 }
 
+.workspace-tab-switch-box .workspace-tab-switch-btn:selected {
+   -fx-border-color: transparent transparent -au-default-desc-color transparent;
+   -fx-text-fill: -au-default-text-color;
+   -fx-font-weight: bold;
+}
+
+.workspace-tab-switch-box .workspace-tab-switch-btn:focused {
+   -fx-background-color: transparent;
+}
+
 .workspace-tab-switch-box.main-ui-size-default .workspace-tab-switch-btn {
-   -fx-font-size: 12;
+   -fx-font-size: 15;
 }
 
 .workspace-tab-switch-box.main-ui-size-large .workspace-tab-switch-btn {
-   -fx-font-size: 13;
+   -fx-font-size: 16;
 }
 
 .workspace-tab-switch-box.main-ui-size-larger .workspace-tab-switch-btn {
-   -fx-font-size: 14;
+   -fx-font-size: 17;
 }
 
-.workspace-tab-pane.main-ui-size-default .workspace-path-label {
-   -fx-font-size: 12;
+.workspace-toolbar {
+   -fx-padding: 6 8 6 10;
 }
 
-.workspace-tab-pane.main-ui-size-large .workspace-path-label {
-   -fx-font-size: 13;
+.workspace-directory-button,
+.workspace-action-button {
+   -fx-background-color: transparent;
+   -fx-background-insets: 0;
+   -fx-background-radius: 6;
+   -fx-text-fill: -au-default-text-color;
+   -fx-min-height: 36;
+   -fx-pref-height: 36;
+   -fx-max-height: 36;
+   -fx-cursor: hand;
 }
 
-.workspace-tab-pane.main-ui-size-larger .workspace-path-label {
-   -fx-font-size: 14;
+.workspace-directory-button {
+   -fx-padding: 0;
+   -fx-alignment: CENTER_LEFT;
+   -fx-font-weight: normal;
+}
+
+.workspace-directory-button > .label {
+   -fx-padding: 0 2 0 0;
+   -fx-text-fill: -au-default-text-color;
+   -fx-alignment: CENTER_LEFT;
+}
+
+.workspace-directory-button > .arrow-button {
+   -fx-padding: 0 4 0 4;
+}
+
+.workspace-directory-button > .arrow-button > .arrow {
+   -fx-background-color: -au-default-desc-color;
+   -fx-padding: 2 4;
+   -fx-shape: "M 0 0 L 4 4 L 8 0 L 9 1 L 4 6 L -1 1 Z";
+}
+
+.workspace-action-button {
+   -fx-padding: 0;
+   -fx-min-width: 30;
+   -fx-pref-width: 30;
+   -fx-max-width: 30;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-font-size: 18;
+}
+
+.workspace-parent-icon {
+   -fx-fill: transparent;
+   -fx-stroke: -au-default-desc-color;
+   -fx-stroke-width: 1.5;
+   -fx-stroke-line-cap: round;
+   -fx-stroke-line-join: round;
+}
+
+.workspace-action-button > .label {
+   -fx-padding: 0;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-alignment: CENTER;
+}
+
+.workspace-action-button > .arrow-button,
+.workspace-action-button > .arrow-button > .arrow {
+   -fx-padding: 0;
+   -fx-min-width: 0;
+   -fx-pref-width: 0;
+   -fx-max-width: 0;
+   -fx-background-color: transparent;
+   -fx-shape: null;
+}
+
+/* 鼠标点击后保留的焦点和菜单展开状态不产生持续背景。 */
+.workspace-directory-button:focused,
+.workspace-directory-button:showing,
+.workspace-action-button:focused,
+.workspace-action-button:showing {
+   -fx-background-color: transparent;
+}
+
+.workspace-directory-button:hover,
+.workspace-directory-button:focus-visible,
+.workspace-action-button:hover,
+.workspace-action-button:focus-visible {
+   -fx-background-color: rgba(128, 128, 128, 0.14);
+}
+
+.workspace-directory-button:pressed,
+.workspace-directory-button:armed,
+.workspace-action-button:pressed,
+.workspace-action-button:armed {
+   -fx-background-color: rgba(128, 128, 128, 0.22);
+}
+
+.workspace-tab-pane.main-ui-size-default .workspace-directory-button {
+   -fx-font-size: 15;
+}
+
+.workspace-tab-pane.main-ui-size-large .workspace-directory-button {
+   -fx-font-size: 16;
+}
+
+.workspace-tab-pane.main-ui-size-larger .workspace-directory-button {
+   -fx-font-size: 17;
+}
+
+.workspace-column-background .jfx-tree-view {
+   -fx-padding: 0 8 8 10;
+   -fx-border-width: 0;
+}
+
+.workspace-column-background .tree-cell-dir {
+   -fx-text-fill: -au-default-text-color;
 }
 
 .workspace-tab-pane .workspace-open-btn {
-   -fx-min-height: 24;
-   -fx-pref-height: 24;
-   -fx-max-height: 24;
-   -fx-padding: 0;
-   -fx-background-radius: 12;
-   -fx-background-color: #CCE8FF;
-   -fx-text-fill: black;
+   -fx-min-height: 30;
+   -fx-padding: 4 8;
+   -fx-background-radius: 6;
+   -fx-background-color: rgba(66, 133, 244, 0.14);
+   -fx-text-fill: -au-default-text-color;
 }
 
 .workspace-tab-pane .workspace-open-btn:hover {
-   -fx-background-color: #B3DFFF;
+   -fx-background-color: rgba(66, 133, 244, 0.24);
 }
 
 .workspace-tab-pane.main-ui-size-default .workspace-empty-hint {
