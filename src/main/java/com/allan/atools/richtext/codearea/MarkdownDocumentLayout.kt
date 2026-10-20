@@ -14,10 +14,10 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         private const val DEFAULT_MIN_MARGIN = 36.0
         private const val DEFAULT_MAX_MARGIN = 66.0
         private const val MIN_VERTICAL_PADDING = 36.0
-        private const val TEXT_MAX_VERTICAL_PADDING = 120.0
-        private const val DEFAULT_MAX_VERTICAL_PADDING = 66.0
-        private const val TEXT_CONTENT_HEIGHT = 600.0
-        private const val DEFAULT_CONTENT_HEIGHT = 650.0
+        private const val TEXT_MAX_VERTICAL_PADDING = 80.0
+        private const val DEFAULT_MAX_VERTICAL_PADDING = 56.0
+        private const val TEXT_VERTICAL_PADDING_RATIO = 0.075
+        private const val DEFAULT_VERTICAL_PADDING_RATIO = 0.06
         private val extensions = setOf(
             "md", "markdown", "mdown", "mmd", "rmarkdown", "mkd", "mdwn",
             "mdtxt", "rmd", "qmd", "mdtext", "mdx"
@@ -73,9 +73,9 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         // 否则显隐滚动条会改变两侧取整后的 padding，临界行高下会反复切换滚动条。
         val layoutHeight = viewport?.documentLayoutHeight ?: area.height
         val availableHeight = layoutHeight - (area.insets.top - padding.top) - (area.insets.bottom - padding.bottom)
-        val contentHeight = if (textDocument) TEXT_CONTENT_HEIGHT else DEFAULT_CONTENT_HEIGHT
+        val paddingRatio = if (textDocument) TEXT_VERTICAL_PADDING_RATIO else DEFAULT_VERTICAL_PADDING_RATIO
         val maxPadding = if (textDocument) TEXT_MAX_VERTICAL_PADDING else DEFAULT_MAX_VERTICAL_PADDING
-        val desiredPadding = Math.ceil((availableHeight - contentHeight) / 2.0)
+        val desiredPadding = Math.ceil(availableHeight * paddingRatio)
         val nextPadding = when {
             desiredPadding < MIN_VERTICAL_PADDING -> MIN_VERTICAL_PADDING
             desiredPadding > maxPadding -> maxPadding
