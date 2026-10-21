@@ -5,7 +5,6 @@ import com.allan.atools.tools.modulenotepad.manager.NotepadHeadButtons
 import com.allan.atools.ui.JfoenixDialogUtils
 import com.allan.atools.ui.SnackbarUtils
 import com.allan.atools.utils.Locales
-import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.RadioMenuItem
 import javafx.scene.control.SeparatorMenuItem
@@ -81,18 +80,16 @@ class WorkspaceToolbar(
         val directory = currentDirectory.get()
         addAll(creationItems(directory))
         add(SeparatorMenuItem())
-        add(Menu(Locales.str("workspaceSort")).apply {
-            val group = ToggleGroup()
-            items.add(RadioMenuItem(Locales.str("workspaceSortByName")).apply {
-                toggleGroup = group
-                isSelected = sortByName.asBoolean
-                setOnAction { if (!sortByName.asBoolean) toggleSort.run() }
-            })
-            items.add(RadioMenuItem(Locales.str("workspaceSortByModified")).apply {
-                toggleGroup = group
-                isSelected = !sortByName.asBoolean
-                setOnAction { if (sortByName.asBoolean) toggleSort.run() }
-            })
+        val group = ToggleGroup()
+        add(RadioMenuItem(Locales.str("workspaceSortByName")).apply {
+            toggleGroup = group
+            isSelected = sortByName.asBoolean
+            setOnAction { if (!sortByName.asBoolean) toggleSort.run() }
+        })
+        add(RadioMenuItem(Locales.str("workspaceSortByModified")).apply {
+            toggleGroup = group
+            isSelected = !sortByName.asBoolean
+            setOnAction { if (sortByName.asBoolean) toggleSort.run() }
         })
         add(MenuItem(Locales.str("refresh")).apply {
             isDisable = directory == null
