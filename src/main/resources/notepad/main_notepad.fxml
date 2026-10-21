@@ -115,7 +115,7 @@
     <StackPane fx:id="mainPane" styleClass="custom-main-bg" VBox.vgrow="ALWAYS">
         <SplitPane fx:id="notepadMainSplitPane" styleClass="custom-main-bg" orientation="VERTICAL">
             <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg,workspace-main-split">
-                <VBox fx:id="workspaceVBox" minWidth="213" maxWidth="400"
+                <VBox fx:id="workspaceVBox" minWidth="186" maxWidth="400"
                       styleClass="workspace-column-background">
                     <Label text="ATools" styleClass="workspace-app-title"/>
                     <HBox fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" spacing="14">
@@ -135,6 +135,13 @@
                                                 textOverrun="ELLIPSIS"
                                                 styleClass="workspace-directory-button"/>
                                     <Region minWidth="0" HBox.hgrow="ALWAYS"/>
+                                    <Button fx:id="workspaceRevertBtn" visible="false" managed="false"
+                                            styleClass="workspace-action-button">
+                                        <graphic>
+                                            <SVGPath content="M 5 1 L 1 5 L 5 9 M 1 5 H 8 A 5 5 0 0 1 8 15 H 6"
+                                                     styleClass="workspace-revert-icon" mouseTransparent="true"/>
+                                        </graphic>
+                                    </Button>
                                     <Button fx:id="workspaceGoUpBtn" disable="true" styleClass="workspace-action-button">
                                         <graphic>
                                             <SVGPath content="M 7 13 L 7 1 M 1 7 L 7 1 L 13 7"

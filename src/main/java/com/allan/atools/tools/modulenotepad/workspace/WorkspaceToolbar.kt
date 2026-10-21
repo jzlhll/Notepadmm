@@ -24,7 +24,16 @@ class WorkspaceToolbar(
     private val toggleSort: Runnable,
     private val chooseDirectory: Runnable
 ) {
+    private var previousDirectory: File? = null
+
     init {
+        controller.workspaceRevertBtn.apply {
+            accessibleText = Locales.str("workspacePreviousDirectory")
+            setOnAction {
+                val previous = previousDirectory
+                if (previous?.isDirectory == true) openDirectory.accept(previous)
+            }
+        }
         controller.workspaceGoUpBtn.apply {
             tooltip = Tooltip(Locales.str("goUpDir"))
             accessibleText = Locales.str("goUpDir")
@@ -42,6 +51,17 @@ class WorkspaceToolbar(
         controller.workspaceText.apply {
             items.setAll(directoryItems())
             setBeforeShow { items.setAll(directoryItems()) }
+        }
+    }
+
+    fun onDirectoryChanged(previous: File?, directory: File) {
+        if (previous == null || previous == directory) return
+        previousDirectory = previous
+        controller.workspaceRevertBtn.apply {
+            isVisible = true
+            isManaged = true
+            isDisable = !previous.isDirectory
+            tooltip = Tooltip(Locales.str("workspacePreviousDirectory") + "\n" + previous.absolutePath)
         }
     }
 

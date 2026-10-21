@@ -387,7 +387,8 @@
    -fx-font-size: 18;
 }
 
-.workspace-parent-icon {
+.workspace-parent-icon,
+.workspace-revert-icon {
    -fx-fill: transparent;
    -fx-stroke: -au-default-desc-color;
    -fx-stroke-width: 1.5;

@@ -148,6 +148,7 @@ public final class NotepadController extends AbstractMainController {
     public Label currentDocumentEmptyHintLabel;
     public ListView<MarkdownOutlineManager.MarkdownHeading> currentDocumentOutlineList;
     public VBox workspaceVBox;
+    public Button workspaceRevertBtn;
     public Button workspaceGoUpBtn;
     public AppMenuButton workspaceMoreBtn;
     public Label notepadMainInsertEmptyLineBtn;

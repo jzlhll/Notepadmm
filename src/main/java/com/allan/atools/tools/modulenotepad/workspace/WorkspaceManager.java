@@ -44,7 +44,7 @@ public final class WorkspaceManager implements IWorkspace {
     private static final String KEY_WORKSPACE_SORT_MODE = "workspace_sort";
     private static final String KEY_WORKSPACE_WIDTH = "workspace_width";
 
-    private static final int WIDTH_OF_WORKSPACE_MIN = 213;
+    private static final int WIDTH_OF_WORKSPACE_MIN = 186;
     private static final int WIDTH_OF_WORKSPACE_MAX = 400;
     private static final int WIDTH_OF_WORKSPACE_DIVIDER = 1;
     /** 最近打开工作区列表的最大保存数量 */
@@ -378,6 +378,7 @@ public final class WorkspaceManager implements IWorkspace {
         } else {
             if(DEBUG) Log.d(TAG, "treeItems: just directly action...>>>...<<<...");
             pendingWorkspaceDir = null;
+            toolbar.onDirectoryChanged(currentDir, dir);
             currentDir = dir;
             var path = dir.getAbsolutePath();
             restoreWorkspaceViews();
