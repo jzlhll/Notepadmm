@@ -115,7 +115,7 @@
     <StackPane fx:id="mainPane" styleClass="custom-main-bg" VBox.vgrow="ALWAYS">
         <SplitPane fx:id="notepadMainSplitPane" styleClass="custom-main-bg" orientation="VERTICAL">
             <SplitPane fx:id="notepadSubSplitPane" styleClass="custom-main-bg,workspace-main-split">
-                <VBox fx:id="workspaceVBox" minWidth="126" maxWidth="400"
+                <VBox fx:id="workspaceVBox" minWidth="213" maxWidth="400"
                       styleClass="workspace-column-background">
                     <Label text="ATools" styleClass="workspace-app-title"/>
                     <HBox fx:id="workspaceTabSwitchBox" styleClass="workspace-tab-switch-box" spacing="14">
