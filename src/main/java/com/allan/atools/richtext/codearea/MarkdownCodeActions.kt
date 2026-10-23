@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.ui.SnackbarUtils
 import javafx.scene.control.ChoiceDialog
@@ -61,7 +62,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
         val dialog = ChoiceDialog(node.info.trim().ifEmpty { "text" }, options)
         dialog.title = Locales.str("markdown.codeLanguage")
         dialog.headerText = Locales.str("markdown.codeLanguage")
-        val language = dialog.showAndWait().orElse(null) ?: return
+        val language = dialog.withAppTheme().showAndWait().orElse(null) ?: return
         if (before != area.text) return
         val span = node.sourceSpans.first()
         val raw = area.getText(span.inputIndex, span.inputIndex + span.length)
@@ -99,7 +100,7 @@ class MarkdownCodeActions(private val area: EditorArea) {
         val dialog = TextInputDialog("3,3")
         dialog.title = Locales.str("markdown.createTable")
         dialog.headerText = Locales.str("markdown.tableDimensions")
-        val value = dialog.showAndWait().orElse(null) ?: return
+        val value = dialog.withAppTheme().showAndWait().orElse(null) ?: return
         if (area.text != sourceBeforeDialog) return
         val dimensions = value.split(',').map { it.trim().toIntOrNull() }
         if (dimensions.size != 2 || dimensions.any { it == null || it < 1 || it > 50 }) {

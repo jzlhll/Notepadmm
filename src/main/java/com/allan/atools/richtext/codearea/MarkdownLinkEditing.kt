@@ -3,6 +3,7 @@ package com.allan.atools.richtext.codearea
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownAstCache
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import javafx.scene.control.TextInputDialog
 import org.commonmark.node.LinkReferenceDefinition
@@ -25,7 +26,7 @@ object MarkdownLinkEditing {
             title = Locales.str("markdown.editLink")
             headerText = Locales.str("markdown.linkAddress")
         }
-        val destination = dialog.showAndWait().orElse(null) ?: return null
+        val destination = dialog.withAppTheme().showAndWait().orElse(null) ?: return null
         val start = existing?.sourceSpans?.firstOrNull()?.inputIndex ?: selectionStart
         val end = existing?.sourceSpans?.lastOrNull()?.let { it.inputIndex + it.length } ?: selectionEnd
         val label = if (existing != null) {

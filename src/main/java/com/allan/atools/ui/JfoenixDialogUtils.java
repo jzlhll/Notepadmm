@@ -1,6 +1,7 @@
 package com.allan.atools.ui;
 
 import com.allan.atools.Colors;
+import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.baseparty.Action;
@@ -38,7 +39,7 @@ public final class JfoenixDialogUtils {
     private static Window mWindow;
 
     private static synchronized Window getWindow() {
-        return mWindow;
+        return mWindow != null ? mWindow : AllStagesManager.getInstance().getMainStage();
     }
 
     public static synchronized void setWindow(Window window) {
@@ -54,7 +55,7 @@ public final class JfoenixDialogUtils {
     }
 
     public static void alert(String head, String body, Action0 ex, int width) {
-        JFXAlert alert = new JFXAlert(getWindow());
+        JFXAlert alert = DialogTheme.withAppTheme(new JFXAlert<>(getWindow()));
         alert.initModality(Modality.APPLICATION_MODAL);
         alert.setOverlayClose(false);
         alert.setAnimation(JFXAlertAnimation.NO_ANIMATION);
@@ -86,7 +87,7 @@ public final class JfoenixDialogUtils {
     }
 
     public static void confirm(String head, String body, int smallBodySize, int width, DialogActionInfo... infos) {
-        JFXAlert alert = new JFXAlert(getWindow());
+        JFXAlert alert = DialogTheme.withAppTheme(new JFXAlert<>(getWindow()));
 
         smallBodySize = smallBodySize == 0 ? 16 : smallBodySize;
         alert.initModality(Modality.APPLICATION_MODAL);
@@ -130,7 +131,7 @@ public final class JfoenixDialogUtils {
 
     public static void editInput(String head, String defaultStr, Action<String> action) {
         Log.d("show editInput");
-        JFXAlert alert = new JFXAlert(getWindow());
+        JFXAlert alert = DialogTheme.withAppTheme(new JFXAlert<>(getWindow()));
         alert.initModality(Modality.APPLICATION_MODAL);
         alert.setOverlayClose(false);
         alert.setAnimation(JFXAlertAnimation.NO_ANIMATION);

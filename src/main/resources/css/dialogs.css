@@ -1,0 +1,37 @@
+/* 独立弹窗沿用应用配色，标准控件通过基础颜色派生各交互状态。 */
+.app-dialog-pane {
+    -fx-base: -au-popup-bg-color;
+    -fx-background: -au-popup-bg-color;
+    -fx-control-inner-background: -au-main-bg-color;
+    -fx-text-base-color: -au-popup-text-color;
+    -fx-text-background-color: -au-popup-text-color;
+    -fx-accent: -au-main-color;
+    -fx-focus-color: -au-main-color;
+    -fx-background-color: -au-popup-bg-color;
+}
+
+.app-dialog-pane .label {
+    -fx-text-fill: -au-popup-text-color;
+}
+
+.app-dialog-pane > .header-panel {
+    -fx-background-color: -au-main-bg-color2;
+}
+
+.app-dialog-pane .text-input {
+    -fx-text-fill: -au-input-text-color;
+    -fx-prompt-text-fill: -au-default-desc-color;
+    -fx-highlight-fill: -au-editor-selection-words-color;
+    -fx-highlight-text-fill: -au-input-text-color;
+}
+
+/* JFXAlert 的全窗遮罩保持透明叠加，只有内容区域使用弹窗背景。 */
+.app-dialog-pane.jfx-alert-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.25);
+    -fx-padding: 0;
+}
+
+.app-dialog-pane .jfx-alert-content-container,
+.app-dialog-pane .jfx-dialog-layout {
+    -fx-background-color: -au-popup-bg-color;
+}

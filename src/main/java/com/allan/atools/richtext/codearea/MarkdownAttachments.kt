@@ -4,6 +4,7 @@ import com.allan.atools.UIContext
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.MarkdownHtmlRenderer
 import com.allan.atools.ui.SnackbarUtils
+import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import javafx.application.Platform
@@ -253,7 +254,7 @@ class MarkdownAttachments(private val area: EditorArea) {
         val dialog = javafx.scene.control.TextInputDialog(initialWidth)
         dialog.title = Locales.str("markdown.imageWidth")
         dialog.headerText = Locales.str("markdown.imageWidth")
-        val width = dialog.showAndWait().orElse(null)?.toIntOrNull() ?: return
+        val width = dialog.withAppTheme().showAndWait().orElse(null)?.toIntOrNull() ?: return
         if (width !in 1..10000 || state.text != area.text || !area.isEditable || area.markdownComposing) return
         val titleAttribute = if (title.isEmpty()) "" else " title=\"${MarkdownHtmlRenderer.escape(title)}\""
         val result = "<img src=\"${MarkdownHtmlRenderer.escape(destination)}\" alt=\"${MarkdownHtmlRenderer.escape(alt)}\" width=\"$width\"$titleAttribute>"

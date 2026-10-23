@@ -7,6 +7,7 @@ import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.log.LogMemoryBudget
 import com.allan.atools.ui.SnackbarUtils
+import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.google.gson.Gson
@@ -65,7 +66,7 @@ object MarkdownPdfExport {
             headerText = Locales.str("markdown.pdfPageLayout") + "\n" + Locales.str("markdown.pdfImageHint")
             contentText = Locales.str("markdown.pdfOrientation")
         }
-        val orientation = dialog.showAndWait().orElse(null) ?: return
+        val orientation = dialog.withAppTheme().showAndWait().orElse(null) ?: return
         val chooser = FileChooser().apply {
             title = Locales.str("markdown.exportPdf")
             initialFileName = area.editor.documentState.displayName.substringBeforeLast('.') + ".pdf"
@@ -77,7 +78,7 @@ object MarkdownPdfExport {
             val replace = Alert(Alert.AlertType.CONFIRMATION, Locales.str("document.replaceOutput"), ButtonType.OK, ButtonType.CANCEL)
             replace.initOwner(UIContext.mainWindow)
             replace.headerText = destination.name
-            if (replace.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return
+            if (replace.withAppTheme().showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return
         }
         // 文件对话框运行嵌套事件循环，快照在用户确认输出路径后获取。
         if (area.editor.isDestroyed() || area.editor.isRealtimeProcessingLimitReached) {

@@ -59,6 +59,10 @@ public final class AllStagesManager {
 
     private Stage mainStage;
 
+    public void registerScene(Scene scene) {
+        scenes.add(scene);
+    }
+
     private void applyTheme(boolean dark) {
         try {
             String lightCss = ResLocation.getURL("css", "colors.css").toExternalForm();

@@ -222,9 +222,9 @@ class MenuOverlay(private val scene: Scene) {
         surface.children.add(node)
         node.applyCss()
         val availableWidth = scene.width - 16.0
-        val preferred = content.prefWidth(-1.0) + node.insets.left + node.insets.right + 18.0
+        val preferred = content.prefWidth(-1.0) + node.insets.left + node.insets.right
         val minimumWidth = if (rows.isEmpty()) 32.0 else 160.0
-        val width = when {
+        var width = when {
             preferred > availableWidth -> availableWidth
             preferred < minimumWidth -> if (availableWidth < minimumWidth) availableWidth else minimumWidth
             else -> preferred
@@ -232,6 +232,12 @@ class MenuOverlay(private val scene: Scene) {
         val preferredHeight = content.prefHeight(width - node.insets.left - node.insets.right) + node.insets.top + node.insets.bottom
         val availableHeight = scene.height - 16.0
         val height = if (preferredHeight > availableHeight) availableHeight else preferredHeight
+        if (preferredHeight > availableHeight) {
+            // 内容自身的滚动条已包含在首选宽度中，仅为外层实际溢出预留空间。
+            val scrollbarWidth = (scroll.lookup(".scroll-bar:vertical") as? Region)?.prefWidth(-1.0) ?: 0.0
+            val expandedWidth = width + scrollbarWidth
+            width = if (expandedWidth > availableWidth) availableWidth else expandedWidth
+        }
         node.setMinSize(width, height)
         node.setPrefSize(width, height)
         node.setMaxSize(width, height)

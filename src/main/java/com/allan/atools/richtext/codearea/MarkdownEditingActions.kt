@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.uilibs.richtexts.CodeArea
 import javafx.scene.control.Menu
@@ -432,7 +433,7 @@ class MarkdownEditingActions(private val area: EditorArea) {
                 val dialog = javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION,
                     String.format(Locales.str("markdown.wordCountValue"), characters, words))
                 dialog.headerText = Locales.str("markdown.wordCount")
-                dialog.showAndWait()
+                dialog.withAppTheme().showAndWait()
             }
         }
         val preview = MenuItem(Locales.str("markdown.toggleSource"))

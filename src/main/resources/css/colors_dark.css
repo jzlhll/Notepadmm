@@ -38,7 +38,7 @@
     -au-main-bg-color2: #3a3d3f;
     /*allan 主窗口边框色*/
     -au-main-window-border-color: #3f4246;
-    -au-workspace-bg-color: #383a3e;
+    -au-workspace-bg-color: rgb(44, 45, 56);
     -au-main-floating-color: #050505ee;
 
     -au-main-color: #4285F4;
@@ -56,7 +56,7 @@
     /*allan code area的左边行号背景*/
     -au-editor-lineno-color: #161617;
     /*allan code area的背景色*/
-    -au-editor-bg-color: #121213;
+    -au-editor-bg-color: rgb(40, 42, 54);
      /*allan code area的文字颜色*/
     -au-editor-text-color: #f7f6f7;
 
@@ -66,10 +66,11 @@
 
     -au-small-button-bg-color: #444443;
 
-    -au-file-mask-code-color: #007d65;
-    -au-file-mask-media-color: #9b9192;
-    -au-file-mask-image-color: #12a182;
-    -au-file-mask-other-color: #444444;
+    /* 文件分类文字在深色工作区背景上保持清晰可读。 */
+    -au-file-mask-code-color: #72c9b0;
+    -au-file-mask-media-color: #c2b6b8;
+    -au-file-mask-image-color: #59d3b0;
+    -au-file-mask-other-color: #b0b4bc;
     /* 工作区 Git 状态和差异视图。 */
     -au-git-added-text: #87daa2;
     -au-git-deleted-bg: #482a31;
