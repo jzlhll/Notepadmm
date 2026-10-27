@@ -2,6 +2,7 @@ package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.GlobalConfig;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import org.fxmisc.richtext.TextExt;
@@ -108,13 +109,11 @@ public final class MarkdownTableLayout {
             text.setUserData(run.destination());
             text.setUnderline(run.link());
             text.setText(run.text());
-            text.setFont(font);
+            boolean bold = header || run.bold();
+            text.setFont(bold ? Font.font(font.getFamily(), FontWeight.BOLD, font.getSize()) : font);
             text.getStyleClass().setAll("markdown-table-preview-content");
-            text.strokeProperty().unbind();
-            text.setStroke(null);
-            if (header || run.bold()) {
-                text.setStrokeWidth(font.getSize() * 0.035);
-                text.strokeProperty().bind(text.fillProperty());
+            if (bold) {
+                text.getStyleClass().add("markdown-bold");
             }
             text.getTransforms().clear();
             if (run.italic()) {

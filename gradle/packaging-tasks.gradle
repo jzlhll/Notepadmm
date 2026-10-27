@@ -168,66 +168,58 @@ tasks.register('obfuscateAppJar') {
         baseConfig.addAll(jmodArgs)
         baseConfig.addAll(thirdPartyArgs)
 
-        // 项目模块必须同一次 ProGuard 运行统一改名，否则跨模块引用（编译期仍是原名）无法改写一致。
-        // 但 ProGuard 单次运行会污染多份 module-info（把 opens 串到其它模块）。因全部包名均已 keep，
-        // module-info 中的 exports/requires 引用全为原名，故混淆后用原始 module-info.class 覆盖回即可。
+        // 项目模块须统一混淆以改写跨模块引用；各 JAR 同名的模块描述符和清单单独保存并恢复。
+        // exports/opens 对应的包名已由 proguard.pro 保留，原始 module-info.class 可直接用于混淆产物。
         def projectJarNames = [
                 'atools.jar',
                 'atools.baseparty.jar',
                 'atools.baseuilibs.jar',
                 'jfoenix.jar'
         ]
-        def backupModuleInfo = { File orig, String tag ->
-            def zf = new java.util.zip.ZipFile(orig)
-            try {
-                def e = zf.getEntry('module-info.class')
-                if (e != null) {
-                    def dir = new File(packagingConfig.buildRoot, "moinfo_${tag}")
-                    dir.mkdirs()
-                    new File(dir, 'module-info.class').bytes = zf.getInputStream(e).bytes
+        def metadataNames = ['module-info.class', 'META-INF/MANIFEST.MF']
+        def backupJarMetadata = { File orig, String tag ->
+            new java.util.zip.ZipFile(orig).withCloseable { zip ->
+                metadataNames.each { entryName ->
+                    def entry = zip.getEntry(entryName)
+                    if (entry != null) {
+                        def target = new File(packagingConfig.buildRoot, "metadata_${tag}/${entryName}")
+                        target.parentFile.mkdirs()
+                        zip.getInputStream(entry).withCloseable { input -> target.bytes = input.bytes }
+                    }
                 }
-            } finally {
-                zf.close()
             }
         }
-        def restoreModuleInfo = { File obf, String tag ->
-            def dir = new File(packagingConfig.buildRoot, "moinfo_${tag}")
-            def src = new File(dir, 'module-info.class')
-            if (!src.isFile()) return
-            def tmp = new File(packagingConfig.buildRoot, "moinfo_tmp_${tag}.jar")
-            def zis = new java.util.zip.ZipFile(obf)
-            try {
-                def fos = new java.io.FileOutputStream(tmp)
-                def zos = new java.util.zip.ZipOutputStream(fos)
-                try {
-                    def entries = zis.entries()
-                    while (entries.hasMoreElements()) {
-                        def inEntry = entries.nextElement()
-                        if (inEntry.name == 'module-info.class') continue
-                        zos.putNextEntry(new java.util.zip.ZipEntry(inEntry.name))
-                        if (!inEntry.isDirectory()) {
-                            zis.getInputStream(inEntry).transferTo(zos)
+        def restoreJarMetadata = { File obf, String tag ->
+            def dir = new File(packagingConfig.buildRoot, "metadata_${tag}")
+            def savedNames = metadataNames.findAll { new File(dir, it).isFile() }
+            if (savedNames.isEmpty()) return
+            def tmp = new File(packagingConfig.buildRoot, "metadata_tmp_${tag}.jar")
+            new java.util.zip.ZipFile(obf).withCloseable { zip ->
+                tmp.withOutputStream { output ->
+                    new java.util.zip.ZipOutputStream(output).withCloseable { result ->
+                        def entries = zip.entries()
+                        while (entries.hasMoreElements()) {
+                            def entry = entries.nextElement()
+                            if (metadataNames.contains(entry.name)) continue
+                            result.putNextEntry(new java.util.zip.ZipEntry(entry.name))
+                            if (!entry.isDirectory()) {
+                                zip.getInputStream(entry).withCloseable { input -> input.transferTo(result) }
+                            }
+                            result.closeEntry()
                         }
-                        zos.closeEntry()
+                        savedNames.each { entryName ->
+                            result.putNextEntry(new java.util.zip.ZipEntry(entryName))
+                            new File(dir, entryName).withInputStream { input -> input.transferTo(result) }
+                            result.closeEntry()
+                        }
                     }
-                    zos.putNextEntry(new java.util.zip.ZipEntry('module-info.class'))
-                    new java.io.FileInputStream(src).transferTo(zos)
-                    zos.closeEntry()
-                } finally {
-                    zos.close(); fos.close()
                 }
-            } finally {
-                zis.close()
             }
-            obf.delete()
-            if (!tmp.renameTo(obf)) {
-                throw new GradleException("restore module-info failed: ${obf.name}")
-            }
+            java.nio.file.Files.move(tmp.toPath(), obf.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
         }
 
-        // 备份原始 module-info
         projectJarNames.each { name ->
-            backupModuleInfo(new File(projectLibs, name), name.replaceAll(/\./, '_'))
+            backupJarMetadata(new File(projectLibs, name), name.replaceAll(/\./, '_'))
         }
 
         def configLines = baseConfig
@@ -244,7 +236,7 @@ tasks.register('obfuscateAppJar') {
         projectJarNames.each { name ->
             delete new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar')
             command.addAll([
-                    '-injars', new File(projectLibs, name).absolutePath,
+                    '-injars', new File(projectLibs, name).absolutePath + '(!module-info.class,!META-INF/MANIFEST.MF)',
                     '-outjars', new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar').absolutePath
             ])
         }
@@ -254,18 +246,14 @@ tasks.register('obfuscateAppJar') {
             throw new GradleException('ProGuard output is incomplete.')
         }
 
-        // 覆盖回各模块原始 module-info，并回写混淆产物
+        // 恢复各模块原始描述符和清单，并回写混淆产物
         projectJarNames.each { name ->
             def orig = new File(projectLibs, name)
             def cvt = new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar')
-            restoreModuleInfo(cvt, name.replaceAll(/\./, '_'))
+            restoreJarMetadata(cvt, name.replaceAll(/\./, '_'))
             cvt.renameTo(orig)
-            delete new File(packagingConfig.buildRoot, "moinfo_${name.replaceAll(/\./, '_')}")
+            delete new File(packagingConfig.buildRoot, "metadata_${name.replaceAll(/\./, '_')}")
         }
-        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools.jar')
-        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseparty.jar')
-        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_atools_baseuilibs.jar')
-        delete new File(packagingConfig.buildRoot, 'moinfo_tmp_jfoenix.jar')
         zipSingleFile(packagingConfig.mappingFile, packagingConfig.proguardMap, 'out.map')
         delete packagingConfig.mappingFile
         delete packagingConfig.proguardUse

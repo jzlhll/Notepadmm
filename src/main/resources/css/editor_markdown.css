@@ -1,6 +1,11 @@
 /* Markdown 通用布局和语义样式；配色由 css/markdown-themes 下的主题独立提供。
  * MarkdownThemes 在编辑器节点上加载明暗基础主题和用户覆盖样式。
  */
+/* 加载与正文同版本的真实粗体，避免描边使中文笔画粘连。 */
+@font-face {
+    src: url('../font/jbmono-bold.ttf');
+}
+
 /* ===== 标题：Typora GitHub 的标题比例和正文色 ===== */
 .markdown-title-1 { -fx-fill: -au-md-title-1; -fx-font-size: 2.25em; -fx-font-weight: bold; }
 .markdown-title-2 { -fx-fill: -au-md-title-2; -fx-font-size: 1.75em; -fx-font-weight: bold; }
@@ -281,7 +286,7 @@
     -fx-underline: true;
 }
 
-/* ===== 强调：粗体/斜体由 CodeArea 代码实现（伪粗体描边、Shear 斜切） ===== */
+/* ===== 强调：粗体使用原生字重，斜体由 CodeArea 的 Shear 斜切实现 ===== */
 .markdown-bold {
     -fx-font-weight: bold;
 }

@@ -1,0 +1,5 @@
+JetBrains Mono 2.242
+
+字体文件：jbmono.ttf（Regular）、jbmono-bold.ttf（Bold）。
+来源：https://github.com/JetBrains/JetBrainsMono/tree/v2.242/fonts/ttf
+许可证：SIL Open Font License 1.1，详见 JetBrainsMono-OFL.txt。

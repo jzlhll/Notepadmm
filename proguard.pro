@@ -56,8 +56,7 @@
 # mine app
 -dontwarn java.awt.datatransfer.**
 
-# 关键的。java9以上保留module-info
--keep class module-info
+# JPMS 模块描述符由打包任务单独保存并在混淆后恢复，不作为 ProGuard 输入。
 
 # 本地 JFoenix 与原外部依赖保持相同的类名和成员名，供 FXML、CSS 与反射加载。
 -keep class com.jfoenix.** { *; }

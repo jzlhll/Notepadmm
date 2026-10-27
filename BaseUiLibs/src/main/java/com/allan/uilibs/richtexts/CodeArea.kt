@@ -9,7 +9,6 @@ import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.value.ChangeListener
 import javafx.scene.Node
 import javafx.scene.Cursor
-import javafx.scene.shape.StrokeType
 import javafx.scene.text.Font
 import javafx.scene.text.TextFlow
 import javafx.scene.transform.Scale
@@ -46,7 +45,6 @@ abstract class CodeArea private constructor(
 ) {
     companion object {
         private const val MARKDOWN_ITALIC_STYLE = "markdown-italic"
-        private const val MARKDOWN_BOLD_STYLE = "markdown-bold"
         private const val MARKDOWN_EMOJI_STYLE = "markdown-emoji"
         const val MARKDOWN_EMOJI_GLYPH_PREFIX = "markdown-emoji-glyph:"
         const val MARKDOWN_EMOJI_RENDERED_CLASS = "markdown-emoji-rendered"
@@ -240,13 +238,6 @@ abstract class CodeArea private constructor(
                 return
             }
             if (MARKDOWN_ITALIC_STYLE in styleClasses) text.transforms.add(Shear(-0.18, 0.0))
-            if (MARKDOWN_BOLD_STYLE in styleClasses || styleClasses.any { it.startsWith("markdown-title-") }) {
-                // 自加载字体无 bold 变体，标题与强调共用按字号缩放的描边模拟粗体。
-                text.strokeType = StrokeType.CENTERED
-                text.strokeProperty().bind(text.fillProperty())
-                text.strokeWidthProperty().bind(Bindings.createDoubleBinding(
-                    { (text.font?.size ?: 13.0) * 0.04 }, text.fontProperty()))
-            }
         }
 
         private fun findEmojiFontFamily(): String? {
