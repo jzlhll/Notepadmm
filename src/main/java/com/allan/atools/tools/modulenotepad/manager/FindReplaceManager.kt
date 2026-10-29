@@ -39,7 +39,7 @@ class FindReplaceManager(private val controller: NotepadFindController, stage: S
         controller.findMode0NormalBtn.selectedProperty().addListener(changed)
         controller.findMode1RegexBtn.selectedProperty().addListener(changed)
         controller.findMode2FakeRegexBtn.selectedProperty().addListener(changed)
-        controller.tabPane.selectionModel.selectedIndexProperty().addListener(changed)
+        controller.tabPane.selectionModel.selectedItemProperty().addListener(changed)
         controller.replaceBtn.setOnAction { execute(Operation.REPLACE) }
         controller.replaceAllBtn.setOnAction { execute(Operation.ALL) }
         controller.replaceTextField.setOnAction { execute(Operation.REPLACE) }
@@ -83,7 +83,7 @@ class FindReplaceManager(private val controller: NotepadFindController, stage: S
 
     private fun refreshState() {
         val current = area
-        val replaceTab = controller.tabPane.selectionModel.selectedIndex == 2
+        val replaceTab = controller.tabPane.selectionModel.selectedItem === controller.replaceTab
         val unavailable = current == null || current.editor.isDestroyed() || current.isDisabled ||
             MarkdownEditorSupport.supportsMarkdown(current)
         val busy = task != null
@@ -103,7 +103,7 @@ class FindReplaceManager(private val controller: NotepadFindController, stage: S
     private fun execute(operation: Operation, fromOverride: Int? = null, statusPrefix: String = "") {
         cancel()
         val current = area ?: return
-        if (controller.tabPane.selectionModel.selectedIndex != 2 || current.editor.isDestroyed() ||
+        if (controller.tabPane.selectionModel.selectedItem !== controller.replaceTab || current.editor.isDestroyed() ||
             current.isDisabled || MarkdownEditorSupport.supportsMarkdown(current)) return
         if (operation != Operation.FIND && !current.isEditable) { refreshState(); return }
         val words = controller.findTextField.text.orEmpty()

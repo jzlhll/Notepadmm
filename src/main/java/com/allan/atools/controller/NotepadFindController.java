@@ -23,6 +23,7 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tab;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -38,6 +39,9 @@ import java.util.LinkedList;
 @XmlPaths(paths = {"notepad", "notepad_mm_find.fxml"})
 public final class NotepadFindController extends AbstractController {
     public JFXTabPane tabPane;
+    public Tab searchTab;
+    public Tab replaceTab;
+    public Tab advanceSearchTab;
     public VBox normalViewVBox;
     public JFXComboBox<String> findComboBox;
     public JFXButton startBtn;
@@ -94,7 +98,7 @@ public final class NotepadFindController extends AbstractController {
     public void updateSelectedText(String selectedText) {
         Log.d("update selected text: " + selectedText);
          mOthers.setFindTextField(selectedText);
-        tabPane.getSelectionModel().select(0);
+        tabPane.getSelectionModel().select(searchTab);
     }
 
     private FindAdvanceListViewManager mListViewMgr;
@@ -116,44 +120,22 @@ public final class NotepadFindController extends AbstractController {
         throw new RuntimeException("not impossible current type.");
     }
 
-    private int initTab(String index) {
-        int id = 0;
-        try {
-            id = Integer.parseInt(index);
-        } catch (Exception e) {
-            //do nothing.
+    private void initTab(Tab tab) {
+        boolean replacing = tab == replaceTab;
+        boolean advanced = tab == advanceSearchTab;
+        replaceBox.setVisible(replacing);
+        replaceBox.setManaged(replacing);
+        colorsSettingsBox.setVisible(!replacing);
+        colorsSettingsBox.setManaged(!replacing);
+        advanceSearchBox.setVisible(advanced);
+        normalViewVBox.setVisible(!advanced);
+        startBtn.setText(Locales.str(replacing ? "findWindow.findNext" : "search"));
+        startAllBtn.setText(Locales.str("allSearch"));
+
+        if (advanced && mListViewMgr == null) {
+            mListViewMgr = new FindAdvanceListViewManager(this);
+            mListViewMgr.initListView();
         }
-
-        if (id < 0 || id > 2) id = 0;
-        replaceBox.setVisible(id == 2);
-        replaceBox.setManaged(id == 2);
-        colorsSettingsBox.setVisible(id != 2);
-        colorsSettingsBox.setManaged(id != 2);
-
-        if (id == 0) {
-            advanceSearchBox.setVisible(false);
-            normalViewVBox.setVisible(true);
-            //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
-            startBtn.setText(Locales.str("search"));
-            startAllBtn.setText(Locales.str("allSearch"));
-        } else if (id == 1) {
-            advanceSearchBox.setVisible(true);
-            normalViewVBox.setVisible(false);
-            //VBox.setMargin(jichugouxuanLinesBox, new Insets(18, 0, 0, 12));
-            startBtn.setText(Locales.str("search"));
-            startAllBtn.setText(Locales.str("allSearch"));
-
-            if (mListViewMgr == null) {
-                mListViewMgr = new FindAdvanceListViewManager(this);
-                mListViewMgr.initListView();
-            }
-        } else if (id == 2) {
-            advanceSearchBox.setVisible(false);
-            normalViewVBox.setVisible(true);
-            //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
-            startBtn.setText(Locales.str("findWindow.findNext"));
-        }
-        return id;
     }
 
     @Override
@@ -178,17 +160,20 @@ public final class NotepadFindController extends AbstractController {
             }
         });
 
-        String tabIndex = GlobalCfgStores.user().getString("findWindowTabIndex", null);
-        var tabIndexInt = initTab(tabIndex);
-        tabPane.getSelectionModel().select(tabIndexInt);
-        tabPane.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
-            GlobalCfgStores.user().setString("findWindowTabIndex", newValue.toString());
-            initTab(newValue.toString());
+        // 保留配置中原有的页面标识，显示顺序调整不改变已记住的页面。
+        String tabIndex = GlobalCfgStores.user().getString("findWindowTabIndex", "0");
+        Tab initialTab = "1".equals(tabIndex) ? advanceSearchTab : "2".equals(tabIndex) ? replaceTab : searchTab;
+        initTab(initialTab);
+        tabPane.getSelectionModel().select(initialTab);
+        tabPane.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+            GlobalCfgStores.user().setString("findWindowTabIndex",
+                    newValue == advanceSearchTab ? "1" : newValue == replaceTab ? "2" : "0");
+            initTab(newValue);
         });
         mOthers.init();
 
         startBtn.setOnAction(e -> {
-            if (tabPane.getSelectionModel().getSelectedIndex() == 2) {
+            if (tabPane.getSelectionModel().getSelectedItem() == replaceTab) {
                 replaceManager.findNext();
                 return;
             }

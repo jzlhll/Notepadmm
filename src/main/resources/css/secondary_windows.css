@@ -38,7 +38,7 @@
     -fx-background-radius: 7;
     -fx-border-width: 0;
     -fx-text-fill: -au-default-desc-color;
-    -fx-font-size: 20;
+    -fx-font-size: 23;
     -fx-padding: 0;
     -fx-cursor: hand;
 }
@@ -73,19 +73,27 @@
     -fx-prompt-text-fill: -au-default-desc-color;
 }
 
-.secondary-window-navigation .headers-region .tab {
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab,
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab:hover,
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab:selected {
     -fx-background-color: transparent;
     -fx-background-radius: 7;
     -fx-background-insets: 6 3;
     -fx-padding: 8 12;
 }
 
-.secondary-window-navigation .headers-region .tab:hover {
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab:hover {
     -fx-background-color: -au-main-bg-color2;
 }
 
-.secondary-window-navigation .headers-region .tab:selected {
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab:selected {
     -fx-background-color: -au-tab-select-region-color;
+}
+
+/* JFXRippler 会为透明填充生成固定透明度的整块遮罩，导航只使用 Tab 自身的背景。 */
+.jfx-tab-pane.secondary-window-navigation .headers-region .tab > .jfx-rippler {
+    -jfx-rippler-disabled: true;
+    -fx-background-color: transparent;
 }
 
 .secondary-window-navigation .headers-region .tab .tab-container .tab-label {
