@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.Set;
 
 public final class Utils {
-    private static final String APP_VERSION = "1.6.0";
+    private static final String APP_VERSION = "2.0";
 
     public static String getAppVersion() {
         return APP_VERSION;

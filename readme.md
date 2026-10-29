@@ -2,6 +2,10 @@
 
 [English](readme_en.md)
 
+[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-orange)
+![Version](https://img.shields.io/badge/version-v2.0-green)
+
 **ATools**（项目名 Notepadmm）是一款支持 Windows 与 macOS 的专业日志分析和 Markdown 编辑工具。
 
 ## 1. 专业日志分析

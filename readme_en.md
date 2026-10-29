@@ -2,6 +2,10 @@
 
 [中文](readme.md)
 
+[![OSCS Status](https://www.oscs1024.com/platform/badge/jzlhll/Notepadmm.svg?size=small)](https://www.oscs1024.com/project/jzlhll/Notepadmm?ref=badge_small)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-orange)
+![Version](https://img.shields.io/badge/version-v2.0-green)
+
 **ATools** (project name: Notepadmm) is a professional log analysis and Markdown editor for Windows and macOS.
 
 ## 1. Professional log analysis
