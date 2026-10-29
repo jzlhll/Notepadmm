@@ -35,3 +35,9 @@ Install JDK 25, copy `local.properties.example` to `local.properties`, and confi
 | `./macOSBuild.sh -p` | Create a complete DMG, replace `/Applications/ATools.app`, and launch it. |
 
 Use `-p` for the first installation or after upgrading the JDK, JavaFX, or third-party dependencies; use `-s` for everyday development. On Windows, `./windowsBuild.sh -p` creates an EXE installer. See the [build notes](docs/编译注意事项.md) for configuration details.
+
+The macOS package uses a local self-signed certificate and is not signed with an Apple Developer ID or notarized. If macOS reports that the app is damaged or cannot verify its developer, confirm that the package came from this project's Release, then run:
+
+```shell
+sudo xattr -r -d com.apple.quarantine /Applications/ATools.app
+```

@@ -35,3 +35,9 @@ dracula：
 | `./macOSBuild.sh -p` | 完整打包生成 DMG，自动替换 `/Applications/ATools.app` 并启动。 |
 
 首次安装或升级 JDK、JavaFX、第三方依赖时使用 `-p`，日常开发使用 `-s`。Windows 使用 `./windowsBuild.sh -p` 生成 EXE 安装包。配置细节见 [编译注意事项](docs/编译注意事项.md)。
+
+macOS 安装包使用本地自签名证书，尚未通过 Apple 开发者签名与公证。安装后如提示“应用已损坏”或无法验证开发者，确认安装包来自本项目 Release 后，可在终端执行：
+
+```shell
+sudo xattr -r -d com.apple.quarantine /Applications/ATools.app
+```
