@@ -54,7 +54,7 @@ public class ResultNewWindow {
         }
         var stage = AllStagesManager.getInstance().newStage(info, root, false, null);
         stage.focusedProperty().addListener((observable, oldValue, newValue) -> UIContext.focus.notifyResultNewWindowFocusChanged(newValue));
-        KeyEventDispatcher.instance.init(root);
+        KeyEventDispatcher.instance.init(stage.getScene().getRoot());
         controller.init(stage);
     }
 }

@@ -3,13 +3,13 @@ package com.allan.atools.tools.modulenotepad.workspace
 import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
+import com.allan.atools.ui.createSecondaryScene
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.allan.atools.utils.ResLocation
 import javafx.application.Platform
 import javafx.geometry.Insets
 import javafx.geometry.Pos
-import javafx.scene.Scene
 import javafx.scene.control.*
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -110,8 +110,7 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
         val root = BorderPane(content, toolbar, null, statusBar, null).apply {
             styleClass.addAll("custom-main-bg", "git-diff-window")
         }
-        stage.scene = Scene(root, 1240.0, 780.0).apply {
-            stylesheets.addAll(owner.scene.stylesheets)
+        stage.scene = createSecondaryScene(stage, root, 1240.0, 780.0).apply {
             stylesheets.add(ResLocation.getURL("css", "git.css").toExternalForm())
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 when {

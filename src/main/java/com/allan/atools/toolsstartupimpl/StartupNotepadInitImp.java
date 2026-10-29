@@ -100,7 +100,7 @@ public final class StartupNotepadInitImp implements IStartupInit {
         createInfo.isSystemWindow = false;
         createInfo.sizeAndLocateCachePrefixName = "notepad_main_";
 
-        //主窗口统一使用页面内自绘标题栏，子窗口维持现有平台策略
+        //主窗口使用页面内自绘标题栏，二级窗口由统一无标题外框承载。
         AllStagesManager.getInstance().initMainStage(stage, createInfo, root, (sz) -> {
             NotepadController.sizeXyChangedProp.set(NotepadController.sizeXyChangedProp.getValue() + 1);
         });

@@ -9,7 +9,6 @@ import com.jfoenix.controls.JFXRadioButton
 import javafx.beans.InvalidationListener
 import javafx.geometry.Insets
 import javafx.geometry.Pos
-import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.ToggleGroup
@@ -95,9 +94,7 @@ class MarkdownThemeDialog private constructor(owner: Stage) {
         )
         val footer = VBox(8.0, error, actions).apply { padding = Insets(12.0, 16.0, 16.0, 16.0) }
         val root = BorderPane(scroll, heading, null, footer, null).apply { styleClass.add("custom-main-bg") }
-        stage.scene = Scene(root, 660.0, 560.0).apply {
-            stylesheets.addAll(owner.scene.stylesheets)
-        }
+        stage.scene = createSecondaryScene(stage, root, 660.0, 560.0)
         MarkdownThemes.revisionProperty().addListener(changed)
         stage.setOnHidden { MarkdownThemes.revisionProperty().removeListener(changed) }
         refresh()

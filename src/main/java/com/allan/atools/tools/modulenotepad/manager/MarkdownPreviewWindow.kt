@@ -9,13 +9,13 @@ import com.allan.atools.richtext.codearea.MarkdownEditorSupport
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownMermaidSupport
 import com.allan.atools.threads.ThreadUtils
+import com.allan.atools.ui.createSecondaryScene
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.google.gson.Gson
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.concurrent.Worker
-import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.layout.BorderPane
@@ -63,7 +63,7 @@ class MarkdownPreviewWindow private constructor() {
         val source = Button(Locales.str("markdown.backToEditor"))
         source.setOnAction { area?.requestFocus(); UIContext.mainWindow?.requestFocus() }
         val bar = HBox(12.0, source, hint).apply { style = "-fx-padding: 8;" }
-        stage.scene = Scene(BorderPane(view, bar, null, null, null), 820.0, 680.0)
+        stage.scene = createSecondaryScene(stage, BorderPane(view, bar, null, null, null), 820.0, 680.0)
         view.isContextMenuEnabled = true
         view.engine.setCreatePopupHandler { null }
         view.engine.loadWorker.stateProperty().addListener { _, _, value ->

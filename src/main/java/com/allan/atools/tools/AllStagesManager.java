@@ -1,6 +1,5 @@
 package com.allan.atools.tools;
 
-import com.allan.atools.UIContext;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.bases.SizeAndXySaverImpl;
 import com.allan.atools.threads.ThreadUtils;
@@ -9,16 +8,14 @@ import com.allan.atools.utils.ResLocation;
 import com.allan.atools.beans.SizeAndXy;
 import com.allan.atools.beans.SubWindowCreatorInfo;
 import com.allan.atools.beans.WindowCreatorInfo;
-import com.allan.uilibs.jfoenix.MyJFXDecorator;
+import com.allan.atools.ui.SecondaryWindows;
 import com.allan.baseparty.Action;
 import com.allan.baseparty.Action0;
-import com.allan.baseparty.handler.TextUtils;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -198,33 +195,10 @@ public final class AllStagesManager {
         return newStage(info, rootView, initOwner, onShownAction, null);
     }
     public Stage newStage(SubWindowCreatorInfo info, Parent rootView, boolean initOwner, Action0 onShownAction, Action<SizeAndXy> sizeOrXYChanged) {
-        // Create sized scene
-        Scene scene;
-        // Create window
         Stage stage = new Stage();
-
-        if (!UIContext.CAN_DECORATOR) {
-            info.isSystemWindow = true;
-            //style
-            stage.initStyle(info.stageStyle);
-        } else {
-            MyJFXDecorator decorator = new MyJFXDecorator(stage, rootView, true, true);
-            if (!TextUtils.isEmpty(info.iconPath)) {
-                var imageView = new ImageView(new Image(info.iconPath));
-                imageView.setFitHeight(MyJFXDecorator.HEIGHT_BUTTONS_IMAGE_HEIGHT);
-                imageView.setFitWidth(MyJFXDecorator.HEIGHT_BUTTONS_IMAGE_HEIGHT);
-                decorator.setGraphic(imageView);
-            }
-            rootView = decorator;
-        }
-
-        if (info.width > 0 && info.height > 0)
-            scene = new Scene(rootView, info.width, info.height);
-        else
-            scene = new Scene(rootView);
+        Scene scene = SecondaryWindows.createSecondaryScene(stage, rootView, info.width, info.height);
 
         stage.setScene(scene);
-        scenes.add(scene);
         stage.setResizable(info.resizable);
 
         //图标
@@ -238,11 +212,6 @@ public final class AllStagesManager {
         }*/
         //标题
         stage.setTitle(info.title);
-
-        // Add style-sheets
-        ObservableList<String> stylesheets = stage.getScene().getStylesheets();
-        stylesheets.addAll(cssForms);
-        stylesheets.addAll(cssCustomForms.values());
 
         // Set window owner to main window
         if (initOwner && Screen.getScreens().size() > 1) {

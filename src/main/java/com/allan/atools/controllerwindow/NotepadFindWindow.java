@@ -52,7 +52,7 @@ public final class NotepadFindWindow {
             findStage = AllStagesManager.getInstance().newStage(info, root, false, null);
 
             controller.init(findStage);
-            KeyEventDispatcher.instance.init(root);
+            KeyEventDispatcher.instance.init(findStage.getScene().getRoot());
         }
     }
 

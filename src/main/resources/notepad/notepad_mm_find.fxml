@@ -17,12 +17,12 @@
 <?import com.jfoenix.controls.JFXListView?>
 <?import com.jfoenix.controls.JFXColorPicker?>
 <AnchorPane prefHeight="520" styleClass="custom-notepad-pane" prefWidth="660" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1">
-   <JFXTabPane fx:id="tabPane" prefHeight="50" styleClass="custom-jfx-tab-pane" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
+   <JFXTabPane fx:id="tabPane" prefHeight="50" styleClass="custom-jfx-tab-pane,secondary-window-navigation" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
       <Tab text="%findWindow.searchWithSpace" />
       <!-- Tab text="%findWindow.replaceWithSpace" / -->
       <Tab text="%findWindow.advanceSearchWithSpace" />
    </JFXTabPane>
-   <VBox fx:id="normalViewVBox" alignment="TOP_CENTER" spacing="30" AnchorPane.topAnchor="51" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0">
+   <VBox fx:id="normalViewVBox" alignment="TOP_CENTER" spacing="30" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0">
       <padding>
          <Insets top="36" />
       </padding>
@@ -109,7 +109,7 @@
       </VBox>
    </VBox>
 
-   <VBox fx:id="advanceSearchBox" AnchorPane.topAnchor="51">
+   <VBox fx:id="advanceSearchBox" AnchorPane.topAnchor="0">
       <HBox fx:id="advanceBtnsBox" styleClass="custom-main-bg">
          <VBox.margin>
             <Insets top="4" left="12"/>
@@ -165,9 +165,9 @@
       </HBox>
    </VBox>
 
-   <AnchorPane fx:id="theFloatWindowPane" styleClass="custom-floating-bg" visible="false" AnchorPane.topAnchor="30" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"/>
+   <AnchorPane fx:id="theFloatWindowPane" styleClass="custom-floating-bg" visible="false" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"/>
 
-   <VBox fx:id="floatColorsBox" AnchorPane.topAnchor="60" visible="false">
+   <VBox fx:id="floatColorsBox" AnchorPane.topAnchor="30" visible="false">
       <HBox>
          <Label text="%textcolor" styleClass="small-desc-label">
             <HBox.margin>

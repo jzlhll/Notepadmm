@@ -3,7 +3,6 @@ package com.allan.atools.ui
 import com.allan.atools.richtext.codearea.MarkdownShortcuts
 import com.allan.atools.utils.Locales
 import javafx.geometry.Insets
-import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.layout.GridPane
@@ -53,9 +52,8 @@ object MarkdownShortcutDialog {
             title = Locales.str("markdown.shortcuts")
             minWidth = 540.0
             minHeight = 360.0
-            scene = Scene(ScrollPane(body).apply { isFitToWidth = true; styleClass.add("custom-main-bg") }, 760.0, 650.0).apply {
-                stylesheets.addAll(owner.scene.stylesheets)
-            }
+            scene = createSecondaryScene(this,
+                ScrollPane(body).apply { isFitToWidth = true; styleClass.add("custom-main-bg") }, 760.0, 650.0)
             setOnHidden { window = null }
         }
         window = stage

@@ -1,0 +1,100 @@
+/* 窗口与标准控件都从应用颜色派生，避免深色模式回退到浅色默认值。 */
+.secondary-window {
+    -fx-base: -au-main-bg-color;
+    -fx-background: -au-main-bg-color;
+    -fx-control-inner-background: -au-main-bg-color;
+    -fx-text-base-color: -au-default-text-color;
+    -fx-text-background-color: -au-default-text-color;
+    -fx-accent: -au-main-color;
+    -fx-focus-color: -au-main-color;
+    -fx-background-color: -au-main-bg-color;
+    -fx-background-radius: 10;
+    -fx-border-color: -au-main-window-border-color;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 1;
+}
+
+.secondary-window-header {
+    -fx-min-height: 36;
+    -fx-pref-height: 36;
+    -fx-padding: 4 8 4 12;
+}
+
+.secondary-window-header-with-navigation {
+    -fx-min-height: 50;
+    -fx-pref-height: 50;
+    -fx-padding: 0 8 0 12;
+}
+
+.secondary-window-close {
+    -fx-min-width: 28;
+    -fx-pref-width: 28;
+    -fx-max-width: 28;
+    -fx-min-height: 28;
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+    -fx-border-width: 0;
+    -fx-text-fill: -au-default-desc-color;
+    -fx-font-size: 20;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+}
+
+.secondary-window-close:hover,
+.secondary-window-close:focused {
+    -fx-background-color: -au-main-bg-color2;
+    -fx-text-fill: -au-default-text-color;
+}
+
+.secondary-window-close:pressed {
+    -fx-background-color: -au-red-color;
+    -fx-text-fill: -au-popup-text-color;
+}
+
+.secondary-window .jfx-check-box {
+    -jfx-unchecked-color: -au-default-desc-color;
+}
+
+.secondary-window .jfx-radio-button {
+    -jfx-unselected-color: -au-default-desc-color;
+}
+
+.secondary-window .jfx-radio-button .dot {
+    -fx-fill: -au-main-color;
+}
+
+.secondary-window .jfx-text-field,
+.secondary-window .jfx-combo-box {
+    -jfx-focus-color: -au-main-color;
+    -jfx-unfocus-color: -au-default-desc-color;
+    -fx-prompt-text-fill: -au-default-desc-color;
+}
+
+.secondary-window-navigation .headers-region .tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+    -fx-background-insets: 6 3;
+    -fx-padding: 8 12;
+}
+
+.secondary-window-navigation .headers-region .tab:hover {
+    -fx-background-color: -au-main-bg-color2;
+}
+
+.secondary-window-navigation .headers-region .tab:selected {
+    -fx-background-color: -au-tab-select-region-color;
+}
+
+.secondary-window-navigation .headers-region .tab .tab-container .tab-label {
+    -fx-font-size: 15;
+    -fx-font-weight: normal;
+    -fx-text-fill: -au-default-desc-color;
+}
+
+.secondary-window-navigation .headers-region .tab:selected .tab-container .tab-label {
+    -fx-text-fill: -au-tab-select-region-text-color;
+    -fx-font-weight: bold;
+}

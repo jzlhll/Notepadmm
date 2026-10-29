@@ -1,6 +1,5 @@
 package com.allan.atools.controller;
 
-import com.allan.atools.UIContext;
 import com.allan.atools.SettingPreferences;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.SizeAndXyChangedListener;
@@ -11,7 +10,6 @@ import com.allan.uilibs.controls.RotatablePaneLayouter;
 import com.allan.atools.Colors;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.uilibs.controls.Drag2ScrollPane;
-import com.allan.uilibs.jfoenix.MyJFXDecorator;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import javafx.application.Platform;
@@ -106,14 +104,12 @@ public final class PictureController extends AbstractController {
         });
     }
 
-    public static final int OFFSET_Y = (UIContext.CAN_DECORATOR ? MyJFXDecorator.HEIGHT_BUTTONS_CONTAINER : 0);
-
     //我们为什么要调这个函数？
     //目的是随着window的变化。我们需要让draggerScrollPane的size也跟着变化。
     private void setScrollPaneSize(double w, double h) {
         Log.d(TAG, "set scrollSize: " + w + "*" + h);
         draggerScrollPane.setPrefWidth(w);
-        draggerScrollPane.setPrefHeight(h - imageMgr.getImageWindowSize().getScrollPaneOffsetY() - OFFSET_Y);
+        draggerScrollPane.setPrefHeight(h - imageMgr.getImageWindowSize().getScrollPaneOffsetY());
     }
 
     @Override

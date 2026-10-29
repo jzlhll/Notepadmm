@@ -1,6 +1,7 @@
 package com.allan.atools.ui;
 
 import javafx.collections.ListChangeListener;
+import javafx.collections.WeakListChangeListener;
 import javafx.event.EventTarget;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Cursor;
@@ -13,7 +14,7 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
-/** 主窗口自绘标题栏的移动、缩放与窗口按钮行为。 */
+/** 自绘窗口操作区的移动、缩放与窗口按钮行为。 */
 public final class MainWindowChrome {
     private static final double RESIZE_MARGIN = 5;
     private static final double WINDOW_POSITION_MARGIN = 200;
@@ -21,6 +22,7 @@ public final class MainWindowChrome {
     private final Stage stage;
     private final Region root;
     private final Node header;
+    private final ListChangeListener<Screen> screensChanged = change -> onScreensChanged();
 
     private DragMode dragMode = DragMode.NONE;
     private WindowBounds restoreBounds;
@@ -31,9 +33,7 @@ public final class MainWindowChrome {
 
     public MainWindowChrome(Stage stage, Region root, Node header,
                             Node closeButton, Node minimizeButton, Node maximizeButton) {
-        this.stage = stage;
-        this.root = root;
-        this.header = header;
+        this(stage, root, header);
 
         closeButton.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
@@ -53,6 +53,12 @@ public final class MainWindowChrome {
                 event.consume();
             }
         });
+    }
+
+    public MainWindowChrome(Stage stage, Region root, Node header) {
+        this.stage = stage;
+        this.root = root;
+        this.header = header;
 
         root.addEventFilter(MouseEvent.MOUSE_MOVED, this::onMouseMoved);
         root.addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
@@ -60,7 +66,7 @@ public final class MainWindowChrome {
         root.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> finishDrag());
         root.addEventFilter(MouseEvent.MOUSE_CLICKED, this::onMouseClicked);
         stage.addEventHandler(WindowEvent.WINDOW_SHOWN, event -> ensureWindowVisible());
-        Screen.getScreens().addListener((ListChangeListener<Screen>) change -> onScreensChanged());
+        Screen.getScreens().addListener(new WeakListChangeListener<>(screensChanged));
     }
 
     private void onMouseMoved(MouseEvent event) {
@@ -219,6 +225,9 @@ public final class MainWindowChrome {
     }
 
     private void toggleMaximized() {
+        if (!stage.isResizable()) {
+            return;
+        }
         finishDrag();
         root.setCursor(Cursor.DEFAULT);
         if (maximized) {
