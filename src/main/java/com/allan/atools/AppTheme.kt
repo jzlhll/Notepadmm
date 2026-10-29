@@ -38,6 +38,13 @@ enum class AppTheme(val id: String, val dark: Boolean, val cssFile: String, priv
 
     fun color(key: String): Color = Color.valueOf(palettes.getValue(".root").getValue(key))
 
+    /** 编辑器内图表与完整预览共用选区配色，避免 WebView 使用系统高饱和蓝色。 */
+    fun mermaidSelectionCss(): String {
+        val background = markdownPalette.getValue("-au-md-diagram-selection-bg")
+        val foreground = markdownPalette.getValue("-au-editor-text-color")
+        return "#diagram ::selection,.mermaid-diagram ::selection{background:$background;color:$foreground;fill:$foreground;}"
+    }
+
     override fun toString(): String = Locales.str(nameKey)
 
     companion object {
@@ -69,6 +76,7 @@ enum class AppTheme(val id: String, val dark: Boolean, val cssFile: String, priv
             }
             result.append("pre,pre code{color:${color("-au-md-code-fill")};}")
             result.append("body ::selection{background:${color("-au-editor-selection-words-color")};}")
+            result.append(theme.mermaidSelectionCss())
             return result.toString()
         }
     }

@@ -1,5 +1,6 @@
 package com.allan.atools.tools.modulenotepad.manager
 
+import com.allan.atools.AppTheme
 import com.allan.atools.utils.Locales
 import com.google.gson.Gson
 import javafx.animation.PauseTransition
@@ -138,7 +139,8 @@ class MermaidDiagramView(
             <style>html,body{margin:0;padding:0;overflow:hidden;background:${if (dark) "#292a2f" else "#ffffff"};}
             #diagram{width:100%;}svg{display:block;width:100%;height:auto;}
             #diagram svg,#diagram svg text,#diagram svg tspan{-webkit-user-select:text!important;user-select:text!important;}
-            #diagram svg text,#diagram svg tspan{cursor:text!important;pointer-events:all!important;}</style>
+            #diagram svg text,#diagram svg tspan{cursor:text!important;pointer-events:all!important;}
+            ${AppTheme.current().mermaidSelectionCss()}</style>
             </head><body><div id="diagram">$svg</div></body></html>
         """.trimIndent()
     }
