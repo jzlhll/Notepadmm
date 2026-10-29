@@ -117,7 +117,7 @@ public final class PictureController extends AbstractController {
         super.init(stage);
 
         outAnchorPane.backgroundProperty().bind(Bindings.createObjectBinding(this::createCheckerboardBackground,
-                SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)));
+                SettingPreferences.getStringProp(SettingPreferences.appThemeKey)));
         imageContentPane.setPadding(new Insets(PictureControllerImageMgr.CONTENT_PADDING));
         draggerScrollPane.setStyle("-fx-background-color: transparent;");
 

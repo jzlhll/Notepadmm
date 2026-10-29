@@ -1,8 +1,7 @@
 package com.allan.atools.controller;
 
 import com.allan.atools.UIContext;
-import com.allan.atools.MarkdownThemes;
-import com.allan.atools.ui.MarkdownThemeDialog;
+import com.allan.atools.AppTheme;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
@@ -20,8 +19,6 @@ import com.jfoenix.controls.JFXRadioButton;
 import com.jfoenix.controls.JFXScrollPane;
 import com.jfoenix.controls.JFXToggleButton;
 import javafx.application.Platform;
-import javafx.beans.InvalidationListener;
-import javafx.beans.WeakInvalidationListener;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -45,7 +42,7 @@ public final class SettingController extends AbstractController {
     public JFXToggleButton resultAreaInNewBtn;
     public JFXToggleButton resultIfHasNumBtn;
     public JFXToggleButton editorLineNumberVisibleBtn;
-    public JFXToggleButton visionBtn;
+    public JFXComboBox<AppTheme> appThemeComboBox;
     public JFXToggleButton hdScreenBtn2;
     public JFXToggleButton cycleNextBtn;
 
@@ -55,7 +52,6 @@ public final class SettingController extends AbstractController {
     public JFXRadioButton mainUiSizeLargeBtn;
     public JFXRadioButton mainUiSizeLargerBtn;
     public Hyperlink fontCustomLink;
-    public Hyperlink markdownThemeLink;
 
     public JFXComboBox<Label> localesComboBox;
 
@@ -65,7 +61,6 @@ public final class SettingController extends AbstractController {
     }
 
     private long sFontChangedCount;
-    private InvalidationListener markdownThemeChanged;
 
     private void initMainUiSizeMode() {
         ToggleGroup group = new ToggleGroup();
@@ -104,14 +99,6 @@ public final class SettingController extends AbstractController {
         super.init(stage);
 
         initMainUiSizeMode();
-        MarkdownThemes.initialize();
-        markdownThemeLink.setText(MarkdownThemes.current().getName());
-        markdownThemeChanged = observable -> markdownThemeLink.setText(MarkdownThemes.current().getName());
-        MarkdownThemes.revisionProperty().addListener(new WeakInvalidationListener(markdownThemeChanged));
-        markdownThemeLink.setOnAction(event -> {
-            markdownThemeLink.setVisited(false);
-            MarkdownThemeDialog.show(getStage());
-        });
 
         try {
            var names = Files.readAllLines(Path.of(ResLocation.getRealPath("locales", "locales.list")));
@@ -285,9 +272,12 @@ public final class SettingController extends AbstractController {
             SettingPreferences.updateBool(SettingPreferences.editorLineNumberVisibleKey, newValue);
         });
 
-        visionBtn.setSelected(SettingPreferences.getBoolean(SettingPreferences.appVisionKey));
-        visionBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
-            SettingPreferences.updateBool(SettingPreferences.appVisionKey, newValue);
+        appThemeComboBox.getItems().setAll(AppTheme.values());
+        appThemeComboBox.setValue(AppTheme.current());
+        appThemeComboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null) {
+                SettingPreferences.updateStr(SettingPreferences.appThemeKey, newValue.getId());
+            }
         });
         vbox_id.requestFocus();
     }

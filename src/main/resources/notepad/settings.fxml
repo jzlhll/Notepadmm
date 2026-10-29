@@ -56,18 +56,13 @@
             </JFXComboBox>
         </HBox>
 
-        <JFXToggleButton fx:id="visionBtn" text="%setting.visionname">
+        <HBox alignment="CENTER_LEFT" spacing="10">
             <VBox.margin>
-                <Insets top="12" left="4"/>
+                <Insets top="20" bottom="12" left="6" right="12"/>
             </VBox.margin>
-        </JFXToggleButton>
-
-        <HBox alignment="CENTER_LEFT">
-            <VBox.margin>
-                <Insets top="4" left="6"/>
-            </VBox.margin>
-            <Label text="%markdown.theme" styleClass="normal-label"/>
-            <Hyperlink fx:id="markdownThemeLink" styleClass="myhyperlink"/>
+            <Label text="%setting.appTheme" styleClass="normal-label"/>
+            <JFXComboBox fx:id="appThemeComboBox" accessibleText="%setting.appTheme"
+                         prefWidth="320" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
         </HBox>
 
         <Label text="%setting.selectFont" styleClass="normal-label">

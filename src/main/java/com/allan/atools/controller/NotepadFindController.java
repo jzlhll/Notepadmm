@@ -40,7 +40,6 @@ public final class NotepadFindController extends AbstractController {
     public JFXTabPane tabPane;
     public VBox normalViewVBox;
     public JFXComboBox<String> findComboBox;
-    public JFXComboBox<String> replaceComboBox;
     public JFXButton startBtn;
     public JFXButton startAllBtn;
 
@@ -51,6 +50,12 @@ public final class NotepadFindController extends AbstractController {
 
     public JFXTextField findTextField;
     public JFXTextField replaceTextField;
+    public VBox replaceBox;
+    public VBox colorsSettingsBox;
+    public JFXButton replaceBtn;
+    public JFXButton replaceAllBtn;
+    public Label replaceScopeLabel;
+    public Label replaceStatusLabel;
 
     public JFXButton advanceStartBtn;
     public JFXButton advanceStartAllBtn;
@@ -84,11 +89,11 @@ public final class NotepadFindController extends AbstractController {
     private static final long SAVE_DELAY_TS = UIContext.DEBUG ? 2 * 1000 : 5 * 1000;
 
     private final OthersHelper mOthers = new OthersHelper();
+    private FindReplaceManager replaceManager;
 
     public void updateSelectedText(String selectedText) {
         Log.d("update selected text: " + selectedText);
          mOthers.setFindTextField(selectedText);
-        //todo index，将来有replace的时候，在做处理。
         tabPane.getSelectionModel().select(0);
     }
 
@@ -119,25 +124,22 @@ public final class NotepadFindController extends AbstractController {
             //do nothing.
         }
 
-        //todo 暂不支持tab第三。
-        if (id == 2) {
-            id = 1;
-        }
+        if (id < 0 || id > 2) id = 0;
+        replaceBox.setVisible(id == 2);
+        replaceBox.setManaged(id == 2);
+        colorsSettingsBox.setVisible(id != 2);
+        colorsSettingsBox.setManaged(id != 2);
 
         if (id == 0) {
             advanceSearchBox.setVisible(false);
             normalViewVBox.setVisible(true);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
-            replaceComboBox.setVisible(false);
-            replaceTextField.setVisible(false);
             startBtn.setText(Locales.str("search"));
             startAllBtn.setText(Locales.str("allSearch"));
         } else if (id == 1) {
             advanceSearchBox.setVisible(true);
             normalViewVBox.setVisible(false);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(18, 0, 0, 12));
-            replaceComboBox.setVisible(false);
-            replaceTextField.setVisible(false);
             startBtn.setText(Locales.str("search"));
             startAllBtn.setText(Locales.str("allSearch"));
 
@@ -149,10 +151,7 @@ public final class NotepadFindController extends AbstractController {
             advanceSearchBox.setVisible(false);
             normalViewVBox.setVisible(true);
             //VBox.setMargin(jichugouxuanLinesBox, new Insets(50, 0, 0, 12));
-            replaceComboBox.setVisible(true);
-            replaceTextField.setVisible(true);
-            startBtn.setText(Locales.str("replace"));
-            startAllBtn.setText(Locales.str("allReplace"));
+            startBtn.setText(Locales.str("findWindow.findNext"));
         }
         return id;
     }
@@ -189,6 +188,10 @@ public final class NotepadFindController extends AbstractController {
         mOthers.init();
 
         startBtn.setOnAction(e -> {
+            if (tabPane.getSelectionModel().getSelectedIndex() == 2) {
+                replaceManager.findNext();
+                return;
+            }
             var mainController = UIContext.context();
             var mgr = AllEditorsManager.Instance;
             var currentCodeArea = UIContext.currentAreaProp.get();
@@ -237,9 +240,11 @@ public final class NotepadFindController extends AbstractController {
         });
 
         mColorManager.initColorBtn(findColorsBtn);
+        replaceManager = new FindReplaceManager(this, stage);
+        findTextField.setOnAction(event -> startBtn.fire());
     }
 
-    private void saveOneWords(String words) {
+    public void saveOneWords(String words) {
         if (findComboBox.getItems().contains(words)) {
             findComboBox.getItems().remove(words);
             findComboBox.getItems().add(0, words);
@@ -256,6 +261,7 @@ public final class NotepadFindController extends AbstractController {
     @Override
     public void destroy() {
         Log.d("DESTROY: notepad find controller");
+        if (replaceManager != null) replaceManager.cancel();
         mOthers.destroy();
     }
 

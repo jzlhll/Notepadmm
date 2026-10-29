@@ -1,6 +1,7 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.GlobalCfgStores;
+import com.allan.atools.Colors;
 import com.allan.atools.controller.NotepadFindController;
 import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
@@ -22,7 +23,7 @@ public final class FindColorBtnsManager {
     private Button actioningColorBtn;
 
     private SearchParams actioningSearchParam;
-    private ChangeListener<Boolean> themeChanged;
+    private ChangeListener<String> themeChanged;
 
     public static final ActionR3<String, String, String, String> ACTIONINGSTYLE =
             (s1, s2, s3) ->
@@ -119,7 +120,7 @@ public final class FindColorBtnsManager {
 
     public void initColorBtn(@NotNull Button colorBtn) {
         themeChanged = (observable, oldValue, newValue) -> applyNormalColors(colorBtn);
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey)
                 .addListener(new WeakChangeListener<>(themeChanged));
         applyNormalColors(colorBtn);
 
@@ -138,7 +139,7 @@ public final class FindColorBtnsManager {
     }
 
     private static String[] getSavedColors() {
-        boolean isDark = SettingPreferences.getBoolean(SettingPreferences.appVisionKey);
+        boolean isDark = Colors.isDark();
         if (!isDark) {
             String s = GlobalCfgStores.user().getString("findNormalColorsLight", "#f9f9f9;#000000"); //backgoud;text
             return s.split(";");
@@ -149,7 +150,7 @@ public final class FindColorBtnsManager {
     }
 
     private static void saveNormalColors(String[] colors) {
-        boolean isDark = SettingPreferences.getBoolean(SettingPreferences.appVisionKey);
+        boolean isDark = Colors.isDark();
         if (!isDark) {
             GlobalCfgStores.user().setString("findNormalColorsLight", colors[0] + ";" + colors[1]); //backgoud;text
         } else {

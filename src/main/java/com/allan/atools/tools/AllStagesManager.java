@@ -1,6 +1,7 @@
 package com.allan.atools.tools;
 
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.AppTheme;
 import com.allan.atools.bases.SizeAndXySaverImpl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.utils.Log;
@@ -36,8 +37,8 @@ public final class AllStagesManager {
         for (var n : cssCustomPaths.keySet()) {
             initCustom(n, cssCustomPaths.get(n));
         }
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey)
-                .addListener((observable, oldValue, newValue) -> applyTheme(newValue));
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey)
+                .addListener((observable, oldValue, newValue) -> applyTheme());
     }
 
     public static AllStagesManager getInstance(String[] cssPaths, Map<String, String> cssCustomPaths) {
@@ -60,13 +61,15 @@ public final class AllStagesManager {
         scenes.add(scene);
     }
 
-    private void applyTheme(boolean dark) {
+    private void applyTheme() {
         try {
-            String lightCss = ResLocation.getURL("css", "colors.css").toExternalForm();
-            String darkCss = ResLocation.getURL("css", "colors_dark.css").toExternalForm();
-            String themeCss = dark ? darkCss : lightCss;
+            var themeStyles = new HashSet<String>();
+            for (AppTheme theme : AppTheme.values()) {
+                themeStyles.add(ResLocation.getURL("css", theme.getCssFile()).toExternalForm());
+            }
+            String themeCss = ResLocation.getURL("css", AppTheme.current().getCssFile()).toExternalForm();
             for (int i = 0; i < cssForms.length; i++) {
-                if (cssForms[i].equals(lightCss) || cssForms[i].equals(darkCss)) {
+                if (themeStyles.contains(cssForms[i])) {
                     cssForms[i] = themeCss;
                 }
             }
@@ -79,7 +82,7 @@ public final class AllStagesManager {
             for (Scene scene : activeScenes) {
                 var styles = scene.getStylesheets();
                 for (int i = 0; i < styles.size(); i++) {
-                    if (styles.get(i).equals(lightCss) || styles.get(i).equals(darkCss)) {
+                    if (themeStyles.contains(styles.get(i))) {
                         styles.set(i, themeCss);
                     }
                 }

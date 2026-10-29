@@ -4,6 +4,18 @@
     -fx-font-smoothing-type: gray;
  */
 
+/* 标准控件和弹出层使用同一组基础色，避免深色主题出现默认白底。 */
+.root {
+    -fx-base: -au-main-bg-color2;
+    -fx-background: -au-main-bg-color;
+    -fx-control-inner-background: -au-popup-bg-color;
+    -fx-text-base-color: -au-default-text-color;
+    -fx-text-background-color: -au-default-text-color;
+    -fx-accent: -au-main-color;
+    -fx-focus-color: -au-main-color;
+    -fx-faint-focus-color: transparent;
+}
+
 /* Burgers Demo */
 .jfx-hamburger {
     -fx-spacing: 5;
@@ -35,7 +47,7 @@
 }
 
 .jfx-drawer-side-pane {
-    -fx-background-color: WHITE;
+    -fx-background-color: -au-popup-bg-color;
 }
 
 /*******************************************************************************
@@ -49,7 +61,7 @@
 }
 
 .dialog-trigger {
-    -fx-background-color: WHITE;
+    -fx-background-color: -au-popup-bg-color;
     -jfx-button-type: RAISED;
     -fx-font-size: 14.0px;
 }
@@ -76,7 +88,7 @@
 }
 
 .jfx-popup-container {
-    -fx-background-color: -au-main-bg-color;
+    -fx-background-color: -au-popup-bg-color;
 }
 
 .popup-list-view {
@@ -197,6 +209,8 @@
     -fx-background-radius: 3px;
     -fx-background-insets: 0px;
     -fx-font-size: 15;
+    -jfx-focus-color: -au-main-color;
+    -jfx-unfocus-color: -au-default-desc-color;
 }
 
 .jfx-radio-button {
@@ -221,7 +235,7 @@
 }
 
 .jfx-radio-button .dot {
-    -fx-fill: #0F9D58;
+    -fx-fill: -au-main-color;
 }
 /*******************************************************************************
  *                                                                             *
@@ -319,7 +333,7 @@
      -fx-font-size: 14.0px;
      -jfx-button-type: RAISED;
      -fx-background-color: -au-main-color; /*allan 定制主button的颜色*/
-     -fx-text-fill: WHITE;
+     -fx-text-fill: -au-on-accent-color;
  }
 
 .custom-jfx-button-small { /*-fx-font-family: monospace;*/
@@ -374,7 +388,7 @@
     -jfx-button-type: RAISED;
     -fx-background-color: -au-main-color;
     -fx-pref-width: 200.0;
-    -fx-text-fill: WHITE;
+    -fx-text-fill: -au-on-accent-color;
 }
 
 /*******************************************************************************
@@ -469,10 +483,10 @@
     -fx-background-color: transparent;
     -fx-font-size: 14;
     -fx-text-fill: -au-input-text-color;
-    -fx-prompt-text-fill: #808080;
+    -fx-prompt-text-fill: -au-default-desc-color;
     -fx-alignment: top-left;
-    -jfx-focus-color: #4059A9;
-    -jfx-unfocus-color: #4d4d4d;
+    -jfx-focus-color: -au-main-color;
+    -jfx-unfocus-color: -au-default-desc-color;
 }
 
 .custom-jfx-text-field { /*allan find window的输入框背景色跟window的背景色一致；来保证覆盖 combo box*/
@@ -511,11 +525,11 @@
 }
 
 .jfx-list-cell .jfx-rippler {
-    -jfx-rippler-fill: #5264AE;
+    -jfx-rippler-fill: -au-main-color;
 }
 
 .jfx-list-cell:odd:selected > .jfx-rippler > StackPane, .jfx-list-cell:even:selected > .jfx-rippler > StackPane {
-    -fx-background-color: rgba(0.0, 0.0, 255.0, 0.2);
+    -fx-background-color: -au-editor-selection-words-color;
 }
 
 .jfx-list-cell-container {
@@ -779,12 +793,12 @@
 .combo-box-popup .list-view .jfx-list-cell .custom-jfx-list-view-icon,
 .combo-box-popup .list-view .jfx-list-cell:filled:hover .custom-jfx-list-view-icon,
 .combo-box-popup .list-view .jfx-list-cell:selected .custom-jfx-list-view-icon {
-    -fx-fill: #5264AE;
+    -fx-fill: -au-main-color;
 }
 
 .combo-box-popup .list-view .jfx-list-cell:odd:selected > .jfx-rippler > StackPane,
 .combo-box-popup .list-view .jfx-list-cell:even:selected > .jfx-rippler > StackPane {
-    -fx-background-color: rgba(0.0, 0.0, 255.0, 0.2);
+    -fx-background-color: -au-editor-selection-words-color;
 }
 
 .combo-box-popup .list-view .jfx-list-cell {
@@ -793,11 +807,22 @@
 
 .combo-box-popup .list-view .jfx-list-cell:odd,
 .combo-box-popup .list-view .jfx-list-cell:even {
-    -fx-background-color: -au-main-bg-color;
+    -fx-background-color: -au-popup-bg-color;
 }
 
 .combo-box-popup .list-view .jfx-list-cell .jfx-rippler {
-    -jfx-rippler-fill: #5264AE;
+    -jfx-rippler-fill: -au-main-color;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: -au-popup-bg-color;
+    -fx-control-inner-background: -au-popup-bg-color;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover,
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: -au-editor-selection-words-color;
+    -fx-text-fill: -au-default-text-color;
 }
 
 /*******************************************************************************

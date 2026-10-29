@@ -1,7 +1,8 @@
 package com.allan.atools.tools.modulenotepad.manager
 
 import com.allan.atools.Colors
-import com.allan.atools.MarkdownThemes
+import com.allan.atools.AppTheme
+import com.allan.atools.SettingPreferences
 import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
@@ -81,7 +82,7 @@ class MarkdownPreviewWindow private constructor() {
         }
         stage.setOnHidden {
             UIContext.currentAreaProp.removeListener(currentChanged)
-            MarkdownThemes.revisionProperty().removeListener(themeChanged)
+            SettingPreferences.getStringProp(SettingPreferences.appThemeKey).removeListener(themeChanged)
             UIContext.getFontSizeProperty().removeListener(fontChanged)
             UIContext.getFontThemeProperty().removeListener(fontChanged)
             bind(null)
@@ -135,7 +136,7 @@ class MarkdownPreviewWindow private constructor() {
         val source = current.text
         val revision = generation
         val dark = Colors.isDark()
-        val themeCss = MarkdownThemes.previewCss(dark)
+        val themeCss = AppTheme.previewCss(dark)
         val fontSize = UIContext.getFontSizeProperty().get().toDouble()
         val fontFamily = com.allan.atools.FontTheme.fontFamily().replace("\"", "")
         val readonly = !current.isEditable
@@ -226,7 +227,7 @@ class MarkdownPreviewWindow private constructor() {
             val window = instance ?: MarkdownPreviewWindow().also { instance = it }
             if (!window.stage.isShowing) {
                 UIContext.currentAreaProp.addListener(window.currentChanged)
-                MarkdownThemes.revisionProperty().addListener(window.themeChanged)
+                SettingPreferences.getStringProp(SettingPreferences.appThemeKey).addListener(window.themeChanged)
                 UIContext.getFontSizeProperty().addListener(window.fontChanged)
                 UIContext.getFontThemeProperty().addListener(window.fontChanged)
                 window.stage.show()
@@ -261,7 +262,7 @@ class MarkdownPreviewWindow private constructor() {
             it.node is org.commonmark.node.FencedCodeBlock && MarkdownMermaidSupport.isSupported(it.node)
         }
 
-        fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = MarkdownThemes.previewCss(dark),
+        fun renderDocument(state: MarkdownStructureSnapshot, base: String?, dark: Boolean, themeCss: String = AppTheme.previewCss(dark),
                            extraCss: String = "", extraScript: String = ""): String {
             return renderFragment(MarkdownHtmlRenderer.body(state, base), base, dark, themeCss,
                 hasFormula(state), hasDiagram(state), extraCss, extraScript)

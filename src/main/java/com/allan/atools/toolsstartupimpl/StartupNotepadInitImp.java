@@ -6,6 +6,7 @@ import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.richtext.GenericStyledAreaBehaviorReflector;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
+import com.allan.atools.AppTheme;
 import com.allan.atools.toolsstartup.IStartupInit;
 import com.allan.atools.toolsstartup.ATools;
 import com.allan.atools.toolsstartup.StartupEntro;
@@ -123,11 +124,9 @@ public final class StartupNotepadInitImp implements IStartupInit {
     @Override
     public String[] getCssPaths() {
         return new String[] {
-                // Markdown 通用布局先加载，独立 Markdown 主题由 MarkdownThemes 安装到编辑器节点。
+                // Markdown 通用布局先加载，配色由应用主题统一提供。
                 ResLocation.getRealPath("css", "editor_markdown.css"),
-                SettingPreferences.getBoolean(SettingPreferences.appVisionKey) ?
-                        ResLocation.getRealPath("css", "colors_dark.css") :
-                        ResLocation.getRealPath("css", "colors.css"),
+                ResLocation.getRealPath("css", AppTheme.current().getCssFile()),
                 ResLocation.getRealPath("css", "main_default.css"),
                 ResLocation.getRealPath("css", "editor.css"),
                 ResLocation.getRealPath("css", "panes.css"),

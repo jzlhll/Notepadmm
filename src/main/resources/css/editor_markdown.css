@@ -1,6 +1,4 @@
-/* Markdown 通用布局和语义样式；配色由 css/markdown-themes 下的主题独立提供。
- * MarkdownThemes 在编辑器节点上加载明暗基础主题和用户覆盖样式。
- */
+/* Markdown 通用布局和语义样式；配色统一由应用主题提供。 */
 /* 加载与正文同版本的真实粗体，避免描边使中文笔画粘连。 */
 @font-face {
     src: url('../font/jbmono-bold.ttf');

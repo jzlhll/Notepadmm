@@ -73,7 +73,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
     }
 
     init {
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).addListener(themeChanged)
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey).addListener(themeChanged)
         UIContext.getFontSizeProperty().addListener(layoutChanged)
         refreshCurrentFile(area)
     }
@@ -146,7 +146,7 @@ class MarkdownMermaidManager(area: EditorArea?) {
         saved.clear()
         renderedCache.clear()
         renderedBytes = 0
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).removeListener(themeChanged)
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey).removeListener(themeChanged)
         UIContext.getFontSizeProperty().removeListener(layoutChanged)
     }
 

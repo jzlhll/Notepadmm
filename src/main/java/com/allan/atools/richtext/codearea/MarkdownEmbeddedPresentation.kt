@@ -2,7 +2,8 @@ package com.allan.atools.richtext.codearea
 
 import com.allan.atools.Colors
 import com.allan.atools.FontTheme
-import com.allan.atools.MarkdownThemes
+import com.allan.atools.AppTheme
+import com.allan.atools.SettingPreferences
 import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmbeddedBlocks
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
@@ -81,7 +82,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             area.paddingProperty().addListener(layoutChanged)
             UIContext.getFontSizeProperty().addListener(themeChanged)
             UIContext.getFontThemeProperty().addListener(themeChanged)
-            MarkdownThemes.revisionProperty().addListener(themeChanged)
+            SettingPreferences.getStringProp(SettingPreferences.appThemeKey).addListener(themeChanged)
         }
         val previous = entries.associateBy { it.block.start }
         val next = state.embeddedBlocks.map { block ->
@@ -435,7 +436,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val source = entry.html!!
             val baseUrl = file?.parentFile?.toURI()?.toASCIIString()
             val dark = Colors.isDark()
-            val themeCss = MarkdownThemes.previewCss(dark)
+            val themeCss = AppTheme.previewCss(dark)
             val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())}}" +
                 "article{max-width:none;margin:0;padding:6px 4px;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
                 "img[data-image-loading]{min-width:32px;min-height:24px}.source-placeholder{color:var(--muted)}"
@@ -671,7 +672,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         area.paddingProperty().removeListener(layoutChanged)
         UIContext.getFontSizeProperty().removeListener(themeChanged)
         UIContext.getFontThemeProperty().removeListener(themeChanged)
-        MarkdownThemes.revisionProperty().removeListener(themeChanged)
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey).removeListener(themeChanged)
     }
 
     companion object {

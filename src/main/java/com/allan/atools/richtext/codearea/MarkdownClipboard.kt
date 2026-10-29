@@ -1,7 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.Colors
-import com.allan.atools.MarkdownThemes
+import com.allan.atools.AppTheme
 import com.allan.atools.UIContext
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.MarkdownHtmlRenderer
@@ -262,7 +262,7 @@ class MarkdownClipboard(private val area: EditorArea) {
         val source = area.text
         val base = area.editor.sourceFile?.parentFile?.toURI()?.toASCIIString()
         val dark = Colors.isDark()
-        val themeCss = MarkdownThemes.previewCss(dark)
+        val themeCss = AppTheme.previewCss(dark)
         ThreadUtils.execute {
             try {
                 val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(source)

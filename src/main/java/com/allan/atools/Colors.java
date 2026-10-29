@@ -7,7 +7,7 @@ public final class Colors {
     private Colors() {}
 
     public static boolean isDark() {
-        return SettingPreferences.getBoolean(SettingPreferences.appVisionKey);
+        return AppTheme.current().getDark();
     }
 
     // 界面样式使用 CSS 颜色变量，随主题即时刷新。
@@ -25,6 +25,6 @@ public final class Colors {
 
     public static final ActionR0<String> SearchBgColor = ()-> isDark() ? "#323232": "#ffffff";
 
-    public static final ActionR0<Color> DescLineTextColor = ()-> isDark() ? Color.valueOf("#999999") : Color.valueOf("#555555");
-    public static final ActionR0<Color> DescLineBgColor = ()-> isDark() ?  Color.valueOf("#292a2f") : Color.valueOf("fcfcfe");
+    public static final ActionR0<Color> DescLineTextColor = () -> AppTheme.current().color("-au-default-desc-color");
+    public static final ActionR0<Color> DescLineBgColor = () -> AppTheme.current().color("-au-main-bg-color2");
 }

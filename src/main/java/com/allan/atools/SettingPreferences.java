@@ -38,10 +38,9 @@ public final class SettingPreferences {
     public static final String editorLineNumberVisibleKey = "editorLineNumberVisible";
     public static final String newFileDirKey = "newFileDir";
     public static final String appVisionKey = "appVision";
+    public static final String appThemeKey = "appTheme";
     public static final String hdScreen2Key = "hdScreen2";
     public static final String cycleNextKey = "bottomCycleNext";
-    public static final String markdownLightThemeKey = "markdownLightTheme";
-    public static final String markdownDarkThemeKey = "markdownDarkTheme";
     public static final String fontThemeIdKey = "fontThemeId";
     public static final String editorFontSizeKey = "resultAreaFoldableStyledAreaFontSize";
     public static final String mainUiSizeModeKey = "mainUiSizeMode";
@@ -51,10 +50,16 @@ public final class SettingPreferences {
 
     public static final String[] REMOVE_KEYS = { "search1LineOnlyOnce","useFakeRegex",
             "TipsDoubleClickCtrlF","TipsFakeRuleSupport",
-            "TipsDoubleClickWordNext", "editorChinesePunctuation" };
+            "TipsDoubleClickWordNext", "editorChinesePunctuation",
+            "markdownLightTheme", "markdownDarkTheme" };
 
     private synchronized static void assetInit() {
         var sp = GlobalCfgStores.user();
+        // 首次升级沿用原有明暗偏好，此后只以具体主题作为界面状态来源。
+        if (!sp.contains(appThemeKey)) {
+            sp.setString(appThemeKey, sp.getBoolean(appVisionKey, false)
+                    ? AppTheme.ISLANDS_DARK.getId() : AppTheme.ISLANDS_LIGHT.getId());
+        }
         if (!sp.contains(restoreSavedFilesOnStartupKey)) {
             sp.setBoolean(restoreSavedFilesOnStartupKey,
                     sp.getBoolean(saveLastOpenedFileKey, true));
@@ -66,12 +71,10 @@ public final class SettingPreferences {
                 //new SettingProfDef("bool", search1LineOnlyOnceKey, "true"),
                 new SettingProfDef("bool", searchResultHasNumberKey, "true"),
                 new SettingProfDef("bool", editorLineNumberVisibleKey, "true"),
-                new SettingProfDef("bool", appVisionKey, "false"),
+                new SettingProfDef("str", appThemeKey, AppTheme.ISLANDS_LIGHT.getId()),
                 new SettingProfDef("bool", hdScreen2Key, "true"),
                 new SettingProfDef("bool", cycleNextKey, "true"),
                 new SettingProfDef("int", fontThemeIdKey, "0"),
-                new SettingProfDef("str", markdownLightThemeKey, "github"),
-                new SettingProfDef("str", markdownDarkThemeKey, "github-dark"),
                 new SettingProfDef("int", editorFontSizeKey, "15"),
                 new SettingProfDef("int", mainUiSizeModeKey, "0"),
                 new SettingProfDef("int", TipsDoubleClickCtrlFKey, "0"),

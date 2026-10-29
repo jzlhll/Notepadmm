@@ -1,82 +1,97 @@
+/* Islands Light：主窗口、弹窗、工作区与编辑区的统一色板。 */
 .root {
-    /* 菜单与工具栏的主题颜色 */
-    -au-bottom-button-color: #404040;
-    -au-bottom-button-gray-color: #cccccc;
-    -au-button-highlight-color: #4285F4;
-    -au-head-button-color: #222222;
-    -au-popup-text-color: #000000;
-    -au-popup-bg-color: #FAFAFA;
-    -au-menu-bg-color: #F6F6F6;
+    -au-bottom-button-color: #5A5D6B;
+    -au-bottom-button-gray-color: #A8ADBD;
+    -au-button-highlight-color: #3574F0;
+    -au-head-button-color: #494B57;
+    -au-popup-text-color: #27282E;
+    -au-popup-bg-color: #FFFFFF;
+    -au-menu-bg-color: #FFFFFF;
+    -au-list-view-bg-color: #FFFFFF;
+    -au-split-pane-divider-color: #DFE1E5;
+    -au-scroll-bg-color: #EBECF0;
+    -au-scroll-thumb-color: #C9CCD6;
+    -au-scroll-thumb-press-color: #818594;
+    -au-editor-scroll-thumb-color: rgba(0,0,0,0.20);
+    -au-editor-scroll-thumb-hover-color: rgba(0,0,0,0.32);
+    -au-editor-scroll-thumb-press-color: rgba(0,0,0,0.44);
+    -au-editor-caret-color: #27282E;
+    -au-input-text-color: #27282E;
+    -au-tab-header-background-color: #FFFFFF;
+    -au-tab-select-region-color: #D4E2FF;
+    -au-tab-select-region-text-color: #2E55A3;
+    -au-default-text-color: #27282E;
+    -au-default-desc-color: #6C707E;
+    -au-main-bg-color: #EBECF0;
+    -au-main-bg-color2: #F7F8FA;
+    -au-main-window-border-color: #DFE1E5;
+    -au-workspace-bg-color: #F7F8FA;
+    -au-main-floating-color: #F7F8FAF5;
+    -au-main-color: #3574F0;
+    -au-on-accent-color: #FFFFFF;
+    -au-rippler-color: #3574F0;
+    -au-red-color: #DB3B4B;
+    -au-red-light-color: #FFEBEC;
+    -au-bg-over-text-color: #DB3B4B;
+    -au-editor-caret-line-color: #F2F5FA;
+    -au-editor-selection-words-color: #C2D6FC;
+    -au-editor-lineno-color: #F7F8FA;
+    -au-editor-bg-color: #FFFFFF;
+    -au-editor-text-color: #27282E;
+    -au-editor-searched-bg-color: #FEE6B1;
+    -au-editor-search-temp-bg-color: #D4E2FF;
+    -au-small-button-bg-color: #E4E6EB;
+    -au-file-mask-code-color: #1F7536;
+    -au-file-mask-media-color: #834DF0;
+    -au-file-mask-image-color: #077A7F;
+    -au-file-mask-other-color: #6C707E;
+    -au-git-added-text: #1F7536;
+    -au-git-deleted-bg: #FFEBEC;
+    -au-git-deleted-text: #AD2B38;
+    -au-git-added-bg: #E3F7E7;
+    -au-git-changed-text: #315FBD;
+    -au-git-hunk-bg: #EDF3FF;
+    -au-git-word-added: #AFDBB8;
+    -au-git-word-deleted: #F2B6BB;
+}
 
-    -au-list-view-bg-color: #FAFAFA;
-    -au-split-pane-divider-color: #F0F0F0;
-
-    /*allan editor光标颜色*/
-    -au-scroll-bg-color: #efefef;
-    -au-scroll-thumb-color: #cdcdcc;
-    -au-scroll-thumb-press-color: #666667;
-
-    /* 编辑器滚动条的静止、悬停与拖动颜色 */
-    -au-editor-scroll-thumb-color: rgba(0, 0, 0, 0.22);
-    -au-editor-scroll-thumb-hover-color: rgba(0, 0, 0, 0.34);
-    -au-editor-scroll-thumb-press-color: rgba(0, 0, 0, 0.46);
-
-    -au-editor-caret-color: #111111;
-
-    -au-input-text-color: #121212;
-
-    -au-tab-header-background-color: #f0f0ef;
-    -au-tab-select-region-color: #f3f3f4;
-    -au-tab-select-region-text-color: #010102;
-
-    /*allan 整体来讲默认的文字颜色*/
-    -au-default-text-color: rgba(0.0, 0.0, 0.0, 0.87);
-    /*allan 整体来讲默认的文字颜色*/
-    -au-default-desc-color: #555555;
-
-    -au-main-bg-color: #FAFAFA;
-    -au-main-bg-color2: #FAFAFA;
-    /*allan 主窗口边框色*/
-    -au-main-window-border-color: #EEEEEE;
-    -au-workspace-bg-color: #f5f5f5;
-    -au-main-floating-color: #F2FAFAD2;
-
-    -au-main-color: #4285F4;
-    -au-rippler-color: #4285F4;
-
-    -au-red-color: #FE774D;
-    -au-red-light-color: #f6d8d8;
-
-    -au-bg-over-text-color: red;
-
-    /*allan code area 整条光标选中后一行颜色*/
-    -au-editor-caret-line-color: #add6ff;
-     /*allan code area 选中某个字段的背景颜色 */
-    -au-editor-selection-words-color: #add6ff;
-    /*allan code area的左边行号背景*/
-    -au-editor-lineno-color: #F6F6F6;
-    /*allan code area的背景色*/
-    -au-editor-bg-color: #FAFAFA;
-     /*allan code area的文字颜色*/
-    -au-editor-text-color: #010101;
-
-    /*allan area的界面搜索中的显示文字背景的颜色；*/
-    -au-editor-searched-bg-color: #fbc9ab;
-    -au-editor-search-temp-bg-color: #d6eaff;
-
-    -au-small-button-bg-color: #eeeeeeee;
-
-    -au-file-mask-code-color: #007d65;
-    -au-file-mask-media-color: #9b9192;
-    -au-file-mask-image-color: #12a182;
-    -au-file-mask-other-color: #888888;
-    /* 工作区 Git 状态和差异视图。 */
-    -au-git-added-text: #187139;
-    -au-git-deleted-bg: #ffebe9;
-    -au-git-deleted-text: #a52a2a;
-    -au-git-added-bg: #e7f6eb;
-    -au-git-changed-text: #215ea6;
-    -au-git-hunk-bg: #e8f1ff;
-    -au-git-word-added: #b8e8c5;
-    -au-git-word-deleted: #ffc5c0;
+/* Markdown 正文与预览共用应用主题配色。 */
+.markdown-editor {
+    -au-editor-bg-color: #FFFFFF;
+    -au-editor-lineno-color: #F7F8FA;
+    -au-editor-text-color: #27282E;
+    -au-editor-caret-color: #27282E;
+    -au-editor-selection-words-color: #C2D6FC;
+    -au-md-title-1: #333333;
+    -au-md-title-2: #333333;
+    -au-md-title-3: #333333;
+    -au-md-title-4: #333333;
+    -au-md-title-5: #333333;
+    -au-md-title-6: #777777;
+    -au-md-heading-border: #eeeeee;
+    -au-md-syntax: #b9bcc1;
+    -au-md-quote: #777777;
+    -au-md-quote-border: #dfe2e5;
+    -au-md-quote-bg: #FFFFFF;
+    -au-md-code-bg: #f8f8f8;
+    -au-md-code-fill: #333333;
+    -au-md-code-fence: #dfe2e5;
+    -au-md-inline-code-bg: #f3f4f4;
+    -au-md-inline-code-fill: #333333;
+    -au-md-code-keyword: #d73a49;
+    -au-md-code-string: #032f62;
+    -au-md-code-comment: #6a737d;
+    -au-md-code-punct: #333333;
+    -au-md-code-tag: #22863a;
+    -au-md-code-tagmark: #333333;
+    -au-md-code-attribute: #6f42c1;
+    -au-md-code-attribute-value: #032f62;
+    -au-md-table-mark: #dfe2e5;
+    -au-md-table-alternate: #f8f8f8;
+    -au-md-list: #333333;
+    -au-md-link: #4183c4;
+    -au-md-image: #4183c4;
+    -au-md-image-frame-border: #dfe2e5;
+    -au-md-image-placeholder-fill: #777777;
+    -au-md-highlight: #fff8c5;
 }

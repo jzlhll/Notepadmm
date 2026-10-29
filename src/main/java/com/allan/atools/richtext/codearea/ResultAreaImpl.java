@@ -49,7 +49,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
 
     private ChangeListener<Number> fontChanged;
     private ChangeListener<Number> fontThemeChanged;
-    private final ChangeListener<Boolean> themeChanged = (observable, oldValue, newValue) -> refreshTheme();
+    private final ChangeListener<String> themeChanged = (observable, oldValue, newValue) -> refreshTheme();
 
     public ResultAreaImpl() {
         super(NAME_SP);
@@ -67,7 +67,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
             Log.d("font changed " + ResultAreaImpl.this);
         };
         UIContext.getFontSizeProperty().addListener(fontChanged);
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).addListener(themeChanged);
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey).addListener(themeChanged);
 
         initArea();
     }
@@ -110,7 +110,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         fontChanged = null;
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged);
         fontThemeChanged = null;
-        SettingPreferences.getBoolProp(SettingPreferences.appVisionKey).removeListener(themeChanged);
+        SettingPreferences.getStringProp(SettingPreferences.appThemeKey).removeListener(themeChanged);
         ex1 = null;
         clearSelf = null;
         clearOthers = null;

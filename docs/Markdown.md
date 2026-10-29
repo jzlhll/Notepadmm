@@ -15,7 +15,7 @@
 
 - 正文：[MarkdownEditingActions](../src/main/java/com/allan/atools/richtext/codearea/MarkdownEditingActions.kt)、[MarkdownSyntaxPresentation](../src/main/java/com/allan/atools/richtext/codearea/MarkdownSyntaxPresentation.kt)、[MarkdownShortcuts](../src/main/java/com/allan/atools/richtext/codearea/MarkdownShortcuts.kt)。
 - 技术内容：[MarkdownTablePreviewManager](../src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownTablePreviewManager.java)、[MarkdownEmbeddedPresentation](../src/main/java/com/allan/atools/richtext/codearea/MarkdownEmbeddedPresentation.kt)、[MarkdownPreviewWindow](../src/main/java/com/allan/atools/tools/modulenotepad/manager/MarkdownPreviewWindow.kt)、[MarkdownClipboard](../src/main/java/com/allan/atools/richtext/codearea/MarkdownClipboard.kt)。
-- 主题操作与 CSS 约束见 [Markdown 主题](Markdown主题.md)；综合验收样例见 [Vditor 中文综合示例](01-Vditor中文综合示例.md)。
+- Markdown 配色统一跟随应用主题 `light`、`dark`、`dracula`、`light green`、`alucard`；综合验收样例见 [Vditor 中文综合示例](01-Vditor中文综合示例.md)。
 
 ## 显示范围
 
@@ -114,7 +114,7 @@
 - [ ] PDF 可搜索／可复制文字与可点击链接、Markdown 打印及更复杂的分页控制。
 - [ ] 完整 HTML／CSS、嵌入媒体和特殊 Typora 扩展，标签与语法分别确认。
 - [ ] 超大文档块级增量解析、可见区域预览及分级降级，先明确目标大小。
-- [ ] 专注模式、打字机模式及超出现有自定义 CSS 的主题能力。
+- [ ] 专注模式、打字机模式及额外主题定制能力。
 
 效率增强不作为前两批完成前提：
 

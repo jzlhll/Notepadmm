@@ -19,8 +19,8 @@
 <AnchorPane prefHeight="520" styleClass="custom-notepad-pane" prefWidth="660" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1">
    <JFXTabPane fx:id="tabPane" prefHeight="50" styleClass="custom-jfx-tab-pane,secondary-window-navigation" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0">
       <Tab text="%findWindow.searchWithSpace" />
-      <!-- Tab text="%findWindow.replaceWithSpace" / -->
       <Tab text="%findWindow.advanceSearchWithSpace" />
+      <Tab text="%findWindow.replaceWithSpace" />
    </JFXTabPane>
    <VBox fx:id="normalViewVBox" alignment="TOP_CENTER" spacing="30" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0">
       <padding>
@@ -29,12 +29,10 @@
       <HBox fx:id="normalViewTopViewsHBox" alignment="CENTER_LEFT" maxWidth="590" prefWidth="590">
          <AnchorPane prefHeight="40" HBox.hgrow="ALWAYS">
             <JFXComboBox fx:id="findComboBox" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="3" styleClass="custom-jfx-combo-box"/>
-            <JFXTextField fx:id="findTextField" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="28" styleClass="custom-jfx-text-field"/>
-            <JFXComboBox fx:id="replaceComboBox" managed="false" visible="false" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="40" styleClass="custom-jfx-combo-box"/>
-            <JFXTextField fx:id="replaceTextField" managed="false" visible="false" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="28" AnchorPane.topAnchor="40"/>
+            <JFXTextField fx:id="findTextField" promptText="%findWindow.findText" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="28" styleClass="custom-jfx-text-field"/>
          </AnchorPane>
 
-         <JFXButton buttonType="RAISED" fx:id="startBtn" text="%search" prefWidth="80" prefHeight="34" styleClass="custom-jfx-button-raised">
+         <JFXButton buttonType="RAISED" fx:id="startBtn" text="%search" minWidth="100" prefHeight="34" styleClass="custom-jfx-button-raised">
             <HBox.margin>
                <Insets left="24"/>
             </HBox.margin>
@@ -45,6 +43,19 @@
             </HBox.margin>
          </JFXButton>
       </HBox>
+
+      <VBox fx:id="replaceBox" visible="false" managed="false" maxWidth="590" prefWidth="590" spacing="12">
+         <HBox alignment="CENTER_LEFT" spacing="12">
+            <JFXTextField fx:id="replaceTextField" promptText="%findWindow.replaceText"
+                          HBox.hgrow="ALWAYS" styleClass="custom-jfx-text-field"/>
+            <JFXButton fx:id="replaceBtn" text="%replace" minWidth="90" prefHeight="34"
+                       styleClass="custom-jfx-button-raised"/>
+            <JFXButton fx:id="replaceAllBtn" text="%allReplace" minWidth="110" prefHeight="34"
+                       styleClass="custom-jfx-button-raised"/>
+         </HBox>
+         <Label fx:id="replaceScopeLabel" styleClass="normal-desc-label" wrapText="true"/>
+         <Label fx:id="replaceStatusLabel" styleClass="normal-desc-label" wrapText="true"/>
+      </VBox>
 
       <VBox maxWidth="590" prefWidth="590" spacing="24">
          <VBox spacing="10">
@@ -93,7 +104,7 @@
          </HBox>
          </VBox>
 
-         <VBox spacing="10">
+         <VBox fx:id="colorsSettingsBox" spacing="10">
          <Label text="%findWindow.LabelColors" styleClass="normal-desc-label">
          </Label>
          <HBox fx:id="colorParentHBox" alignment="CENTER_LEFT" spacing="20">

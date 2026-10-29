@@ -5,6 +5,7 @@ import com.allan.atools.beans.ResultItemWrap;
 import com.allan.atools.utils.Log;
 import com.allan.atools.bean.SearchParams;
 import com.allan.atools.text.AbstractFinder;
+import com.allan.atools.text.ReplaceFactory;
 import com.allan.atools.text.beans.CharDefineHelper;
 
 import java.util.ArrayList;
@@ -158,7 +159,7 @@ public final class FinderRegexImpl extends AbstractFinder {
                 if (wrap.endCharDefine > 0) {
                     int lastIndex = indexes[indexes.length - 1];
                     int l = wrap.last.length() + lastIndex;
-                    if (l < cvtLineLength - 1) {
+                    if (l < cvtLineLength) {
                         if (CharDefineHelper.define(cvtLine.charAt(l)) == wrap.endCharDefine) {
                             continue;
                         }
@@ -303,9 +304,9 @@ public final class FinderRegexImpl extends AbstractFinder {
 
     private static final class SearchParamsWrapRule extends IWrap{
         final Pattern pattern;
-        SearchParamsWrapRule(String regex, SearchParams originParam) {
+        SearchParamsWrapRule(SearchParams originParam) {
             super(originParam);
-            pattern = Pattern.compile(regex);
+            pattern = ReplaceFactory.pattern(originParam);
         }
     }
 
@@ -372,14 +373,7 @@ public final class FinderRegexImpl extends AbstractFinder {
             return set.toArray(new IWrap[0]);
         } else {
             Log.d("REGEX: search param convert: " + p);
-            String regex = p.words;
-            if (!p.useCaseMatch) {
-                regex = "(?i)" + regex;
-            }
-            if (p.useWholeWords) {
-                regex = "\\b" + regex + "\\b";
-            }
-            return new IWrap[] {new SearchParamsWrapRule(regex, p)};
+            return new IWrap[] {new SearchParamsWrapRule(p)};
         }
     }
 }

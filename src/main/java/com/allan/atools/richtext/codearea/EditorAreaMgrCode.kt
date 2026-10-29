@@ -1,7 +1,6 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.UIContext
-import com.allan.atools.MarkdownThemes
 import com.allan.atools.bean.SearchParams
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperAbstract
 import com.allan.atools.richtext.codearea.keywordhelper.EditorKeywordHelperImplMarkdown
@@ -89,7 +88,6 @@ class EditorAreaMgrCode(
         if (mKeywordHelper is EditorKeywordHelperImplMarkdown) area.styleClass.add("markdown-editor")
         area.documentLayout.apply(this.documentState)
         ensureKeywordStylesheet(mKeywordHelper)
-        MarkdownThemes.attachEditor(area)
         if (mKeywordHelper != null) {
             bindStyleTextChanges()
             requestStyle(null, null, null, true)
