@@ -1,6 +1,7 @@
 package com.allan.uilibs.richtexts;
 
 import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
 import javafx.beans.NamedArg;
 import javafx.beans.Observable;
 import javafx.beans.binding.DoubleBinding;
@@ -27,6 +28,8 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
     private final ScrollBar vbar;
     private final V content;
     private boolean scrollBarLayoutPending;
+    private boolean disposed;
+    private final InvalidationListener scrollBarMetricsChanged = obs -> scheduleScrollBarLayout();
     private final ChangeListener<Boolean> contentFocusedListener;
     private final ChangeListener<Double> hbarValueListener;
     private ChangeListener<Double> hPosEstimateListener;
@@ -82,8 +85,6 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         // scrollbar ranges
         hbar.setMin(0);
         vbar.setMin(0);
-        hbar.maxProperty().bind(content.totalWidthEstimateProperty());
-        vbar.maxProperty().bind(content.totalHeightEstimateProperty());
 
         if (DEBUG) {
             content.totalWidthEstimateProperty().addListener((observable, oldValue, newValue) -> System.out.println("com.base.content total width " + newValue));
@@ -115,13 +116,13 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         hPosEstimate = Val.combine(
                         content.estimatedScrollXProperty(),
                         contentViewportWidth,
-                        content.totalWidthEstimateProperty(),
+                        hbar.maxProperty(),
                         MyVirtualScrollPane::offsetToScrollbarPositionH)
                 .asVar(this::setHPosition);
         vPosEstimate = Val.combine(
                         content.estimatedScrollYProperty(),
                         Val.map(content.layoutBoundsProperty(), Bounds::getHeight),
-                        content.totalHeightEstimateProperty(),
+                        vbar.maxProperty(),
                         MyVirtualScrollPane::offsetToScrollbarPositionV)
                 .orElseConst(0.0)
                 .asVar(this::setVPosition);
@@ -166,58 +167,17 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         hbarPolicy = Var.newSimpleVar(hPolicy);
         vbarPolicy = Var.newSimpleVar(vPolicy);
 
-        Val<Double> layoutWidth = Val.map(layoutBoundsProperty(), Bounds::getWidth);
-        Val<Double> layoutHeight = Val.map(layoutBoundsProperty(), Bounds::getHeight);
-        Val<Boolean> needsHBar0 = Val.combine(
-                content.totalWidthEstimateProperty(),
-                layoutWidth,
-                (cw, lw) -> cw > lw);
-        Val<Boolean> needsVBar0 = Val.combine(
-                content.totalHeightEstimateProperty(),
-                layoutHeight,
-                (ch, lh) -> ch > lh);
-        Val<Boolean> needsHBar = Val.combine(
-                needsHBar0,
-                needsVBar0,
-                content.totalWidthEstimateProperty(),
-                vbar.widthProperty(),
-                layoutWidth,
-                (needsH, needsV, cw, vbw, lw) -> needsH || needsV && cw + vbw.doubleValue() > lw);
-        Val<Boolean> needsVBar = Val.combine(
-                needsVBar0,
-                needsHBar0,
-                content.totalHeightEstimateProperty(),
-                hbar.heightProperty(),
-                layoutHeight,
-                (needsV, needsH, ch, hbh, lh) -> needsV || needsH && ch + hbh.doubleValue() > lh);
-
-        Val<Boolean> shouldDisplayHorizontal = Val.flatMap(hbarPolicy, policy -> switch (policy) {
-            case NEVER -> Val.constant(false);
-            case ALWAYS -> Val.constant(true);
-            default -> // AS_NEEDED
-                    needsHBar;
-        });
-        Val<Boolean> shouldDisplayVertical = Val.flatMap(vbarPolicy, policy -> switch (policy) {
-            case NEVER -> Val.constant(false);
-            case ALWAYS -> Val.constant(true);
-            default -> // AS_NEEDED
-                    needsVBar;
-        });
-
-        // 只在显隐值实际变化时重排；合并两个滚动条的请求，避免估算失效持续安排布局。
-        ChangeListener<Boolean> visibilityChanged = (obs, oldValue, newValue) -> {
-            if (scrollBarLayoutPending) return;
-            scrollBarLayoutPending = true;
-            Platform.runLater(() -> {
-                scrollBarLayoutPending = false;
-                requestLayout();
-            });
-        };
-        shouldDisplayHorizontal.addListener(visibilityChanged);
-        shouldDisplayVertical.addListener(visibilityChanged);
-
-        hbar.visibleProperty().bind(shouldDisplayHorizontal);
-        vbar.visibleProperty().bind(shouldDisplayVertical);
+        // 段落替换时尺寸估算会暂时失效；只标记待更新，不能在通知中读取并改变滚动范围或显隐。
+        content.totalWidthEstimateProperty().addListener(scrollBarMetricsChanged);
+        content.totalHeightEstimateProperty().addListener(scrollBarMetricsChanged);
+        layoutBoundsProperty().addListener(scrollBarMetricsChanged);
+        hbarPolicy.addListener(scrollBarMetricsChanged);
+        vbarPolicy.addListener(scrollBarMetricsChanged);
+        vbar.widthProperty().addListener(scrollBarMetricsChanged);
+        hbar.heightProperty().addListener(scrollBarMetricsChanged);
+        hbar.setVisible(false);
+        vbar.setVisible(false);
+        scheduleScrollBarLayout();
 
         contentFocusedListener = (obs, ov, nv) -> pseudoClassStateChanged(CONTENT_FOCUSED, nv);
         content.focusedProperty().addListener(contentFocusedListener);
@@ -250,6 +210,14 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
     }
 
     private void dispose() {
+        disposed = true;
+        content.totalWidthEstimateProperty().removeListener(scrollBarMetricsChanged);
+        content.totalHeightEstimateProperty().removeListener(scrollBarMetricsChanged);
+        layoutBoundsProperty().removeListener(scrollBarMetricsChanged);
+        hbarPolicy.removeListener(scrollBarMetricsChanged);
+        vbarPolicy.removeListener(scrollBarMetricsChanged);
+        vbar.widthProperty().removeListener(scrollBarMetricsChanged);
+        hbar.heightProperty().removeListener(scrollBarMetricsChanged);
         content.focusedProperty().removeListener(contentFocusedListener);
         hbarValue.removeListener(hbarValueListener);
         hPosEstimate.removeListener(hPosEstimateListener);
@@ -257,6 +225,40 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         vPosEstimate.removeListener(vPosEstimateListener);
         unbindScrollBar(hbar);
         unbindScrollBar(vbar);
+    }
+
+    private void scheduleScrollBarLayout() {
+        if (disposed || scrollBarLayoutPending) return;
+        scrollBarLayoutPending = true;
+        Platform.runLater(() -> {
+            scrollBarLayoutPending = false;
+            if (disposed) return;
+            var widthEstimate = content.totalWidthEstimateProperty().getValue();
+            var heightEstimate = content.totalHeightEstimateProperty().getValue();
+            // 没有可用估算时保留上次范围，避免暂时归零把滚动位置钳回文档开头。
+            double contentWidth = widthEstimate != null && Double.isFinite(widthEstimate)
+                    ? Math.max(0, widthEstimate) : hbar.getMax();
+            double contentHeight = heightEstimate != null && Double.isFinite(heightEstimate)
+                    ? Math.max(0, heightEstimate) : vbar.getMax();
+            double layoutWidth = getLayoutBounds().getWidth();
+            double layoutHeight = getLayoutBounds().getHeight();
+            boolean horizontal = getHbarPolicy() == ScrollPane.ScrollBarPolicy.ALWAYS
+                    || getHbarPolicy() == AS_NEEDED && contentWidth > layoutWidth;
+            boolean vertical = getVbarPolicy() == ScrollPane.ScrollBarPolicy.ALWAYS
+                    || getVbarPolicy() == AS_NEEDED && contentHeight > layoutHeight;
+            if (horizontal && getVbarPolicy() == AS_NEEDED) {
+                vertical |= contentHeight + snapSizeY(hbar.prefHeight(-1)) > layoutHeight;
+            }
+            if (vertical && getHbarPolicy() == AS_NEEDED) {
+                horizontal |= contentWidth + snapSizeX(vbar.prefWidth(-1)) > layoutWidth;
+            }
+            boolean visibilityChanged = horizontal != hbar.isVisible() || vertical != vbar.isVisible();
+            hbar.setMax(contentWidth);
+            vbar.setMax(contentHeight);
+            hbar.setVisible(horizontal);
+            vbar.setVisible(vertical);
+            if (visibilityChanged) requestLayout();
+        });
     }
 
     private void unbindScrollBar(ScrollBar bar) {
@@ -367,7 +369,7 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         double offset = scrollbarPositionToOffset(
                 pos,
                 getContentViewportWidth(),
-                content.totalWidthEstimateProperty().getValue());
+                hbar.getMax());
         if(DEBUG) System.out.println("set HPosition " + offset);
         content.estimatedScrollXProperty().setValue(offset);
     }
@@ -383,7 +385,7 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
         double offset = scrollbarPositionToOffset(
                 pos,
                 content.getLayoutBounds().getHeight(),
-                content.totalHeightEstimateProperty().getValue());
+                vbar.getMax());
         if(DEBUG) System.out.println("set VPosition " + offset);
         content.estimatedScrollYProperty().setValue(offset);
     }

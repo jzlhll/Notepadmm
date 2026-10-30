@@ -4,6 +4,8 @@ import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.UIContext;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.scene.Scene;
 import org.reactfx.Subscription;
 
 import java.util.HashMap;
@@ -15,6 +17,8 @@ public final class EditorViewPosition {
     private static final TypeToken<Map<String, Integer>> TYPE = new TypeToken<>() {};
     private final EditorArea area;
     private final Subscription viewportChanges;
+    private final Runnable captureAfterLayout;
+    private final ChangeListener<Scene> sceneChanged;
     private int topLine;
     private boolean pendingRestore;
     private boolean restoreQueued;
@@ -32,23 +36,28 @@ public final class EditorViewPosition {
                 pendingRestore = true;
             }
         }
-        // 怀疑同步查询可见行会触发布局，再次发出 viewportDirty，导致 ReactFX 通知重入。
-        // 延后并合并采样；保留最后可见行，避免标签隐藏后保存为零，后续可按复现结果调整。
+        // 可见行查询会触发 VirtualFlow.layout()，只在正常布局完成后采样。
+        captureAfterLayout = () -> {
+            if (!captureQueued || area.isNeedsLayout()) return;
+            captureQueued = false;
+            if (!destroyed && !pendingRestore && area.getEditor().getSourceFile() != null
+                    && UIContext.currentAreaProp.get() == area && !area.getVisibleParagraphs().isEmpty()) {
+                topLine = area.firstVisibleParToAllParIndex();
+            }
+        };
+        sceneChanged = (observable, previous, current) -> {
+            if (previous != null) previous.removePostLayoutPulseListener(captureAfterLayout);
+            if (current != null) current.addPostLayoutPulseListener(captureAfterLayout);
+        };
+        area.sceneProperty().addListener(sceneChanged);
+        if (area.getScene() != null) area.getScene().addPostLayoutPulseListener(captureAfterLayout);
         viewportChanges = area.viewportDirtyEvents().subscribe(event -> {
-            if (destroyed || pendingRestore || captureQueued || UIContext.currentAreaProp.get() != area) {
+            // 未命名文档没有按路径保存的位置，输入时不安排可见行查询。
+            if (destroyed || pendingRestore || area.getEditor().getSourceFile() == null
+                    || UIContext.currentAreaProp.get() != area) {
                 return;
             }
             captureQueued = true;
-            Platform.runLater(() -> {
-                try {
-                    if (!destroyed && !pendingRestore && UIContext.currentAreaProp.get() == area
-                            && !area.getVisibleParagraphs().isEmpty()) {
-                        topLine = area.firstVisibleParToAllParIndex();
-                    }
-                } finally {
-                    captureQueued = false;
-                }
-            });
         });
     }
 
@@ -96,5 +105,7 @@ public final class EditorViewPosition {
         save();
         destroyed = true;
         viewportChanges.unsubscribe();
+        area.sceneProperty().removeListener(sceneChanged);
+        if (area.getScene() != null) area.getScene().removePostLayoutPulseListener(captureAfterLayout);
     }
 }
