@@ -1,8 +1,10 @@
 package com.allan.atools.richtext.codearea
 
+import com.allan.atools.SettingPreferences
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.geometry.Insets
+import javafx.scene.control.Label
 import java.util.Locale
 
 /** 按文档类型和编辑区尺寸动态留白，分别限制水平和垂直留白范围。 */
@@ -46,18 +48,28 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         refresh()
     }
 
+    /** 留白与整栏背景共用有效宽度，输入法替换段落时不采用临时缺失或空白行号的尺寸。 */
+    fun lineNumberWidth(): Double {
+        // Markdown 装饰器也会保留图形工厂，关闭行号时仍需清除整栏背景宽度。
+        if (area.paragraphGraphicFactory == null
+            || !SettingPreferences.getBoolean(SettingPreferences.editorLineNumberVisibleKey)
+        ) gutterWidth = 0.0
+        else {
+            val lineNumber = area.lookup(".lineno") as? Label
+            if (lineNumber != null && !lineNumber.text.isNullOrEmpty()) {
+                val width = lineNumber.layoutBounds.width
+                if (width > 0.0) gutterWidth = width
+            }
+        }
+        return gutterWidth
+    }
+
     fun refresh() {
         val padding = area.padding
         val viewport = area.parent as? EditorZoomViewport
-        // 使用已布局的行号宽度；虚拟节点重建期间沿用上次值，避免临时空节点改变留白。
-        if (area.paragraphGraphicFactory == null) gutterWidth = 0.0
-        else {
-            val width = area.lookup(".lineno")?.layoutBounds?.width ?: 0.0
-            if (width > 0.0) gutterWidth = width
-        }
         // 纵向滚动条显隐不能改变留白，否则两侧取整可能让变窄的视口反而多出正文宽度。
         val layoutWidth = viewport?.documentLayoutWidth ?: area.width
-        val availableWidth = layoutWidth - area.insets.left - (area.insets.right - padding.right) - gutterWidth
+        val availableWidth = layoutWidth - area.insets.left - (area.insets.right - padding.right) - lineNumberWidth()
         val minMargin = if (textDocument) TEXT_MIN_MARGIN else DEFAULT_MIN_MARGIN
         val maxMargin = if (textDocument) TEXT_MAX_MARGIN else DEFAULT_MAX_MARGIN
         // 基准宽度仅用于计算留白；留白达到上限后，正文继续随窗口增宽。

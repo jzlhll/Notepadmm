@@ -117,13 +117,15 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
                         content.estimatedScrollXProperty(),
                         contentViewportWidth,
                         hbar.maxProperty(),
-                        MyVirtualScrollPane::offsetToScrollbarPositionH)
+                        (offset, viewportSize, contentSize) ->
+                                offsetToScrollbarPositionH(offset, viewportSize, contentSize.doubleValue()))
                 .asVar(this::setHPosition);
         vPosEstimate = Val.combine(
                         content.estimatedScrollYProperty(),
                         Val.map(content.layoutBoundsProperty(), Bounds::getHeight),
                         vbar.maxProperty(),
-                        MyVirtualScrollPane::offsetToScrollbarPositionV)
+                        (offset, viewportSize, contentSize) ->
+                                offsetToScrollbarPositionV(offset, viewportSize, contentSize.doubleValue()))
                 .orElseConst(0.0)
                 .asVar(this::setVPosition);
         hbarValue = Var.doubleVar(hbar.valueProperty());
