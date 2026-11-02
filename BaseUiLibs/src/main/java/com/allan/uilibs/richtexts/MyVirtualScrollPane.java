@@ -23,6 +23,8 @@ import static javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED;
 public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region implements Virtualized {
     private static final boolean DEBUG = false;//UIContext.DEBUG;
     private static final PseudoClass CONTENT_FOCUSED = PseudoClass.getPseudoClass("com.base.content-focused");
+    /** 小于该像素的位置变化视为同一位置：Flowless 总高度是估算值，抖动时不应回写滚动位置。 */
+    private static final double POSITION_EPSILON = 0.5;
 
     private final ScrollBar hbar;
     private final ScrollBar vbar;
@@ -117,13 +119,15 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
                         content.estimatedScrollXProperty(),
                         contentViewportWidth,
                         hbar.maxProperty(),
-                        MyVirtualScrollPane::offsetToScrollbarPositionH)
+                        (offset, viewportSize, contentSize) ->
+                                offsetToScrollbarPositionH(offset, viewportSize, contentSize.doubleValue()))
                 .asVar(this::setHPosition);
         vPosEstimate = Val.combine(
                         content.estimatedScrollYProperty(),
                         Val.map(content.layoutBoundsProperty(), Bounds::getHeight),
                         vbar.maxProperty(),
-                        MyVirtualScrollPane::offsetToScrollbarPositionV)
+                        (offset, viewportSize, contentSize) ->
+                                offsetToScrollbarPositionV(offset, viewportSize, contentSize.doubleValue()))
                 .orElseConst(0.0)
                 .asVar(this::setVPosition);
         hbarValue = Var.doubleVar(hbar.valueProperty());
@@ -387,6 +391,10 @@ public class MyVirtualScrollPane<V extends Node & Virtualized> extends Region im
                 content.getLayoutBounds().getHeight(),
                 vbar.getMax());
         if(DEBUG) System.out.println("set VPosition " + offset);
+        // 文档总高度是 Flowless 的估算值，编辑时会小幅抖动；滚动范围一变动这条链就会把同一个位置
+        // 反复写回 estimatedScrollY，每次写回都触发一次列表重新布局，表现为正文整篇闪烁。
+        Double current = content.estimatedScrollYProperty().getValue();
+        if (current != null && Math.abs(offset - current) < POSITION_EPSILON) return;
         content.estimatedScrollYProperty().setValue(offset);
     }
 

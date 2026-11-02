@@ -20,6 +20,8 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         private const val DEFAULT_MAX_VERTICAL_PADDING = 56.0
         private const val TEXT_VERTICAL_PADDING_RATIO = 0.075
         private const val DEFAULT_VERTICAL_PADDING_RATIO = 0.06
+        /** 留白由“剩余宽度的一半”解出的稳定系数：留白不能反过来进入自身算式，否则会来回振荡。 */
+        private const val MARGIN_STABLE_DIVISOR = 3.0
         private val extensions = setOf(
             "md", "markdown", "mdown", "mmd", "rmarkdown", "mkd", "mdwn",
             "mdtxt", "rmd", "qmd", "mdtext", "mdx"
@@ -69,11 +71,15 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         val viewport = area.parent as? EditorZoomViewport
         // 纵向滚动条显隐不能改变留白，否则两侧取整可能让变窄的视口反而多出正文宽度。
         val layoutWidth = viewport?.documentLayoutWidth ?: area.width
-        val availableWidth = layoutWidth - area.insets.left - (area.insets.right - padding.right) - lineNumberWidth()
+        // 不能把当前左右留白算进可用宽度：padding 会反馈到自身算式，一旦可用宽度超过基准宽度、
+        // 留白又没顶到上限，相邻两个留白值就会互相推导（例如 83 与 84），每次布局都改一次 padding，
+        // 正文整篇重排表现为闪烁。这里只取外层宽度，并按原“剩余宽度的一半”迭代式的定点值
+        // （m = (X - m) / 2，即 m = X / 3）一次算出结果，布局位置与原收敛值一致，但不再依赖上一轮留白。
+        val outerWidth = layoutWidth - (area.insets.right - padding.right) - lineNumberWidth()
         val minMargin = if (textDocument) TEXT_MIN_MARGIN else DEFAULT_MIN_MARGIN
         val maxMargin = if (textDocument) TEXT_MAX_MARGIN else DEFAULT_MAX_MARGIN
         // 基准宽度仅用于计算留白；留白达到上限后，正文继续随窗口增宽。
-        val calculatedMargin = Math.ceil((availableWidth - CONTENT_WIDTH_BASELINE) / 2.0)
+        val calculatedMargin = Math.ceil((outerWidth - CONTENT_WIDTH_BASELINE) / MARGIN_STABLE_DIVISOR)
         val desiredMargin = when {
             calculatedMargin < minMargin -> minMargin
             calculatedMargin > maxMargin -> maxMargin

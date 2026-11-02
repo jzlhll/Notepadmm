@@ -13,6 +13,8 @@ import javafx.geometry.Pos
 import javafx.scene.control.*
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseEvent
+import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
@@ -44,6 +46,8 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
     private val rightTitle = Label()
     private val left = createArea()
     private val right = createArea()
+    private val leftScroll = VirtualizedScrollPane(left)
+    private val rightScroll = VirtualizedScrollPane(right)
     private val split = SplitPane()
     private val content = BorderPane()
     private val previous = Button("↑ " + Locales.str("git.previousHunk"))
@@ -54,6 +58,7 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
     private var hunks = emptyList<Int>()
     private var hunkIndex = -1
     private var syncing = false
+    private var scrollLeader = left
     private var task: FutureTask<Unit>? = null
 
     init {
@@ -90,16 +95,20 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
             padding = Insets(10.0, 12.0, 10.0, 12.0)
             styleClass.add("git-diff-toolbar")
         }
-        val leftBox = VBox(leftTitle, VirtualizedScrollPane(left)).apply { VBox.setVgrow(children[1], Priority.ALWAYS) }
-        val rightBox = VBox(rightTitle, VirtualizedScrollPane(right)).apply { VBox.setVgrow(children[1], Priority.ALWAYS) }
+        val leftBox = VBox(leftTitle, leftScroll).apply { VBox.setVgrow(children[1], Priority.ALWAYS) }
+        val rightBox = VBox(rightTitle, rightScroll).apply { VBox.setVgrow(children[1], Priority.ALWAYS) }
         listOf(leftTitle, rightTitle).forEach { it.styleClass.add("git-diff-side-title"); it.maxWidth = Double.MAX_VALUE }
         split.items.setAll(leftBox, rightBox)
         split.setDividerPositions(0.5)
-        left.estimatedScrollYProperty().addListener { _, _, value ->
-            if (!syncing) { syncing = true; try { right.estimatedScrollYProperty().value = value } finally { syncing = false } }
-        }
-        right.estimatedScrollYProperty().addListener { _, _, value ->
-            if (!syncing) { syncing = true; try { left.estimatedScrollYProperty().value = value } finally { syncing = false } }
+        // 只允许用户当前操作的一侧驱动另一侧。Flowless 在布局阶段才异步回写 estimatedScrollY，
+        // 双向同步会因两侧可视区差异（例如某侧多出横向滚动条）反复纠正，表现为原地上下抖动。
+        left.estimatedScrollYProperty().addListener { _, _, value -> followScroll(left, right, value) }
+        right.estimatedScrollYProperty().addListener { _, _, value -> followScroll(right, left, value) }
+        listOf(left to leftScroll, right to rightScroll).forEach { (area, pane) ->
+            pane.addEventFilter(MouseEvent.MOUSE_PRESSED) { scrollLeader = area }
+            pane.addEventFilter(MouseEvent.MOUSE_DRAGGED) { scrollLeader = area }
+            pane.addEventFilter(ScrollEvent.ANY) { scrollLeader = area }
+            area.focusedProperty().addListener { _, _, focused -> if (focused) scrollLeader = area }
         }
         val statusBar = HBox(16.0, state, summary).apply {
             padding = Insets(7.0, 12.0, 7.0, 12.0); alignment = Pos.CENTER_LEFT
@@ -135,6 +144,14 @@ class GitDiffWindow private constructor(owner: Stage, private val directory: Fil
         area.contextMenu = AppContextMenu(MenuItem(Locales.str("copy")).apply { setOnAction { area.copy() } },
             MenuItem(Locales.str("git.selectAll")).apply { setOnAction { area.selectAll() } })
         return area
+    }
+
+    /** 跟随当前交互侧滚动；被跟随侧的回写不再反向驱动，避免两侧滚动值来回纠正。 */
+    private fun followScroll(from: CodeArea, to: CodeArea, value: Double) {
+        if (syncing || from !== scrollLeader) return
+        if (value == to.estimatedScrollYProperty().value) return
+        syncing = true
+        try { to.estimatedScrollYProperty().value = value } finally { syncing = false }
     }
 
     private fun reload() {
