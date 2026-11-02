@@ -320,7 +320,7 @@ class EditorArea @JvmOverloads constructor(
         paragraphWrapping.refresh(wrapMarkdown, collect = false)
         super.layoutChildren()
         // 将行号底色铺满编辑区高度，正文上下留白仍由编辑器 padding 控制。
-        val lineNumberWidth = lookup(".lineno")?.layoutBounds?.width ?: 0.0
+        val lineNumberWidth = documentLayout.lineNumberWidth()
         lineNumberBackground.resizeRelocate(insets.left, 0.0, lineNumberWidth, height)
         // 等原有光标跟随完成布局，再处理缩放视口的横向裁剪。
         if (followZoomCaret) {

@@ -15,7 +15,13 @@ import javafx.scene.layout.HBox
 import javafx.scene.shape.Rectangle
 
 /** 操作栏属于表格首行，随文档布局和缩放，不另建悬浮窗口。 */
-class MarkdownTableToolbar(val tableId: String, optimize: Runnable, toggle: Runnable, exit: Runnable) : HBox(2.0) {
+class MarkdownTableToolbar(
+    val tableId: String,
+    optimize: Runnable,
+    toggle: Runnable,
+    exitBefore: Runnable,
+    exitAfter: Runnable
+) : HBox(2.0) {
     companion object {
         // 同时用于操作栏布局与源码首段的顶部留白。
         const val HEIGHT = 28.0
@@ -23,19 +29,22 @@ class MarkdownTableToolbar(val tableId: String, optimize: Runnable, toggle: Runn
 
     private val optimizeButton = button("markdownTableToolbarOptimize", optimize)
     private val modeButton = button("markdownTableToolbarSource", toggle)
-    private val exitButton = button("markdownTableExitAfter", exit)
+    private val exitBeforeButton = button("markdownTableExitBefore", exitBefore)
+    private val exitAfterButton = button("markdownTableExitAfter", exitAfter)
     private val optimizeTip = Tooltip(Locales.str("markdownTableOptimize"))
     private val modeTip = Tooltip(Locales.str("markdownTableShowSource"))
-    private val exitTip = Tooltip(Locales.str("markdownTableExitAfter"))
+    private val exitBeforeTip = Tooltip(Locales.str("markdownTableExitBefore"))
+    private val exitAfterTip = Tooltip(Locales.str("markdownTableExitAfter"))
 
     init {
         styleClass.add("markdown-table-toolbar")
         alignment = Pos.CENTER_LEFT
         minWidth = 0.0
-        children.addAll(optimizeButton, modeButton, exitButton)
+        children.addAll(optimizeButton, modeButton, exitBeforeButton, exitAfterButton)
         optimizeButton.tooltip = optimizeTip
         modeButton.tooltip = modeTip
-        exitButton.tooltip = exitTip
+        exitBeforeButton.tooltip = exitBeforeTip
+        exitAfterButton.tooltip = exitAfterTip
         clip = Rectangle().apply {
             widthProperty().bind(this@MarkdownTableToolbar.widthProperty())
             heightProperty().bind(this@MarkdownTableToolbar.heightProperty())
@@ -48,7 +57,8 @@ class MarkdownTableToolbar(val tableId: String, optimize: Runnable, toggle: Runn
     fun refresh(editable: Boolean, valid: Boolean, pending: Boolean, source: Boolean, searching: Boolean) {
         optimizeButton.isDisable = !editable || !valid || pending
         modeButton.isDisable = !valid || pending || searching
-        exitButton.isDisable = !valid || pending
+        exitBeforeButton.isDisable = !valid || pending
+        exitAfterButton.isDisable = !valid || pending
         modeButton.text = Locales.str(if (source) "markdownTableToolbarPreview" else "markdownTableToolbarSource")
         val reason = when {
             !editable -> Locales.str("markdownTableReadonly")

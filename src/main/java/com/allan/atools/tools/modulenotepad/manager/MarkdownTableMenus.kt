@@ -151,7 +151,8 @@ class MarkdownTableMenus(private val state: MarkdownTablePreviewState) {
     }
 
     fun createToolbar(table: PreviewTable): MarkdownTableToolbar = with(state) {
-        val bar = MarkdownTableToolbar(table.id(), { editing.optimize(table) }, { editing.toggleMode(table) }, { editing.exitTable(table, 1) })
+        val bar = MarkdownTableToolbar(table.id(), { editing.optimize(table) }, { editing.toggleMode(table) },
+            { editing.exitTable(table, -1) }, { editing.exitTable(table, 1) })
         toolbars.add(bar)
         refreshToolbar(bar, table)
         bar

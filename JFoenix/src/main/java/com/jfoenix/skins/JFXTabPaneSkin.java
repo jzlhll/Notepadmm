@@ -462,34 +462,36 @@ public class JFXTabPaneSkin extends SkinBase<JFXTabPane> {
 
                 @Override
                 protected void layoutChildren() {
-                    if (isTabsFitHeaderWidth()) {
-                        updateScrollOffset(0.0);
-                    } else {
-                        if (!removedTabsHeaders.isEmpty()) {
-                            double offset = 0;
-                            double w = header.getWidth() - snapSize(rightControlButton.prefWidth(-1)) - snapSize(
-                                leftControlButton.prefWidth(-1)) - snappedLeftInset() - SPACER;
-                            Iterator<Node> itr = getChildren().iterator();
-                            while (itr.hasNext()) {
-                                Node temp = itr.next();
-                                if (temp instanceof TabHeaderContainer) {
-                                    TabHeaderContainer tabHeaderContainer = (TabHeaderContainer) temp;
-                                    double containerPrefWidth = snapSize(tabHeaderContainer.prefWidth(-1));
-                                    // if tab has been removed
-                                    if (removedTabsHeaders.contains(tabHeaderContainer)) {
-                                        if (offset < w) {
-                                            isSelectingTab = true;
-                                        }
-                                        itr.remove();
-                                        removedTabsHeaders.remove(tabHeaderContainer);
-                                        if (removedTabsHeaders.isEmpty()) {
-                                            break;
-                                        }
+                    // 溢出状态下关闭标签时标题节点会先挂起；即使剩余标签已经放得下也必须清理，
+                    // 否则空标题继续占位，会把剩余标签推出可视区且箭头已隐藏。
+                    if (!removedTabsHeaders.isEmpty()) {
+                        double offset = 0;
+                        double w = header.getWidth() - snapSize(rightControlButton.prefWidth(-1)) - snapSize(
+                            leftControlButton.prefWidth(-1)) - snappedLeftInset() - SPACER;
+                        Iterator<Node> itr = getChildren().iterator();
+                        while (itr.hasNext()) {
+                            Node temp = itr.next();
+                            if (temp instanceof TabHeaderContainer) {
+                                TabHeaderContainer tabHeaderContainer = (TabHeaderContainer) temp;
+                                double containerPrefWidth = snapSize(tabHeaderContainer.prefWidth(-1));
+                                // if tab has been removed
+                                if (removedTabsHeaders.contains(tabHeaderContainer)) {
+                                    if (offset < w) {
+                                        isSelectingTab = true;
                                     }
-                                    offset += containerPrefWidth;
+                                    itr.remove();
+                                    removedTabsHeaders.remove(tabHeaderContainer);
+                                    if (removedTabsHeaders.isEmpty()) {
+                                        break;
+                                    }
                                 }
+                                offset += containerPrefWidth;
                             }
                         }
+                    }
+
+                    if (isTabsFitHeaderWidth()) {
+                        updateScrollOffset(0.0);
                     }
 
                     if (removedTabs) {
@@ -499,6 +501,7 @@ public class JFXTabPaneSkin extends SkinBase<JFXTabPane> {
 
                     if (isSelectingTab) {
                         // make sure the selected tab is visible
+                        ensureSelectedTabVisible();
                         updateSelectionLine(true);
                         isSelectingTab = false;
                     } else {
@@ -672,7 +675,7 @@ public class JFXTabPaneSkin extends SkinBase<JFXTabPane> {
             // keep track of the original offset
             selectedTabLineOffset = newTransX;
             // add offset to the computed translation
-            newTransX = newTransX + offsetStart * direction;
+            newTransX = newTransX + scrollOffset * direction;
             final double transDiff = newTransX - oldTransX;
 
 
@@ -713,6 +716,46 @@ public class JFXTabPaneSkin extends SkinBase<JFXTabPane> {
 
         private boolean isAnimating() {
             return timeline != null && timeline.getStatus() == Animation.Status.RUNNING;
+        }
+
+        /**
+         * 程序选中标签（如新打开文件）时把它滚入可视区；已完整可见时不滚动，避免标题栏跳动。
+         */
+        private void ensureSelectedTabVisible() {
+            if (selectedTab == null || getSkinnable().getSide() != Side.TOP) {
+                return;
+            }
+            double tabOffset = 0.0;
+            double selectedTabWidth = 0.0;
+            boolean found = false;
+            for (Node node : headersRegion.getChildren()) {
+                if (node instanceof TabHeaderContainer) {
+                    double tabHeaderPrefWidth = snapSize(node.prefWidth(-1));
+                    if (selectedTab.equals(((TabHeaderContainer) node).tab)) {
+                        selectedTabWidth = tabHeaderPrefWidth;
+                        found = true;
+                        break;
+                    }
+                    tabOffset += tabHeaderPrefWidth;
+                }
+            }
+            if (!found || selectedTabWidth <= 0) {
+                return;
+            }
+            double visibleWidth = snapSize(getWidth())
+                - 2 * snapSize(rightControlButton.prefWidth(-1)) - getClipOffset() - SPACER;
+            if (visibleWidth <= 0) {
+                return;
+            }
+            double tabStart = tabOffset + scrollOffset;
+            double tabEnd = tabStart + selectedTabWidth;
+            if (tabStart >= 0 && tabEnd <= visibleWidth) {
+                return;
+            }
+            double targetOffset = (selectedTabWidth >= visibleWidth || tabStart < 0)
+                ? -tabOffset
+                : visibleWidth - tabOffset - selectedTabWidth;
+            updateScrollOffset(targetOffset);
         }
 
         private void updateScrollOffset(double newOffset) {

@@ -185,6 +185,9 @@ open class EditorAreaMgr(
         private val listener = ChangeListener<Int> { _, _, newValue ->
             if (EditorArea.DEBUG_EDITOR) Log.v("caret pos changed $newValue")
             val selection = area.selection
+            // 输入法组合更新会先用上一次的 imstart/imlength 调 selectRange，选区可能短暂超出文档长度；
+            // 此时 offsetToPosition 会抛 IndexOutOfBoundsException，异常会中断输入法处理并让组合状态失步。
+            if (selection.end > area.length) return@ChangeListener
             val start = area.offsetToPosition(selection.start, Forward)
             val end = area.offsetToPosition(selection.end, Backward)
             mActions?.forEach {
