@@ -6,6 +6,7 @@ import com.allan.atools.utils.Log
 import com.allan.atools.utils.ResLocation
 import com.allan.uilibs.controls.TreeItemEx
 import javafx.application.Platform
+import javafx.scene.control.ContentDisplay
 import javafx.scene.control.Label
 import javafx.scene.control.Labeled
 import javafx.scene.control.Tooltip
@@ -88,13 +89,18 @@ class GitWorkspaceSupport {
 
     companion object {
         private const val SNAPSHOT_KEY = "atools.git.snapshot"
+        private const val BADGE_GAP = 6.0
 
         @JvmStatic fun isDirectory(tree: TreeView<*>?, file: File): Boolean = file.isDirectory ||
             (tree?.properties?.get(SNAPSHOT_KEY) as? GitSnapshot)?.containsDirectory(file) == true
 
         @JvmStatic fun decorateCell(cell: TreeCell<*>) {
             cell.tooltip = null
+            // 徽标跟随文件名显示在右侧，文件名与目录名共用同一个左对齐起点。
+            cell.contentDisplay = ContentDisplay.LEFT
+            cell.graphicTextGap = 0.0
             val file = (cell.treeItem as? TreeItemEx<*>)?.ex as? File ?: return
+            if (cell.text == null) return
             val result = cell.treeView?.properties?.get(SNAPSHOT_KEY) as? GitSnapshot ?: return
             val status = result.status(file)
             val directory = file.isDirectory || result.containsDirectory(file)
@@ -109,6 +115,8 @@ class GitWorkspaceSupport {
                     else -> "changed"
                 })
             }
+            cell.graphicTextGap = BADGE_GAP
+            cell.contentDisplay = ContentDisplay.RIGHT
             cell.tooltip = Tooltip(buildString {
                 append(file.absolutePath)
                 if (status != null) {

@@ -24,7 +24,7 @@ public final class DirAndFileJFXTreeCell<T> extends JFXTreeCell<T> {
 
     public DirAndFileJFXTreeCell(boolean isDir) {
         setTextOverrun(OverrunStyle.CLIP);
-        setPadding(new Insets(0,0,0,-8)); // 移除 graphic 与文字之间的多余间距
+        setPadding(new Insets(0,0,0,-8)); // 移除内容左侧多余间距，使文件名贴近行首
     }
 
     @Override

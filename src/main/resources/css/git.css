@@ -1,4 +1,4 @@
-/* Git 徽标保留文件树现有的文件类型文字颜色。 */
+/* Git 徽标显示在文件名之后，文件名与目录名保持同一左对齐起点。 */
 .git-status-badge {
     -fx-font-family: monospace;
     -fx-font-size: 11px;
@@ -54,7 +54,7 @@
 .git-diff-area {
     -fx-background-color: -au-editor-bg-color;
     -fx-font-family: "JetBrains Mono", monospace;
-    -fx-font-size: 15px;
+    -fx-font-size: 16px;
     -fx-padding: 0;
 }
 .git-diff-area .text { -fx-fill: -au-editor-text-color; }
@@ -65,7 +65,7 @@
     -fx-background-color: -au-workspace-bg-color;
     -fx-text-fill: -au-default-desc-color;
     -fx-font-family: monospace;
-    -fx-font-size: 15px;
+    -fx-font-size: 16px;
     -fx-padding: 1px 10px 1px 5px;
     -fx-min-height: 26px;
     -fx-pref-height: 26px;
