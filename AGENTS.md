@@ -17,6 +17,21 @@
 - 会话快照与文件保存由后台任务处理，UI 更新回到 JavaFX 线程；高亮与预览按文档版本调度，并保留大文档降级逻辑。
 - 主应用源码在 `src/main/java/com/allan/atools/`，资源在 `src/main/resources/`；Markdown 样式位于 `css/editor_markdown.css`，主题颜色由 `css/colors*.css` 提供。
 
+## 弹出菜单与浮层
+
+所有下拉、右键菜单、选项浮层统一走场景内浮层（`MenuOverlay`），禁止原生弹窗（`Popup`／`ContextMenu.show()`／`JFXPopup`／`JFXComboBox` 自带下拉会有尺寸跳变与闪烁）。新增时照抄已有实现，不要另造：
+
+- 菜单形式（少量动作）：`pop/impl/JSONChooseCreatorImpl.kt`
+- 列表形式（较多选项）：`pop/impl/AppThemeChooseCreatorImpl.kt`
+- 数值微调（步进器）：`pop/impl/FontSizeChooseCreatorImpl.kt`
+- 组合框改浮层：`controller/SettingController.java` 的 `initAppThemePopup()`／`toggleAppThemePopup()`
+
+外观只来自 CSS 的 `.app-menu-panel`；尺寸一次成型（`ListView` 默认高 400，须显式指定）；创建器继承 `AbstractMenuCreator<T>` 并同时实现 `createMenu` 与 `createPop`。
+
+## 设置页布局
+
+设置项一律「标题一行、控件一行」：标题 `normal-label` 左 3，控件另起一行左 20，标题文字不带冒号。互斥选项用 `ui/SegmentedControl.kt`（两段／三段），不再用单选按钮；下拉类控件用 `JFXComboBox` + `styleClass="setting-combo"`（框体与分段切换一致，仅多一个下拉箭头，浮层参考 `SettingController.initLocalesPopup()`）。第一部分的控件统一 240 宽并左对齐同一基准线，文案放不下（如英文）时按 `SegmentedControl.requiredWidth()` 整体加宽，不要只放大其中一个。分组之间只用间距区分，标题上加 `top=64`，不加分隔线／横线。
+
 ## 日志查看
 
 查看 macOS 日志使用 `rtk proxy rg -n '关键词' ~/.atools_notepadmm/log/MM_DD.log`（文件名替换为当天月日），debug 实例则读取其独立 `user.home` 下的同名日志目录。

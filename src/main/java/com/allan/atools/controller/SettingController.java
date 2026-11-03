@@ -5,7 +5,12 @@ import com.allan.atools.AppTheme;
 import com.allan.atools.GlobalCfgStores;
 import com.allan.atools.bases.AbstractController;
 import com.allan.atools.bases.XmlPaths;
+import com.allan.atools.pop.MenuOverlay;
+import com.allan.atools.pop.PopupMenus;
+import com.allan.atools.pop.impl.AppThemeChooseCreatorImpl;
+import com.allan.atools.pop.impl.StringChooseCreatorImpl;
 import com.allan.atools.ui.JfoenixDialogUtils;
+import com.allan.atools.ui.SegmentedControl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
@@ -15,14 +20,17 @@ import com.allan.atools.utils.Locales;
 import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.jfoenix.controls.JFXComboBox;
-import com.jfoenix.controls.JFXRadioButton;
 import com.jfoenix.controls.JFXScrollPane;
 import com.jfoenix.controls.JFXToggleButton;
 import javafx.application.Platform;
+import javafx.geometry.Side;
 import javafx.scene.control.Hyperlink;
-import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
@@ -32,6 +40,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 @XmlPaths(paths = {"notepad", "settings.fxml"})
 public final class SettingController extends AbstractController {
@@ -43,18 +52,136 @@ public final class SettingController extends AbstractController {
     public JFXToggleButton resultIfHasNumBtn;
     public JFXToggleButton editorLineNumberVisibleBtn;
     public JFXComboBox<AppTheme> appThemeComboBox;
+    public JFXComboBox<String> localesComboBox;
     public JFXToggleButton hdScreenBtn2;
     public JFXToggleButton cycleNextBtn;
 
-    public JFXRadioButton fontThemeDefaultBtn; //jb mono
-    public JFXRadioButton fontThemeCustomBtn;
-    public JFXRadioButton mainUiSizeDefaultBtn;
-    public JFXRadioButton mainUiSizeLargeBtn;
-    public JFXRadioButton mainUiSizeLargerBtn;
+    public HBox mainUiSizeSegmentBox;
+    public HBox fontThemeSegmentBox;
+    public HBox fontCustomLinkBox;
     public Hyperlink fontCustomLink;
 
-    public JFXComboBox<Label> localesComboBox;
+    private MenuOverlay appThemeOverlay;
+    private MenuOverlay localesOverlay;
 
+    /** 设置页四个控件的统一宽度：分段切换与下拉框框体等宽，纵向对齐。 */
+    private static final double SETTING_CONTROL_WIDTH = 240;
+
+    private static final List<KeyCode> POPUP_KEYS =
+            List.of(KeyCode.F4, KeyCode.SPACE, KeyCode.UP, KeyCode.DOWN, KeyCode.ENTER);
+
+    private static void fixedWidth(Region control, double width) {
+        control.setMinWidth(width);
+        control.setPrefWidth(width);
+        control.setMaxWidth(width);
+    }
+
+    /** 浮层内容宽 = 组合框宽减去面板边框（3×2）与内边距（6×2）。 */
+    private static double popupContentWidth(JFXComboBox<?> combo) {
+        double comboWidth = combo.getWidth();
+        if (comboWidth <= 0) {
+            comboWidth = SETTING_CONTROL_WIDTH;
+        }
+        return Math.max(200, comboWidth - 18);
+    }
+
+    /**
+     * 组合框只作显示控件：原生下拉在鼠标松开与按键松开时弹出，
+     * 所以按下与松开都要拦截，改由场景内浮层显示，避免原生弹窗的缩放与尺寸跳动。
+     */
+    private void installOverlayCombo(JFXComboBox<?> combo, Runnable toggle) {
+        combo.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            combo.requestFocus();
+            event.consume();
+        });
+        combo.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+            event.consume();
+            toggle.run();
+        });
+        combo.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (!POPUP_KEYS.contains(event.getCode())) {
+                return;
+            }
+            event.consume();
+            toggle.run();
+        });
+        combo.addEventFilter(KeyEvent.KEY_RELEASED, event -> {
+            if (POPUP_KEYS.contains(event.getCode())) {
+                event.consume();
+            }
+        });
+    }
+
+    private void initAppThemePopup(double width) {
+        appThemeComboBox.getItems().setAll(AppTheme.values());
+        appThemeComboBox.setValue(AppTheme.current());
+        appThemeComboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null) {
+                SettingPreferences.updateStr(SettingPreferences.appThemeKey, newValue.getId());
+            }
+        });
+        fixedWidth(appThemeComboBox, width);
+        installOverlayCombo(appThemeComboBox, this::toggleAppThemePopup);
+    }
+
+    private void toggleAppThemePopup() {
+        if (appThemeOverlay != null && appThemeOverlay.isOpen()) {
+            appThemeOverlay.close();
+            return;
+        }
+        var content = new AppThemeChooseCreatorImpl(popupContentWidth(appThemeComboBox)).createPop(theme -> {
+            if (appThemeOverlay != null) {
+                appThemeOverlay.close();
+            }
+            appThemeComboBox.setValue(theme);
+        });
+        appThemeOverlay = PopupMenus.showPopupContent(appThemeComboBox, content, Side.BOTTOM, 0, 0);
+    }
+
+    private void initLocalesPopup(double width) {
+        try {
+            var names = Files.readAllLines(Path.of(ResLocation.getRealPath("locales", "locales.list")));
+            localesComboBox.getItems().setAll(names);
+
+            int language = GlobalCfgStores.user().getInt(Locales.LOCALES_KEY, -1);
+            if (language == -1) {
+                language = Locales.getLocalesIndex();
+            }
+            if (language < 0 || language >= names.size()) {
+                language = 0;
+            }
+            localesComboBox.getSelectionModel().select(language);
+            localesComboBox.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
+                GlobalCfgStores.user().setInt(Locales.LOCALES_KEY, newValue.intValue());
+            });
+
+            fixedWidth(localesComboBox, width);
+            installOverlayCombo(localesComboBox, this::toggleLocalesPopup);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void toggleLocalesPopup() {
+        if (localesOverlay != null && localesOverlay.isOpen()) {
+            localesOverlay.close();
+            return;
+        }
+        var content = new StringChooseCreatorImpl(List.copyOf(localesComboBox.getItems()),
+                localesComboBox.getSelectionModel().getSelectedIndex(),
+                popupContentWidth(localesComboBox)).createPop(index -> {
+            if (localesOverlay != null) {
+                localesOverlay.close();
+            }
+            localesComboBox.getSelectionModel().select(index.intValue());
+        });
+        localesOverlay = PopupMenus.showPopupContent(localesComboBox, content, Side.BOTTOM, 0, 0);
+    }
+
+    /**
+     * 自定义字体路径只切换文字本身：所在行始终参与布局并保持单行高度，
+     * 这样「默认 / 自定义」来回切不会让下面的内容整体跳动。
+     */
     private void visibleFontSelectedMode(boolean v) {
         fontCustomLink.setVisible(v);
         fontCustomLink.setVisited(false);
@@ -62,60 +189,34 @@ public final class SettingController extends AbstractController {
 
     private long sFontChangedCount;
 
-    private void initMainUiSizeMode() {
-        ToggleGroup group = new ToggleGroup();
-        mainUiSizeDefaultBtn.setToggleGroup(group);
-        mainUiSizeLargeBtn.setToggleGroup(group);
-        mainUiSizeLargerBtn.setToggleGroup(group);
+    private void initMainUiSizeMode(List<String> items, double width) {
+        var control = new SegmentedControl(items, width);
 
         int mode = SettingPreferences.getInt(SettingPreferences.mainUiSizeModeKey);
-        if (mode == 1) {
-            group.selectToggle(mainUiSizeLargeBtn);
-        } else if (mode == 2) {
-            group.selectToggle(mainUiSizeLargerBtn);
-        } else {
-            group.selectToggle(mainUiSizeDefaultBtn);
-        }
-
-        group.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue == null) {
-                return;
-            }
-            int newMode;
-            if (mainUiSizeLargeBtn.isSelected()) {
-                newMode = 1;
-            } else if (mainUiSizeLargerBtn.isSelected()) {
-                newMode = 2;
-            } else {
-                newMode = 0;
-            }
+        control.select(mode == 1 ? 1 : (mode == 2 ? 2 : 0));
+        control.selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
+            int selected = newValue.intValue();
+            int newMode = selected == 1 ? 1 : (selected == 2 ? 2 : 0);
             SettingPreferences.updateInt(SettingPreferences.mainUiSizeModeKey, newMode);
             UIContext.context().applyMainUiSizeMode();
         });
+
+        mainUiSizeSegmentBox.getChildren().setAll(control);
     }
 
     @Override
     public void init(Stage stage) {
         super.init(stage);
 
-        initMainUiSizeMode();
+        // 四个控件共用同一宽度：以 240 为基准，文案更长（例如英文）时整体加宽，仍保持纵向对齐。
+        var sizeItems = List.of(
+                Locales.str("setting.mainUiSizeDefault"),
+                Locales.str("setting.mainUiSizeLarge"),
+                Locales.str("setting.mainUiSizeLarger"));
+        double controlWidth = Math.max(SETTING_CONTROL_WIDTH, SegmentedControl.requiredWidth(sizeItems));
 
-        try {
-           var names = Files.readAllLines(Path.of(ResLocation.getRealPath("locales", "locales.list")));
-           for (var name : names) {
-               localesComboBox.getItems().add(new Label(name));
-           }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        var language = GlobalCfgStores.user().getInt(Locales.LOCALES_KEY, -1);
-        if (language == -1) {
-            language = Locales.getLocalesIndex();
-        }
-        localesComboBox.getSelectionModel().select(language);
-        localesComboBox.getSelectionModel().selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
-            GlobalCfgStores.user().setInt(Locales.LOCALES_KEY, newValue.intValue());
-        });
+        initMainUiSizeMode(sizeItems, controlWidth);
+        initLocalesPopup(controlWidth);
 
         fontCustomLink.setOnMouseClicked(event -> {
             if (sFontChangedCount > 2) {
@@ -198,39 +299,25 @@ public final class SettingController extends AbstractController {
             }
         });
 
-        fontCustomLink.setWrapText(true);
+        fontCustomLink.setWrapText(false);
 
         var fontTheme = UIContext.getFontThemeProperty().get();
-        fontThemeDefaultBtn.setSelected(false);
-        fontThemeCustomBtn.setSelected(false);
+        var fontThemeControl = new SegmentedControl(List.of(
+                Locales.str("defaultStr"), Locales.str("custom")), controlWidth);
+        int fontThemeId = fontTheme == 1 ? 1 : 0;
+        fontThemeControl.select(fontThemeId);
+        visibleFontSelectedMode(fontThemeId == 1);
 
-        ToggleGroup toggleGroup = new ToggleGroup();
-        fontThemeDefaultBtn.setToggleGroup(toggleGroup);
-        fontThemeCustomBtn.setToggleGroup(toggleGroup);
-
-        if (fontTheme == 0) {
-            toggleGroup.selectToggle(fontThemeDefaultBtn);
-            visibleFontSelectedMode(false);
-        } else if (fontTheme == 1) {
-            toggleGroup.selectToggle(fontThemeCustomBtn);
-            visibleFontSelectedMode(true);
-        }
-
-        toggleGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            var isDef = fontThemeDefaultBtn.isSelected();
-            int id;
-            if (isDef) {
-                id = 0;
-                visibleFontSelectedMode(false);
-            } else {
-                id = 1;
-                visibleFontSelectedMode(true);
-            }
+        fontThemeControl.selectedIndexProperty().addListener((observable, oldValue, newValue) -> {
+            int id = newValue.intValue() == 1 ? 1 : 0;
+            visibleFontSelectedMode(id == 1);
 
             GlobalCfgStores.user().setInt(SettingPreferences.fontThemeIdKey, id);
             AllStagesManager.getInstance().replaceCustom(CacheLocation.CustomFontFamily, CacheLocation.fontFamilyFile(id));
             UIContext.updateFontThemeId(id);
         });
+
+        fontThemeSegmentBox.getChildren().setAll(fontThemeControl);
 
         String customFilePath = GlobalCfgStores.user().getString("custom_font_path", Locales.str("setting.newFileDirectoryHint"));
         fontCustomLink.setText(customFilePath);
@@ -272,13 +359,7 @@ public final class SettingController extends AbstractController {
             SettingPreferences.updateBool(SettingPreferences.editorLineNumberVisibleKey, newValue);
         });
 
-        appThemeComboBox.getItems().setAll(AppTheme.values());
-        appThemeComboBox.setValue(AppTheme.current());
-        appThemeComboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null) {
-                SettingPreferences.updateStr(SettingPreferences.appThemeKey, newValue.getId());
-            }
-        });
+        initAppThemePopup(controlWidth);
         vbox_id.requestFocus();
     }
 }

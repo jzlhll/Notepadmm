@@ -586,15 +586,6 @@
    -fx-background-color: rgba(255, 85, 85, 0.22);
 }
 
-/* settings.fxml 内分隔线：去默认 padding，充满宽度 */
-.full-width-separator {
-   -fx-padding: 0;
-}
-.full-width-separator .line {
-   -fx-border-width: 0 0 1 0;
-   -fx-border-color: derive(-au-default-desc-color, 72%);
-   -fx-padding: 0;
-}
 
 /* tab pane custom */
 .custom-jfx-tab-pane .headers-region .tab .tab-container .tab-label { /*allan 文字*/
@@ -838,3 +829,114 @@
    -fx-max-height: 1;
    -fx-background-color: -au-main-window-border-color;
 }
+
+/* 设置页下拉框：与分段切换共用同一套框体，只在右侧多一个下拉箭头表示可选。 */
+.jfx-combo-box.setting-combo,
+.jfx-combo-box.setting-combo:focused {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-background-insets: 0;
+   -fx-background-radius: 6;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 6;
+   -fx-border-width: 1;
+   -fx-padding: 1 2 1 2;
+   -fx-font-size: 15;
+   -fx-cursor: hand;
+}
+
+.jfx-combo-box.setting-combo:hover {
+   -fx-border-color: -au-main-color;
+}
+
+.jfx-combo-box.setting-combo > .input-line,
+.jfx-combo-box.setting-combo > .input-focused-line {
+   -fx-background-color: transparent;
+   -fx-pref-height: 0;
+   -fx-min-height: 0;
+   -fx-max-height: 0;
+}
+
+.jfx-combo-box.setting-combo > .arrow-button {
+   -fx-background-color: transparent;
+   -fx-padding: 0 6 0 4;
+}
+
+.jfx-combo-box.setting-combo > .arrow-button > .arrow {
+   -fx-background-color: -au-default-desc-color;
+}
+
+/* 应用主题的显示值比其他设置项大 2 号。 */
+.jfx-combo-box.app-theme-combo {
+   -fx-font-size: 17;
+}
+
+/* 字号步进器：常规/粗体 A 预览 + 减号／数值／加号，一屏内完成调整，不产生滚动条。 */
+.app-menu-stepper {
+   -fx-spacing: 8;
+}
+
+.app-menu-stepper-previews {
+   -fx-spacing: 16;
+}
+
+.app-menu-stepper-box {
+   -fx-spacing: 6;
+}
+
+.app-menu-stepper-preview {
+   -fx-text-fill: -au-popup-text-color;
+}
+
+.app-menu-stepper-button {
+   -fx-background-color: transparent;
+   -fx-background-radius: 4;
+   -fx-font-size: 17;
+   -fx-text-fill: -au-popup-text-color;
+   -fx-cursor: hand;
+}
+
+.app-menu-stepper-button:hover {
+   -fx-background-color: -au-editor-selection-words-color;
+}
+
+.app-menu-stepper-button:disabled {
+   -fx-text-fill: -au-default-desc-color;
+   -fx-cursor: default;
+   -fx-background-color: transparent;
+}
+
+.app-menu-stepper-value {
+   -fx-font-size: 16;
+   -fx-text-fill: -au-popup-text-color;
+   -fx-alignment: center;
+}
+
+/* 分段切换：一行平铺互斥选项，选中项用强调色填充，替代单选按钮和下拉。 */
+.segment-group {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-background-radius: 6;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 6;
+   -fx-border-width: 1;
+   -fx-padding: 2;
+}
+
+.segment-item {
+   -fx-alignment: center;
+   -fx-padding: 4 0;
+   -fx-background-color: transparent;
+   -fx-background-radius: 4;
+   -fx-font-size: 15;
+   -fx-text-fill: -au-default-text-color;
+   -fx-cursor: hand;
+}
+
+.segment-item:hover {
+   -fx-background-color: -au-small-button-bg-color;
+}
+
+.segment-item:selected {
+   -fx-background-color: -au-main-color;
+   -fx-text-fill: -au-on-accent-color;
+}
+

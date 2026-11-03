@@ -82,7 +82,6 @@ public final class NotepadHeadButtons {
             } else {
                 var region = new FontSizeChooseCreatorImpl().createPop(null);
                 GlobalPopupManager.instance().setContent(region)
-                        .setHeight(410)
                         .show(mMain.notepadMainActionBarFontBtn, JFXPopup.PopupVPosition.TOP,
                                 JFXPopup.PopupHPosition.LEFT, 0, mMain.getMainTopIconSize(27));
             }

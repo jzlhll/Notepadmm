@@ -96,7 +96,8 @@ class MenuOverlay(private val scene: Scene) {
         previousFocus = scene.focusOwner
         menu = value
         onHidden = hidden
-        if (surface.scene !== scene) {
+        // 设置抽屉等场景会把原根节点重新包进新的层级，浮层需重新挂到当前根节点才能保持在最上层。
+        if (surface.scene !== scene || surface.parent !== scene.root) {
             val original = scene.root
             if (original is Pane) {
                 detach(surface)

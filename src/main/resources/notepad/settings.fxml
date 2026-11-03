@@ -5,11 +5,9 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.geometry.Insets?>
-<?import com.jfoenix.controls.JFXRadioButton?>
 
 <?import javafx.scene.control.Hyperlink?>
 <?import com.jfoenix.controls.JFXComboBox?>
-<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.ScrollPane?>
 <ScrollPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
@@ -24,86 +22,63 @@
                 <Insets left="3" top="20"/>
             </VBox.margin>
         </Label>
-        <HBox>
-            <JFXRadioButton fx:id="mainUiSizeDefaultBtn" text="%setting.mainUiSizeDefault">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-            <JFXRadioButton fx:id="mainUiSizeLargeBtn" text="%setting.mainUiSizeLarge">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-            <JFXRadioButton fx:id="mainUiSizeLargerBtn" text="%setting.mainUiSizeLarger">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-        </HBox>
-
-        <HBox>
+        <HBox fx:id="mainUiSizeSegmentBox">
             <VBox.margin>
-                <Insets top="28" left="6"/>
+                <Insets left="20" top="8"/>
             </VBox.margin>
-            <Label text="%setting.language" styleClass="normal-label">
-            </Label>
-
-            <JFXComboBox fx:id="localesComboBox" prefWidth="140">
-                <HBox.margin>
-                    <Insets top="-10" left="6"/>
-                </HBox.margin>
-            </JFXComboBox>
         </HBox>
 
-        <HBox alignment="CENTER_LEFT" spacing="10">
+        <Label text="%setting.language" styleClass="normal-label">
             <VBox.margin>
-                <Insets top="20" bottom="12" left="6" right="12"/>
+                <Insets left="3" top="18"/>
             </VBox.margin>
-            <Label text="%setting.appTheme" styleClass="normal-label"/>
-            <JFXComboBox fx:id="appThemeComboBox" accessibleText="%setting.appTheme"
-                         prefWidth="320" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        </HBox>
+        </Label>
+        <JFXComboBox fx:id="localesComboBox" accessibleText="%setting.language"
+                     styleClass="setting-combo"
+                     prefWidth="240" minWidth="240" maxWidth="240"
+                     prefHeight="34" minHeight="34" maxHeight="34">
+            <VBox.margin>
+                <Insets left="20" top="8"/>
+            </VBox.margin>
+        </JFXComboBox>
+
+        <Label text="%setting.appTheme" styleClass="normal-label">
+            <VBox.margin>
+                <Insets left="3" top="18"/>
+            </VBox.margin>
+        </Label>
+        <JFXComboBox fx:id="appThemeComboBox" accessibleText="%setting.appTheme"
+                     styleClass="setting-combo app-theme-combo"
+                     prefWidth="240" minWidth="240" maxWidth="240"
+                     prefHeight="34" minHeight="34" maxHeight="34">
+            <VBox.margin>
+                <Insets left="20" top="8"/>
+            </VBox.margin>
+        </JFXComboBox>
 
         <Label text="%setting.selectFont" styleClass="normal-label">
             <VBox.margin>
-                <Insets left="3" top="12"/>
+                <Insets left="3" top="18"/>
             </VBox.margin>
         </Label>
-        <HBox>
-            <JFXRadioButton fx:id="fontThemeDefaultBtn" text="%defaultStr">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
-            <JFXRadioButton fx:id="fontThemeCustomBtn" text="%custom">
-                <HBox.margin>
-                    <Insets left="20" top="5"/>
-                </HBox.margin>
-            </JFXRadioButton>
+        <HBox fx:id="fontThemeSegmentBox">
+            <VBox.margin>
+                <Insets left="20" top="8"/>
+            </VBox.margin>
         </HBox>
 
-        <HBox>
+        <HBox fx:id="fontCustomLinkBox" alignment="CENTER_LEFT">
             <VBox.margin>
-                <Insets top="8" left="8"/>
+                <Insets top="8" left="20"/>
             </VBox.margin>
-            <Hyperlink fx:id="fontCustomLink" visible="false" styleClass="myhyperlink" prefWidth="450">
-                <HBox.margin>
-                    <Insets top="-5" left="15"/>
-                </HBox.margin>
-            </Hyperlink>
+            <Hyperlink fx:id="fontCustomLink" styleClass="myhyperlink" visible="false"
+                       minWidth="0" maxWidth="Infinity"/>
         </HBox>
 
         <!--- 第2部分 -->
-        <Separator styleClass="full-width-separator" prefHeight="1">
-            <VBox.margin>
-                <Insets top="15" left="0" right="0"/>
-            </VBox.margin>
-        </Separator>
-
         <Label text="%setting.editorAreaTitle" styleClass="title-label-big">
             <VBox.margin>
-                <Insets top="3" left="3"/>
+                <Insets top="64" left="3"/>
             </VBox.margin>
         </Label>
 
@@ -120,15 +95,9 @@
         </JFXToggleButton>
 
         <!--- 第3部分 -->
-        <Separator styleClass="full-width-separator" prefHeight="1">
-            <VBox.margin>
-                <Insets top="15" left="0" right="0"/>
-            </VBox.margin>
-        </Separator>
-
         <Label text="%search" styleClass="title-label-big">
             <VBox.margin>
-                <Insets top="3" left="3"/>
+                <Insets top="64" left="3"/>
             </VBox.margin>
         </Label>
 
@@ -151,15 +120,9 @@
         </JFXToggleButton>
 
         <!--- 第4部分 -->
-        <Separator styleClass="full-width-separator" prefHeight="1">
-            <VBox.margin>
-                <Insets top="15" left="0" right="0"/>
-            </VBox.margin>
-        </Separator>
-
         <Label text="%setting.others" styleClass="title-label-big">
             <VBox.margin>
-                <Insets top="3" left="3"/>
+                <Insets top="64" left="3"/>
             </VBox.margin>
         </Label>
 
