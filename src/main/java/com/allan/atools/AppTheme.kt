@@ -11,13 +11,13 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 enum class AppTheme(val id: String, val dark: Boolean, val cssFile: String, private val nameKey: String) {
-    ISLANDS_LIGHT("islands-light", false, "colors.css", "setting.themeIslandsLight"),
-    ISLANDS_DARK("islands-dark", true, "colors_dark.css", "setting.themeIslandsDark"),
-    ISLANDS_COLORFUL("islands-colorful", false, "colors_colorful.css", "setting.themeColorful"),
-    EYE_CARE("eye-care", false, "colors_eye_care.css", "setting.themeEyeCare"),
+    ISLANDS_LIGHT("islands-light", false, "colors_mist.css", "setting.themeIslandsLight"),
+    ISLANDS_DARK("islands-dark", true, "colors_midnight.css", "setting.themeIslandsDark"),
+    ISLANDS_COLORFUL("islands-colorful", false, "colors_iris.css", "setting.themeColorful"),
+    EYE_CARE("eye-care", false, "colors_sage.css", "setting.themeEyeCare"),
     ISLANDS_DRACULA("islands-dracula-colorful", true, "colors_dracula.css", "setting.themeDracula"),
     ALUCARD("alucard", false, "colors_alucard.css", "setting.themeAlucard"),
-    ISLANDS_BLACK("islands-black", true, "colors_black.css", "setting.themeBlack");
+    ISLANDS_BLACK("islands-black", true, "colors_ember.css", "setting.themeBlack");
 
     // 程序绘制与 HTML 预览共用 CSS 色板，避免主题存在多套颜色来源。
     private val palettes by lazy {
