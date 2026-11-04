@@ -144,10 +144,62 @@ tasks.register('createMiniJre') {
     }
 }
 
+tasks.register('prepareSyncRuntime') {
+    group = 'distribution'
+    description = '读取已安装应用的运行时信息，供快速同步检查和混淆使用。'
+    dependsOn 'preparePackageLayout'
+    outputs.file packagingConfig.jreDepsFile
+    outputs.file packagingConfig.syncReleaseFile
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def runtimeReleaseFile = file("/Applications/${packagingConfig.appName}.app/Contents/runtime/Contents/Home/release")
+        if (!runtimeReleaseFile.isFile()) {
+            throw new GradleException('找不到已安装应用的运行时，请先使用 macOSBuild.sh -p 打包安装。')
+        }
+        def runtimeRelease = new Properties()
+        runtimeReleaseFile.withReader('UTF-8') { reader -> runtimeRelease.load(reader) }
+        def jdkRelease = new Properties()
+        new File(packagingJdkHome(), 'release').withReader('UTF-8') { reader -> jdkRelease.load(reader) }
+        if (!runtimeRelease.getProperty('JAVA_VERSION') ||
+                runtimeRelease.getProperty('JAVA_VERSION') != jdkRelease.getProperty('JAVA_VERSION')) {
+            throw new GradleException('Java 运行时版本已变化，请使用 macOSBuild.sh -p 重新打包安装。')
+        }
+
+        // 快速同步沿用已安装运行时的模块清单，不执行 jdeps 或 jlink。
+        def modules = runtimeRelease.getProperty('MODULES', '').replace('"', '').tokenize()
+        def jmodsDir = new File(packagingJdkHome(), 'jmods')
+        if (modules.isEmpty() || modules.any { !new File(jmodsDir, "${it}.jmod").isFile() }) {
+            throw new GradleException('已安装运行时的模块清单与打包 JDK 不兼容，请使用 macOSBuild.sh -p 重新打包安装。')
+        }
+        // 保留命名模块的直接依赖检查；新增运行时模块时要求完整打包。
+        def moduleJars = [packagingConfig.projectLibsDir, packagingConfig.thirdLibsDir].collectMany { directory ->
+            directory.listFiles()?.findAll { it.name.endsWith('.jar') } ?: []
+        }
+        def requiredModules = ['jdk.crypto.ec'] as Set
+        moduleJars.each { jarFile ->
+            java.lang.module.ModuleFinder.of(jarFile.toPath()).findAll().each { moduleReference ->
+                moduleReference.descriptor().requires().each { requirement ->
+                    if (!requirement.modifiers().contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC) &&
+                            new File(jmodsDir, "${requirement.name()}.jmod").isFile()) {
+                        requiredModules.add(requirement.name())
+                    }
+                }
+            }
+        }
+        if (!modules.containsAll(requiredModules)) {
+            throw new GradleException('应用需要新的 Java 运行时模块，请使用 macOSBuild.sh -p 重新打包安装。')
+        }
+        packagingConfig.jreDepsFile.text = modules.join(System.lineSeparator()) + System.lineSeparator()
+        packagingConfig.syncReleaseFile.bytes = runtimeReleaseFile.bytes
+        logger.lifecycle('Installed runtime metadata prepared for sync.')
+    }
+}
+
 tasks.register('obfuscateAppJar') {
     group = 'distribution'
     description = '使用 ProGuard 混淆主应用 JAR 并归档 mapping。'
-    dependsOn 'createMiniJre'
+    dependsOn packagingConfig.syncOnly ? 'prepareSyncRuntime' : 'createMiniJre'
     outputs.upToDateWhen { false }
 
     doLast {
@@ -261,10 +313,72 @@ tasks.register('obfuscateAppJar') {
     }
 }
 
+tasks.register('generateFastCopyScript') {
+    group = 'distribution'
+    description = '生成 macOS 快速同步脚本。'
+    dependsOn 'obfuscateAppJar'
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def copyScript = new File(packagingConfig.buildRoot, 'fastCopy.sh')
+        def installedApp = "/Applications/${packagingConfig.appName}.app"
+        def signingKeyQuoted = shellQuote(packagingConfig.macSigningKey)
+        def runtimeReleasePath = packagingConfig.syncOnly ? 'sync-runtime.release' : 'minijre/release'
+        copyScript.text = '''#!/bin/sh
+# 日常开发使用：将编译产物快速同步到 /Applications 下的已安装应用
+set -e
+cd "$(dirname "$0")"
+APP_PATH=''' + shellQuote(installedApp) + '''
+
+echo "========== fastCopy 开始 =========="
+echo "目标路径: $APP_PATH"
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "错误: 目标应用不存在: $APP_PATH"
+    exit 1
+fi
+
+if ! cmp -s ''' + shellQuote(runtimeReleasePath) + ''' "$APP_PATH/Contents/runtime/Contents/Home/release"; then
+    echo "错误: Java 运行时已变化，请使用 macOSBuild.sh -p 重新打包并安装应用；fastCopy 不更新运行时。"
+    exit 1
+fi
+
+echo "[1/3] 复制 myLibs JAR 到 mods 目录..."
+jar_count=$(ls -1 myLibs/*.jar 2>/dev/null | wc -l | tr -d ' ')
+echo "  待复制 JAR 文件数: $jar_count"
+for jar in myLibs/*.jar; do
+    echo "    -> $jar"
+done
+cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"
+# 本地模块替代旧 Maven JAR，避免同一目录出现重复的 com.jfoenix 模块。
+rm -f "$APP_PATH/Contents/app/mods/jfoenix-9.0.10.jar"
+echo "  JAR 复制完成"
+
+echo "[2/3] 同步 resources 资源目录..."
+rsync -a --delete resources/resources/ "$APP_PATH/Contents/app/resources/"
+echo "  resources 同步完成"
+
+echo "[3/3] 对应用进行 codesign 签名..."
+echo "  签名证书: ''' + packagingConfig.macSigningKey + '''"
+/usr/bin/codesign --force --timestamp \\
+    --preserve-metadata=identifier,entitlements,requirements,flags \\
+    --sign ''' + signingKeyQuoted + ''' "$APP_PATH"
+echo "  codesign 签名完成"
+
+echo "========== fastCopy 全部完成 =========="
+'''
+        copyScript.setExecutable(true, false)
+        logger.lifecycle('Fast copy script generated.')
+    }
+}
+
 tasks.register('generateJpackageScripts') {
     group = 'distribution'
     description = '生成当前平台的 jpackage 命令脚本。'
     dependsOn 'obfuscateAppJar'
+    if (packagingConfig.isMac) {
+        dependsOn 'generateFastCopyScript'
+    }
     outputs.upToDateWhen { false }
 
     doLast {
@@ -309,54 +423,6 @@ tasks.register('generateJpackageScripts') {
             // 记录本次打包的完整路径，安装脚本无需从 dist 中猜测版本或架构。
             new File(packagingConfig.buildRoot, 'package-dmg.path').text =
                     new File(packagingConfig.distDir, "${architectureOutputName}.dmg").absolutePath + '\n'
-
-            def copyScript = new File(packagingConfig.buildRoot, 'fastCopy.sh')
-            def installedApp = "/Applications/${packagingConfig.appName}.app"
-            def signingKeyQuoted = shellQuote(packagingConfig.macSigningKey)
-            copyScript.text = '''#!/bin/sh
-# 日常开发使用：将编译产物快速同步到 /Applications 下的已安装应用
-set -e
-cd "$(dirname "$0")"
-APP_PATH=''' + shellQuote(installedApp) + '''
-
-echo "========== fastCopy 开始 =========="
-echo "目标路径: $APP_PATH"
-
-if [ ! -d "$APP_PATH" ]; then
-    echo "错误: 目标应用不存在: $APP_PATH"
-    exit 1
-fi
-
-if ! cmp -s minijre/release "$APP_PATH/Contents/runtime/Contents/Home/release"; then
-    echo "错误: Java 运行时已变化，请使用 pack.sh 重新打包并安装应用；fastCopy 不更新运行时。"
-    exit 1
-fi
-
-echo "[1/3] 复制 myLibs JAR 到 mods 目录..."
-jar_count=$(ls -1 myLibs/*.jar 2>/dev/null | wc -l | tr -d ' ')
-echo "  待复制 JAR 文件数: $jar_count"
-for jar in myLibs/*.jar; do
-    echo "    -> $jar"
-done
-cp -f myLibs/*.jar "$APP_PATH/Contents/app/mods/"
-# 本地模块替代旧 Maven JAR，避免同一目录出现重复的 com.jfoenix 模块。
-rm -f "$APP_PATH/Contents/app/mods/jfoenix-9.0.10.jar"
-echo "  JAR 复制完成"
-
-echo "[2/3] 同步 resources 资源目录..."
-rsync -a --delete resources/resources/ "$APP_PATH/Contents/app/resources/"
-echo "  resources 同步完成"
-
-echo "[3/3] 对应用进行 codesign 签名..."
-echo "  签名证书: ''' + packagingConfig.macSigningKey + '''"
-/usr/bin/codesign --force --timestamp \\
-    --preserve-metadata=identifier,entitlements,requirements,flags \\
-    --sign ''' + signingKeyQuoted + ''' "$APP_PATH"
-echo "  codesign 签名完成"
-
-echo "========== fastCopy 全部完成 =========="
-'''
-            copyScript.setExecutable(true, false)
         } else {
             def exeScript = new File(packagingConfig.buildRoot, 'jpackageCmdExe.bat')
             def imageScript = new File(packagingConfig.buildRoot, 'jpackageCmdGreenExe.bat')
@@ -378,7 +444,8 @@ echo "========== fastCopy 全部完成 =========="
 packageTargetDefinitions.each { taskName, target ->
     tasks.register(taskName) {
         group = 'distribution'
-        description = "生成 ${target.name} 的完整打包内容和 jpackage 脚本。"
-        dependsOn 'generateJpackageScripts'
+        description = packagingConfig.syncOnly ? "生成 ${target.name} 的混淆产物和快速同步脚本。" :
+                "生成 ${target.name} 的完整打包内容和 jpackage 脚本。"
+        dependsOn packagingConfig.syncOnly ? 'generateFastCopyScript' : 'generateJpackageScripts'
     }
 }

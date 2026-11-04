@@ -7,7 +7,7 @@ usage() {
     echo "用法: $0 [-0 | -s | --sync | -p | --package]"
     echo ""
     echo "  -0            只编译，不执行 buildRoot 下的脚本"
-    echo "  -s, --sync    编译后执行 buildRoot/fastCopy.sh（日常开发使用，同步到 /Applications）"
+    echo "  -s, --sync    编译并混淆后快速同步到 /Applications，跳过 jdeps、jlink 和 pack.sh"
     echo "  -p, --package 编译后生成 dmg，自动替换 /Applications/ATools.app 并启动"
     echo "  -h, --help    显示本帮助"
 }
@@ -184,6 +184,10 @@ current_os=""
 current_arch=""
 current_task=""
 gradlew_cmd="./gradlew"
+gradle_options=()
+if [ "$build_action" = "1" ]; then
+    gradle_options=(-PpackageSync=true)
+fi
 app_path=""
 
 case "$os_name" in
@@ -238,15 +242,15 @@ case "$architecture" in
             exit 1
         fi
         echo "已选择：0) 当前电脑平台 -> ${current_arch}"
-        "$gradlew_cmd" "$current_task"
+        "$gradlew_cmd" "$current_task" "${gradle_options[@]}"
         ;;
     1)
         echo "已选择：1) ARM（Apple Silicon）"
-        "$gradlew_cmd" mainShAllMacArm64
+        "$gradlew_cmd" mainShAllMacArm64 "${gradle_options[@]}"
         ;;
     2)
         echo "已选择：2) Intel（x64）"
-        "$gradlew_cmd" mainShAllMacX64
+        "$gradlew_cmd" mainShAllMacX64 "${gradle_options[@]}"
         ;;
     *)
         echo "输入无效，已取消编译。"

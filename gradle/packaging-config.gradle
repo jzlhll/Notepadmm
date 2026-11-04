@@ -17,6 +17,10 @@ if (requestedPackageTasks.size() > 1) {
 }
 
 def packageTarget = requestedPackageTasks.isEmpty() ? null : packageTargets[requestedPackageTasks.first()]
+def syncOnly = providers.gradleProperty('packageSync').map { it.toBoolean() }.getOrElse(false)
+if (syncOnly && packageTarget?.os != 'mac') {
+    throw new GradleException('packageSync 仅支持 macOS 架构任务。')
+}
 def osName = System.getProperty('os.name').toLowerCase()
 def currentOs = osName.contains('mac') ? 'mac' : (osName.contains('win') ? 'windows' : 'unsupported')
 def packageJdkHome = null
@@ -94,6 +98,7 @@ ext.packagingConfig = [
         macSigningKey    : propertyValue('packageMacSigningKey'),
         vmOptions        : propertyValue('packageVmOptions').split(/\s+/).findAll { !it.isBlank() },
         target           : packageTarget,
+        syncOnly         : syncOnly,
         jdkHome          : packageJdkHome,
         javafxPlatform   : packageTarget?.javafxPlatform,
         useBundledJavafx : packageTarget?.bundledJavafx == true,
@@ -104,6 +109,7 @@ ext.packagingConfig = [
         resourcesDir     : layout.projectDirectory.dir('buildRoot/resources/resources').asFile,
         miniJreDir       : layout.projectDirectory.dir('buildRoot/minijre').asFile,
         jreDepsFile      : layout.projectDirectory.file('buildRoot/miniJreDeps.txt').asFile,
+        syncReleaseFile  : layout.projectDirectory.file('buildRoot/sync-runtime.release').asFile,
         proguardUse      : layout.projectDirectory.file('buildRoot/proguard_use.pro').asFile,
         mappingFile      : layout.projectDirectory.file('buildRoot/out.map').asFile,
         proguardMap      : layout.projectDirectory.file('buildRoot/resources/resources/pro.map').asFile,
