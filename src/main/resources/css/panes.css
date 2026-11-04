@@ -77,7 +77,7 @@
 }
 
 .jfx-tab-pane .headers-region .tab:selected { /*allan 当前选中的文件名颜色*/
-    -fx-background-color: rgba(66, 133, 244, 0.2);
+    -fx-background-color: -au-tab-select-region-color;
 }
 
 .jfx-tab-pane:top .depth-container .tab-header-area .headers-region .tab-selected-line {

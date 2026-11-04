@@ -882,6 +882,10 @@
     -fx-background-color: -au-main-color;
 }
 
+.tree-cell .jfx-rippler { /*allan 长按行反馈改用浅豆沙绿，主色叠加有效透明度约0.44过深 */
+    -jfx-rippler-fill: -au-tab-select-region-color;
+}
+
 /*.tree-cell .tree-disclosure-node {
     -fx-background-color: transparent;
     -fx-padding: 10 10 0 40;
