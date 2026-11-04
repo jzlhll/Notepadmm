@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.layout.VBox?>
-<?import com.jfoenix.controls.JFXToggleButton?>
+<?import com.allan.atools.ui.SwitchControl?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.geometry.Insets?>
@@ -82,17 +82,17 @@
             </VBox.margin>
         </Label>
 
-        <JFXToggleButton fx:id="cycleNextBtn" text="%setting.cycleNext" selected="true">
+        <SwitchControl fx:id="cycleNextBtn" text="%setting.cycleNext" selected="true">
             <VBox.margin>
-                <Insets left="4"/>
+                <Insets left="20" top="10"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
-        <JFXToggleButton fx:id="editorLineNumberVisibleBtn" text="%setting.showEditorLineNum" selected="true">
+        <SwitchControl fx:id="editorLineNumberVisibleBtn" text="%setting.showEditorLineNum" selected="true">
             <VBox.margin>
-                <Insets top="-12" left="4"/>
+                <Insets top="8" left="20"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
         <!--- 第3部分 -->
         <Label text="%search" styleClass="title-label-big">
@@ -101,23 +101,23 @@
             </VBox.margin>
         </Label>
 
-        <JFXToggleButton fx:id="resultAreaWrapBtn" text="%setting.resultAutoEnter">
+        <SwitchControl fx:id="resultAreaWrapBtn" text="%setting.resultAutoEnter">
             <VBox.margin>
-                <Insets left="4"/>
+                <Insets left="20" top="10"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
-        <JFXToggleButton fx:id="resultIfHasNumBtn" text="%setting.showLineNum" selected="true">
+        <SwitchControl fx:id="resultIfHasNumBtn" text="%setting.showLineNum" selected="true">
             <VBox.margin>
-                <Insets top="-12" left="4"/>
+                <Insets top="8" left="20"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
-        <JFXToggleButton fx:id="resultAreaInNewBtn" text="%setting.showInNewWindow">
+        <SwitchControl fx:id="resultAreaInNewBtn" text="%setting.showInNewWindow">
             <VBox.margin>
-                <Insets top="-12" left="4"/>
+                <Insets top="8" left="20"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
         <!--- 第4部分 -->
         <Label text="%setting.others" styleClass="title-label-big">
@@ -126,17 +126,17 @@
             </VBox.margin>
         </Label>
 
-        <JFXToggleButton fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
+        <SwitchControl fx:id="openLastFileBtn" text="%setting.autoOpenLastName" selected="true">
             <VBox.margin>
-                <Insets left="4"/>
+                <Insets left="20" top="10"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
-        <JFXToggleButton fx:id="hdScreenBtn2" text="%setting.hdscreenname">
+        <SwitchControl fx:id="hdScreenBtn2" text="%setting.hdscreenname">
             <VBox.margin>
-                <Insets top="-10" left="4"/>
+                <Insets top="8" left="20"/>
             </VBox.margin>
-        </JFXToggleButton>
+        </SwitchControl>
 
     </VBox>
 

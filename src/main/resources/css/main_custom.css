@@ -940,3 +940,44 @@
    -fx-text-fill: -au-on-accent-color;
 }
 
+/* 开关：圆角矩形轨道内嵌方形滑块，圆角与分段切换、下拉框共用一套取值。 */
+.switch-row {
+   -fx-cursor: hand;
+}
+
+.switch-track {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-background-radius: 6;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 6;
+   -fx-border-width: 1;
+}
+
+.switch-row:hover .switch-track,
+.switch-row:focused .switch-track {
+   -fx-border-color: -au-main-color;
+}
+
+.switch-track-fill {
+   -fx-background-color: -au-main-color;
+   -fx-background-radius: 6;
+}
+
+.switch-thumb {
+   -fx-background-color: -au-switch-thumb-off-color;
+   -fx-background-radius: 4;
+}
+
+.switch-row:selected .switch-track {
+   -fx-border-color: -au-main-color;
+}
+
+.switch-row:selected .switch-thumb {
+   -fx-background-color: -au-on-accent-color;
+}
+
+.switch-label {
+   -fx-font-size: 15;
+   -fx-text-fill: -au-default-text-color;
+}
+

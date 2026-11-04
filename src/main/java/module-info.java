@@ -41,6 +41,7 @@ module atools {
     exports com.allan.atools.bean;
     opens com.allan.atools.bean         to com.google.gson;
 
+    opens com.allan.atools.ui           to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.ui.controls  to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;
     opens com.allan.atools.toolsstartup to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics, com.sun.jna;
     opens com.allan.atools.controller   to com.jfoenix, javafx.base, javafx.controls, javafx.fxml, javafx.graphics;

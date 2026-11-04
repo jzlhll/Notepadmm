@@ -11,6 +11,7 @@ import com.allan.atools.pop.impl.AppThemeChooseCreatorImpl;
 import com.allan.atools.pop.impl.StringChooseCreatorImpl;
 import com.allan.atools.ui.JfoenixDialogUtils;
 import com.allan.atools.ui.SegmentedControl;
+import com.allan.atools.ui.SwitchControl;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.SettingPreferences;
@@ -21,7 +22,6 @@ import com.allan.atools.utils.Log;
 import com.allan.atools.utils.ResLocation;
 import com.jfoenix.controls.JFXComboBox;
 import com.jfoenix.controls.JFXScrollPane;
-import com.jfoenix.controls.JFXToggleButton;
 import javafx.application.Platform;
 import javafx.geometry.Side;
 import javafx.scene.control.Hyperlink;
@@ -46,15 +46,15 @@ import java.util.List;
 public final class SettingController extends AbstractController {
     public ScrollPane vbox_id;
 
-    public JFXToggleButton resultAreaWrapBtn;
-    public JFXToggleButton openLastFileBtn;
-    public JFXToggleButton resultAreaInNewBtn;
-    public JFXToggleButton resultIfHasNumBtn;
-    public JFXToggleButton editorLineNumberVisibleBtn;
+    public SwitchControl resultAreaWrapBtn;
+    public SwitchControl openLastFileBtn;
+    public SwitchControl resultAreaInNewBtn;
+    public SwitchControl resultIfHasNumBtn;
+    public SwitchControl editorLineNumberVisibleBtn;
     public JFXComboBox<AppTheme> appThemeComboBox;
     public JFXComboBox<String> localesComboBox;
-    public JFXToggleButton hdScreenBtn2;
-    public JFXToggleButton cycleNextBtn;
+    public SwitchControl hdScreenBtn2;
+    public SwitchControl cycleNextBtn;
 
     public HBox mainUiSizeSegmentBox;
     public HBox fontThemeSegmentBox;

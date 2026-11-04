@@ -75,6 +75,10 @@
 -keeppackagenames com.allan.atools.richtext
 -keeppackagenames com.allan.atools.ui.controls
 -keeppackagenames com.allan.atools.bean
+# settings.fxml 按全限定类名引用 SwitchControl，widget 由 FXMLLoader 反射构造并注入
+# text/selected，类名与公开成员名必须保留；包名同时受 module-info opens 约束。
+-keeppackagenames com.allan.atools.ui
+-keep class com.allan.atools.ui.SwitchControl { *; }
 # Gson 会话持久化需要 opens 命中的字面包名保持（module-info opens 按字面包名）
 -keeppackagenames com.allan.atools.tools.modulenotepad.session
 # 完整预览通过固定 JavaScript 方法名调用桥接对象，包名同时受 JPMS opens 约束。
