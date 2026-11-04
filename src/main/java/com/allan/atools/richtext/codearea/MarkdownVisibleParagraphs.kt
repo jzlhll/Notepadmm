@@ -1,6 +1,7 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.uilibs.richtexts.CodeArea
+import javafx.scene.Node
 import javafx.scene.Parent
 import javafx.scene.layout.Region
 import javafx.scene.text.Text
@@ -21,8 +22,23 @@ object MarkdownVisibleParagraphs {
 
     fun texts(area: CodeArea): List<Text> = buildList {
         for (box in boxes(flow(area))) {
-            val paragraph = box.childrenUnmodifiable.firstOrNull { it is TextFlow } as? TextFlow ?: continue
+            val paragraph = box.childrenUnmodifiable.firstOrNull { it is TextFlow } as? TextFlow
+            if (paragraph == null) {
+                // 表格预览行用自定义段落图形替换源码段落，收集其中单元格 TextFlow 的文本节点。
+                // 表格模式下隐藏的源码段落带 gutter 样式类，跳过后不会重复处理源码表情。
+                box.childrenUnmodifiable.forEach { collectTableTexts(it, this) }
+                continue
+            }
             paragraph.childrenUnmodifiable.forEach { if (it is Text) add(it) }
         }
+    }
+
+    private fun collectTableTexts(node: Node, into: MutableList<Text>) {
+        if ("markdown-table-line-gutter" in node.styleClass) return
+        if (node is TextFlow) {
+            node.childrenUnmodifiable.forEach { if (it is Text) into.add(it) }
+            return
+        }
+        if (node is Parent) node.childrenUnmodifiable.forEach { collectTableTexts(it, into) }
     }
 }

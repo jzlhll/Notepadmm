@@ -97,6 +97,10 @@ class MarkdownEmojiRendering(private val area: CodeArea) : Pane() {
                 entries[text] = it
                 it.flow.children.add(it.view)
             }
+            if (current.view.parent !== flow) {
+                // 第三方增删子节点可能带走覆盖层（如表格单元格重排），重新挂回避免表情空缺。
+                current.flow.children.add(current.view)
+            }
             current.rasterKey = key
             current.raster = raster
             // TextFlow 的行高由一整行的字体决定，不能用行高拉伸单个表情。

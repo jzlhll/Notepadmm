@@ -80,16 +80,15 @@ public final class MarkdownTableLayout {
     static void fill(TextFlow flow, List<Run> runs, Font font, boolean header,
                      java.util.function.Function<Run, javafx.scene.Node> images) {
         if (flow instanceof MarkdownTableTextFlow tableFlow) tableFlow.clearCodeBackgrounds();
-        while (flow.getChildren().size() > runs.size()) {
-            flow.getChildren().remove(flow.getChildren().size() - 1);
-        }
-        for (int index = 0; index < runs.size(); index++) {
-            var run = runs.get(index);
+        // 子节点数按分段计数：一个 Run 可能拆出表情与文字多个分段。
+        int index = 0;
+        for (Run run : runs) {
             if (run.code() && com.allan.atools.richtext.codearea.keywordhelper.MarkdownTaskMarkers.isStatus(run.text())) {
                 var icon = new com.allan.atools.richtext.codearea.MarkdownTaskIcon(font.getSize(), !run.text().equals("[ ]"));
                 icon.setUserData(run.destination());
                 if (index == flow.getChildren().size()) flow.getChildren().add(icon);
                 else flow.getChildren().set(index, icon);
+                index++;
                 continue;
             }
             if (run.image() != null) {
@@ -101,32 +100,81 @@ public final class MarkdownTableLayout {
                 picture.setUserData(run.destination());
                 if (index == flow.getChildren().size()) flow.getChildren().add(picture);
                 else flow.getChildren().set(index, picture);
+                index++;
                 continue;
             }
-            if (index == flow.getChildren().size()) flow.getChildren().add(new TextExt());
-            else if (!(flow.getChildren().get(index) instanceof TextExt)) flow.getChildren().set(index, new TextExt());
-            var text = (Text) flow.getChildren().get(index);
-            text.setUserData(run.destination());
-            text.setUnderline(run.link());
-            text.setText(run.text());
-            boolean bold = header || run.bold();
-            text.setFont(bold ? Font.font(font.getFamily(), FontWeight.BOLD, font.getSize()) : font);
-            text.getStyleClass().setAll("markdown-table-preview-content");
-            if (bold) {
-                text.getStyleClass().add("markdown-bold");
-            }
-            text.getTransforms().clear();
-            if (run.italic()) {
-                text.getTransforms().add(new javafx.scene.transform.Shear(-0.18, 0));
-            }
-            text.setStrikethrough(run.strike());
-            if (run.link()) {
-                text.getStyleClass().add("markdown-link");
-            }
             if (run.code()) {
-                text.getStyleClass().add("markdown-inline-code");
+                // 行内代码保持等宽语义，表情不拆分、不切换字体。
+                index = applySegment(flow, index, run, run.text(), false, font, header);
+                continue;
+            }
+            String value = run.text();
+            int offset = 0;
+            while (offset < value.length()) {
+                int end = nextSegmentEnd(value, offset);
+                // 只有分段起点本身是表情序列时才换表情字体。若按“分段非空”判断，普通文字也会被
+                // 苹果表情字体接管：该字体含 0-9 字形且是全角、位置偏低，数字就会又宽又沉。
+                boolean emoji = com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmojiShortcodes.unicodeEnd(value, offset) > offset;
+                index = applySegment(flow, index, run, value.substring(offset, end), emoji, font, header);
+                offset = end;
             }
         }
+        // 只收缩受管理的分段节点；表情覆盖层（unmanaged）由渲染层自行增删，不能在这里移除。
+        for (int i = flow.getChildren().size() - 1; i >= index; i--) {
+            if (flow.getChildren().get(i).isManaged()) flow.getChildren().remove(i);
+        }
+    }
+
+    /** 定位下一段边界：表情序列在此起步时返回序列结尾，否则推进到下一个表情起点。 */
+    private static int nextSegmentEnd(String value, int from) {
+        int emojiEnd = com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmojiShortcodes.unicodeEnd(value, from);
+        if (emojiEnd > from) return emojiEnd;
+        int cursor = from;
+        while (cursor < value.length()) {
+            int point = value.codePointAt(cursor);
+            if (com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmojiShortcodes.unicodeEnd(value, cursor) > cursor) {
+                return cursor;
+            }
+            cursor += Character.charCount(point);
+        }
+        return value.length();
+    }
+
+    /** 表情分段切换彩色表情字体并交给正文同款高清覆盖渲染；普通分段保持原字体、粗斜体等样式。 */
+    private static int applySegment(TextFlow flow, int index, Run run, String value, boolean emoji, Font font, boolean header) {
+        if (index == flow.getChildren().size()) flow.getChildren().add(new TextExt());
+        else if (!(flow.getChildren().get(index) instanceof TextExt)) flow.getChildren().set(index, new TextExt());
+        var text = (Text) flow.getChildren().get(index);
+        text.setUserData(run.destination());
+        text.setText(value);
+        text.setUnderline(run.link());
+        text.setStrikethrough(run.strike());
+        text.getTransforms().clear();
+        String emojiFamily = com.allan.uilibs.richtexts.CodeArea.emojiFontFamily();
+        if (emoji && emojiFamily != null) {
+            var emojiFont = Font.font(emojiFamily, font.getSize());
+            if (emojiFont != null) {
+                text.setFont(emojiFont);
+                text.getStyleClass().setAll("markdown-table-preview-content");
+                if (run.link()) text.getStyleClass().add("markdown-link");
+                text.getStyleClass().add(com.allan.uilibs.richtexts.CodeArea.MARKDOWN_EMOJI_RENDERED_CLASS);
+                return index + 1;
+            }
+        }
+        boolean bold = header || run.bold();
+        text.setFont(bold ? Font.font(font.getFamily(), FontWeight.BOLD, font.getSize()) : font);
+        text.getStyleClass().setAll("markdown-table-preview-content");
+        if (bold) text.getStyleClass().add("markdown-bold");
+        if (run.italic()) {
+            text.getTransforms().add(new javafx.scene.transform.Shear(-0.18, 0));
+        }
+        if (run.link()) {
+            text.getStyleClass().add("markdown-link");
+        }
+        if (run.code()) {
+            text.getStyleClass().add("markdown-inline-code");
+        }
+        return index + 1;
     }
 
     static double characterWidth(Font font) {

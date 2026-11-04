@@ -53,6 +53,11 @@ abstract class CodeArea private constructor(
         const val MARKDOWN_TASK_PREFIX_CLASS = "markdown-task-prefix"
         const val MARKDOWN_TASK_RENDERED_CLASS = "markdown-task-rendered"
         private val EMOJI_FONT_FAMILY = findEmojiFontFamily()
+
+        /** 表格预览等外部渲染路径复用同一彩色表情字体，保证与正文呈现一致。 */
+        @JvmStatic
+        fun emojiFontFamily(): String? = EMOJI_FONT_FAMILY
+
         /** 段落样式条目转换为内联高度，用于撑高图片等内容所在的段落。 */
         const val PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:"
         /** 用段落图形呈现内容时，为原文保留指定高度。 */
