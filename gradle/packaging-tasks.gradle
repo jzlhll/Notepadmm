@@ -172,23 +172,36 @@ tasks.register('prepareSyncRuntime') {
         if (modules.isEmpty() || modules.any { !new File(jmodsDir, "${it}.jmod").isFile() }) {
             throw new GradleException('已安装运行时的模块清单与打包 JDK 不兼容，请使用 macOSBuild.sh -p 重新打包安装。')
         }
-        // 保留命名模块的直接依赖检查；新增运行时模块时要求完整打包。
+        // 从主模块检查实际可达的非 static 依赖，避免把随包携带的编译期注解模块也视为必需。
         def moduleJars = [packagingConfig.projectLibsDir, packagingConfig.thirdLibsDir].collectMany { directory ->
             directory.listFiles()?.findAll { it.name.endsWith('.jar') } ?: []
         }
+        def moduleFinder = java.lang.module.ModuleFinder.of(moduleJars.collect { it.toPath() } as java.nio.file.Path[])
+        def moduleDescriptors = moduleFinder.findAll().collectEntries { moduleReference ->
+            [(moduleReference.descriptor().name()): moduleReference.descriptor()]
+        }
+        if (!moduleDescriptors.containsKey(packagingConfig.mainModule)) {
+            throw new GradleException("打包产物缺少主模块：${packagingConfig.mainModule}")
+        }
         def requiredModules = ['jdk.crypto.ec'] as Set
-        moduleJars.each { jarFile ->
-            java.lang.module.ModuleFinder.of(jarFile.toPath()).findAll().each { moduleReference ->
-                moduleReference.descriptor().requires().each { requirement ->
-                    if (!requirement.modifiers().contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC) &&
-                            new File(jmodsDir, "${requirement.name()}.jmod").isFile()) {
-                        requiredModules.add(requirement.name())
-                    }
+        def pendingModules = new ArrayDeque<String>()
+        def visitedModules = [] as Set
+        pendingModules.add(packagingConfig.mainModule)
+        while (!pendingModules.isEmpty()) {
+            def moduleName = pendingModules.removeFirst()
+            if (!visitedModules.add(moduleName)) continue
+            if (new File(jmodsDir, "${moduleName}.jmod").isFile()) {
+                requiredModules.add(moduleName)
+            }
+            moduleDescriptors[moduleName]?.requires()?.each { requirement ->
+                if (!requirement.modifiers().contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC)) {
+                    pendingModules.add(requirement.name())
                 }
             }
         }
-        if (!modules.containsAll(requiredModules)) {
-            throw new GradleException('应用需要新的 Java 运行时模块，请使用 macOSBuild.sh -p 重新打包安装。')
+        def missingModules = requiredModules.findAll { !modules.contains(it) }.sort()
+        if (!missingModules.isEmpty()) {
+            throw new GradleException("应用缺少 Java 运行时模块：${missingModules.join(',')}，请使用 macOSBuild.sh -p 重新打包安装。")
         }
         packagingConfig.jreDepsFile.text = modules.join(System.lineSeparator()) + System.lineSeparator()
         packagingConfig.syncReleaseFile.bytes = runtimeReleaseFile.bytes
