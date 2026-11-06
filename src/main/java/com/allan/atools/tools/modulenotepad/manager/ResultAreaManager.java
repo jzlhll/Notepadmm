@@ -22,10 +22,8 @@ public final class ResultAreaManager implements INotepadResultManager {
             update = AbstractResultUpdater.createInstance();
         }
 
-        var area = update.createArea(results);
-        update.setClears(area);
         update.assetRoot();
-        update.areaIntoVPaneIntoTitledPane(area, results);
+        update.addSession(results);
 
         if (update.bringToFront()) {
             Log.d("bring to front!");
@@ -50,6 +48,9 @@ public final class ResultAreaManager implements INotepadResultManager {
 
     static void clickOnLine(Integer lineNum, int colIndex, AllFilesSearchResults mResults) {
         //Log.d("double click " + lineNum);
+        if (mResults == null) {
+            return;
+        }
         var areaAndItem = mResults.getByLineNum(lineNum, colIndex);
         if (areaAndItem == null) {
             return;

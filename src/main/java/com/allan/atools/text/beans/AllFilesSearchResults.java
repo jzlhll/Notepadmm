@@ -13,6 +13,11 @@ import java.util.*;
 public class AllFilesSearchResults {
     public List<OneFileSearchResults> allResults;
     public String mask;
+    /**
+     * 结果区按文件分页展示时，文件名已经出现在标签栏上，正文不再重复输出文件头，
+     * 行号也会整体上移一行；跳转映射需要按同一口径计算。
+     */
+    public boolean skipFileHeader;
 
     public AllFilesSearchResults addAllResults(List<OneFileSearchResults> allResults) {
         this.allResults = allResults;
@@ -64,10 +69,12 @@ public class AllFilesSearchResults {
     public EditorBaseResultItemPair getByLineNum(int lineNum, int colIndex) {
         int currentLine = 0;
         for (var oneResults : allResults) {
-            if (lineNum == currentLine) {
-                return null;
+            if (!skipFileHeader) {
+                if (lineNum == currentLine) {
+                    return null;
+                }
+                currentLine++;
             }
-            currentLine++;
             int resultIndex = lineNum - currentLine;
             if (resultIndex >= 0 && resultIndex < oneResults.results.size()) {
                 ResultItemWrap resultItemWrap = oneResults.results.get(resultIndex);

@@ -91,7 +91,9 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
                     : oneFileResults.file == null ? "" : oneFileResults.file.getName();
             var headText = "  " + fileName + "  (" + hitText + ")"
                     + (oneFileResults.truncated ? " · " + Locales.str("search.resultsLimited") : "");
-            retParas.add(new Paragraph<>(lineParaStyle, segmentOps, headText, lineTextStyle));
+            if (!all.skipFileHeader) {
+                retParas.add(new Paragraph<>(lineParaStyle, segmentOps, headText, lineTextStyle));
+            }
 
             for (ResultItemWrap itemWrap : oneFileResults.results) {
                 if (itemWrap.lineMode == ResultItemWrap.LineMode.Real && itemWrap.items != null) {
@@ -173,6 +175,11 @@ public final class AdvanceSearchedStyledDocument<PS, SEG, S> implements StyledDo
                     }
                 }
             }
+        }
+
+        // 结果区至少需要一个段落；按文件分页且该文件没有可渲染行时保留空段落。
+        if (retParas.isEmpty()) {
+            retParas.add(new Paragraph<>(lineParaStyle, segmentOps, "", lineTextStyle));
         }
 
         return new AdvanceSearchedStyledDocument<>(retParas);

@@ -38,8 +38,8 @@ public class ResultNewWindow {
     private void init() {
         SubWindowCreatorInfo info = new SubWindowCreatorInfo();
         info.title = Locales.str("result.result");
-        info.width = 480;
-        info.height = 400;
+        info.width = 720;
+        info.height = 460;
         info.iconPath = ResLocation.getURLStr("pictures", "icon28.png");
         info.resizable = true;
         info.sizeAndLocateCachePrefixName = "resultsNewWindow_";

@@ -6,8 +6,8 @@ import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.keyevent.IKeyDispatcherLeaf;
 import com.allan.atools.keyevent.KeyEventDispatcher;
 import com.allan.atools.keyevent.ShortCutKeys;
+import com.allan.atools.tools.modulenotepad.manager.ResultSessionView;
 import com.allan.atools.utils.Log;
-import javafx.scene.control.Accordion;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
@@ -16,15 +16,15 @@ public class ResultNewController extends AbstractController implements IKeyDispa
     private static final String TAG = "ResultNewController";
 
     public AnchorPane rootPane;
-    private Accordion mResultRoot; //只需要一份
-    public Accordion getResultRoot() {
+    private ResultSessionView mResultRoot; //只需要一份
+    public ResultSessionView getResultRoot() {
         return mResultRoot;
     }
 
     @Override
     public void init(Stage stage) {
         super.init(stage);
-        mResultRoot = new Accordion();
+        mResultRoot = new ResultSessionView();
         mResultRoot.getStyleClass().add("custom-main-bg");
         AnchorPane.setLeftAnchor(mResultRoot, 0.0);
         AnchorPane.setRightAnchor(mResultRoot, 0.0);

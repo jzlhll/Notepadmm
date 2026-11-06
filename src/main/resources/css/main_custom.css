@@ -981,3 +981,192 @@
    -fx-text-fill: -au-default-text-color;
 }
 
+/* 搜索结果：左侧会话列表 + 顶部文件标签 + 唯一正文区。 */
+.result-session-view {
+   -fx-background-color: -au-main-bg-color;
+}
+
+.result-session-pane {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-border-color: transparent -au-split-pane-divider-color transparent transparent;
+   -fx-border-width: 0 0.5 0 0;
+}
+
+.result-session-header {
+   -fx-padding: 0 8 0 10;
+   -fx-min-height: 30;
+   -fx-pref-height: 30;
+   -fx-alignment: center-left;
+}
+
+.result-session-header-title {
+   -fx-font-size: 11;
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.result-session-scroll,
+.result-session-scroll > .viewport {
+   -fx-background-color: transparent;
+   -fx-background-insets: 0;
+   -fx-padding: 0;
+}
+
+.result-session-row {
+   -fx-padding: 5 8 5 10;
+   -fx-background-radius: 5;
+   -fx-background-color: transparent;
+   -fx-cursor: hand;
+}
+
+.result-session-row:hover {
+   -fx-background-color: rgba(128, 128, 128, 0.12);
+}
+
+.result-session-row-selected {
+   -fx-background-color: -au-tab-select-region-color;
+}
+
+.result-session-row-selected:hover {
+   -fx-background-color: derive(-au-tab-select-region-color, 10%);
+}
+
+.result-session-title {
+   -fx-font-size: 12;
+   -fx-text-fill: -au-default-text-color;
+}
+
+.result-session-row-selected .result-session-title {
+   -fx-text-fill: -au-tab-select-region-text-color;
+}
+
+.result-session-meta {
+   -fx-font-size: 10;
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.result-session-meta-dim {
+   -fx-font-size: 10;
+   -fx-text-fill: derive(-au-default-desc-color, -30%);
+}
+
+.result-session-row-selected .result-session-meta {
+   -fx-text-fill: derive(-au-tab-select-region-text-color, -25%);
+}
+
+.result-session-delete {
+   -fx-background-color: transparent;
+   -fx-background-radius: 3;
+   -fx-padding: 0 2;
+   -fx-min-width: 16;
+   -fx-pref-width: 16;
+   -fx-min-height: 16;
+   -fx-pref-height: 16;
+   -fx-font-size: 13;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-cursor: hand;
+}
+
+.result-session-delete:hover {
+   -fx-text-fill: -au-red-color;
+   -fx-background-color: rgba(227, 119, 116, 0.16);
+}
+
+/* 会话栏折叠按钮：贴在中间分线上的窄条，竖向居中，只在鼠标悬停时给底色。 */
+.result-session-toggle {
+   -fx-background-color: transparent;
+   -fx-background-radius: 3;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-font-size: 14;
+   -fx-padding: 0 0 2 0;
+   -fx-min-width: 16;
+   -fx-pref-width: 16;
+   -fx-max-width: 16;
+   -fx-min-height: 28;
+   -fx-pref-height: 28;
+   -fx-cursor: hand;
+}
+
+.result-session-toggle:hover {
+   -fx-background-color: rgba(128, 128, 128, 0.16);
+   -fx-text-fill: -au-default-text-color;
+}
+
+.result-file-tab-bar {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-border-color: transparent transparent -au-split-pane-divider-color transparent;
+   -fx-border-width: 0 0 0.5 0;
+   -fx-alignment: center-left;
+}
+
+.result-file-tab-scroll,
+.result-file-tab-scroll > .viewport {
+   -fx-background-color: transparent;
+   -fx-background-insets: 0;
+   -fx-padding: 0;
+}
+
+.result-file-tab-scroll .scroll-bar {
+   -fx-opacity: 0;
+   -fx-pref-height: 0;
+   -fx-pref-width: 0;
+}
+
+.result-file-tab {
+   -fx-background-color: transparent;
+   -fx-background-radius: 0;
+   -fx-padding: 4 9 4 9;
+   -fx-font-size: 11;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-border-color: transparent;
+   -fx-border-width: 0 0 1.5 0;
+   -fx-cursor: hand;
+}
+
+.result-file-tab:hover {
+   -fx-text-fill: -au-default-text-color;
+   -fx-background-color: rgba(128, 128, 128, 0.1);
+}
+
+.result-file-tab:selected {
+   -fx-text-fill: -au-tab-select-region-text-color;
+   -fx-border-color: transparent transparent -au-main-color transparent;
+   -fx-background-color: -au-tab-select-region-color;
+}
+
+.result-status-bar {
+   -fx-padding: 0 10 0 10;
+   -fx-background-color: -au-main-bg-color2;
+   -fx-border-color: -au-split-pane-divider-color transparent transparent transparent;
+   -fx-border-width: 0.5 0 0 0;
+}
+
+.result-status-file {
+   -fx-font-size: 10;
+   -fx-text-fill: -au-default-text-color;
+}
+
+.result-status-hits,
+.result-status-hint {
+   -fx-font-size: 10;
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.result-session-view.main-ui-size-large .result-session-title {
+   -fx-font-size: 13;
+}
+
+.result-session-view.main-ui-size-large .result-session-meta,
+.result-session-view.main-ui-size-large .result-file-tab {
+   -fx-font-size: 11;
+}
+
+.result-session-view.main-ui-size-larger .result-session-title {
+   -fx-font-size: 14;
+}
+
+.result-session-view.main-ui-size-larger .result-session-meta,
+.result-session-view.main-ui-size-larger .result-file-tab {
+   -fx-font-size: 12;
+}
+
+

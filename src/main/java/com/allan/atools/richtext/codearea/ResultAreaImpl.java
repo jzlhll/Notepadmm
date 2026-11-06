@@ -72,21 +72,32 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         initArea();
     }
 
+    /** 结果区复用了同一个控件，切换会话或文件后需要重新套用当前字号。 */
+    public void applyCurrentFontSize() {
+        if (mIsDestroyed || getLength() == 0) {
+            return;
+        }
+        getContent().setStyle(0, getText().length(),
+                TextStyle.fontSize(UIContext.getFontSizeProperty().get() - 4));
+    }
+
     public void refreshTheme() {
         if (mIsDestroyed || getLength() == 0 || !(ex1 instanceof AllFilesSearchResults results)) {
             return;
         }
         int line = 0;
         for (var file : results.allResults) {
-            if (line >= getParagraphs().size()) {
-                break;
+            if (!results.skipFileHeader) {
+                if (line >= getParagraphs().size()) {
+                    break;
+                }
+                var paragraph = getParagraph(line);
+                setParagraphStyle(line, paragraph.getParagraphStyle()
+                        .updateBackgroundColor(Colors.DescLineBgColor.invoke()));
+                setStyle(line, 0, paragraph.length(), getStyleOfChar(line, 0)
+                        .updateTextColor(Colors.DescLineTextColor.invoke()));
+                line++;
             }
-            var paragraph = getParagraph(line);
-            setParagraphStyle(line, paragraph.getParagraphStyle()
-                    .updateBackgroundColor(Colors.DescLineBgColor.invoke()));
-            setStyle(line, 0, paragraph.length(), getStyleOfChar(line, 0)
-                    .updateTextColor(Colors.DescLineTextColor.invoke()));
-            line++;
             for (var item : file.results) {
                 if (item.lineMode == ResultItemWrap.LineMode.Real && item.items != null && item.items.length > 0) {
                     line++;

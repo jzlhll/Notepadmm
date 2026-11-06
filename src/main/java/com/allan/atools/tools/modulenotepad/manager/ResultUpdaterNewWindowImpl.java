@@ -1,7 +1,6 @@
 package com.allan.atools.tools.modulenotepad.manager;
 
 import com.allan.atools.controllerwindow.ResultNewWindow;
-import com.allan.atools.threads.ThreadUtils;
 import javafx.application.Platform;
 
 public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
@@ -9,6 +8,10 @@ public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
 
     @Override
     public boolean bringToFront() {
+        if (sNewWindow == null || sNewWindow.getController() == null
+                || sNewWindow.getController().getStage() == null) {
+            return false;
+        }
         sNewWindow.getController().getStage().toFront();
         return true;
     }
@@ -18,25 +21,16 @@ public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
         if (sNewWindow == null) {
             sNewWindow = ResultNewWindow.createInstance();
             mResultRoot = sNewWindow.getController().getResultRoot();
-
-            initPropertiesListener();
+            mResultRoot.setOnEmpty(this::close);
         }
     }
 
     @Override
     void afterShown() {
         Platform.runLater(() -> {
-            if (sNewWindow == null) {
-                return;
+            if (sNewWindow != null) {
+                sNewWindow.show();
             }
-            sNewWindow.show();
-            ThreadUtils.globalHandler().postDelayedCheckClosed(() -> {
-                Platform.runLater(()-> {
-                    if (mResultRoot != null && !mResultRoot.getPanes().isEmpty()) {
-                        mResultRoot.getPanes().get(0).setExpanded(true);
-                    }
-                });
-            }, 100L);
         });
     }
 
@@ -53,6 +47,8 @@ public class ResultUpdaterNewWindowImpl extends AbstractResultUpdater {
 
     @Override
     void requestFocus() {
-        sNewWindow.getController().getStage().requestFocus();
+        if (sNewWindow != null && sNewWindow.getController().getStage() != null) {
+            sNewWindow.getController().getStage().requestFocus();
+        }
     }
 }
