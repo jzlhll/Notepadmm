@@ -175,12 +175,12 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
                 val cell = if (previous != null && previous.source == source && previous.font == measuredFont
                     && previous.header == sourceRow.header() && previous.runs == runs) previous.copy()
                     else MarkdownTableLayout.Cell(source, runs, measuredFont, sourceRow.header())
-                cell.measureNatural(measureFlow)
+                cell.measureNatural(measureFlow, editorMeasureText)
                 cells[row].add(cell)
                 natural[column] = Math.max(natural[column], cell.natural)
             } else {
-                cells[row][column].measureHeight(measureFlow, widths[column])
-                rowHeight = Math.max(rowHeight, editing.measuredCellHeight(table, row, column, cells[row][column], widths[column], measuredFont))
+                cells[row][column].measureHeight(measureFlow, editorMeasureText, widths[column])
+                rowHeight = Math.max(rowHeight, editing.measuredCellHeight(table, row, column, cells[row][column], widths[column]))
             }
             if (++column == natural.size) {
                 if (measuringHeights) {
@@ -495,6 +495,7 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
     /** 普通输入只更新单元格内容，不重新挂载活动编辑框。 */
     private inner class CellGraphic(private val graphic: RowGraphic, val column: Int) : StackPane() {
         private val text = MarkdownTableTextFlow()
+        private val plainText = MarkdownTablePlainText()
         private var displayed: MarkdownTableLayout.Cell? = null
         init {
             sceneProperty().addListener { _, _, scene -> if (scene != null) refresh() }
@@ -548,23 +549,38 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
             val layout = graphic.layout
             val cell = layout.cells!![graphic.row][column]
             val previous = displayed
-            if (previous == null || previous.runs != cell.runs || previous.font != cell.font || previous.header != cell.header) {
-                MarkdownTableLayout.fill(text, cell.runs, cell.font, cell.header) { run -> tableImages.node(run.image(), run.text(), currentArea!!.editor.sourceFile) }
+            if (previous == null || previous.runs != cell.runs || previous.font != cell.font
+                || previous.header != cell.header || previous.plainText != cell.plainText) {
+                if (cell.plainText == null) {
+                    MarkdownTableLayout.fill(text, cell.runs, cell.font, cell.header) { run -> tableImages.node(run.image(), run.text(), currentArea!!.editor.sourceFile) }
+                } else {
+                    text.clearCodeBackgrounds()
+                    text.children.clear()
+                }
             }
             displayed = cell
-            text.textAlignment = when (layout.table.alignments()[column]) {
+            val alignment = when (layout.table.alignments()[column]) {
                 MarkdownTableDocumentState.Alignment.CENTER -> TextAlignment.CENTER
                 MarkdownTableDocumentState.Alignment.RIGHT -> TextAlignment.RIGHT
                 else -> TextAlignment.LEFT
+            }
+            val preview = if (cell.plainText != null) {
+                plainText.apply(cell, alignment)
+                plainText
+            } else {
+                text.textAlignment = alignment
+                text
             }
             val width = layout.widths[column]
             minWidth = width
             prefWidth = width
             maxWidth = width
             if (activeTable?.id() == layout.table.id() && activeRow == graphic.row && activeColumn == column) {
+                if (cellEditor.font != cell.textFont) cellEditor.font = cell.textFont
+                cellEditor.cellTextAlignment = alignment
                 // 构造中的新行尚未挂载，不能提前将有焦点的输入框移到离屏节点。
                 if (scene != null) editing.reparentCellEditor(this@CellGraphic)
-            } else if (children.size != 1 || children[0] !== text) children.setAll(text)
+            } else if (children.size != 1 || children[0] !== preview) children.setAll(preview)
         }
     }
 

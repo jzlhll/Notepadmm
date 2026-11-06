@@ -265,6 +265,8 @@ public final class MarkdownTableLayout {
         final List<Run> runs;
         final Font font;
         final boolean header;
+        final Font textFont;
+        final String plainText;
         double natural = -1;
         double width = -1;
         double height;
@@ -274,6 +276,8 @@ public final class MarkdownTableLayout {
             this.runs = runs;
             this.font = font;
             this.header = header;
+            textFont = header ? Font.font(font.getFamily(), FontWeight.BOLD, font.getSize()) : font;
+            plainText = MarkdownTablePlainText.plainText(source, runs);
         }
 
         Cell copy() {
@@ -284,18 +288,29 @@ public final class MarkdownTableLayout {
             return value;
         }
 
-        void measureNatural(TextFlow flow) {
+        void measureNatural(TextFlow flow, Text measure) {
             if (natural < 0) {
-                fill(flow, runs, font, header);
-                natural = Math.ceil(flow.prefWidth(-1) + HORIZONTAL_INSETS);
+                if (plainText != null) {
+                    measure.setFont(textFont);
+                    measure.setText(plainText);
+                    measure.setWrappingWidth(0);
+                    natural = Math.ceil(measure.getLayoutBounds().getWidth() + HORIZONTAL_INSETS);
+                } else {
+                    fill(flow, runs, font, header);
+                    natural = Math.ceil(flow.prefWidth(-1) + HORIZONTAL_INSETS);
+                }
             }
         }
 
-        void measureHeight(TextFlow flow, double nextWidth) {
+        void measureHeight(TextFlow flow, Text measure, double nextWidth) {
             if (width != nextWidth) {
-                fill(flow, runs, font, header);
-                height = Math.ceil(flow.prefHeight(Math.max(1, nextWidth - HORIZONTAL_INSETS))
-                        + VERTICAL_INSETS);
+                if (plainText != null) {
+                    height = MarkdownTablePlainText.measureHeight(measure, plainText, textFont, nextWidth);
+                } else {
+                    fill(flow, runs, font, header);
+                    height = Math.ceil(flow.prefHeight(Math.max(1, nextWidth - HORIZONTAL_INSETS))
+                            + VERTICAL_INSETS);
+                }
                 width = nextWidth;
             }
         }

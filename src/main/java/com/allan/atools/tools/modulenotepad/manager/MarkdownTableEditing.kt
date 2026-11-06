@@ -25,7 +25,6 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.Pane
 import javafx.scene.layout.StackPane
-import javafx.scene.text.Font
 import java.util.function.Consumer
 
 /** 处理单元格输入、焦点恢复、结构编辑与撤销，不持有布局调度器。 */
@@ -277,7 +276,7 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
         if (cells[activeRow][activeColumn].source != source) {
             val runs = inlineContents[source] ?: listOf(MarkdownTableLayout.Run(cellEditor.text, false, false, false, false, false))
             val cell = MarkdownTableLayout.Cell(source, runs, layout.font, activeRow == 0)
-            cell.measureHeight(measureFlow, layout.widths[activeColumn])
+            cell.measureHeight(measureFlow, editorMeasureText, layout.widths[activeColumn])
             cells[activeRow][activeColumn] = cell
         }
         updateRowHeight(table, activeRow, true)
@@ -287,7 +286,7 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
         val cells = layout.cells ?: return
         if (row < 0 || row >= cells.size || row >= table.rows().size) return
         var height = layout.font.size + MarkdownTableLayout.VERTICAL_INSETS
-        for (column in cells[row].indices) height = Math.max(height, measuredCellHeight(table, row, column, cells[row][column], layout.widths[column], layout.font))
+        for (column in cells[row].indices) height = Math.max(height, measuredCellHeight(table, row, column, cells[row][column], layout.widths[column]))
         val line = table.rows()[row].line()
         layout.rowHeights[row] = Math.ceil(height)
         if (present && currentArea != null && searchPresentation.mode(table) == MarkdownTableDocumentState.Mode.TABLE) {
@@ -295,12 +294,10 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
             rendering.refreshRowGraphics(table, row)
         }
     }
-    fun measuredCellHeight(table: PreviewTable, row: Int, column: Int, cell: MarkdownTableLayout.Cell, width: Double, measuredFont: Font): Double = with(state) {
+    fun measuredCellHeight(table: PreviewTable, row: Int, column: Int, cell: MarkdownTableLayout.Cell, width: Double): Double = with(state) {
         if (activeTable?.id() != table.id() || activeRow != row || activeColumn != column) return cell.height
-        editorMeasureText.font = measuredFont
-        editorMeasureText.text = if (cellEditor.text.isEmpty()) " " else cellEditor.text + "\u200b"
-        editorMeasureText.wrappingWidth = Math.max(1.0, width - MarkdownTableLayout.HORIZONTAL_INSETS)
-        editorMeasureText.layoutBounds.height + MarkdownTableLayout.VERTICAL_INSETS
+        if (cell.plainText != null && cell.plainText == cellEditor.text) return cell.height
+        MarkdownTablePlainText.measureHeight(editorMeasureText, cellEditor.text, cell.textFont, width)
     }
 
     fun syncEditorFromDocument(): Unit = with(state) {
