@@ -40,6 +40,9 @@
     -au-editor-text-color: #1F1F1F;
     -au-editor-searched-bg-color: #F2D8AF;
     -au-editor-search-temp-bg-color: #E2D9EF;
+    /* 命中底色上的文字色，与底色成对定义：浅色主题取正文色，压在暖黄底色上仍有足够对比。 */
+    -au-editor-searched-text-color: #1F1F1F;
+    -au-editor-search-temp-text-color: #1F1F1F;
     -au-small-button-bg-color: #CECCC0;
     -au-switch-thumb-off-color: #CCC9BC;
     -au-file-mask-code-color: #14710A;

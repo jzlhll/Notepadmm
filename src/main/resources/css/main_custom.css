@@ -660,15 +660,19 @@
     -fx-fill: -au-editor-text-color;
 }
 
-/*默认的editor 文字样式
-    -fx-fill: -au-editor-text-color;
-    -fx-padding: 3.0px;*/
+/* 搜索命中：底色由 -au-editor-searched-bg-color 决定，文字色必须显式给出。
+   命中片段虽然会同时保留 editor-default-label，但这里仍写明 -fx-fill：
+   命中底色深浅由主题决定，文字色需要跟着底色一起调整，不能让两者各自漂移。
+   缺少 -fx-fill 时文字会回退到 JavaFX 默认黑色，深色主题下几乎不可读。 */
 .editor-selected-label {
     -rtfx-background-color: -au-editor-searched-bg-color; /*allan todo 修改定制颜色即可*/
+    -fx-fill: -au-editor-searched-text-color;
 }
 
+/* 临时命中（选中文字自动高亮）与搜索命中同理，底色和文字色成对出现。 */
 .editor-selected-temp-label {
     -rtfx-background-color: -au-editor-search-temp-bg-color; /*allan todo 修改定制颜色即可*/
+    -fx-fill: -au-editor-search-temp-text-color;
 }
 
 .small-desc-label {

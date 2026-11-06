@@ -326,8 +326,8 @@
 .text.markdown-syntax-marker,
 .text.markdown-code.markdown-syntax-marker,
 .text.markdown-inline-code.markdown-syntax-marker { -fx-fill: -au-md-syntax; }
-.text.markdown-syntax-marker.search { -fx-fill: -au-editor-text-color; }
-.text.markdown-syntax-marker.temporary { -fx-fill: -au-editor-text-color; }
+.text.markdown-syntax-marker.search { -fx-fill: -au-editor-searched-text-color; }
+.text.markdown-syntax-marker.temporary { -fx-fill: -au-editor-search-temp-text-color; }
 
 .markdown-math { -fx-font-family: monospace; -rtfx-background-color: -au-md-inline-code-bg; }
 .markdown-highlight { -rtfx-background-color: -au-md-highlight; }
@@ -344,8 +344,8 @@
     -fx-font-family: "JetBrains Mono";
     -fx-font-size: .9em;
 }
-.markdown-editor .paragraph-text.md-front-matter .text.search,
-.markdown-editor .paragraph-text.md-front-matter .text.temporary { -fx-fill: -au-editor-text-color; }
+.markdown-editor .paragraph-text.md-front-matter .text.search { -fx-fill: -au-editor-searched-text-color; }
+.markdown-editor .paragraph-text.md-front-matter .text.temporary { -fx-fill: -au-editor-search-temp-text-color; }
 .styled-text-area.editor-area .paragraph-text.md-front-matter { -fx-line-spacing: 0; }
 .md-front-matter-first {
     -fx-background-color: -au-md-code-bg;

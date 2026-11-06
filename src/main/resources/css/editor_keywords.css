@@ -39,6 +39,10 @@
     -fx-fill: black;
 }
 
+/* 代码/Markdown 模式的命中样式：这两个类始终追加在原有语法样式之后，
+   只负责覆盖底色，文字色继续由原有语法类提供，所以不在这里写 -fx-fill。
+   与之相对，editor-selected-label / editor-selected-temp-label 会替换整组样式，
+   必须同时声明底色与文字色，见 main_custom.css。 */
 .temporary {
 	-rtfx-background-color: -au-editor-search-temp-bg-color;
 }
