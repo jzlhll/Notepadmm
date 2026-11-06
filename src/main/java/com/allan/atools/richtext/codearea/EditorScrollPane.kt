@@ -22,6 +22,9 @@ import kotlin.math.exp
 class EditorScrollPane(val editorArea: EditorArea) :
     MyVirtualScrollPane<EditorZoomViewport>(EditorZoomViewport(editorArea)) {
 
+    override fun getScrollLayoutDebugContext() =
+        ", composing=${editorArea.markdownComposing}, caret=${editorArea.caretPosition}"
+
     override fun removeContent(): EditorZoomViewport {
         content.clearEmojiRendering()
         return super.removeContent()

@@ -555,6 +555,10 @@ public final class AllEditorsManager implements INotepadMainAreaManager, IKeyDis
     //private ObservableBase<?,?> CaretNode_ALWAYS_TRUE;
 
     private void onTabCloseAction(Tab tab) {
+        // 标签头可能延迟到下一次布局才移除，先断开回调和文档状态对编辑器的引用。
+        tab.setOnCloseRequest(null);
+        tab.setOnClosed(null);
+        tab.setUserData(null);
         if (tab.getContent() instanceof EditorScrollPane vpane) {
             vpane.getEditorArea().destroy();
             vpane.removeContent();

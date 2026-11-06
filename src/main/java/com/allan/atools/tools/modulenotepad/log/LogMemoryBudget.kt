@@ -1,5 +1,6 @@
 package com.allan.atools.tools.modulenotepad.log
 
+import com.allan.atools.utils.Log
 import com.sun.management.OperatingSystemMXBean
 import java.lang.management.ManagementFactory
 import java.nio.charset.Charset
@@ -32,13 +33,26 @@ object LogMemoryBudget {
 
     @Synchronized
     fun reserve(bytes: Long): Lease {
+        require(bytes >= 0)
         val runtime = Runtime.getRuntime()
-        val usedHeap = runtime.totalMemory() - runtime.freeMemory()
-        val heapHeadroom = runtime.maxMemory() - usedHeap
-        val freeSystem = try { os?.freeMemorySize ?: Long.MAX_VALUE } catch (_: Exception) { Long.MAX_VALUE }
-        val dataLimit = Math.min(targetBytes, runtime.maxMemory() * 3 / 4)
-        if (reserved + bytes > dataLimit || heapHeadroom < bytes + 32 * MIB
-            || freeSystem in 0 until bytes * 2) {
+        val maxHeap = runtime.maxMemory()
+        val dataLimit = Math.min(targetBytes, maxHeap * 3 / 4)
+        val withinBudget = bytes <= dataLimit - reserved
+        var usedHeap = runtime.totalMemory() - runtime.freeMemory()
+        if (withinBudget && maxHeap - usedHeap < bytes + 32 * MIB) {
+            // 关闭标签后旧文档可能尚未回收；仅在堆余量不足时回收并复查一次。
+            runtime.gc()
+            usedHeap = runtime.totalMemory() - runtime.freeMemory()
+        }
+        // 系统空闲页不等于可分配内存，不能用它拒绝读取；保留全局额度和 JVM 堆保护。
+        val reason = when {
+            !withinBudget -> "data limit"
+            maxHeap - usedHeap < bytes + 32 * MIB -> "heap headroom"
+            else -> null
+        }
+        if (reason != null) {
+            Log.e("memory reservation rejected: reason=$reason, requestedBytes=$bytes, reservedBytes=$reserved, " +
+                "dataLimitBytes=$dataLimit, usedHeapBytes=$usedHeap, maxHeapBytes=$maxHeap")
             throw IllegalStateException("内存额度不足，请关闭其他标签后重试")
         }
         reserved += bytes

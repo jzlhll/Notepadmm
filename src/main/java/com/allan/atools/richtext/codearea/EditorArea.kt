@@ -378,6 +378,8 @@ class EditorArea @JvmOverloads constructor(
 
     fun destroy() {
         (parent as? EditorZoomViewport)?.clearEmojiRendering()
+        contextMenu?.hide()
+        contextMenu = null
         largeLog?.close()
         largeLog = null
 //        try {
@@ -393,6 +395,8 @@ class EditorArea @JvmOverloads constructor(
         paragraphWrapping.clear()
         markdownPresentation.destroy()
         dispose()
+        // RichTextFX.dispose() 不清空撤销历史，需单独释放。
+        undoManager.forgetHistory()
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged)
         multiSelections.destroy()
         editor.destroy()

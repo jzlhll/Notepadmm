@@ -336,6 +336,8 @@ open class EditorAreaMgr(
         editorFocus.removeFocusChanged()
         areaReference?.let { EditorSessionManager.getInstance().onDestroyed(it) }
         sourceFile?.let { UIContext.allOpenedFileList.remove(it) }
+        documentState.savedText = null
+        documentState.invalidateSavedUndoPosition()
         tab = null
         areaReference = null
     }
@@ -949,6 +951,12 @@ open class EditorAreaMgr(
             }
         }
         fun addFocusChanged() {
+            if (!Platform.isFxApplicationThread()) {
+                Platform.runLater(::addFocusChanged)
+                return
+            }
+            // 重命名、重建文件的延迟回调可能晚于关闭或切换标签。
+            if (editor.isDestroyed() || UIContext.currentAreaProp.get()?.editor !== editor) return
             if (mFocused == null) mFocused = Action0(::checkFileChangedTs)
             if (!mIsAddedFocusChanged) {
                 Log.d(TAG, "add focusChanged " + editor.sourceFile)
