@@ -49,7 +49,6 @@ public final class ResultSessionView extends BorderPane {
     /** 折叠后只保留分线处按钮的窄条宽度。 */
     private static final double SESSION_COLLAPSED_WIDTH = 16;
     private static final double TAB_BAR_HEIGHT = 34;
-    private static final double STATUS_BAR_HEIGHT = 24;
     private static final double DELETE_VISIBLE_MILLIS = 2000;
 
     private final VBox sessionPane = new VBox();
@@ -60,10 +59,7 @@ public final class ResultSessionView extends BorderPane {
     private final ScrollPane fileTabScroll = new ScrollPane(fileTabBar);
     private final ToggleGroup fileTabGroup = new ToggleGroup();
     private final Button sessionToggle = new Button("‹");
-    private final Label statusFileName = new Label();
-    private final Label statusHits = new Label();
     private final Label statusHint = new Label();
-    private final HBox statusBar = new HBox(7);
 
     private final ResultAreaImpl area;
     private final MyVirtualScrollPane<ResultAreaImpl> areaPane;
@@ -147,24 +143,17 @@ public final class ResultSessionView extends BorderPane {
         fileTabScroll.setMaxHeight(TAB_BAR_HEIGHT);
         HBox.setHgrow(fileTabScroll, Priority.ALWAYS);
 
-        var tabBar = new HBox(fileTabScroll);
-        tabBar.getStyleClass().add("result-file-tab-bar");
-
-        statusFileName.getStyleClass().add("result-status-file");
-        statusHits.getStyleClass().add("result-status-hits");
+        // 文件名与匹配数已经合并到标签上，标签栏右侧只保留切换提示，不再单独占一条状态栏。
         statusHint.getStyleClass().add("result-status-hint");
         statusHint.setText(Locales.str("result.switchFileHint"));
-        var dot = new Label("·");
-        dot.getStyleClass().add("result-status-hint");
-        var statusSpacer = new Region();
-        HBox.setHgrow(statusSpacer, Priority.ALWAYS);
-        statusBar.getChildren().addAll(statusFileName, dot, statusHits, statusSpacer, statusHint);
-        statusBar.getStyleClass().add("result-status-bar");
-        statusBar.setMinHeight(STATUS_BAR_HEIGHT);
-        statusBar.setPrefHeight(STATUS_BAR_HEIGHT);
-        statusBar.setAlignment(Pos.CENTER_LEFT);
+        statusHint.setVisible(false);
+        statusHint.setMinWidth(Region.USE_PREF_SIZE);
 
-        var center = new VBox(tabBar, areaPane, statusBar);
+        var tabBar = new HBox(fileTabScroll, statusHint);
+        tabBar.setAlignment(Pos.CENTER_LEFT);
+        tabBar.getStyleClass().add("result-file-tab-bar");
+
+        var center = new VBox(tabBar, areaPane);
         VBox.setVgrow(areaPane, Priority.ALWAYS);
         center.getStyleClass().add("result-content-pane");
         setCenter(center);
@@ -249,7 +238,7 @@ public final class ResultSessionView extends BorderPane {
             rebuildFileTabs(entry);
         }
         renderCurrent();
-        updateStatus();
+        updateSwitchHint();
         showDeleteTemporarily(entry);
     }
 
@@ -259,8 +248,14 @@ public final class ResultSessionView extends BorderPane {
         var files = entry.results.allResults;
         for (int i = 0; i < files.size(); i++) {
             final int index = i;
-            var toggle = new ToggleButton(nameOf(files.get(i)));
+            var one = files.get(i);
+            // 文件名与匹配数合并成一条标签文案，正文区不再重复显示这些信息。
+            var toggle = new ToggleButton(String.format(Locales.str("result.fileTabLabel"),
+                    nameOf(one), one.results.size()));
             toggle.getStyleClass().add("result-file-tab");
+            Tooltip.install(toggle, new Tooltip(one.truncated
+                    ? nameOf(one) + " · " + Locales.str("search.resultsLimited")
+                    : nameOf(one)));
             toggle.setToggleGroup(fileTabGroup);
             toggle.setFocusTraversable(false);
             toggle.setUserData(index);
@@ -283,7 +278,7 @@ public final class ResultSessionView extends BorderPane {
         }
         entry.selectedFile = index;
         renderCurrent();
-        updateStatus();
+        updateSwitchHint();
         area.requestFocus();
     }
 
@@ -299,7 +294,7 @@ public final class ResultSessionView extends BorderPane {
         current.selectedFile = target;
         syncTabSelection();
         renderCurrent();
-        updateStatus();
+        updateSwitchHint();
     }
 
     private void syncTabSelection() {
@@ -353,21 +348,9 @@ public final class ResultSessionView extends BorderPane {
         });
     }
 
-    private void updateStatus() {
+    private void updateSwitchHint() {
         var entry = current;
-        if (entry == null) {
-            statusFileName.setText("");
-            statusHits.setText("");
-            statusHint.setVisible(false);
-            return;
-        }
-        var one = entry.results.allResults.get(entry.selectedFile);
-        var name = nameOf(one);
-        statusFileName.setText(one.truncated
-                ? name + " · " + Locales.str("search.resultsLimited")
-                : name);
-        statusHits.setText(String.format(Locales.str("result.hitCount"), one.results.size()));
-        statusHint.setVisible(entry.results.allResults.size() > 1);
+        statusHint.setVisible(entry != null && entry.results.allResults.size() > 1);
     }
 
     private void removeSession(SessionEntry entry) {
@@ -422,8 +405,6 @@ public final class ResultSessionView extends BorderPane {
         area.clear();
         fileTabGroup.getToggles().clear();
         fileTabBar.getChildren().clear();
-        statusFileName.setText("");
-        statusHits.setText("");
         statusHint.setVisible(false);
     }
 

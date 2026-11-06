@@ -1118,8 +1118,8 @@
 .result-file-tab {
    -fx-background-color: transparent;
    -fx-background-radius: 0;
-   -fx-padding: 4 9 4 9;
-   -fx-font-size: 11;
+   -fx-padding: 3 9 3 9;
+   -fx-font-size: 14;
    -fx-text-fill: -au-default-desc-color;
    -fx-border-color: transparent;
    -fx-border-width: 0 0 1.5 0;
@@ -1137,40 +1137,35 @@
    -fx-background-color: -au-tab-select-region-color;
 }
 
-.result-status-bar {
-   -fx-padding: 0 10 0 10;
-   -fx-background-color: -au-main-bg-color2;
-   -fx-border-color: -au-split-pane-divider-color transparent transparent transparent;
-   -fx-border-width: 0.5 0 0 0;
-}
-
-.result-status-file {
-   -fx-font-size: 10;
-   -fx-text-fill: -au-default-text-color;
-}
-
-.result-status-hits,
+/* 切换提示贴在标签栏右端，文件信息已移到标签上。 */
 .result-status-hint {
    -fx-font-size: 10;
    -fx-text-fill: -au-default-desc-color;
+   -fx-padding: 0 9 0 6;
 }
 
 .result-session-view.main-ui-size-large .result-session-title {
    -fx-font-size: 13;
 }
 
-.result-session-view.main-ui-size-large .result-session-meta,
-.result-session-view.main-ui-size-large .result-file-tab {
+.result-session-view.main-ui-size-large .result-session-meta {
    -fx-font-size: 11;
+}
+
+.result-session-view.main-ui-size-large .result-file-tab {
+   -fx-font-size: 14;
 }
 
 .result-session-view.main-ui-size-larger .result-session-title {
    -fx-font-size: 14;
 }
 
-.result-session-view.main-ui-size-larger .result-session-meta,
-.result-session-view.main-ui-size-larger .result-file-tab {
+.result-session-view.main-ui-size-larger .result-session-meta {
    -fx-font-size: 12;
+}
+
+.result-session-view.main-ui-size-larger .result-file-tab {
+   -fx-font-size: 15;
 }
 
 
