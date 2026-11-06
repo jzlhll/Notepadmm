@@ -1,9 +1,12 @@
 package com.allan.atools.pop.impl
 
+import com.allan.atools.UIContext
 import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.Tab
 
 /** 标签菜单由标签头统一处理右键请求，各项动作以固定标识关联。 */
@@ -26,10 +29,28 @@ class TabTitleCreatorImpl {
                 setOnAction { action.invoke(event) }
             })
         }
+        applyFontSize(contextMenu)
         return contextMenu
     }
 
     companion object {
+        /** 标签右键菜单跟随全局界面尺寸：基础 16 号，每个尺寸级别再 +1。 */
+        @JvmStatic
+        fun applyFontSize(contextMenu: AppContextMenu) {
+            val size = UIContext.context().editorTabMenuFontSize
+            applyFontSize(contextMenu.items, size)
+        }
+
+        private fun applyFontSize(items: List<MenuItem>, size: Int) {
+            for (item in items) {
+                if (item is SeparatorMenuItem) continue
+                item.style = "-fx-font-size: ${size}px;"
+                if (item is Menu) {
+                    applyFontSize(item.items, size)
+                }
+            }
+        }
+
         @JvmStatic
         fun moveToFront(tab: Tab?) {
             val pane = tab?.tabPane ?: return

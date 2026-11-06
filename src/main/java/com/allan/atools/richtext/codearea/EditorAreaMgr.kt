@@ -684,6 +684,8 @@ open class EditorAreaMgr(
             }
         }
         titleMenu.setBeforeShow {
+            // 菜单建好之后仍可能切换界面尺寸，每次显示前按当前级别重新套用字号。
+            TabTitleCreatorImpl.applyFontSize(titleMenu)
             val sourceFile = sourceFile
             val pinned = sourceFile != null && AllEditorsManager.isPinnedRecentFile(sourceFile.absolutePath)
             for (item in titleMenu.items) {

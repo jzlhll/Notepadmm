@@ -199,6 +199,11 @@ public final class NotepadController extends AbstractMainController {
         return 15 + getMainUiSizeMode();
     }
 
+    /** 编辑器标签右键菜单的基础字号，比打开文件菜单大 1 号，每个尺寸级别 +1 */
+    public int getEditorTabMenuFontSize() {
+        return 16 + getMainUiSizeMode();
+    }
+
     public int getMainWorkspaceIconSize(int defaultSize) {
         return defaultSize + getMainUiSizeMode();
     }
