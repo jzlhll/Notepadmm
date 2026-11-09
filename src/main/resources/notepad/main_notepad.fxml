@@ -89,18 +89,18 @@
 
             <Pane prefHeight="-1.0" prefWidth="-1.0" HBox.hgrow="ALWAYS"/>
 
-            <JFXRippler styleClass="jfx-rippler,window-header-action">
+            <JFXRippler fx:id="notepadMainActionBarSearchBox" styleClass="jfx-rippler,window-header-action">
                 <HBox.margin>
                     <Insets right="8"/>
                 </HBox.margin>
-                <Label fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                <Label fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
             </JFXRippler>
 
             <JFXRippler styleClass="jfx-rippler,window-header-action">
                 <HBox.margin>
                     <Insets right="5"/>
                 </HBox.margin>
-                <Label fx:id="notepadMainActionBarSearchBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
+                <Label fx:id="notepadMainActionBarAToolsBtn" HBox.hgrow="ALWAYS" textAlignment="CENTER"/>
             </JFXRippler>
 
             <JFXRippler styleClass="jfx-rippler,window-header-action">
@@ -247,27 +247,13 @@
             </HBox.margin>
         </Label>
         <Pane HBox.hgrow="ALWAYS"/>
-        <HBox fx:id="markdownZoomBox" alignment="CENTER" spacing="2" visible="false" managed="false">
-            <Button fx:id="markdownZoomOutBtn" styleClass="markdown-zoom-button" focusTraversable="false"
-                    contentDisplay="GRAPHIC_ONLY">
-                <graphic>
-                    <Label fx:id="markdownZoomOutIcon" mouseTransparent="true"/>
-                </graphic>
-            </Button>
-            <Button fx:id="markdownZoomInBtn" styleClass="markdown-zoom-button" focusTraversable="false"
-                    contentDisplay="GRAPHIC_ONLY">
-                <graphic>
-                    <Label fx:id="markdownZoomInIcon" mouseTransparent="true"/>
-                </graphic>
-            </Button>
-        </HBox>
         <Label fx:id="indicateLabel" HBox.hgrow="NEVER" styleClass="small-desc-label">
             <HBox.margin>
                 <Insets right="2"/>
             </HBox.margin>
         </Label>
 
-        <JFXRippler styleClass="jfx-rippler">
+        <JFXRippler fx:id="jsonPopBox" styleClass="jfx-rippler" visible="false" managed="false">
             <HBox.margin>
                 <Insets right="2"/>
             </HBox.margin>
@@ -279,6 +265,13 @@
                 <Insets right="2"/>
             </HBox.margin>
             <Label fx:id="wrapTextCheckBtn" text="%setting.autoEnter" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-desc-label" visible="false"/>
+        </JFXRippler>
+        <JFXRippler styleClass="jfx-rippler" visible="${markdownControlsBox.visible}" managed="${markdownControlsBox.visible}">
+            <HBox.margin>
+                <Insets right="2"/>
+            </HBox.margin>
+            <Label fx:id="markdownSourceCheckBtn" text="%markdownTableToolbarSource" HBox.hgrow="ALWAYS"
+                   textAlignment="CENTER" styleClass="small-desc-label"/>
         </JFXRippler>
         <JFXRippler styleClass="jfx-rippler" >
             <HBox.margin>
@@ -292,6 +285,12 @@
             </HBox.margin>
             <Label fx:id="notepadMainEncodeLabel" HBox.hgrow="ALWAYS" textAlignment="CENTER" styleClass="small-colored-label"/>
         </JFXRippler>
+        <HBox fx:id="markdownControlsBox" alignment="CENTER" spacing="2" visible="false" managed="false">
+            <JFXRippler styleClass="jfx-rippler">
+                <Label fx:id="markdownZoomBtn" text="%zoom" HBox.hgrow="ALWAYS" textAlignment="CENTER"
+                       styleClass="small-colored-label"/>
+            </JFXRippler>
+        </HBox>
         </HBox>
     </HBox>
     </VBox>

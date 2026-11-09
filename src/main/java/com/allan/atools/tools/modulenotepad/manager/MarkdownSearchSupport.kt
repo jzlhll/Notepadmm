@@ -9,7 +9,9 @@ object MarkdownSearchSupport {
     @JvmStatic
     fun refresh() {
         val markdown = MarkdownEditorSupport.supportsMarkdown(UIContext.currentAreaProp.get())
-        UIContext.context().notepadMainActionBarSearchBtn.isDisable = markdown
+        val search = UIContext.context().notepadMainActionBarSearchBox
+        search.isVisible = !markdown
+        search.isManaged = !markdown
         if (markdown) NotepadFindWindow.getInstance().window?.hide()
     }
 

@@ -43,6 +43,8 @@ public final class SettingPreferences {
     public static final String cycleNextKey = "bottomCycleNext";
     public static final String fontThemeIdKey = "fontThemeId";
     public static final String editorFontSizeKey = "resultAreaFoldableStyledAreaFontSize";
+    /** 搜索结果区字号；0 表示未单独设置，跟随编辑区小 1 号。 */
+    public static final String searchAreaFontSizeKey = "searchAreaFontSize";
     public static final String mainUiSizeModeKey = "mainUiSizeMode";
     public static final String TipsDoubleClickCtrlFKey = "TipsDoubleClickCtrlF1";
     public static final String TipsFakeRuleSupportKey = "TipsFakeRuleSupport1";
@@ -76,6 +78,7 @@ public final class SettingPreferences {
                 new SettingProfDef("bool", cycleNextKey, "true"),
                 new SettingProfDef("int", fontThemeIdKey, "0"),
                 new SettingProfDef("int", editorFontSizeKey, "15"),
+                new SettingProfDef("int", searchAreaFontSizeKey, "0"),
                 new SettingProfDef("int", mainUiSizeModeKey, "0"),
                 new SettingProfDef("int", TipsDoubleClickCtrlFKey, "0"),
                 new SettingProfDef("int", TipsFakeRuleSupportKey, "0"),

@@ -182,7 +182,7 @@ class MarkdownPreviewWindow private constructor() {
         val dark = Colors.isDark()
         val themeCss = AppTheme.previewCss(dark)
         val fontSize = UIContext.getFontSizeProperty().get().toDouble()
-        val fontFamily = com.allan.atools.FontTheme.fontFamily().replace("\"", "")
+        val fontFamily = "\"${com.allan.atools.FontTheme.fontFamily()}\",monospace"
         val readonly = !current.isEditable
         val file = current.editor.sourceFile
         val base = file?.parentFile?.toURI()?.toASCIIString()

@@ -183,20 +183,6 @@
    -fx-background-color: -au-main-bg-color2;
 }
 
-.markdown-zoom-button {
-   -fx-background-color: transparent;
-   -fx-padding: 2;
-   -fx-min-width: 30;
-   -fx-pref-width: 30;
-   -fx-min-height: 28;
-   -fx-pref-height: 28;
-   -fx-cursor: hand;
-}
-
-.markdown-zoom-button:hover {
-   -fx-background-color: -au-editor-selection-words-color;
-}
-
 .workspace-bottom-extension {
    -fx-background-color: -au-workspace-bg-color;
    -fx-border-color: transparent -au-split-pane-divider-color transparent transparent;
@@ -817,6 +803,18 @@
    -fx-font-size: 12;
 }
 
+.app-menu-panel .markdown-zoom-slider .thumb {
+   -fx-background-color: -au-main-color;
+}
+
+.app-menu-panel .markdown-zoom-slider .track {
+   -fx-background-color: -au-main-window-border-color;
+}
+
+.app-menu-panel .markdown-zoom-slider .axis {
+   -fx-tick-label-fill: -au-popup-text-color;
+}
+
 .app-menu-item:disabled .label,
 .app-menu-item .app-menu-submenu-arrow,
 .app-menu-item .app-menu-shortcut {
@@ -877,6 +875,17 @@
 /* 字号步进器：常规/粗体 A 预览 + 减号／数值／加号，一屏内完成调整，不产生滚动条。 */
 .app-menu-stepper {
    -fx-spacing: 8;
+}
+
+/* 两段字号的分段标题与分隔线。 */
+.app-menu-stepper-title {
+   -fx-font-size: 12;
+   -fx-text-fill: -au-default-desc-color;
+   -fx-alignment: center;
+}
+
+.app-menu-stepper-divider {
+   -fx-background-color: -au-split-pane-divider-color;
 }
 
 .app-menu-stepper-previews {
@@ -1078,15 +1087,15 @@
 /* 会话栏折叠按钮：贴在中间分线上的窄条，竖向居中，只在鼠标悬停时给底色。 */
 .result-session-toggle {
    -fx-background-color: transparent;
-   -fx-background-radius: 3;
+   -fx-background-radius: 6;
    -fx-text-fill: -au-default-desc-color;
-   -fx-font-size: 14;
-   -fx-padding: 0 0 2 0;
-   -fx-min-width: 16;
-   -fx-pref-width: 16;
-   -fx-max-width: 16;
-   -fx-min-height: 28;
-   -fx-pref-height: 28;
+   -fx-font-size: 28;
+   -fx-padding: 0 0 4 0;
+   -fx-min-width: 32;
+   -fx-pref-width: 32;
+   -fx-max-width: 32;
+   -fx-min-height: 56;
+   -fx-pref-height: 56;
    -fx-cursor: hand;
 }
 

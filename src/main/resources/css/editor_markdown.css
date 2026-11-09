@@ -303,7 +303,7 @@
     -fx-cursor: hand;
 }
 
-/* 收起的标记由文本节点以等长零宽占位呈现；展开、搜索命中和保留源码的语法使用此颜色。 */
+/* 短格式标记隐藏时保留原字形占位，链接与块级标记使用零宽占位；显示与搜索命中使用此颜色。 */
 .text.markdown-syntax-marker,
 .text.markdown-code.markdown-syntax-marker,
 .text.markdown-inline-code.markdown-syntax-marker { -fx-fill: -au-md-syntax; }

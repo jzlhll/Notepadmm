@@ -179,8 +179,8 @@ class EditorArea @JvmOverloads constructor(
         //Editor的Fontsize不是那样来的。所以不用。设置fontSize监听
         fontThemeChanged =
             ChangeListener { _: ObservableValue<out Number>?, oldValue: Number, _: Number? ->
-                val newfm = FontTheme.fontFamily()
-                val fm = FontTheme.fontFamily(oldValue.toInt())
+                val newfm = FontTheme.styleClassName()
+                val fm = FontTheme.styleClassName(oldValue.toInt())
                 Log.d(TAG, "update font theme : old is : $fm, newOne: $newfm")
                 Highlight.updateGenericAreaFont(this, newfm, fm)
             }

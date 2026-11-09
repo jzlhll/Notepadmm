@@ -47,7 +47,7 @@ import java.util.List;
 public final class ResultSessionView extends BorderPane {
     private static final double SESSION_PANE_WIDTH = 190;
     /** 折叠后只保留分线处按钮的窄条宽度。 */
-    private static final double SESSION_COLLAPSED_WIDTH = 16;
+    private static final double SESSION_COLLAPSED_WIDTH = 32;
     private static final double TAB_BAR_HEIGHT = 34;
     private static final double DELETE_VISIBLE_MILLIS = 2000;
 

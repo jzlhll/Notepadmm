@@ -14,7 +14,6 @@ public final class BottomEntry {
 
     public static void refreshSize() {
         var main = UIContext.context();
-        BottomMarkdownZoom.refreshSize();
         IconfontCreator.setText(main.bottomSearchTextUpperBtn, "arrowup",
                 main.getMainBottomSize(17), Colors.ColorBottomBtnNormal);
         IconfontCreator.setText(main.bottomSearchTextDownBtn, "falling",
@@ -22,7 +21,7 @@ public final class BottomEntry {
     }
 
     public static void initAfterBottomCreated() {
-        BottomMarkdownZoom.init();
+        BottomMarkdownControls.init();
         UIContext.context().bottomSearchTextField.textProperty().addListener((observable, oldValue, newValue) -> {
             var curArea = UIContext.currentAreaProp.get();
             if (isBottomSearchTextListenerSendIt && curArea != null) {

@@ -16,7 +16,7 @@ import com.allan.atools.tools.modulejson.JsonFormatLog;
 import com.allan.atools.tools.modulenotepad.base.IWorkspace;
 import com.allan.atools.tools.modulenotepad.bottom.BottomEntry;
 import com.allan.atools.tools.modulenotepad.bottom.BottomSearchBtnsMgr;
-import com.allan.atools.tools.modulenotepad.bottom.BottomMarkdownZoom;
+import com.allan.atools.tools.modulenotepad.bottom.BottomMarkdownControls;
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownMermaidManager;
 import com.allan.atools.tools.modulenotepad.manager.MarkdownImageManager;
@@ -37,6 +37,7 @@ import com.allan.atools.ui.controls.DirAndFileJFXTreeView;
 import com.allan.atools.ui.controls.AppMenuButton;
 import com.allan.atools.utils.*;
 import com.jfoenix.controls.JFXButton;
+import com.jfoenix.controls.JFXRippler;
 import com.jfoenix.controls.JFXTabPane;
 import com.jfoenix.controls.JFXTextField;
 import javafx.application.Platform;
@@ -85,6 +86,7 @@ public final class NotepadController extends AbstractMainController {
     public Label notepadMainActionBarFontBtn;
     public Label notepadMainActionBarShortcutsBtn;
     public Label notepadMainActionBarSearchBtn;
+    public JFXRippler notepadMainActionBarSearchBox;
     public Label notepadMainAltMultiSelectBtn;
     public Label notepadMainActionBarSettingBtn;
     public Label notepadMainActionBarAToolsBtn;
@@ -97,11 +99,9 @@ public final class NotepadController extends AbstractMainController {
     public Label bottomSearchTextRuleBtn;
     public Label bottomSearchTextUpperBtn;
     public Label bottomSearchTextDownBtn;
-    public HBox markdownZoomBox;
-    public Button markdownZoomOutBtn;
-    public Button markdownZoomInBtn;
-    public Label markdownZoomOutIcon;
-    public Label markdownZoomInIcon;
+    public HBox markdownControlsBox;
+    public Label markdownSourceCheckBtn;
+    public Label markdownZoomBtn;
     public JFXTextField bottomSearchTextField;
 
     public HBox notepadMainHeadBox;
@@ -153,6 +153,7 @@ public final class NotepadController extends AbstractMainController {
     public AppMenuButton workspaceMoreBtn;
     public Label notepadMainInsertEmptyLineBtn;
     public Label jsonPopBtn;
+    public JFXRippler jsonPopBox;
     private AnchorPane notepadMainResultLayout;
 
     private SettingDrawer settingDrawer;
@@ -549,8 +550,8 @@ public final class NotepadController extends AbstractMainController {
         refreshCurrentDocumentPath();
         MarkdownSearchSupport.refresh();
         com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.refreshCurrentFile(UIContext.currentAreaProp.get());
-        BottomMarkdownZoom.refresh();
-        refreshWrapTextButton(UIContext.currentAreaProp.get());
+        BottomMarkdownControls.refresh();
+        refreshBottomTextButtons(UIContext.currentAreaProp.get());
         if (markdownOutlineManager != null) {
             markdownOutlineManager.refreshCurrentFile();
         }
@@ -604,23 +605,18 @@ public final class NotepadController extends AbstractMainController {
 
     private void initEncodingIndicateClick() {
         wrapTextCheckBtn.managedProperty().bind(wrapTextCheckBtn.visibleProperty());
-        refreshWrapTextButton(UIContext.currentAreaProp.get());
+        jsonPopBox.visibleProperty().bind(jsonPopBtn.visibleProperty());
+        jsonPopBox.managedProperty().bind(jsonPopBtn.visibleProperty());
+        refreshBottomTextButtons(UIContext.currentAreaProp.get());
         if (notepadMainEncodeLabel.getOnMouseClicked() == null) {
             UIContext.currentAreaProp.addListener((observable, oldValue, newValue) -> {
                 Log.d("change wrap check");
                 if (newValue != null) {
                     UIContext.fileEncodeIndicateProp.set(newValue.getEditor().getState().getFileEncoding());
-
-                    refreshWrapTextButton(newValue);
-                    changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, newValue.getEditor().getState().isCurrentReadonly());
-                    jsonPopBtn.setVisible(true);
                 } else {
                     UIContext.fileEncodeIndicateProp.set("");
-
-                    refreshWrapTextButton(null);
-                    jsonPopBtn.setVisible(false);
-                    changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn, null);
                 }
+                refreshBottomTextButtons(newValue);
             });
 
             notepadMainEncodeLabel.setOnMouseClicked(event -> {
@@ -691,15 +687,19 @@ public final class NotepadController extends AbstractMainController {
         }
     }
 
-    private void refreshWrapTextButton(EditorArea area) {
-        boolean available = area != null && !supportsMarkdown(area)
+    private void refreshBottomTextButtons(EditorArea area) {
+        boolean markdown = supportsMarkdown(area);
+        boolean available = area != null && !markdown
                 && area.getEditor().getState().supportsWrap();
         wrapTextCheckBtn.setDisable(!available);
         changeBottomTextBtnCheckStyle(wrapTextCheckBtn,
                 available ? area.getEditor().getState().isWrap() : null);
+        changeBottomTextBtnCheckStyle(notepadReadonlyCheckBtn,
+                area == null ? null : area.getEditor().getState().isCurrentReadonly());
+        jsonPopBtn.setVisible(area != null && !markdown);
     }
 
-    private void changeBottomTextBtnCheckStyle(Label label, Boolean enable) {
+    public void changeBottomTextBtnCheckStyle(Label label, Boolean enable) {
         Log.d("" + label + ", enable: " + enable);
         if (enable == null) {
             label.setVisible(false);

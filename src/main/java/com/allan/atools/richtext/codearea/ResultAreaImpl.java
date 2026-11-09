@@ -48,6 +48,7 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
     }
 
     private ChangeListener<Number> fontChanged;
+    private ChangeListener<Number> searchFontChanged;
     private ChangeListener<Number> fontThemeChanged;
     private final ChangeListener<String> themeChanged = (observable, oldValue, newValue) -> refreshTheme();
 
@@ -55,18 +56,20 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         super(NAME_SP);
         Highlight.initGenericAreaFont(this);
         fontThemeChanged = (observable, oldValue, newValue) -> {
-            var fm = FontTheme.fontFamily();
-            var oldFm = FontTheme.fontFamily(oldValue.intValue());
+            var fm = FontTheme.styleClassName();
+            var oldFm = FontTheme.styleClassName(oldValue.intValue());
             Log.d(TAG, "new font family " + fm + ", old font family " + oldFm);
             Highlight.updateGenericAreaFont(ResultAreaImpl.this, fm, oldFm);
         };
         UIContext.getFontThemeProperty().addListener(fontThemeChanged);
 
         fontChanged = (observable, oldValue, newValue) -> {
-            getContent().setStyle(0, getText().length(), TextStyle.fontSize(newValue.intValue() - 4));
+            applyCurrentFontSize();
             Log.d("font changed " + ResultAreaImpl.this);
         };
         UIContext.getFontSizeProperty().addListener(fontChanged);
+        searchFontChanged = (observable, oldValue, newValue) -> applyCurrentFontSize();
+        UIContext.getSearchFontSizeProperty().addListener(searchFontChanged);
         SettingPreferences.getStringProp(SettingPreferences.appThemeKey).addListener(themeChanged);
 
         initArea();
@@ -77,8 +80,10 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
         if (mIsDestroyed || getLength() == 0) {
             return;
         }
-        getContent().setStyle(0, getText().length(),
-                TextStyle.fontSize(UIContext.getFontSizeProperty().get() - 4));
+        // 逐个样式片段补字号，保留 refreshTheme 写入的文字色与命中底色，整段覆盖会把它们抹掉。
+        int size = UIContext.getSearchFontSize();
+        var spans = getContent().getStyleSpans(0, getLength());
+        getContent().setStyleSpans(0, spans.mapStyles(style -> style.updateFontSize(size)));
     }
 
     public void refreshTheme() {
@@ -119,6 +124,8 @@ public final class ResultAreaImpl extends FoldableTextArea implements IAreaEx<Pa
 
         UIContext.getFontSizeProperty().removeListener(fontChanged);
         fontChanged = null;
+        UIContext.getSearchFontSizeProperty().removeListener(searchFontChanged);
+        searchFontChanged = null;
         UIContext.getFontThemeProperty().removeListener(fontThemeChanged);
         fontThemeChanged = null;
         SettingPreferences.getStringProp(SettingPreferences.appThemeKey).removeListener(themeChanged);

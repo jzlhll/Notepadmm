@@ -58,14 +58,10 @@ class EditorScrollPane(val editorArea: EditorArea) :
     companion object {
         const val MIN_ZOOM_PERCENT = 100
         const val MAX_ZOOM_PERCENT = 250
+        const val ZOOM_STEP_PERCENT = 10
     }
 
-    fun changeZoom(delta: Int) {
-        if (!MarkdownEditorSupport.supportsMarkdown(editorArea)) return
-        setZoomPercent(zoomPercent + delta)
-    }
-
-    private fun setZoomPercent(target: Double) {
+    fun setZoomPercent(target: Double) {
         if (!target.isFinite()) return
         val percent = when {
             target < MIN_ZOOM_PERCENT -> MIN_ZOOM_PERCENT.toDouble()

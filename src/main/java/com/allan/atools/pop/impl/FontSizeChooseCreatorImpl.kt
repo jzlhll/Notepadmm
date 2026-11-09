@@ -6,28 +6,40 @@ import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.AllStagesManager
 import com.allan.atools.utils.CacheLocation
+import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.allan.atools.utils.ResLocation
 import com.allan.baseparty.Action
+import javafx.animation.Animation
+import javafx.animation.KeyFrame
+import javafx.animation.Timeline
 import javafx.application.Platform
+import javafx.event.ActionEvent
+import javafx.event.EventHandler
 import javafx.geometry.Pos
+import javafx.scene.Scene
 import javafx.scene.control.CheckMenuItem
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
+import javafx.util.Duration
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * 字号选择：浮层是「常规 A + 粗体 A 预览 − 数值 +」步进器，范围 12–48、每步 2 号，
- * 尺寸固定、无滚动；菜单形态按字号逐项列出，供需要直接跳转的场景使用。
+ * 字号选择：浮层分两段，上段是编辑区字号，下段是搜索区字号（默认比编辑区小 1 号）。
+ * 两段都是「常规 A + 粗体 A 预览 + − 数值 +」步进器，预览字号跟随本段当前值；
+ * 范围 12–48、每步 1 号，按住 ± 时每 250ms 连续步进一档，松开即停，尺寸固定、无滚动。
+ * 菜单形态按字号逐项列出，供需要直接跳转的场景使用。
  */
 class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
-    private val fontSizes = (12..48 step 2).toList()
+    private val fontSizes = (MIN_SIZE..MAX_SIZE step STEP).toList()
     private var mRunnable: Runnable? = null
     private var mSize = 0
 
@@ -51,7 +63,7 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
 
     override fun createMenu(action: Action<Void>): ContextMenu {
         val menu = AppContextMenu()
-        val selected = nearestIndex(UIContext.getFontSizeProperty().get())
+        val selected = nearestIndex(fontSizes, UIContext.getFontSizeProperty().get())
         fontSizes.forEachIndexed { index, fontSize ->
             val item = CheckMenuItem(fontSize.toString())
             item.isSelected = index == selected
@@ -62,66 +74,153 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
     }
 
     override fun createPop(action: Action<Void>?): Region {
-        var index = nearestIndex(UIContext.getFontSizeProperty().get())
+        val editor = Section(fontSizes, UIContext.getFontSizeProperty().get(), ::applyFontSize)
+        val search = Section(fontSizes, UIContext.getSearchFontSize(), ::applySearchFontSize)
 
-        // 常规与粗体两个 A 随字号同步变化，容器高度锁死，避免浮层跟着变大变小。
-        val normal = previewLabel()
-        val bold = previewLabel()
-        val previews = HBox(normal, bold).apply {
-            styleClass.add("app-menu-stepper-previews")
-            alignment = Pos.CENTER
-            minHeight = PREVIEW_HEIGHT
-            prefHeight = PREVIEW_HEIGHT
-            maxHeight = PREVIEW_HEIGHT
+        val editorTitle = sectionTitle(Locales.str("head.editorFontSize"))
+        val searchTitle = sectionTitle(Locales.str("head.searchFontSize"))
+        val divider = Region().apply {
+            styleClass.add("app-menu-stepper-divider")
+            setSize(this, CONTENT_WIDTH - 18, DIVIDER_HEIGHT)
         }
-        val minus = stepperButton("\u2212")
-        val plus = stepperButton("+")
-        val value = Label(fontSizes[index].toString()).apply {
-            styleClass.add("app-menu-stepper-value")
-            setSize(this, VALUE_WIDTH, BUTTON_SIZE)
-        }
-        val controls = HBox(minus, value, plus).apply {
-            styleClass.add("app-menu-stepper")
-            alignment = Pos.CENTER
-        }
-        val box = VBox(previews, controls).apply {
+
+        val contentNodes = ArrayList<Region>(7)
+        contentNodes.add(editorTitle)
+        contentNodes.addAll(editor.nodes)
+        contentNodes.add(divider)
+        contentNodes.add(searchTitle)
+        contentNodes.addAll(search.nodes)
+
+        val box = VBox().apply {
             styleClass.add("app-menu-stepper-box")
             alignment = Pos.CENTER
             isFocusTraversable = true
+            children.setAll(contentNodes)
             // 尺寸一次给全，浮层显示后不再重新测量。
-            setSize(this, CONTENT_WIDTH, PREVIEW_HEIGHT + GAP + BUTTON_SIZE)
+            setSize(this, CONTENT_WIDTH, boxHeight())
         }
 
-        fun render() {
-            val size = fontSizes[index]
-            value.text = size.toString()
-            normal.style = "-fx-font-size:$size;"
-            bold.style = "-fx-font-size:$size;-fx-font-weight:bold;"
-            minus.isDisable = index == 0
-            plus.isDisable = index == fontSizes.lastIndex
-        }
-
-        fun step(delta: Int) {
-            val next = index + delta
-            if (next !in fontSizes.indices) return
-            index = next
-            render()
-            applyFontSize(fontSizes[index])
-        }
-
-        minus.setOnMouseClicked { step(-1) }
-        plus.setOnMouseClicked { step(1) }
         box.setOnKeyPressed { event ->
             when (event.code) {
-                KeyCode.LEFT, KeyCode.DOWN -> step(-1)
-                KeyCode.RIGHT, KeyCode.UP -> step(1)
+                KeyCode.LEFT, KeyCode.DOWN -> editor.step(-1)
+                KeyCode.RIGHT, KeyCode.UP -> editor.step(1)
                 else -> return@setOnKeyPressed
             }
             event.consume()
         }
+        // 浮层被移除时不能留下仍在跑的重复计时。
+        box.sceneProperty().addListener { _, _, scene ->
+            if (scene == null) {
+                editor.stopRepeat()
+                search.stopRepeat()
+            }
+        }
 
-        render()
         return box
+    }
+
+    /**
+     * 一段字号选择：常规/粗体 A 预览行 +「− 数值 +」。
+     * 两段共用同一套渲染与步进逻辑，只是回调不同。
+     */
+    private inner class Section(
+        private val sizes: List<Int>,
+        current: Int,
+        private val onApply: (Int) -> Unit
+    ) {
+        private var index: Int = sizes.indexOf(current).takeIf { it >= 0 }
+                ?: nearestIndex(sizes, current)
+        private val normal = previewLabel()
+        private val bold = previewLabel()
+        private val minus = stepperButton("\u2212")
+        private val plus = stepperButton("+")
+        private val value = Label().apply {
+            styleClass.add("app-menu-stepper-value")
+            setSize(this, VALUE_WIDTH, BUTTON_SIZE)
+        }
+
+        private var repeatTimeline: Timeline? = null
+        private var releaseFilter: EventHandler<MouseEvent>? = null
+        private var filterScene: Scene? = null
+
+        /** 由外部按顺序加入浮层的节点。 */
+        val nodes: List<Region>
+
+        init {
+            val controls = HBox(minus, value, plus).apply {
+                styleClass.add("app-menu-stepper")
+                alignment = Pos.CENTER
+            }
+            val previews = HBox(normal, bold).apply {
+                styleClass.add("app-menu-stepper-previews")
+                alignment = Pos.CENTER
+                minHeight = PREVIEW_HEIGHT
+                prefHeight = PREVIEW_HEIGHT
+                maxHeight = PREVIEW_HEIGHT
+            }
+            nodes = listOf(previews, controls)
+            minus.setOnMousePressed { event ->
+                if (event.button == MouseButton.PRIMARY) startRepeat(minus, -1)
+            }
+            plus.setOnMousePressed { event ->
+                if (event.button == MouseButton.PRIMARY) startRepeat(plus, 1)
+            }
+            render()
+        }
+
+        /**
+         * 按下立即走一档；按住不松时每 250ms 再走一档（每秒 4 档）。
+         * 释放监听挂在场景上，避免按钮到达边界被禁用后收不到 MOUSE_RELEASED。
+         */
+        private fun startRepeat(button: Label, delta: Int) {
+            stopRepeat()
+            if (!step(delta)) {
+                return
+            }
+            val scene = button.scene ?: return
+            val filter = EventHandler<MouseEvent> { stopRepeat() }
+            scene.addEventFilter(MouseEvent.MOUSE_RELEASED, filter)
+            releaseFilter = filter
+            filterScene = scene
+            repeatTimeline = Timeline(KeyFrame(Duration.millis(REPEAT_INTERVAL),
+                    EventHandler<ActionEvent> { if (!step(delta)) stopRepeat() })).apply {
+                cycleCount = Animation.INDEFINITE
+                play()
+            }
+        }
+
+        fun stopRepeat() {
+            repeatTimeline?.stop()
+            repeatTimeline = null
+            releaseFilter?.let { filterScene?.removeEventFilter(MouseEvent.MOUSE_RELEASED, it) }
+            releaseFilter = null
+            filterScene = null
+        }
+
+        /** 到达边界时返回 false，长按据此自行停止。 */
+        fun step(delta: Int): Boolean {
+            val next = index + delta
+            if (next !in sizes.indices) return false
+            index = next
+            render()
+            onApply(sizes[index])
+            return true
+        }
+
+        private fun render() {
+            val size = sizes[index]
+            value.text = size.toString()
+            normal.style = "-fx-font-size:$size;"
+            bold.style = "-fx-font-size:$size;-fx-font-weight:bold;"
+            minus.isDisable = index == 0
+            plus.isDisable = index == sizes.lastIndex
+        }
+    }
+
+    private fun sectionTitle(text: String) = Label(text).apply {
+        styleClass.add("app-menu-stepper-title")
+        alignment = Pos.CENTER
+        setSize(this, CONTENT_WIDTH, TITLE_HEIGHT)
     }
 
     private fun previewLabel() = Label("A").apply {
@@ -139,11 +238,11 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         isFocusTraversable = false
     }
 
-    /** 当前字号可能不在步进序列里（例如旧版本存了奇数号），取最接近的一档。 */
-    private fun nearestIndex(size: Int): Int {
+    /** 当前字号可能是旧版本留下的越界值，取最接近的一档。 */
+    private fun nearestIndex(sizes: List<Int>, size: Int): Int {
         var index = 0
         var distance = Int.MAX_VALUE
-        fontSizes.forEachIndexed { position, value ->
+        sizes.forEachIndexed { position, value ->
             val current = if (value > size) value - size else size - value
             if (current < distance) {
                 distance = current
@@ -190,12 +289,31 @@ class FontSizeChooseCreatorImpl : AbstractMenuCreator<Void>() {
         ThreadUtils.globalHandler().postDelayed(mRunnable, 250)
     }
 
+    /** 搜索区字号只影响结果区的文本样式，直接改属性并落盘即可，不用重建样式文件。 */
+    private fun applySearchFontSize(fontSize: Int) {
+        UIContext.updateSearchFontSize(fontSize)
+    }
+
     private companion object {
+        const val MIN_SIZE = 12
+        const val MAX_SIZE = 48
+        const val STEP = 1
+        /** 长按每秒步进 4 档。 */
+        const val REPEAT_INTERVAL = 250.0
+
         const val CONTENT_WIDTH = 122.0
         /** 48 号字行高约 56px，留一点余量。 */
         const val PREVIEW_HEIGHT = 60.0
         const val BUTTON_SIZE = 30.0
         const val VALUE_WIDTH = 46.0
         const val GAP = 6.0
+        const val TITLE_HEIGHT = 18.0
+        const val DIVIDER_HEIGHT = 1.0
+
+        /** 两段各有标题、预览、步进器，中间一条分隔线，共 7 个节点、6 个 6px 间距。 */
+        fun boxHeight(): Double {
+            return (TITLE_HEIGHT + PREVIEW_HEIGHT + BUTTON_SIZE) * 2 +
+                    DIVIDER_HEIGHT + GAP * 6
+        }
     }
 }

@@ -49,7 +49,7 @@ public final class Highlight {
     }
 
     public static void initGenericAreaFont(GenericStyledArea<?,?,?> area) {
-        var className = FontTheme.fontFamily();
+        var className = FontTheme.styleClassName();
         area.getStyleClass().add(className);
     }
 

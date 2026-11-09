@@ -95,6 +95,31 @@ object UIContext {
         fontSizeProperty!!.set(fontSize)
         GlobalCfgStores.user().setInt(SettingPreferences.editorFontSizeKey, fontSize)
     }
+
+    private var searchFontSizeProperty: SimpleIntegerProperty? = null
+    @JvmStatic
+    fun getSearchFontSizeProperty(): SimpleIntegerProperty {
+        if (searchFontSizeProperty == null) {
+            searchFontSizeProperty = SettingPreferences.getIntProp(SettingPreferences.searchAreaFontSizeKey)
+        }
+        return searchFontSizeProperty!!
+    }
+
+    /** 搜索区字号：单独设置过就用存下来的值，否则跟随编辑区小 1 号。 */
+    @JvmStatic
+    fun getSearchFontSize(): Int {
+        val explicit = getSearchFontSizeProperty().get()
+        if (explicit > 0) {
+            return explicit
+        }
+        return (getFontSizeProperty().get() - 1).coerceAtLeast(1)
+    }
+
+    @JvmStatic
+    fun updateSearchFontSize(fontSize: Int) {
+        getSearchFontSizeProperty().set(fontSize)
+        GlobalCfgStores.user().setInt(SettingPreferences.searchAreaFontSizeKey, fontSize)
+    }
     @JvmStatic
     fun getFontThemeProperty(): SimpleIntegerProperty {
         if (fontThemeProperty == null) {

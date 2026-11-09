@@ -453,7 +453,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val baseUrl = file?.parentFile?.toURI()?.toASCIIString()
             val dark = Colors.isDark()
             val themeCss = AppTheme.previewCss(dark)
-            val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())}}" +
+            val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())},monospace}" +
                 "article{max-width:none;margin:0;padding:6px 4px;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
                 "img[data-image-loading]{min-width:32px;min-height:24px}.source-placeholder{color:var(--muted)}"
             pageTask = ThreadUtils.submit {
