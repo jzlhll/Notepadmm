@@ -222,7 +222,7 @@ class EditorArea @JvmOverloads constructor(
                 event.consume()
                 return@addEventFilter
             }
-            if (event.target is TextInputControl || !isMarkdownDocument() || event.button != MouseButton.PRIMARY
+            if (event.target is TextInputControl || !MarkdownEditorSupport.supportsMarkdown(this) || event.button != MouseButton.PRIMARY
                 || !event.isShortcutDown || event.isAltDown || event.isShiftDown
                 || event.clickCount != 1 || !event.isStillSincePress
             ) {
@@ -273,14 +273,14 @@ class EditorArea @JvmOverloads constructor(
         }
 
         addEventFilter(javafx.scene.input.DragEvent.DRAG_OVER) { event ->
-            if (isEditable && isMarkdownDocument() && event.dragboard.hasFiles()
+            if (isEditable && MarkdownEditorSupport.supportsMarkdown(this) && event.dragboard.hasFiles()
                 && event.dragboard.files.all(MarkdownAttachments::isImage)) {
                 event.acceptTransferModes(javafx.scene.input.TransferMode.COPY)
                 event.consume()
             }
         }
         addEventFilter(javafx.scene.input.DragEvent.DRAG_DROPPED) { event ->
-            if (isEditable && isMarkdownDocument() && event.dragboard.hasFiles()
+            if (isEditable && MarkdownEditorSupport.supportsMarkdown(this) && event.dragboard.hasFiles()
                 && event.dragboard.files.all(MarkdownAttachments::isImage)) {
                 markdownAttachments.importFiles(event.dragboard.files)
                 event.isDropCompleted = true
@@ -309,14 +309,14 @@ class EditorArea @JvmOverloads constructor(
 
     /** 布局脉冲结束后识别新挂载的 Markdown 段落，调整仅安排到下一轮布局。 */
     fun refreshMarkdownParagraphWrapping() {
-        paragraphWrapping.refresh(isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached)
+        paragraphWrapping.refresh(MarkdownEditorSupport.supportsMarkdown(this) && !editor.isRealtimeProcessingLimitReached)
     }
 
     override fun layoutChildren() {
         documentLayout.refresh()
         val followZoomCaret = followZoomCaretRequested
         followZoomCaretRequested = false
-        val wrapMarkdown = isMarkdownDocument() && !editor.isRealtimeProcessingLimitReached
+        val wrapMarkdown = MarkdownEditorSupport.supportsMarkdown(this) && !editor.isRealtimeProcessingLimitReached
         paragraphWrapping.refresh(wrapMarkdown, collect = false)
         super.layoutChildren()
         // 将行号底色铺满编辑区高度，正文上下留白仍由编辑器 padding 控制。
@@ -326,11 +326,6 @@ class EditorArea @JvmOverloads constructor(
         if (followZoomCaret) {
             (parent as? EditorZoomViewport)?.followCaret()
         }
-    }
-
-    private fun isMarkdownDocument(): Boolean {
-        val name = editor.documentState.displayName
-        return name.endsWith(".md", true) || name.endsWith(".markdown", true)
     }
 
     private fun moveSelectedLines(up: Boolean) {

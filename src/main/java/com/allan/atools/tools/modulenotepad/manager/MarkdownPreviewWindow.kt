@@ -4,9 +4,11 @@ import com.allan.atools.Colors
 import com.allan.atools.AppTheme
 import com.allan.atools.SettingPreferences
 import com.allan.atools.UIContext
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport
+import com.allan.atools.richtext.codearea.MarkdownClipboard
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownMermaidSupport
 import com.allan.atools.threads.ThreadUtils
@@ -19,6 +21,9 @@ import javafx.beans.value.ChangeListener
 import javafx.concurrent.Worker
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.web.WebView
@@ -33,6 +38,7 @@ class MarkdownPreviewWindow private constructor() {
     private val view = WebView()
     private val hint = Label(Locales.str("markdown.previewHint"))
     private val bridge = PreviewBridge()
+    private val contextMenu = AppContextMenu()
     private var area: EditorArea? = null
     private var boundFile: java.io.File? = null
     private var boundMarkdown = false
@@ -65,7 +71,44 @@ class MarkdownPreviewWindow private constructor() {
         source.setOnAction { area?.requestFocus(); UIContext.mainWindow?.requestFocus() }
         val bar = HBox(12.0, source, hint).apply { style = "-fx-padding: 8;" }
         stage.scene = createSecondaryScene(stage, BorderPane(view, bar, null, null, null), 820.0, 680.0)
-        view.isContextMenuEnabled = true
+        view.isContextMenuEnabled = false
+        view.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { event ->
+            val selected = if (pageReady) view.engine.executeScript("String(window.getSelection())").toString() else ""
+            val copy = MenuItem(Locales.str("copy")).apply {
+                isDisable = selected.isEmpty()
+                setOnAction { bridge.copy(selected) }
+            }
+            val selectAll = MenuItem(Locales.str("git.selectAll")).apply {
+                isDisable = !pageReady
+                setOnAction {
+                    if (pageReady) view.engine.executeScript("window.getSelection().selectAllChildren(document.querySelector('article'))")
+                }
+            }
+            contextMenu.items.setAll(copy, selectAll)
+            if (pageReady) {
+                val point = view.screenToLocal(event.screenX, event.screenY)
+                val destination = view.engine.executeScript("""
+                    (function() {
+                        var node = document.elementFromPoint(${point.x}, ${point.y});
+                        var anchor = node && node.closest('a[href]');
+                        return anchor ? anchor.getAttribute('href') : '';
+                    })()
+                """.trimIndent()).toString()
+                if (destination.isNotEmpty()) {
+                    val openLink = MenuItem(Locales.str("markdown.shortcutOpenLink")).apply {
+                        setOnAction { bridge.open(destination) }
+                    }
+                    val copyLink = MenuItem(Locales.str("markdown.copyLinkAddress")).apply {
+                        setOnAction { bridge.copy(destination) }
+                    }
+                    contextMenu.items.addAll(SeparatorMenuItem(), openLink, copyLink)
+                }
+            }
+            val edit = MenuItem(Locales.str("markdown.backToEditor")).apply { setOnAction { source.fire() } }
+            contextMenu.items.addAll(SeparatorMenuItem(), edit)
+            contextMenu.show(view, event.screenX, event.screenY)
+            event.consume()
+        }
         view.engine.setCreatePopupHandler { null }
         view.engine.loadWorker.stateProperty().addListener { _, _, value ->
             if (value == Worker.State.SUCCEEDED && stage.isShowing &&
@@ -91,6 +134,7 @@ class MarkdownPreviewWindow private constructor() {
     }
 
     private fun bind(value: EditorArea?) {
+        contextMenu.hide()
         generation++
         task?.cancel(true)
         task = null
@@ -194,6 +238,7 @@ class MarkdownPreviewWindow private constructor() {
             current.requestFocus()
         }
         fun copy(value: String) {
+            MarkdownClipboard.cancelPendingCopy()
             javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(value) })
         }
         fun open(destination: String) {

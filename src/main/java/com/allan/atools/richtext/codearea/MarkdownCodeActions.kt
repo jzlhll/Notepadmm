@@ -1,11 +1,13 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownCodeLanguages
+import com.allan.atools.pop.AppContextMenu
 import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.ui.SnackbarUtils
-import javafx.scene.control.ChoiceDialog
 import javafx.scene.control.TextInputDialog
+import javafx.scene.control.CheckMenuItem
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import org.commonmark.node.FencedCodeBlock
@@ -56,19 +58,28 @@ class MarkdownCodeActions(private val area: EditorArea) {
 
     fun chooseLanguage() {
         if (area.markdownCommands.defer { chooseLanguage() }) return
+        if (!area.isEditable || area.markdownComposing) return
         val node = block() ?: return
-        val before = area.text
-        val options = listOf("text") + com.allan.atools.richtext.codearea.keywordhelper.MarkdownCodeLanguages.supportedLanguages() + "mermaid"
-        val dialog = ChoiceDialog(node.info.trim().ifEmpty { "text" }, options)
-        dialog.title = Locales.str("markdown.codeLanguage")
-        dialog.headerText = Locales.str("markdown.codeLanguage")
-        val language = dialog.withAppTheme().showAndWait().orElse(null) ?: return
-        if (before != area.text) return
+        val version = area.editor.contentVersion
+        val file = area.editor.sourceFile
         val span = node.sourceSpans.first()
         val raw = area.getText(span.inputIndex, span.inputIndex + span.length)
         val marker = Regex("(?:`{3,}|~{3,})").find(raw) ?: return
         val from = span.inputIndex + marker.range.last + 1
-        replace(from, span.inputIndex + span.length, if (language == "text") "" else language, from)
+        val current = MarkdownCodeLanguages.normalize(node.info) ?: node.info.trim().ifEmpty { "text" }
+        val menu = AppContextMenu()
+        val languages = listOf("text") + MarkdownCodeLanguages.supportedLanguages() + "mermaid"
+        for (language in languages) menu.items.add(CheckMenuItem(language).apply {
+            isSelected = language == current
+            setOnAction {
+                if (!area.editor.isDestroyed() && area.editor.contentVersion == version && area.editor.sourceFile == file
+                    && area.isEditable && !area.markdownComposing && MarkdownEditorSupport.supportsMarkdown(area)) {
+                    replace(from, span.inputIndex + span.length, if (language == "text") "" else language, from)
+                }
+            }
+        })
+        val bounds = area.caretBounds.orElse(null) ?: area.localToScreen(area.boundsInLocal) ?: return
+        menu.show(area, bounds.minX, bounds.maxY)
     }
 
     fun copyCode() {

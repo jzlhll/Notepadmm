@@ -62,6 +62,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private var disposed = false
     private var pending = false
     private val selectionChanged = InvalidationListener { requestRefresh() }
+    private val viewportChanged = InvalidationListener { if (views.size < MAX_VIEWS) requestRefresh() }
     private val layoutChanged = InvalidationListener {
         // 保留上次测量高度，等页面回报新高度后再调整，避免滚动文档先收缩再展开。
         views.keys.toList().forEach { it.resizeContent() }
@@ -78,6 +79,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             area.selectionProperty().addListener(selectionChanged)
             area.focusedProperty().addListener(selectionChanged)
             area.editableProperty().addListener(selectionChanged)
+            area.visibleParagraphs.addListener(viewportChanged)
             area.widthProperty().addListener(layoutChanged)
             area.paddingProperty().addListener(layoutChanged)
             UIContext.getFontSizeProperty().addListener(themeChanged)
@@ -267,6 +269,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private fun refresh() {
         if (disposed || area.markdownComposing) return
         if (snapshot == null || version != area.editor.contentVersion || entries.isEmpty()) return
+        val active = views.values.toSet()
+        var available = Math.max(0, MAX_VIEWS - active.size)
+        val visible = area.visibleParagraphs.isNotEmpty()
+        val first = if (visible) area.firstVisibleParToAllParIndex() else -1
+        val last = if (visible) area.lastVisibleParToAllParIndex() else -1
         var changed = false
         area.suspendVisibleParsWhileInvoke {
             for (entry in entries) {
@@ -275,7 +282,10 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 val editing = (area.isFocused || selection.length > 0) &&
                     if (selection.length == 0) area.caretPosition in block.start..block.end
                     else selection.start < block.end && selection.end > block.start
-                val preview = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !entry.searchHit
+                val eligible = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !entry.searchHit
+                val inViewport = visible && block.firstLine <= last && block.lastLine >= first
+                val preview = eligible && (!inViewport || entry in active || available > 0)
+                if (preview && inViewport && entry !in active) available--
                 if (styles(entry, preview)) changed = true
             }
         }
@@ -315,8 +325,14 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
         val entry = entries.getOrNull(high)?.takeIf { it.preview && line <= it.block.lastLine } ?: return base
         if (line != entry.block.firstLine) return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
-        if (views.values.toSet().size >= 8 && entry !in views.values) {
-            Platform.runLater { if (entry in entries) { entry.html = null; styles(entry, false) } }
+        if (views.values.toSet().size >= MAX_VIEWS && entry !in views.values) {
+            // 临时缺少控件时只展开源码，保留 HTML，等离屏控件释放后重新挂载。
+            Platform.runLater {
+                if (!disposed && entry in entries && entry.preview && entry !in views.values) {
+                    if (views.values.toSet().size < MAX_VIEWS) area.recreateParagraphGraphic(entry.block.firstLine)
+                    else styles(entry, false)
+                }
+            }
             return base
         }
         return views.keys.firstOrNull { views[it] === entry }?.also { it.updateBase(base) } ?: BlockView(entry, base)
@@ -545,6 +561,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             imageTasks.forEach(MarkdownImageTasks::cancel)
             imageTasks.clear()
             views.remove(this)
+            requestRefresh()
             // JS 回调可能触发源码展开；等本次回调返回后再释放页面。
             Platform.runLater { if (!live) web.engine.load(null) }
         }
@@ -668,6 +685,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         area.selectionProperty().removeListener(selectionChanged)
         area.focusedProperty().removeListener(selectionChanged)
         area.editableProperty().removeListener(selectionChanged)
+        area.visibleParagraphs.removeListener(viewportChanged)
         area.widthProperty().removeListener(layoutChanged)
         area.paddingProperty().removeListener(layoutChanged)
         UIContext.getFontSizeProperty().removeListener(themeChanged)
@@ -676,6 +694,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     }
 
     companion object {
+        private const val MAX_VIEWS = 8
         private val SOURCE_COORDINATES = Regex("data-source-(start|line)=\"([0-9]+)\"")
         private val CHECKED_ATTRIBUTE = Regex("\\schecked(?:=\"[^\"]*\")?")
         private val INPUT_TAG = Regex("<input\\b[^>]*>")

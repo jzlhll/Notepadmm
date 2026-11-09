@@ -140,7 +140,7 @@ class MarkdownClipboard(private val area: EditorArea) {
                     "\n\n" + node.children().filter { it.tagName() == "li" }.mapIndexed { index, child ->
                         val marker = if (node.tagName() == "ol") "${number + index}. " else "- "
                         val content = htmlToMarkdown(child).trim()
-                        val checkbox = child.selectFirst("input[type=checkbox]")
+                        val checkbox = child.select("input[type=checkbox]").firstOrNull { it.closest("li") === child }
                         marker + (if (checkbox == null) "" else if (checkbox.hasAttr("checked")) "[x] " else "[ ] ") +
                             content.split('\n').joinToString("\n${" ".repeat(marker.length)}")
                     }.joinToString("\n") + "\n\n"
@@ -228,7 +228,7 @@ class MarkdownClipboard(private val area: EditorArea) {
                     val content = ClipboardContent()
                     when (mode) {
                         "plain" -> content.putString(plain)
-                        "formatted" -> { content.putString(plain); content.putHtml(html); content[markdownFormat] = source }
+                        "formatted" -> { content.putString(plain); content.putHtml(html); content[markdownFormat] = state.text }
                         else -> { content.putString(source); content[markdownFormat] = source }
                     }
                     // 外部应用或其他原生复制改变剪贴板后，旧的后台结果不能覆盖新内容。

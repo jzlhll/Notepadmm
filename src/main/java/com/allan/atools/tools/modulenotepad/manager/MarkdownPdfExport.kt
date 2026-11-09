@@ -7,6 +7,7 @@ import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.log.LogMemoryBudget
 import com.allan.atools.ui.SnackbarUtils
+import com.allan.atools.ui.SegmentedControl
 import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
@@ -17,9 +18,11 @@ import javafx.embed.swing.SwingFXUtils
 import javafx.scene.SnapshotParameters
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
-import javafx.scene.control.ChoiceDialog
+import javafx.scene.control.Dialog
+import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.image.Image
+import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.transform.Scale
 import javafx.scene.web.WebView
@@ -60,11 +63,14 @@ object MarkdownPdfExport {
         }
         val portrait = Locales.str("markdown.pdfPortrait")
         val landscape = Locales.str("markdown.pdfLandscape")
-        val dialog = ChoiceDialog(portrait, listOf(portrait, landscape)).apply {
+        val layout = SegmentedControl(listOf(portrait, landscape)).apply { select(0) }
+        val dialog = Dialog<Int>().apply {
             initOwner(UIContext.mainWindow)
             title = Locales.str("markdown.exportPdf")
             headerText = Locales.str("markdown.pdfPageLayout") + "\n" + Locales.str("markdown.pdfImageHint")
-            contentText = Locales.str("markdown.pdfOrientation")
+            dialogPane.content = VBox(8.0, Label(Locales.str("markdown.pdfOrientation")), layout)
+            dialogPane.buttonTypes.addAll(ButtonType.OK, ButtonType.CANCEL)
+            setResultConverter { if (it == ButtonType.OK) layout.selectedIndex() else null }
         }
         val orientation = dialog.withAppTheme().showAndWait().orElse(null) ?: return
         val chooser = FileChooser().apply {
@@ -84,7 +90,7 @@ object MarkdownPdfExport {
         if (area.editor.isDestroyed() || area.editor.isRealtimeProcessingLimitReached) {
             SnackbarUtils.show(Locales.str("markdown.previewLimit")); return
         }
-        val paper = if (orientation == landscape) PDRectangle(PDRectangle.A4.height, PDRectangle.A4.width) else PDRectangle.A4
+        val paper = if (orientation == 1) PDRectangle(PDRectangle.A4.height, PDRectangle.A4.width) else PDRectangle.A4
         val source = area.text
         val name = area.editor.documentState.displayName
         val file = area.editor.sourceFile

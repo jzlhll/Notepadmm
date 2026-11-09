@@ -11,14 +11,16 @@ object MarkdownNavigation {
     @JvmStatic
     fun open(area: EditorArea, uri: URI) {
         if (area.editor.isDestroyed()) return
-        val path = uri.path.orEmpty()
+        val windowsDrive = com.allan.atools.utils.ResLocation.isWindow && uri.scheme?.length == 1
+        // 反斜线编码后的盘符路径属于 opaque URI，路径位于 schemeSpecificPart。
+        val path = (uri.path ?: if (windowsDrive) uri.schemeSpecificPart.substringBefore('?') else null).orEmpty()
         val anchor = uri.fragment.orEmpty()
         if (path.isEmpty()) { jump(area, anchor); return }
         if (uri.scheme == null && uri.rawAuthority != null) return
         val file = try {
             if (uri.scheme.equals("file", true)) File(URI("file", uri.authority, path, null, null))
             else {
-                val localPath = if (com.allan.atools.utils.ResLocation.isWindow && uri.scheme?.length == 1)
+                val localPath = if (windowsDrive)
                     "${uri.scheme}:$path" else path
                 val direct = File(localPath.replace('\\', '/'))
                 if (direct.isAbsolute) direct else area.editor.sourceFile?.parentFile?.resolve(localPath.replace('\\', '/')) ?: return

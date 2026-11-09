@@ -49,9 +49,12 @@ class MarkdownTableToolbar(
             widthProperty().bind(this@MarkdownTableToolbar.widthProperty())
             heightProperty().bind(this@MarkdownTableToolbar.heightProperty())
         }
-        // 按钮先处理点击，再阻止外层编辑器据此移动光标或选择源码。
+        // 按钮先处理完整手势，再阻止外层编辑器据此移动光标或选择源码。
         addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
+        addEventHandler(MouseEvent.DRAG_DETECTED) { it.consume() }
         addEventHandler(MouseEvent.MOUSE_DRAGGED) { it.consume() }
+        addEventHandler(MouseEvent.MOUSE_RELEASED) { it.consume() }
+        addEventHandler(MouseEvent.MOUSE_CLICKED) { it.consume() }
     }
 
     fun refresh(editable: Boolean, valid: Boolean, pending: Boolean, source: Boolean, searching: Boolean) {

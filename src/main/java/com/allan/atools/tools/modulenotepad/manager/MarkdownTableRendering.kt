@@ -8,7 +8,6 @@ import com.allan.atools.richtext.codearea.MarkdownParagraphWrapSupport
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState
 import com.allan.uilibs.richtexts.CodeArea
 import javafx.animation.AnimationTimer
-import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.geometry.Insets
 import javafx.geometry.Orientation
@@ -18,6 +17,7 @@ import javafx.scene.control.ScrollBar
 import javafx.scene.control.skin.TextAreaSkin
 import javafx.scene.input.InputMethodEvent
 import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Pane
@@ -229,8 +229,7 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
                 val cell = selected.table.rows()[selected.row].cells()[selected.column]
                 val start = MarkdownTableCellText.sourceOffset(cell.source(), selection.start - cell.startOffset())
                 val end = MarkdownTableCellText.sourceOffset(cell.source(), selection.end - cell.startOffset())
-                editing.activateCell(selected.table, selected.row, selected.column, 12.0)
-                Platform.runLater { cellEditor.selectRange(start, end) }
+                editing.activateCell(selected.table, selected.row, selected.column, 12.0) { cellEditor.selectRange(start, end) }
                 return
             }
             for (layout in layouts.values) for (graphic in layout.graphics.toList()) {
@@ -410,6 +409,12 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
                 for (column in layout.widths.indices) content.children.add(CellGraphic(this, column))
             }
             addEventFilter(ScrollEvent.SCROLL) { scrollTable(layout.table, it) }
+            // 子控件先处理完整手势，表格预览及留白都不交给外层编辑器拖选源码。
+            addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
+            addEventHandler(MouseEvent.DRAG_DETECTED) { it.consume() }
+            addEventHandler(MouseEvent.MOUSE_DRAGGED) { it.consume() }
+            addEventHandler(MouseEvent.MOUSE_RELEASED) { it.consume() }
+            addEventHandler(MouseEvent.MOUSE_CLICKED) { it.consume() }
             if (base != null) {
                 styleClass.add("markdown-table-line-gutter")
                 base.opacity = 0.0
@@ -525,17 +530,12 @@ class MarkdownTableRendering(private val state: MarkdownTablePreviewState) {
                     }
                     if (MarkdownTableEditing.isDescendant(event.target, cellEditor)) return@setOnMousePressed
                     event.consume()
-                    editing.activateCell(table, graphic.row, column, 12.0)
                     val screenX = event.screenX
                     val screenY = event.screenY
-                    Platform.runLater {
-                        if (activeTable?.id() == table.id() && activeRow == graphic.row && activeColumn == column) {
-                            cellEditor.applyCss()
-                            cellEditor.layout()
-                            val point = cellEditor.screenToLocal(screenX, screenY)
-                            val skin = cellEditor.skin as? TextAreaSkin
-                            if (point != null && skin != null) skin.positionCaret(skin.getIndex(point.x, point.y), false)
-                        }
+                    editing.activateCell(table, graphic.row, column, 12.0) {
+                        val point = cellEditor.screenToLocal(screenX, screenY)
+                        val skin = cellEditor.skin as? TextAreaSkin
+                        if (point != null && skin != null) skin.positionCaret(skin.getIndex(point.x, point.y), false)
                     }
                 } else if (event.button == MouseButton.SECONDARY) {
                     event.consume()

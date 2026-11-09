@@ -44,7 +44,7 @@ final class EditorKeywordHelperFactory {
         if (suffix.equalsIgnoreCase("kotlin") || suffix.equalsIgnoreCase("kt")) {
             return "kotlin";
         }
-        if (suffix.equalsIgnoreCase("markdown") || suffix.equalsIgnoreCase("md")) {
+        if (MarkdownEditorSupport.isMarkdownFile(file)) {
             return "markdown";
         }
         if (suffix.equalsIgnoreCase("cs")) {

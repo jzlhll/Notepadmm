@@ -118,10 +118,11 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
         }
     }
 
-    fun activateCell(table: PreviewTable, row: Int, column: Int, clickX: Double): Unit = with(state) {
-        if (structurePending || deferWhileComposing { activateCell(table, row, column, clickX) }) return
+    fun activateCell(table: PreviewTable, row: Int, column: Int, clickX: Double,
+                     afterActivation: (() -> Unit)? = null): Unit = with(state) {
+        if (structurePending || deferWhileComposing { activateCell(table, row, column, clickX, afterActivation) }) return
         val latest = session.latestTable(table)
-        if (latest !== table) { if (latest != null) activateCell(latest, row, column, clickX); return }
+        if (latest !== table) { if (latest != null) activateCell(latest, row, column, clickX, afterActivation); return }
         val layout = layouts[table.id()]
         val cells = layout?.cells
         if (!table.valid() || searchPresentation.mode(table) != MarkdownTableDocumentState.Mode.TABLE || layout == null || cells == null
@@ -156,14 +157,16 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
         table.setHorizontalOffset(offset)
         layout.applyOffset(offset)
         val activation = ++cellActivationRevision
+        val version = area.editor.contentVersion
         Platform.runLater {
-            val current = currentArea
             val active = activeTable
-            if (current != null && activation == cellActivationRevision && active?.id() == table.id() && activeRow == row && activeColumn == column) {
-                current.applyCss()
-                current.layout()
+            if (!destroyed && currentArea === area && version == area.editor.contentVersion && !composingText && !handlingInputMethod
+                && activation == cellActivationRevision && active?.id() == table.id() && activeRow == row && activeColumn == column) {
+                area.applyCss()
+                area.layout()
                 rendering.refreshRowGraphics(active, row)
                 cellEditor.requestFocus()
+                afterActivation?.invoke()
             }
         }
         menus.updateToolbar()
@@ -456,7 +459,9 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
     }
 
     fun onAreaMouseDragged(event: MouseEvent): Unit = with(state) {
-        if (isDescendant(event.target, cellEditor) || isDescendantOfType(event.target, ScrollBar::class.java)
+        // 拖动目标仍属于按下时的节点；表格内开始的操作不能沿用正文的旧 anchor。
+        if (!event.isPrimaryButtonDown || isDescendantOfType(event.target, MarkdownTableRendering.RowGraphic::class.java)
+            || isDescendant(event.target, cellEditor) || isDescendantOfType(event.target, ScrollBar::class.java)
             || isDescendantOfType(event.target, MarkdownTableToolbar::class.java)) return
         val area = currentArea
         if (!MarkdownTableRendering.hasVisibleParagraph(area)) return
