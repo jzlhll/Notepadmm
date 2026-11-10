@@ -23,6 +23,10 @@ object BottomMarkdownControls {
         val main = UIContext.context()
         main.markdownZoomBtn.tooltip = Tooltip(Locales.str("zoom"))
         main.markdownControlsBox.managedProperty().bind(main.markdownControlsBox.visibleProperty())
+        // FXML 完整加载后再建立跨控件绑定，避免前向引用空值。
+        val insertEmptyLine = main.notepadMainInsertEmptyLineBtn.parent
+        insertEmptyLine.visibleProperty().bind(main.markdownControlsBox.visibleProperty().not())
+        insertEmptyLine.managedProperty().bind(insertEmptyLine.visibleProperty())
         main.markdownSourceCheckBtn.tooltip = Tooltip(Locales.str("markdown.toggleSource"))
         main.markdownSourceCheckBtn.setOnMouseClicked {
             val area = UIContext.currentAreaProp.get() ?: return@setOnMouseClicked

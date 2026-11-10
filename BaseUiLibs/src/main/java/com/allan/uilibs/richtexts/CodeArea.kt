@@ -46,8 +46,7 @@ abstract class CodeArea private constructor(
     companion object {
         private const val MARKDOWN_ITALIC_STYLE = "markdown-italic"
         private const val MARKDOWN_EMOJI_STYLE = "markdown-emoji"
-        private val INLINE_SYNTAX_STYLES = setOf("markdown-inline-code", MARKDOWN_ITALIC_STYLE,
-            "markdown-bold", "markdown-strikethrough", "markdown-highlight")
+        const val MARKDOWN_SINGLE_SYNTAX_CLASS = "markdown-single-symbol-syntax"
         const val MARKDOWN_EMOJI_GLYPH_PREFIX = "markdown-emoji-glyph:"
         const val MARKDOWN_EMOJI_RENDERED_CLASS = "markdown-emoji-rendered"
         const val MARKDOWN_LIST_BULLET_PREFIX = "markdown-list-bullet:"
@@ -60,11 +59,11 @@ abstract class CodeArea private constructor(
         @JvmStatic
         fun emojiFontFamily(): String? = EMOJI_FONT_FAMILY
 
-        /** 短格式标记保留原字形占位；链接收起地址，表情和任务前缀沿用各自的渲染映射。 */
+        /** 每侧仅一个符号的行内标记保留占位，链接、表情和任务前缀沿用各自的渲染映射。 */
         @JvmStatic
         fun keepsMarkdownSyntaxWidth(styles: Collection<String>): Boolean =
             "markdown-link" !in styles && MARKDOWN_EMOJI_STYLE !in styles && MARKDOWN_TASK_PREFIX_CLASS !in styles &&
-                styles.any { it in INLINE_SYNTAX_STYLES }
+                MARKDOWN_SINGLE_SYNTAX_CLASS in styles
 
         /** 段落样式条目转换为内联高度，用于撑高图片等内容所在的段落。 */
         const val PARAGRAPH_PREF_HEIGHT_PREFIX = "pref-height:"
@@ -235,8 +234,7 @@ abstract class CodeArea private constructor(
                 if (emojiGlyph != null && emojiGlyph.length <= text.text.length) {
                     text.text = emojiGlyph + "\u2060".repeat(text.text.length - emojiGlyph.length)
                 } else if (MARKDOWN_EMOJI_STYLE !in styleClasses) {
-                    // 短格式标记只隐藏绘制，字形、宽度和换行位置与显示时一致。
-                    // 链接和块级标记沿用等长零宽占位，保持 UTF-16 源码命中索引。
+                    // 单符号行内标记隐藏绘制并保留宽度，其余标记使用等长零宽字符，保留 UTF-16 源码坐标。
                     if (!keepsMarkdownSyntaxWidth(styleClasses)) text.text = "\u2060".repeat(text.text.length)
                     text.opacity = 0.0
                 }

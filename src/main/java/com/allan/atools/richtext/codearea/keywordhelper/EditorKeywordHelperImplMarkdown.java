@@ -217,6 +217,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         }
         var events = new EventBuffer();
         var visitor = new MarkdownRegionVisitor(text, events, canContinue);
+        var singleSymbolMarkers = new TreeMap<Integer, Integer>();
         if (previewEnabled) {
             var snapshot = astCache.snapshot(text);
             snapshot.getRoot().accept(visitor);
@@ -226,6 +227,9 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             for (var group : snapshot.getSyntaxGroups()) {
                 for (var marker : group.getMarkers()) {
                     events.addRegion(marker.getStart(), marker.getEnd(), STYLE_COLLAPSIBLE);
+                    if (group.getKeepsMarkerWidth()) {
+                        singleSymbolMarkers.put(marker.getStart(), marker.getEnd());
+                    }
                 }
             }
         }
@@ -237,7 +241,8 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
         if (!canContinue.getAsBoolean()) {
             return null;
         }
-        return buildStyleSpans(events, text, visitor.bulletGlyphs, visitor.taskMarkers, visitor.taskExamples, visitor.taskPrefixes, canContinue);
+        return buildStyleSpans(events, text, visitor.bulletGlyphs, visitor.taskMarkers, visitor.taskExamples, visitor.taskPrefixes,
+                singleSymbolMarkers, canContinue);
     }
 
     private void addSearchRegions(String text, EventBuffer events) {
@@ -274,6 +279,7 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
      */
     private StyleSpans<Collection<String>> buildStyleSpans(EventBuffer events, String text, Map<Integer, String> bulletGlyphs,
                                                             Set<Integer> taskMarkers, Set<Integer> taskExamples, NavigableMap<Integer, Integer> taskPrefixes,
+                                                            NavigableMap<Integer, Integer> singleSymbolMarkers,
                                                             BooleanSupplier canContinue) {
         int textLength = text.length();
         events.sort();
@@ -292,6 +298,12 @@ public final class EditorKeywordHelperImplMarkdown extends EditorKeywordHelperAb
             int position = events.positionAt(eventIndex);
             if (position > prev) {
                 var styles = activeStyles(activeMask);
+                var singleSymbolMarker = singleSymbolMarkers.floorEntry(prev);
+                if (singleSymbolMarker != null && position <= singleSymbolMarker.getValue()) {
+                    var withMarker = new HashSet<>(styles);
+                    withMarker.add(CodeArea.MARKDOWN_SINGLE_SYNTAX_CLASS);
+                    styles = Set.copyOf(withMarker);
+                }
                 if ((activeMask & (1 << STYLE_EMOJI)) != 0) {
                     String emoji = MarkdownEmojiShortcodes.resolve(text.substring(prev, position));
                     if (emoji != null) {

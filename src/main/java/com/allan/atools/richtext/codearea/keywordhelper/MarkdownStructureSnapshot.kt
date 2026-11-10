@@ -12,7 +12,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
     data class Element(val node: Node, val parent: Int, val ranges: List<Range>)
     data class HeadingEntry(val level: Int, val title: String, val line: Int, val anchor: String)
     data class HtmlDependency(val kind: String, val name: String, val value: String? = null, val extra: String? = null)
-    data class SyntaxGroup(val start: Int, val end: Int, val markers: List<Range>)
+    data class SyntaxGroup(val start: Int, val end: Int, val markers: List<Range>, val keepsMarkerWidth: Boolean = false)
     data class FrontMatter(val firstLine: Int, val lastLine: Int, val closed: Boolean, val body: Range)
     data class Line(
         val start: Int, val end: Int, val heading: Int = 0, val quoteDepth: Int = 0,
@@ -117,6 +117,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 val begin = first.inputIndex
                 val end = last.inputIndex + last.length
                 val markerStart = syntax.size
+                var keepsMarkerWidth = false
                 val closedMetadata = node is YamlFrontMatterBlock && last.lineIndex > first.lineIndex
                     && metadataEnd.matches(text.substring(last.inputIndex, end))
                 if (node is YamlFrontMatterBlock) {
@@ -208,6 +209,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                             offset - begin
                         }; else -> 1 }
                         if (count > 0 && end - begin >= count * 2 && text[begin] == delimiter) {
+                            keepsMarkerWidth = count == 1
                             val body = text.substring(begin + count, end - count)
                             val padding = if (node is Code && body.startsWith(' ') && body.endsWith(' ')
                                 && body.any { it != ' ' && it != '\n' && it != '\r' }) 1 else 0
@@ -237,7 +239,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                     node is StrongEmphasis || node is Strikethrough || node is MarkdownDecoration && node.tag == "mark" ||
                     node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null || closedMetadata
                 if (collapsible && syntax.size > markerStart) {
-                    groups.add(SyntaxGroup(begin, end, syntax.subList(markerStart, syntax.size).toList()))
+                    groups.add(SyntaxGroup(begin, end, syntax.subList(markerStart, syntax.size).toList(), keepsMarkerWidth))
                 }
             }
             var child = node.firstChild

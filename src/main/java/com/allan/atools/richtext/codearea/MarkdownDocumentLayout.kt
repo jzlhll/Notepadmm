@@ -66,7 +66,7 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
         return gutterWidth
     }
 
-    fun refresh() {
+    fun refresh(): Boolean {
         val padding = area.padding
         val viewport = area.parent as? EditorZoomViewport
         // 纵向滚动条显隐不能改变留白，否则两侧取整可能让变窄的视口反而多出正文宽度。
@@ -85,7 +85,8 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
             calculatedMargin > maxMargin -> maxMargin
             else -> calculatedMargin
         }
-        if (margin.get() != desiredMargin) margin.set(desiredMargin)
+        val marginChanged = margin.get() != desiredMargin
+        if (marginChanged) margin.set(desiredMargin)
 
         // 按外层容器完整高度计算留白，横向滚动条只缩小视口，不参与留白计算。
         // 否则显隐滚动条会改变两侧取整后的 padding，临界行高下会反复切换滚动条。
@@ -99,6 +100,8 @@ class MarkdownDocumentLayout(private val area: EditorArea) {
             desiredPadding > maxPadding -> maxPadding
             else -> desiredPadding
         }
-        if (verticalPadding.get() != nextPadding) verticalPadding.set(nextPadding)
+        val paddingChanged = verticalPadding.get() != nextPadding
+        if (paddingChanged) verticalPadding.set(nextPadding)
+        return marginChanged || paddingChanged
     }
 }

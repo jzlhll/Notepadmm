@@ -313,7 +313,10 @@ class EditorArea @JvmOverloads constructor(
     }
 
     override fun layoutChildren() {
-        documentLayout.refresh()
+        if (documentLayout.refresh()) {
+            // 留白计算发生在 CSS 阶段之后，段落内联样式须先应用再测量正文。
+            applyCss()
+        }
         val followZoomCaret = followZoomCaretRequested
         followZoomCaretRequested = false
         val wrapMarkdown = MarkdownEditorSupport.supportsMarkdown(this) && !editor.isRealtimeProcessingLimitReached

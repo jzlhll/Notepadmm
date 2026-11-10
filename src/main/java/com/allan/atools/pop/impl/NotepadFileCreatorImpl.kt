@@ -1,20 +1,29 @@
 package com.allan.atools.pop.impl
 
-import com.allan.atools.pop.AppContextMenu
+import com.allan.atools.GlobalCfgStores
 import com.allan.atools.UIContext
 import com.allan.atools.pop.AbstractMenuCreator
+import com.allan.atools.pop.AppContextMenu
+import com.allan.atools.pop.MenuOverlay
+import com.allan.atools.pop.showPopupContent
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
 import com.allan.atools.tools.modulenotepad.workspace.WorkspaceManager
 import com.allan.atools.utils.Locales
 import com.allan.baseparty.Action
-import com.jfoenix.controls.JFXListView
-import javafx.beans.value.ObservableValue
-import javafx.event.ActionEvent
+import com.jfoenix.controls.JFXButton
+import com.jfoenix.controls.JFXTextField
 import javafx.event.EventHandler
+import javafx.geometry.Pos
 import javafx.scene.control.*
+import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
+import javafx.scene.layout.VBox
 import java.io.File
+import java.nio.file.InvalidPathException
+import java.nio.file.Path
 
+/** 文件菜单及路径输入浮层，复用编辑器的文件打开与最近记录管理。 */
 class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
 
     override fun createMenu(action: Action<Int>): ContextMenu {
@@ -26,11 +35,23 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
             )
         }
 
+        val openByPath = MenuItem(Locales.str("openFileByPath"))
+        openByPath.setOnAction {
+            var overlay: MenuOverlay? = null
+            val content = createPop { overlay?.close() }
+            overlay = showPopupContent(UIContext.context().notepadMainActionBarFileOpenBtn, content)
+        }
+
         val menu1 = MenuItem(Locales.str("newFile"))
         menu1.onAction = EventHandler {
             action.invoke(
                 1
             )
+        }
+
+        val save = MenuItem(Locales.str("save"))
+        save.setOnAction {
+            UIContext.currentAreaProp.get()?.editor?.saveContent(null, false)
         }
 
         val recentFilesMenu = Menu(Locales.str("allRecentFiles"))
@@ -84,7 +105,7 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
             }
         }
 
-        contextMenu.items.addAll(menu0, menu1)
+        contextMenu.items.addAll(menu0, openByPath, menu1, save)
         if (recentList.isNotEmpty() || pinnedList.isNotEmpty()) {
             contextMenu.items.add(recentFilesMenu)
         }
@@ -111,6 +132,63 @@ class NotepadFileCreatorImpl : AbstractMenuCreator<Int>() {
     }
 
     override fun createPop(action: Action<Int>?): Region {
-        throw java.lang.RuntimeException("not support create pop in NotepadFileCreatorImpl")
+        val pathInput = JFXTextField().apply {
+            styleClass.add("app-menu-path-input")
+            promptText = Locales.str("filePathPrompt")
+            accessibleText = Locales.str("filePath")
+            minWidth = 0.0
+            HBox.setHgrow(this, Priority.ALWAYS)
+        }
+        // 预留两行提示空间，校验失败时保持浮层尺寸不变。
+        val error = Label().apply {
+            styleClass.add("app-menu-path-error")
+            isWrapText = true
+            maxWidth = Double.MAX_VALUE
+        }
+        val openButton = JFXButton(Locales.str("open")).apply {
+            styleClass.add("app-menu-path-open")
+            isDisable = true
+        }
+
+        fun openPath() {
+            val value = pathInput.text.trim().removeSurrounding("\"").removeSurrounding("'")
+            if (value.isBlank()) {
+                error.text = Locales.str("filePathInvalid")
+                return
+            }
+            val expanded = when {
+                value == "~" -> System.getProperty("user.home")
+                value.startsWith("~/") || value.startsWith("~\\") ->
+                    File(System.getProperty("user.home"), value.substring(2)).path
+                else -> value
+            }
+            val file = try {
+                Path.of(expanded).toAbsolutePath().normalize().toFile()
+            } catch (_: InvalidPathException) {
+                error.text = Locales.str("filePathInvalid")
+                return
+            }
+            if (!file.isFile || !file.canRead()) {
+                error.text = Locales.str("filePathUnavailable")
+                return
+            }
+            action?.invoke(0)
+            GlobalCfgStores.user().setString("lastOpenDirs", file.parent)
+            AllEditorsManager.Instance.openFile(file, true, true)
+        }
+
+        pathInput.textProperty().addListener { _, _, value ->
+            openButton.isDisable = value.isNullOrBlank()
+            error.text = ""
+        }
+        pathInput.setOnAction { openPath() }
+        openButton.setOnAction { openPath() }
+
+        val inputRow = HBox(10.0, pathInput, openButton).apply {
+            alignment = Pos.CENTER_LEFT
+        }
+        return VBox(10.0, Label(Locales.str("filePath")), inputRow, error).apply {
+            styleClass.add("app-menu-open-path")
+        }
     }
 }

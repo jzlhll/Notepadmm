@@ -13,7 +13,7 @@ import javafx.scene.web.WebView
 import org.fxmisc.richtext.model.StyleSpansBuilder
 import org.fxmisc.richtext.model.StyleSpans
 
-/** 保留源码坐标，按光标或选区显示语法标记；短格式标记始终占位，拖选与输入法期间保持呈现稳定。 */
+/** 保留源码坐标，按光标或选区显示语法标记；单符号行内标记保留占位，拖选与输入法期间保持呈现稳定。 */
 class MarkdownSyntaxPresentation(private val area: EditorArea) {
     private var snapshot: MarkdownStructureSnapshot? = null
     private var version = -1L
@@ -176,7 +176,7 @@ class MarkdownSyntaxPresentation(private val area: EditorArea) {
                 if (result !in marker.start..marker.end) continue
                 val styles = area.getStyleOfChar(marker.start)
                 if (COLLAPSIBLE !in styles || EXPANDED in styles || "search" in styles || "temporary" in styles) continue
-                // 短格式标记仍有实际宽度，点击占位处按原字符定位，不再吸附到正文边界。
+                // 单符号行内标记仍有实际宽度，点击占位处按原字符定位。
                 if (CodeArea.keepsMarkdownSyntaxWidth(styles)) continue
                 if ("markdown-emoji" in styles) {
                     // 表情本身可见：左边界保留短码起点，右侧命中覆盖完整短码，拖选才能复制整颗表情。

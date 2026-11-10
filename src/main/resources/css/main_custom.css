@@ -832,6 +832,48 @@
    -fx-background-color: -au-main-window-border-color;
 }
 
+/* 路径输入浮层与菜单共用面板外观，提示区预留固定高度。 */
+.app-menu-open-path {
+   -fx-min-width: 0;
+   -fx-pref-width: 460;
+   -fx-max-width: 460;
+   -fx-padding: 8;
+}
+
+.app-menu-open-path > .label {
+   -fx-text-fill: -au-popup-text-color;
+}
+
+.app-menu-path-input {
+   -fx-max-width: Infinity;
+   -fx-min-height: 34;
+   -fx-pref-height: 34;
+}
+
+.app-menu-path-open {
+   -fx-min-width: 72;
+   -fx-min-height: 34;
+   -fx-pref-height: 34;
+   -fx-padding: 5 12;
+   -fx-text-fill: -au-main-color;
+   -fx-background-color: -au-main-bg-color2;
+   -fx-background-radius: 4;
+   -fx-cursor: hand;
+}
+
+.app-menu-path-open:hover {
+   -fx-background-color: -au-editor-selection-words-color;
+}
+
+.app-menu-open-path > .app-menu-path-error {
+   -fx-min-height: 36;
+   -fx-pref-height: 36;
+   -fx-max-height: 36;
+   -fx-font-size: 13;
+   -fx-text-fill: -au-red-color;
+   -fx-alignment: TOP_LEFT;
+}
+
 /* 设置页下拉框：与分段切换共用同一套框体，只在右侧多一个下拉箭头表示可选。 */
 .jfx-combo-box.setting-combo,
 .jfx-combo-box.setting-combo:focused {
