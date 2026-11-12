@@ -1,10 +1,8 @@
 package com.allan.atools.tools.modulenotepad.manager
 
-import com.allan.atools.richtext.codearea.EditorAreaMgrCode
 import com.allan.atools.richtext.codearea.MarkdownAttachments
 import com.allan.atools.richtext.codearea.MarkdownClipboard
 import com.allan.atools.richtext.codearea.MarkdownInlineFormatting
-import com.allan.atools.richtext.codearea.MarkdownLinkEditing
 import com.allan.atools.richtext.codearea.MarkdownShortcuts
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState
 import com.allan.atools.richtext.codearea.MarkdownTableParser
@@ -349,23 +347,6 @@ class MarkdownTableEditing(private val state: MarkdownTablePreviewState) {
         wrapCellSelection(mark)
     }
 
-    fun editCellLink(): Unit = with(state) {
-        val area = currentArea
-        if (!canModify(activeTable) || composingText || handlingInputMethod) return
-        area!!
-        val activation = cellActivationRevision
-        val version = area.editor.contentVersion
-        val source = cellEditor.text
-        val selection = cellEditor.selection
-        val document = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
-        val edit = MarkdownLinkEditing.request(source, selection.start, selection.end, cellEditor.caretPosition, document) ?: return
-        if (destroyed || currentArea !== area || activation != cellActivationRevision || version != area.editor.contentVersion
-            || source != cellEditor.text || !canModify(activeTable) || composingText || handlingInputMethod) return
-        area.undoManager.preventMerge()
-        cellEditor.replaceText(edit.start, edit.end, edit.text)
-        cellEditor.selectRange(edit.start, edit.start + edit.text.length)
-        area.undoManager.preventMerge()
-    }
     fun wrapCellSelection(mark: String): Unit = with(state) {
         val area = currentArea ?: return
         if (!area.isEditable || structurePending || composingText || handlingInputMethod) return

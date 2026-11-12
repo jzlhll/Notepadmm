@@ -1,10 +1,8 @@
 package com.allan.atools.tools.modulenotepad.manager
 
 import com.allan.atools.pop.AppContextMenu
-import com.allan.atools.richtext.codearea.MarkdownShortcuts
 import com.allan.atools.richtext.codearea.MarkdownTableDocumentState
 import com.allan.atools.utils.Locales
-import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.RadioMenuItem
@@ -64,27 +62,12 @@ class MarkdownTableMenus(private val state: MarkdownTablePreviewState) {
         val deleteRow = MenuItem(Locales.str("markdownTableDeleteRow"))
         val deleteColumn = MenuItem(Locales.str("markdownTableDeleteColumn"))
         val rowActions = Menu(Locales.str("markdownTableRowActions"))
-        rowActions.items.addAll(insertAbove, insertBelow, duplicateRow, moveUp, moveDown, SeparatorMenuItem(), deleteRow)
+        rowActions.items.addAll(insertAbove, insertBelow, duplicateRow, moveUp, moveDown)
         val columnActions = Menu(Locales.str("markdownTableColumnActions"))
-        columnActions.items.addAll(insertLeft, insertRight, moveLeft, moveRight, alignment, SeparatorMenuItem(), deleteColumn)
-        val formats = Menu(Locales.str("markdown.format"))
-        val names = listOf("markdown.bold", "markdown.italic", "markdown.strike", "markdown.inlineCode")
-        val marks = listOf("**", "*", "~~", "`")
-        for (index in marks.indices) {
-            val item = MenuItem(Locales.str(names[index]))
-            for (shortcut in MarkdownShortcuts.entries) {
-                if (shortcut.labelKey == names[index]) item.graphic = Label(shortcut.display())
-            }
-            item.setOnAction { editing.wrapCellSelection(marks[index]) }
-            formats.items.add(item)
-        }
-        val editLink = MenuItem(Locales.str("markdown.editLink"))
-        editLink.setOnAction { editing.editCellLink() }
-        formats.items.add(editLink)
-        formats.isDisable = !area.isEditable || structurePending
+        columnActions.items.addAll(insertLeft, insertRight, moveLeft, moveRight, alignment)
         val menu = AppContextMenu(undo, redo, SeparatorMenuItem(), cut, copy, copyAs,
-            paste, pasteCells, pasteText, selectAll, SeparatorMenuItem(), formats, rowActions, columnActions,
-            SeparatorMenuItem(), exitBefore, exitAfter)
+            paste, pasteCells, pasteText, selectAll, SeparatorMenuItem(), rowActions, columnActions,
+            deleteRow, deleteColumn, SeparatorMenuItem(), exitBefore, exitAfter)
         cellMenu = menu
         undo.setOnAction { editing.performUndoRedo(false) }
         redo.setOnAction { editing.performUndoRedo(true) }
