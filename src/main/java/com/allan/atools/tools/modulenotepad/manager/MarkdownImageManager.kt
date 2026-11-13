@@ -4,6 +4,7 @@ import com.allan.atools.richtext.codearea.MarkdownEditorSupport.supportsMarkdown
 import com.allan.atools.richtext.codearea.MarkdownEditorSupport.textLeftPadding
 import com.allan.atools.richtext.codearea.EditorArea
 import com.allan.atools.richtext.codearea.EditorAreaMgrCode
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
@@ -11,12 +12,15 @@ import com.allan.uilibs.richtexts.CodeArea
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.InvalidationListener
+import javafx.beans.property.SimpleDoubleProperty
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.image.Image
 import javafx.scene.image.ImageView
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
+import javafx.geometry.Pos
 import javafx.scene.text.Font
 import javafx.scene.text.Text
 import org.commonmark.node.AbstractVisitor
@@ -50,8 +54,6 @@ class MarkdownImageManager(area: EditorArea) {
         private const val PLACEHOLDER_WIDTH = 320.0
         private const val PLACEHOLDER_HEIGHT = 48.0
         private const val IMAGE_CACHE_LIMIT = 48
-        /** 使用固定补偿避开行号，不动态测量行号宽度。 */
-        private const val LINE_NO_COMPENSATE = 100.0
         private const val IMAGE_PARA_CLASS = "markdown-image-para"
         private const val PREF_HEIGHT_PREFIX = CodeArea.PARAGRAPH_PREF_HEIGHT_PREFIX
         private val HTML_IMG_TAG = Pattern.compile("(?i)<img\\b((?:\"[^\"]*\"|'[^']*'|[^'\">])*?)/?>")
@@ -62,8 +64,8 @@ class MarkdownImageManager(area: EditorArea) {
             area == null || !area.markdownPreviewEnabled || area.editor.isRealtimeProcessingLimitReached
 
         private fun parseImages(area: EditorArea, text: String, mdFile: File?): List<MarkdownImage> {
-            val collector = ImageCollector()
             val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(text)
+            val collector = ImageCollector(state)
             state.root.accept(collector)
             if (collector.found.isEmpty()) return emptyList()
             val images = ArrayList<MarkdownImage>()
@@ -121,6 +123,7 @@ class MarkdownImageManager(area: EditorArea) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedImage?>?): Boolean = size > IMAGE_CACHE_LIMIT
     }
     private var currentArea: EditorArea? = null
+    private var boundFile: File? = null
     private val refreshScheduler = LatestRefreshScheduler(REFRESH_DELAY_MS, MAX_REFRESH_WAIT_MS, ::startRefresh)
     private var imageByLine: Map<Int, MarkdownImage> = emptyMap()
     private var runtimeActive = false
@@ -128,6 +131,16 @@ class MarkdownImageManager(area: EditorArea) {
     private var parseTask: Future<*>? = null
     private var cachedLineHeight = -1.0
     private var layoutPending = false
+    private val structureChanged = InvalidationListener { removeEmbeddedImages() }
+    private val zoomChanged = Runnable {
+        val area = currentArea
+        if (area != null && runtimeActive) area.suspendVisibleParsWhileInvoke {
+            imageByLine.values.forEach { info ->
+                applyImageParagraphStyle(area, info.lineIndex, info)
+                area.recreateParagraphGraphic(info.lineIndex)
+            }
+        }
+    }
     private val layoutChanged = InvalidationListener {
         if (!layoutPending) {
             layoutPending = true
@@ -151,11 +164,15 @@ class MarkdownImageManager(area: EditorArea) {
         refreshScheduler.dispose()
     }
 
-    fun refreshCurrentFile(area: EditorArea) = bindEditor(area)
+    fun refreshCurrentFile(area: EditorArea) {
+        if (area === currentArea && boundFile == area.editor.sourceFile && runtimeActive == !isOverLimit(area)) return
+        bindEditor(area)
+    }
 
     private fun bindEditor(area: EditorArea) {
         unbindEditor()
         currentArea = area
+        boundFile = area.editor.sourceFile
         if (!supportsMarkdown(area)) return
         textChanges = area.plainTextChanges().subscribe { onTextChanged(it.position, it.removed, it.inserted) }
         if (isOverLimit(area)) return
@@ -170,6 +187,7 @@ class MarkdownImageManager(area: EditorArea) {
         deactivateRuntime()
         clearAllImageStyles(area)
         currentArea = null
+        boundFile = null
     }
 
     private fun onTextChanged(position: Int, removed: String, inserted: String) {
@@ -185,27 +203,33 @@ class MarkdownImageManager(area: EditorArea) {
         val insertedLines = inserted.count { it == '\n' }
         val delta = insertedLines - removedLines
         val next = LinkedHashMap<Int, MarkdownImage>()
-        val moved = HashSet<Int>()
+        val changed = sortedSetOf<Int>()
         var touched = false
         for (info in imageByLine.values) {
             if (info.lineIndex >= first && info.lineIndex <= first + removedLines) {
                 MarkdownImageTasks.cancel(info.loadTask)
+                changed.add(info.lineIndex)
                 touched = true
                 continue
             }
             if (info.lineIndex > first + removedLines && delta != 0) {
+                changed.add(info.lineIndex)
                 info.lineIndex += delta
-                moved.add(info.lineIndex)
+                changed.add(info.lineIndex)
             }
             next[info.lineIndex] = info
         }
         imageByLine = next
-        // 只展开正在改动的图片行，其余图片保留节点、加载状态和缓存。
-        if (touched) for (line in first..first + insertedLines) {
-            clearImageParagraphStyle(area, line)
-            area.recreateParagraphGraphic(line)
+        if (touched) changed.addAll(first..first + insertedLines)
+        // 虚拟段落可能已按旧索引创建图形；移动和删除图片时，旧位置也必须按新映射重建。
+        area.suspendVisibleParsWhileInvoke {
+            for (line in changed) {
+                if (line !in area.paragraphs.indices) continue
+                val info = imageByLine[line]
+                if (info == null) clearImageParagraphStyle(area, line) else applyImageParagraphStyle(area, line, info)
+                area.recreateParagraphGraphic(line)
+            }
         }
-        for (line in moved) area.recreateParagraphGraphic(line)
         refreshScheduler.request()
     }
 
@@ -269,6 +293,8 @@ class MarkdownImageManager(area: EditorArea) {
         val area = currentArea ?: return
         if (runtimeActive) return
         runtimeActive = true
+        area.markdownImageActions.addZoomListener(zoomChanged)
+        area.markdownPresentation.styleRevisionProperty().addListener(structureChanged)
         area.widthProperty().addListener(layoutChanged)
         area.paddingProperty().addListener(layoutChanged)
         area.addParagraphGraphicDecorator(this, ::createGraphic)
@@ -276,6 +302,8 @@ class MarkdownImageManager(area: EditorArea) {
 
     private fun deactivateRuntime() {
         currentArea?.let {
+            it.markdownImageActions.removeZoomListener(zoomChanged)
+            it.markdownPresentation.styleRevisionProperty().removeListener(structureChanged)
             it.removeParagraphGraphicDecorator(this)
             it.widthProperty().removeListener(layoutChanged)
             it.paddingProperty().removeListener(layoutChanged)
@@ -285,16 +313,46 @@ class MarkdownImageManager(area: EditorArea) {
         invalidateRefresh()
     }
 
+    private fun removeEmbeddedImages() {
+        val area = currentArea ?: return
+        val state = (area.editor as EditorAreaMgrCode).currentMarkdownSnapshot() ?: return
+        val removed = imageByLine.values.filter { state.isEmbeddedLine(it.lineIndex) }
+        if (removed.isEmpty()) return
+        // 普通换行会把图片并入前文段落；共用快照生效时立即交接，避免旧图片叠在块预览上。
+        imageByLine = imageByLine.filterValues { !state.isEmbeddedLine(it.lineIndex) }
+        area.suspendVisibleParsWhileInvoke {
+            for (info in removed) {
+                MarkdownImageTasks.cancel(info.loadTask)
+                clearImageParagraphStyle(area, info.lineIndex)
+                area.recreateParagraphGraphic(info.lineIndex)
+            }
+        }
+    }
+
     /** 图片通过零宽容器溢出绘制在标签行下方，行号节点保持在上层。 */
     private fun createGraphic(index: Int, base: Node?): Node? {
         val area = currentArea ?: return base
         val info = imageByLine[index] ?: return base
-        val imageNode = createImageNode(area, info)
+        if ((area.editor as EditorAreaMgrCode).currentMarkdownSnapshot()?.isEmbeddedLine(index) == true) return base
+        val imageNode = VBox(0.0, MarkdownImageToolbar(area, info.key) {
+            if (info.lineIndex !in area.paragraphs.indices) null else {
+                val start = area.getAbsolutePosition(info.lineIndex, 0)
+                area.markdownImageActions.targets(start, start + area.getParagraph(info.lineIndex).length())
+                    .firstOrNull { MarkdownImageLocation.resolve(area.editor.sourceFile, it.destination)?.toASCIIString() == info.key }
+            }
+        }, createImageNode(area, info)).apply {
+            alignment = Pos.TOP_LEFT
+            prefWidthProperty().bind(Bindings.createDoubleBinding(
+                { availableImageWidth(area, info) }, area.widthProperty(), area.paddingProperty(), info.leftInset, info.rightInset))
+        }
         val box = MarkdownImageGraphic(base, imageNode,
             if (info.sourceHeight > 0) info.sourceHeight else lineHeight(area), GAP_TOP, GAP_BOTTOM
-        ) { height ->
-            if (Math.abs(info.sourceHeight - height) >= 0.5) {
+        ) { height, left, right ->
+            if (Math.abs(info.sourceHeight - height) >= 0.5 || info.leftInset.get() != left || info.rightInset.get() != right) {
                 info.sourceHeight = height
+                // 直接复用原生段落的实际内边距，包含引用和各级列表的缩进。
+                info.leftInset.set(left)
+                info.rightInset.set(right)
                 // 下一次脉冲再回填样式，避免在段落布局过程中修改文档样式。
                 Platform.runLater {
                     if (!destroyed && area === currentArea && !isOverLimit(area) && imageByLine[info.lineIndex] === info) {
@@ -305,8 +363,8 @@ class MarkdownImageManager(area: EditorArea) {
         }
         // 行号固定在左侧；图片反向减去 scrollX，以便随文本水平滚动。
         imageNode.layoutXProperty().bind(Bindings.createDoubleBinding(
-            { textLeftPadding(area) + LINE_NO_COMPENSATE - area.estimatedScrollXProperty().value },
-            area.paddingProperty(), area.estimatedScrollXProperty()))
+            { box.width + (if (info.leftInset.get() >= 0.0) info.leftInset.get() else textLeftPadding(area)) - area.estimatedScrollXProperty().value },
+            box.widthProperty(), area.paddingProperty(), area.estimatedScrollXProperty(), info.leftInset))
         return box
     }
 
@@ -320,11 +378,14 @@ class MarkdownImageManager(area: EditorArea) {
         if (image.isError) return createPlaceholder(area, info, Locales.str("markdownImageLoadFailed"))
         val view = ImageView(image)
         view.isPreserveRatio = true
-        view.fitHeightProperty().bind(Bindings.createDoubleBinding({ displaySize(area, info)[0] }, area.widthProperty(), area.paddingProperty()))
-        view.fitWidthProperty().bind(Bindings.createDoubleBinding({ displaySize(area, info)[1] }, area.widthProperty(), area.paddingProperty()))
+        view.fitHeightProperty().bind(Bindings.createDoubleBinding({ displaySize(area, info)[0] },
+            area.widthProperty(), area.paddingProperty(), info.leftInset, info.rightInset))
+        view.fitWidthProperty().bind(Bindings.createDoubleBinding({ displaySize(area, info)[1] },
+            area.widthProperty(), area.paddingProperty(), info.leftInset, info.rightInset))
         return StackPane(view).apply {
             styleClass.add("markdown-image-frame")
             setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE)
+            setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE)
             prefWidthProperty().bind(view.fitWidthProperty().add(FRAME_BORDER * 2))
             prefHeightProperty().bind(view.fitHeightProperty().add(FRAME_BORDER * 2))
         }
@@ -338,8 +399,10 @@ class MarkdownImageManager(area: EditorArea) {
         frame.styleClass.add("markdown-image-frame")
         frame.prefHeight = PLACEHOLDER_HEIGHT
         frame.prefWidthProperty().bind(Bindings.createDoubleBinding(
-            { Math.min(PLACEHOLDER_WIDTH, availableImageWidth(owner)) }, owner.widthProperty(), owner.paddingProperty()))
+            { Math.min(PLACEHOLDER_WIDTH, availableImageWidth(owner, info)) },
+            owner.widthProperty(), owner.paddingProperty(), info.leftInset, info.rightInset))
         frame.minWidth = Region.USE_PREF_SIZE
+        frame.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE)
         label.isWrapText = true
         frame.setOnMouseClicked {
             val area = currentArea ?: return@setOnMouseClicked
@@ -362,24 +425,33 @@ class MarkdownImageManager(area: EditorArea) {
             }
         }
         val aspect = if (info.imageWidth > 0 && info.imageHeight > 0) info.imageWidth / info.imageHeight else 4.0 / 3.0
-        var height = if (info.imageHeight > 0) info.imageHeight * info.styleZoom else PLACEHOLDER_IMAGE_HEIGHT
-        if (info.width > 0) height = info.width / aspect
-        val maxWidth = availableImageWidth(area)
+        val percent = area.markdownImageActions.percent(info.key)
+        var height = if (info.imageHeight > 0) info.imageHeight * (percent?.div(100.0) ?: info.styleZoom) else PLACEHOLDER_IMAGE_HEIGHT
+        if (percent == null && info.width > 0) height = info.width / aspect
+        val maxWidth = availableImageWidth(area, info)
         if (height * aspect > maxWidth) height = maxWidth / aspect
         return doubleArrayOf(height, height * aspect)
     }
 
-    private fun availableImageWidth(area: EditorArea): Double =
-        Math.max(1.0, area.width - area.insets.left - area.insets.right - textLeftPadding(area) - LINE_NO_COMPENSATE - FRAME_BORDER * 2)
+    private fun availableImageWidth(area: EditorArea, info: MarkdownImage): Double {
+        val left = if (info.leftInset.get() >= 0.0) info.leftInset.get() else textLeftPadding(area)
+        val right = if (info.rightInset.get() >= 0.0) info.rightInset.get() else 10.0
+        return Math.max(1.0, area.width - area.insets.left - area.insets.right - left - right -
+            area.documentLayout.lineNumberWidth() - FRAME_BORDER * 2)
+    }
 
     private fun totalParagraphHeight(area: EditorArea, info: MarkdownImage): Int {
         val nodeHeight = if (isFailedImage(info)) PLACEHOLDER_HEIGHT else displaySize(area, info)[0] + FRAME_BORDER * 2
         val sourceHeight = if (info.sourceHeight > 0) info.sourceHeight else lineHeight(area)
-        return Math.ceil(sourceHeight + GAP_TOP + nodeHeight + GAP_BOTTOM).toInt()
+        return Math.ceil(sourceHeight + GAP_TOP + MarkdownImageToolbar.HEIGHT + nodeHeight + GAP_BOTTOM).toInt()
     }
 
     private fun applyImageParagraphStyle(area: EditorArea, index: Int, info: MarkdownImage) {
         if (index < 0 || index >= area.paragraphs.size) return
+        if ((area.editor as EditorAreaMgrCode).currentMarkdownSnapshot()?.isEmbeddedLine(index) == true) {
+            clearImageParagraphStyle(area, index)
+            return
+        }
         val existing = ArrayList(area.getParagraph(index).paragraphStyle)
         val merged = existing.filterTo(ArrayList()) { it != IMAGE_PARA_CLASS && !it.startsWith(PREF_HEIGHT_PREFIX) }
         merged.add(IMAGE_PARA_CLASS)
@@ -418,17 +490,16 @@ class MarkdownImageManager(area: EditorArea) {
             if (Thread.currentThread().isInterrupted) return@submit
             val image = decoded?.image
             diagnostic.complete(image)
-            cacheImage(info.key, decoded)
             if (!ThreadUtils.sBeClosing && !Thread.currentThread().isInterrupted) {
-                Platform.runLater { onImageLoaded(area, info, image, diagnostic) }
+                Platform.runLater { onImageLoaded(area, info, decoded, diagnostic) }
             } else diagnostic.event("result skipped application closing or worker interrupted")
         }
     }
 
-    private fun onImageLoaded(area: EditorArea, info: MarkdownImage, image: Image?, diagnostic: MarkdownImageLoadLog?) {
-        diagnostic?.complete(image)
+    private fun onImageLoaded(area: EditorArea, info: MarkdownImage, decoded: MarkdownImageDecoder.Result?, diagnostic: MarkdownImageLoadLog?) {
+        diagnostic?.complete(decoded?.image)
         if (area.markdownComposing) {
-            area.runAfterMarkdownComposition { onImageLoaded(area, info, image, diagnostic) }
+            area.runAfterMarkdownComposition { onImageLoaded(area, info, decoded, diagnostic) }
             return
         }
         info.loading = false
@@ -438,6 +509,7 @@ class MarkdownImageManager(area: EditorArea) {
             diagnostic?.event("result skipped stale image or inactive document")
             return
         }
+        cacheImage(info.key, decoded)
         applyImageParagraphStyle(area, index, info)
         area.recreateParagraphGraphic(index)
     }
@@ -484,16 +556,18 @@ class MarkdownImageManager(area: EditorArea) {
         task?.cancel(true)
     }
 
-    /** 收集整段只有一张图片的段落，以及独立的 HTML img 标签。 */
-    private class ImageCollector : AbstractVisitor() {
+    /** 收集独占源码一行的图片，不依赖 CommonMark 是否把图片与前文归入同一段落。 */
+    private class ImageCollector(private val state: MarkdownStructureSnapshot) : AbstractVisitor() {
         val found = ArrayList<FoundImage>()
+
+        override fun visit(image: org.commonmark.node.Image) {
+            if (!state.isStandaloneImageLine(image)) return
+            found.add(FoundImage(image.sourceSpans.first().lineIndex, image.destination, altOf(image), 1.0, 0.0))
+        }
 
         override fun visit(paragraph: Paragraph) {
             val first = paragraph.firstChild
-            if (first is org.commonmark.node.Image && first.next == null) {
-                val spans = first.sourceSpans
-                if (spans.isNotEmpty()) found.add(FoundImage(spans[0].lineIndex, first.destination, altOf(first), 1.0, 0.0))
-            } else if (first is HtmlInline && first.next == null) {
+            if (first is HtmlInline && first.next == null) {
                 addHtmlImgs(first.literal, firstLine(first), found)
             }
             visitChildren(paragraph)
@@ -534,6 +608,8 @@ class MarkdownImageManager(area: EditorArea) {
         var imageWidth = -1.0
         var imageHeight = -1.0
         var sourceHeight = -1.0
+        val leftInset = SimpleDoubleProperty(-1.0)
+        val rightInset = SimpleDoubleProperty(-1.0)
         var loading = false
         var loadTask: Future<*>? = null
         var loadLog: MarkdownImageLoadLog? = null

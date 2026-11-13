@@ -21,6 +21,12 @@
     -fx-padding: 4 8 4 12;
 }
 
+.secondary-window-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -au-default-text-color;
+}
+
 .secondary-window-header-with-navigation {
     -fx-min-height: 50;
     -fx-pref-height: 50;

@@ -14,7 +14,9 @@ object MarkdownEmbeddedBlocks {
         val result = TreeMap<Int, Block>()
         state.details.forEach { result[it.start] = Block(it.start, it.end, it.firstLine, it.lastLine) }
         fun technical(node: Node): Boolean {
-            if (node is MarkdownMath || node is MarkdownMathBlock || node is FootnoteReference || node is Image || node is HtmlInline ||
+            // 图片独占源码一行时由原生图片管理器占高，不能连带前面的列表、引用和正文切成页面。
+            if (node is Image) return !state.isStandaloneImageLine(node) || node.destination.startsWith("data:", true)
+            if (node is MarkdownMath || node is MarkdownMathBlock || node is FootnoteReference || node is HtmlInline ||
                 node is HtmlBlock || node is TableBlock ||
                 node is MarkdownDecoration && node.tag in setOf("sub", "sup")) return true
             if (node is Paragraph && node.firstChild is Text && node.firstChild.next == null &&

@@ -6,7 +6,6 @@ import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
 import javafx.scene.text.Text
 import javafx.scene.text.TextFlow
-import java.util.function.DoubleConsumer
 
 /** 图片从当前源码文字的实际下沿开始排版，并回填段落高度，避免字号、留白或折行造成重叠。 */
 class MarkdownImageGraphic(
@@ -15,7 +14,7 @@ class MarkdownImageGraphic(
     private val fallbackSourceHeight: Double,
     private val topGap: Double,
     private val bottomGap: Double,
-    private val sourceHeightChanged: DoubleConsumer
+    private val sourceLayoutChanged: (Double, Double, Double) -> Unit
 ) : Pane() {
     private var source: TextFlow? = null
     private val sourceChanged = InvalidationListener {
@@ -23,10 +22,6 @@ class MarkdownImageGraphic(
     }
 
     init {
-        val baseWidth = base?.prefWidth(-1.0) ?: 0.0
-        minWidth = baseWidth
-        prefWidth = baseWidth
-        maxWidth = baseWidth
         children.add(image)
         if (base != null) children.add(base)
         image.layoutY = fallbackSourceHeight + topGap
@@ -36,6 +31,11 @@ class MarkdownImageGraphic(
             requestLayout()
         }
     }
+
+    // 行号的最终字号和留白由 CSS 决定，不能在创建节点时冻结栏宽。
+    override fun computeMinWidth(height: Double): Double = base?.prefWidth(height) ?: 0.0
+    override fun computePrefWidth(height: Double): Double = base?.prefWidth(height) ?: 0.0
+    override fun computeMaxWidth(height: Double): Double = base?.prefWidth(height) ?: 0.0
 
     override fun layoutChildren() {
         super.layoutChildren()
@@ -58,6 +58,6 @@ class MarkdownImageGraphic(
             base.prefHeight = reserved
             base.maxHeight = reserved
         }
-        if (flow != null && textBottom != null) sourceHeightChanged.accept(sourceHeight)
+        if (flow != null && textBottom != null) sourceLayoutChanged(sourceHeight, flow.insets.left, flow.insets.right)
     }
 }

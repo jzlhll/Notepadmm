@@ -49,5 +49,11 @@ button { color:var(--foreground); background:var(--code); border:1px solid var(-
 .code-tools + pre{margin-top:.3em}
 .code-tools button,.image-retry{font:inherit;border:1px solid #aab3bd;border-radius:4px;padding:3px 9px;background:transparent;color:inherit;cursor:pointer}
 .diagram-error{color:#ba3333;white-space:pre-wrap;font-size:.85em}
+.md-image-container{display:block;max-width:100%;box-sizing:border-box}
+.md-image-container>img{display:block;width:100%;height:auto}
+.md-image-tools{display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:28px;white-space:nowrap;font-size:11px;line-height:1.2}
+.md-image-tools>button{flex:none;border:0;background:transparent;color:var(--muted);font:inherit;padding:3px 6px}
+.md-image-tools>button:hover{background:var(--code);color:var(--foreground)}
+.md-image-tools>button:disabled{opacity:.4;cursor:default}
 h1,h2 { padding-bottom:.3em; border-bottom:1px solid var(--heading-border); }
 tbody tr:nth-child(even) { background:var(--table-alternate); }

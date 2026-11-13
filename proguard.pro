@@ -8,6 +8,9 @@
     public void copy(java.lang.String);
     public void task(int, boolean);
     public void retry(int);
+    public void imageJump(int, boolean);
+    public void imageZoom(int, double, double);
+    public void imageEdit(int);
 }
 -keeppackagenames com.allan.atools.richtext.codearea
 # -dontpreverify
@@ -158,6 +161,7 @@
 -keeppackagenames com.allan.uilibs.controls
 -keeppackagenames com.allan.uilibs.richtexts
 -keeppackagenames com.allan.uilibs.jfoenix
+-keeppackagenames com.allan.uilibs.image
 -dontnote com.allan.baseparty.**
 -dontnote com.allan.uilibs.**
 

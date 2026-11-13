@@ -114,7 +114,8 @@ class MarkdownAttachments(private val area: EditorArea) {
             replacements.distinctBy { it.first }.sortedByDescending { it.first }.forEach { value.replace(it.first, it.second, it.third) }
             return RebasePlan(value.toString(), replacements.distinctBy { it.first })
         }
-        private fun destinationRange(raw: String, definition: Boolean): IntRange? {
+        /** 定位原始图片／链接中的地址，供迁移与图片转换保留其余源码格式。 */
+        fun destinationRange(raw: String, definition: Boolean): IntRange? {
             var index = 0
             while (raw.getOrNull(index)?.isWhitespace() == true) index++
             if (raw.getOrNull(index) == '!') index++

@@ -25,7 +25,6 @@ import org.jsoup.Jsoup
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Base64
-import java.util.WeakHashMap
 import java.util.concurrent.Future
 import javax.imageio.ImageIO
 
@@ -33,6 +32,7 @@ import javax.imageio.ImageIO
 class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private data class CachedFragment(val html: String, val comparable: String, val start: Int, val line: Int)
     private class Entry(var block: MarkdownEmbeddedBlocks.Block) {
+        // 空字符串表示注释没有可见内容，null 表示尚未渲染或需要回退源码。
         var html: String? = null
         var comparableHtml: String? = null
         var source: String? = null
@@ -45,7 +45,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         var readingState: String? = null
         val taskStates = HashMap<Int, Boolean>()
     }
-    private val views = WeakHashMap<BlockView, Entry>()
+    // 可见块在段落样式重建、临时脱离场景时仍保留同一个页面，离屏或展开源码后才释放。
+    private val views = LinkedHashMap<BlockView, Entry>()
     private var entries = emptyList<Entry>()
     private var snapshot: MarkdownStructureSnapshot? = null
     private var taskPositionsCurrent = false
@@ -62,7 +63,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private var disposed = false
     private var pending = false
     private val selectionChanged = InvalidationListener { requestRefresh() }
-    private val viewportChanged = InvalidationListener { if (views.size < MAX_VIEWS) requestRefresh() }
+    private val viewportChanged = InvalidationListener { requestRefresh() }
+    private val sceneChanged = InvalidationListener { requestRefresh() }
+    private val zoomChanged = Runnable { views.keys.toList().forEach { it.syncImages() } }
     private val layoutChanged = InvalidationListener {
         // 保留上次测量高度，等页面回报新高度后再调整，避免滚动文档先收缩再展开。
         views.keys.toList().forEach { it.resizeContent() }
@@ -74,12 +77,14 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         if (disposed) return
         if (!installed) {
             installed = true
+            area.markdownImageActions.addZoomListener(zoomChanged)
             area.addParagraphGraphicDecorator(this, ::graphic)
             area.caretPositionProperty().addListener(selectionChanged)
             area.selectionProperty().addListener(selectionChanged)
             area.focusedProperty().addListener(selectionChanged)
             area.editableProperty().addListener(selectionChanged)
             area.visibleParagraphs.addListener(viewportChanged)
+            area.sceneProperty().addListener(sceneChanged)
             area.widthProperty().addListener(layoutChanged)
             area.paddingProperty().addListener(layoutChanged)
             UIContext.getFontSizeProperty().addListener(themeChanged)
@@ -221,23 +226,21 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     renderedDependencies = state.htmlDependencies
                     renderedBlockCount = entries.size
                     for (entry in entries) {
-                        entry.source = state.text.substring(entry.block.start, entry.block.end)
-                        // HTML 注释没有可显示节点，保留可点击的简短占位，编辑时恢复全文。
+                        val source = state.text.substring(entry.block.start, entry.block.end)
+                        entry.source = source
                         val fragment = fragments[entry.block.start]
-                        val html = fragment?.first.orEmpty().ifEmpty {
-                            if (state.text.substring(entry.block.start, entry.block.end).trimStart().startsWith("<!--"))
-                                "<span class=\"source-placeholder\">${MarkdownHtmlRenderer.escape(Locales.str("markdown.hiddenComment"))}</span>"
-                            else ""
-                        }
-                        if (html.isEmpty()) { entry.html = null; continue }
-                        val comparable = if (fragment?.first?.isNotEmpty() == true) fragment.second else stableHtml(html)
+                        val html = fragment?.first.orEmpty()
+                        if (html.isEmpty() && !source.trimStart().startsWith("<!--")) { entry.html = null; continue }
+                        val comparable = fragment?.second ?: stableHtml(html)
                         if (!reload && entry.html != null && entry.comparableHtml == comparable) continue
                         entry.html = html
                         entry.comparableHtml = comparable
                         entry.taskStates.clear()
                         entry.renderedStart = entry.block.start
                         entry.renderedLine = entry.block.firstLine
-                        views.keys.toList().filter { views[it] === entry }.forEach { it.load() }
+                        views.keys.toList().filter { views[it] === entry }.forEach {
+                            if (html.isEmpty()) it.release() else it.load()
+                        }
                     }
                     refresh()
                 }
@@ -268,12 +271,20 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     private fun refresh() {
         if (disposed || area.markdownComposing) return
+        if (area.scene == null) {
+            views.keys.toList().forEach { it.release() }
+            return
+        }
         if (snapshot == null || version != area.editor.contentVersion || entries.isEmpty()) return
-        val active = views.values.toSet()
-        var available = Math.max(0, MAX_VIEWS - active.size)
         val visible = area.visibleParagraphs.isNotEmpty()
         val first = if (visible) area.firstVisibleParToAllParIndex() else -1
         val last = if (visible) area.lastVisibleParToAllParIndex() else -1
+        if (visible) views.keys.toList().filter {
+            val block = views.getValue(it).block
+            block.firstLine > last || block.lastLine < first
+        }.forEach { it.release() }
+        val active = views.values.toSet()
+        var available = Math.max(0, MAX_VIEWS - active.size)
         var changed = false
         area.suspendVisibleParsWhileInvoke {
             for (entry in entries) {
@@ -284,19 +295,23 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     else selection.start < block.end && selection.end > block.start
                 val eligible = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !entry.searchHit
                 val inViewport = visible && block.firstLine <= last && block.lastLine >= first
-                val preview = eligible && (!inViewport || entry in active || available > 0)
-                if (preview && inViewport && entry !in active) available--
+                val hiddenComment = entry.html == ""
+                val preview = eligible && (hiddenComment || !inViewport || entry in active || available > 0)
+                if (preview && !hiddenComment && inViewport && entry !in active) available--
                 if (styles(entry, preview)) changed = true
             }
         }
+        views.keys.toList().filter { views[it]?.preview != true }.forEach { it.release() }
         views.keys.toList().forEach { it.syncReadonly() }
         if (changed) area.requestLayout()
     }
 
     private fun styles(entry: Entry, preview: Boolean): Boolean {
-        val height = if (preview) Math.max(32.0, entry.height) else -1.0
+        val height = if (preview) {
+            if (entry.html == "") 0.0 else Math.max(32.0, entry.height)
+        } else -1.0
         if (entry.preview == preview && entry.styledHeight == height) return false
-        val changed = entry.preview != preview || entry.styledHeight == null
+        val changed = entry.preview != preview || entry.styledHeight == null || (entry.styledHeight == 0.0) != (height == 0.0)
         entry.preview = preview
         entry.styledHeight = height
         // 单纯测高只影响首行，余下源码行继续保持收起状态。
@@ -313,8 +328,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         return true
     }
 
-    private fun width(base: Node?): Double = Math.max(40.0, area.width - area.insets.left - area.insets.right -
-        (base?.prefWidth(-1.0) ?: 0.0) - MarkdownEditorSupport.textLeftPadding(area) - 12.0)
+    private fun contentWidth(): Double = Math.max(1.0, area.width - area.insets.left - area.insets.right -
+        area.documentLayout.lineNumberWidth() - MarkdownEditorSupport.textLeftPadding(area) - 10.0)
 
     private fun graphic(line: Int, base: Node?): Node? {
         var low = 0
@@ -324,7 +339,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             if (entries[middle].block.firstLine <= line) low = middle + 1 else high = middle - 1
         }
         val entry = entries.getOrNull(high)?.takeIf { it.preview && line <= it.block.lastLine } ?: return base
-        if (line != entry.block.firstLine) return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
+        if (line != entry.block.firstLine || entry.html == "")
+            return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
         if (views.values.toSet().size >= MAX_VIEWS && entry !in views.values) {
             // 临时缺少控件时只展开源码，保留 HTML，等离屏控件释放后重新挂载。
             Platform.runLater {
@@ -348,7 +364,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     private inner class BlockView(private val entry: Entry, private var base: Node?) : Pane() {
         private val web = WebView()
-        private val imageTasks = ArrayList<Future<*>>()
+        private val imageTasks = HashMap<Int, Future<*>>()
+        private val loadedImages = HashSet<Int>()
         private var imageUrls = emptyList<String>()
         private var revision = 0L
         private var live = false
@@ -361,6 +378,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             views[this] = entry
             styleClass.add("markdown-embedded-graphic")
             web.isManaged = false
+            web.setMinSize(0.0, 0.0)
             web.isContextMenuEnabled = false
             web.engine.setCreatePopupHandler { null }
             web.addEventFilter(javafx.scene.input.ScrollEvent.SCROLL) { event ->
@@ -381,10 +399,10 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     event.consume()
                 }
             }
-            base?.let { it.opacity = 0.0; children.add(it) }
+            base?.let { children.add(it) }
             children.add(web)
             web.engine.loadWorker.stateProperty().addListener { _, _, state ->
-                if (live && state == Worker.State.SUCCEEDED &&
+                if (live && !ready && state == Worker.State.SUCCEEDED &&
                     web.engine.executeScript("typeof embeddedReady === 'function' && window.embeddedRevision === $revision") == true) {
                     ready = true
                     // Kotlin 编译使用 JDK 25 的兼容接口，运行时由 JavaFX 提供未弃用的实现。
@@ -394,6 +412,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     web.engine.executeScript("embeddedReady()")
                     syncTasks()
                     syncReadonly()
+                    syncImages()
                     entry.readingState?.let { web.engine.executeScript("restorePreviewReadingState(${Gson().toJson(it)})") }
                     imageUrls.indices.forEach { loadImage(it) }
                 } else if (live && state == Worker.State.FAILED) {
@@ -403,7 +422,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             }
             sceneProperty().addListener { _, _, scene ->
                 // 样式或文档段落替换可能在同一帧内重新挂载，不能因此清空已显示的页面。
-                if (scene == null) Platform.runLater { if (this.scene == null) release() } else if (!live) {
+                if (scene == null) requestRefresh() else if (!live && entry.preview && entry in entries) {
                     live = true
                     views[this] = entry
                     load()
@@ -418,7 +437,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             if (base === next) return
             base?.let { children.remove(it) }
             base = next
-            next?.let { it.opacity = 0.0; children.add(0, it) }
+            next?.let { children.add(0, it) }
             requestLayout()
         }
 
@@ -445,8 +464,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             ready = false
             readonly = null
             revision++
-            imageTasks.forEach(MarkdownImageTasks::cancel)
+            imageTasks.values.forEach(MarkdownImageTasks::cancel)
             imageTasks.clear()
+            loadedImages.clear()
             pageTask?.cancel(true)
             val expected = revision
             val source = entry.html!!
@@ -454,8 +474,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val dark = Colors.isDark()
             val themeCss = AppTheme.previewCss(dark)
             val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())},monospace}" +
-                "article{max-width:none;margin:0;padding:6px 4px;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
-                "img[data-image-loading]{min-width:32px;min-height:24px}.source-placeholder{color:var(--muted)}"
+                "article{max-width:none;margin:0;padding:6px 0;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
+                "img[data-image-loading]{min-width:32px;min-height:24px}"
+            val labels = Gson().toJson(listOf("markdown.imageBefore", "markdown.imageAfter", "markdown.imageZoom", "markdown.imageEdit").map(Locales::str))
             pageTask = ThreadUtils.submit {
                 try {
                     val body = Jsoup.parseBodyFragment(source)
@@ -472,7 +493,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     }
                     val script = MarkdownEmbeddedPresentation::class.java.getResource("/markdown/embedded.js")!!.readText()
                     val html = MarkdownPreviewWindow.renderFragment(body.body().html(), baseUrl, dark, themeCss,
-                        body.select(".md-math").isNotEmpty(), body.select(".mermaid-source").isNotEmpty(), css, script + "\nwindow.embeddedRevision=$expected;")
+                        body.select(".md-math").isNotEmpty(), body.select(".mermaid-source").isNotEmpty(), css,
+                        script + "\nwindow.embeddedRevision=$expected;window.embeddedImageLabels=$labels;")
                     Platform.runLater {
                         if (live && !disposed && expected == revision && entry in entries) {
                             pageTask = null
@@ -491,12 +513,13 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
 
         fun loadImage(index: Int) {
-            if (!live || !ready || disposed || index !in imageUrls.indices) return
+            if (!live || !ready || disposed || index !in imageUrls.indices || index in imageTasks || index in loadedImages) return
             val expected = revision
             val currentFile = file
             val url = imageUrls[index]
             val diagnostic = MarkdownImageLoadLog("embedded", url, currentFile, entry.block.firstLine + 1)
-            imageTasks.add(MarkdownImageTasks.submit {
+            lateinit var task: Future<*>
+            task = MarkdownImageTasks.submit {
                 try {
                     val resolved = MarkdownImageLocation.resolve(currentFile, url) ?: error("Unsupported image location")
                     val decoded = when (resolved.scheme.lowercase()) {
@@ -517,17 +540,42 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     val output = ByteArrayOutputStream()
                     ImageIO.write(SwingFXUtils.fromFXImage(decoded.image, null), "png", output)
                     val data = "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray())
+                    if (Thread.currentThread().isInterrupted) return@submit
                     Platform.runLater {
-                        if (live && expected == revision && entry.preview && currentFile == file && currentFile == area.editor.sourceFile)
+                        if (live && expected == revision && imageTasks[index] === task && entry.preview && currentFile == file && currentFile == area.editor.sourceFile) {
+                            imageTasks.remove(index)
+                            loadedImages.add(index)
                             web.engine.executeScript("embeddedImage($index,${Gson().toJson(data)},${decoded.width},${decoded.height})")
+                        }
                     }
                 } catch (error: Exception) {
                     diagnostic.fail("embedded image load failed", error)
                     Platform.runLater {
-                        if (live && expected == revision) web.engine.executeScript("embeddedImage($index,null,0,0)")
+                        if (live && expected == revision && imageTasks[index] === task) {
+                            imageTasks.remove(index)
+                            web.engine.executeScript("embeddedImage($index,null,0,0)")
+                        }
                     }
                 }
-            })
+            }
+            imageTasks[index] = task
+        }
+
+        fun syncImages() {
+            if (!live || !ready) return
+            val config = imageUrls.map { url ->
+                mapOf("percent" to area.markdownImageActions.percent(url), "local" to (area.markdownImageActions.localFile(url) != null))
+            }
+            web.engine.executeScript("embeddedImageControls(${Gson().toJson(config)})")
+        }
+
+        private fun imageTarget(index: Int): MarkdownImageActions.Target? {
+            if (!live || !ready || !entry.preview || index !in imageUrls.indices) return null
+            val url = imageUrls[index]
+            val key = MarkdownImageLocation.resolve(file, url)
+            val occurrence = imageUrls.take(index).count { MarkdownImageLocation.resolve(file, it) == key }
+            return area.markdownImageActions.targets(entry.block.start, entry.block.end)
+                .filter { MarkdownImageLocation.resolve(file, it.destination) == key }.getOrNull(occurrence)
         }
 
         fun syncReadonly() {
@@ -540,7 +588,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
         fun resizeContent() {
             if (!live) return
-            web.resize(width(base), Math.max(32.0, entry.height))
+            web.resize(contentWidth(), Math.max(32.0, entry.height))
             requestLayout()
         }
 
@@ -558,8 +606,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             revision++
             pageTask?.cancel(true)
             pageTask = null
-            imageTasks.forEach(MarkdownImageTasks::cancel)
+            imageTasks.values.forEach(MarkdownImageTasks::cancel)
             imageTasks.clear()
+            loadedImages.clear()
             views.remove(this)
             requestRefresh()
             // JS 回调可能触发源码展开；等本次回调返回后再释放页面。
@@ -598,13 +647,24 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 area.markdownEditing.setTaskChecked(offset, checked)
             }
             fun retry(index: Int) { loadImage(index) }
+            fun imageJump(index: Int, after: Boolean) {
+                imageTarget(index)?.let { target -> Platform.runLater { area.markdownImageActions.jump(target, after) } }
+            }
+            fun imageZoom(index: Int, x: Double, y: Double) {
+                val target = imageTarget(index) ?: return
+                val point = web.localToScreen(x, y) ?: return
+                Platform.runLater { area.markdownImageActions.showZoom(web, target, point.x, point.y) }
+            }
+            fun imageEdit(index: Int) {
+                imageTarget(index)?.let { target -> Platform.runLater { area.markdownImageActions.editImage(target) } }
+            }
         }
 
         override fun computePrefWidth(height: Double): Double = base?.prefWidth(height) ?: 0.0
         override fun layoutChildren() {
             base?.resizeRelocate(0.0, 0.0, width, height)
-            web.resizeRelocate(width + MarkdownEditorSupport.textLeftPadding(area), 0.0,
-                this@MarkdownEmbeddedPresentation.width(base), Math.max(32.0, entry.height))
+            web.resizeRelocate(width + MarkdownEditorSupport.textLeftPadding(area) - area.estimatedScrollXProperty().value, 0.0,
+                contentWidth(), Math.max(32.0, entry.height))
         }
     }
 
@@ -680,12 +740,14 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         disposed = true
         clear()
         if (!installed) return
+        area.markdownImageActions.removeZoomListener(zoomChanged)
         area.removeParagraphGraphicDecorator(this)
         area.caretPositionProperty().removeListener(selectionChanged)
         area.selectionProperty().removeListener(selectionChanged)
         area.focusedProperty().removeListener(selectionChanged)
         area.editableProperty().removeListener(selectionChanged)
         area.visibleParagraphs.removeListener(viewportChanged)
+        area.sceneProperty().removeListener(sceneChanged)
         area.widthProperty().removeListener(layoutChanged)
         area.paddingProperty().removeListener(layoutChanged)
         UIContext.getFontSizeProperty().removeListener(themeChanged)

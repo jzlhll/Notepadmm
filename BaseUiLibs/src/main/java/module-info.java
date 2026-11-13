@@ -4,6 +4,7 @@ module atools.baseuilibs {
 
     requires org.fxmisc.undo;
     requires java.base;
+    requires transitive java.desktop;
     requires javafx.graphics;
     requires com.jfoenix;
     requires javafx.controls;
@@ -14,4 +15,5 @@ module atools.baseuilibs {
     exports com.allan.uilibs.controls;
     exports com.allan.uilibs.richtexts;
     exports com.allan.uilibs.jfoenix;
+    exports com.allan.uilibs.image;
 }

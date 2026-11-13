@@ -1,0 +1,87 @@
+.markdown-image-edit {
+    -fx-base: -au-popup-bg-color;
+    -fx-background: -au-popup-bg-color;
+    -fx-background-color: -au-popup-bg-color;
+    -fx-control-inner-background: -au-main-bg-color;
+    -fx-text-base-color: -au-popup-text-color;
+    -fx-text-background-color: -au-popup-text-color;
+    -fx-accent: -au-main-color;
+    -fx-focus-color: -au-main-color;
+}
+
+.markdown-image-edit .label {
+    -fx-text-fill: -au-popup-text-color;
+}
+
+.markdown-image-edit-path {
+    -fx-opacity: 0.7;
+}
+
+.markdown-image-edit-pane {
+    -fx-padding: 12;
+    -fx-background-color: -au-main-bg-color;
+    -fx-background-radius: 6;
+}
+
+.markdown-image-edit-scroll,
+.markdown-image-edit-scroll > .viewport {
+    -fx-background-color: white;
+    -fx-padding: 0;
+}
+
+.markdown-image-edit-canvas {
+    -fx-background-color: white;
+}
+
+.markdown-image-edit-footer {
+    -fx-border-color: -au-main-window-border-color;
+    -fx-border-width: 1 0 0 0;
+}
+
+.markdown-image-edit .markdown-image-edit-action {
+    -fx-min-width: 96;
+    -fx-min-height: 36;
+    -fx-pref-height: 36;
+    -fx-padding: 8 18;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-border-insets: 0;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.markdown-image-edit .markdown-image-edit-close {
+    -fx-background-color: -au-main-bg-color2;
+    -fx-border-color: -au-main-window-border-color;
+    -fx-text-fill: -au-popup-text-color;
+}
+
+.markdown-image-edit .markdown-image-edit-close:hover {
+    -fx-background-color: -au-small-button-bg-color;
+}
+
+.markdown-image-edit .markdown-image-edit-close:pressed {
+    -fx-background-color: derive(-au-small-button-bg-color, -8%);
+}
+
+.markdown-image-edit .markdown-image-edit-save {
+    -fx-background-color: -au-main-color;
+    -fx-border-color: -au-main-color;
+    -fx-text-fill: -au-on-accent-color;
+    -fx-font-weight: bold;
+}
+
+.markdown-image-edit .markdown-image-edit-save:hover {
+    -fx-background-color: derive(-au-main-color, -8%);
+}
+
+.markdown-image-edit .markdown-image-edit-save:pressed {
+    -fx-background-color: derive(-au-main-color, -16%);
+}
+
+.markdown-image-edit .markdown-image-edit-action:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}

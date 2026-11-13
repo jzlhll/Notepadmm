@@ -9,6 +9,7 @@ import javafx.geometry.Pos
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
@@ -21,8 +22,9 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import javafx.stage.WindowEvent
 
-/** 二级窗口共用无标题外框，导航与关闭操作合并到顶部，配色随应用主题切换。 */
-fun createSecondaryScene(stage: Stage, content: Parent, width: Double, height: Double): Scene {
+/** 二级窗口共用透明外框，标题、导航与关闭操作放在顶部，配色随应用主题切换。 */
+@JvmOverloads
+fun createSecondaryScene(stage: Stage, content: Parent, width: Double, height: Double, title: String? = null): Scene {
     stage.initStyle(StageStyle.TRANSPARENT)
     val close = Button("×").apply {
         styleClass.addAll("secondary-window-close", "window-header-action")
@@ -35,6 +37,9 @@ fun createSecondaryScene(stage: Stage, content: Parent, width: Double, height: D
         alignment = Pos.CENTER_RIGHT
         styleClass.add("secondary-window-header")
         prefHeight = 36.0
+    }
+    if (title != null) {
+        header.children.add(0, Label(title).apply { styleClass.add("secondary-window-title") })
     }
     // FXML 中标记的导航移入操作区，避免搜索页签上方再占一行。
     val navigation = content.lookup(".secondary-window-navigation")

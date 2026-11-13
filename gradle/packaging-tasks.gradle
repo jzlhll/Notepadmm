@@ -316,6 +316,12 @@ tasks.register('obfuscateAppJar') {
             def orig = new File(projectLibs, name)
             def cvt = new File(projectLibs, name.replaceAll(/\.jar$/, '') + '_cvt.jar')
             restoreJarMetadata(cvt, name.replaceAll(/\./, '_'))
+            // 原始描述符的 exports/opens 必须仍能命中混淆后的实际包，在生成安装脚本前检查。
+            try {
+                java.lang.module.ModuleFinder.of(cvt.toPath()).findAll()
+            } catch (java.lang.module.FindException e) {
+                throw new GradleException("混淆后的模块 JAR 无效：${name}。请检查 proguard.pro 是否保留 module-info.java 中 exports/opens 的包名。", e)
+            }
             cvt.renameTo(orig)
             delete new File(packagingConfig.buildRoot, "metadata_${name.replaceAll(/\./, '_')}")
         }

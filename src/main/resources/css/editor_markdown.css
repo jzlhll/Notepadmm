@@ -201,7 +201,8 @@
     -fx-shape: "M 0 0 L 4 4 L 0 8 Z";
 }
 
-.markdown-table-toolbar {
+.markdown-table-toolbar,
+.markdown-image-toolbar {
     -fx-background-color: transparent;
     -fx-padding: 2 0 2 0;
 }
@@ -222,6 +223,11 @@
 }
 
 /* ===== 引用 > ===== */
+/* 引用边框按段落拼接；行距会留在边框外侧，造成跨行竖线断开。 */
+.styled-text-area.editor-area .paragraph-text.md-quote-paragraph {
+    -fx-line-spacing: 0;
+}
+
 .markdown-editor .paragraph-text.md-quote-paragraph .editor-default-label {
     -fx-fill: -au-md-quote;
 }

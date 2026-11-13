@@ -52,6 +52,7 @@ class EditorArea @JvmOverloads constructor(
     private val paragraphWrapping = MarkdownParagraphWrapSupport(this)
     val markdownPresentation = MarkdownPresentation(this)
     val markdownSyntax = MarkdownSyntaxPresentation(this)
+    val markdownImageActions = MarkdownImageActions(this)
     val markdownCommands: MarkdownCommandRunner
     val markdownEditing: MarkdownEditingActions
     val markdownAttachments by lazy { MarkdownAttachments(this) }
@@ -392,6 +393,7 @@ class EditorArea @JvmOverloads constructor(
         markdownSyntax.destroy()
         paragraphWrapping.clear()
         markdownPresentation.destroy()
+        markdownImageActions.destroy()
         dispose()
         // RichTextFX.dispose() 不清空撤销历史，需单独释放。
         undoManager.forgetHistory()

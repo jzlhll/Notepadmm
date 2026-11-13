@@ -285,6 +285,20 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         element.node is Link && element.ranges.any { position >= it.start && position < it.end }
     }?.node as? Link
 
+    /** 按段落的源码行判断图片是否独占一行，容器前缀不算正文，不要求前后空行。 */
+    fun isStandaloneImageLine(image: Image): Boolean {
+        val paragraph = image.parent as? Paragraph ?: return false
+        val first = image.sourceSpans.firstOrNull() ?: return false
+        val last = image.sourceSpans.last()
+        if (first.lineIndex != last.lineIndex) return false
+        val spans = paragraph.sourceSpans
+        val line = spans.getOrNull(spans.binarySearchBy(first.lineIndex) { it.lineIndex }) ?: return false
+        val end = last.inputIndex + last.length
+        val lineEnd = line.inputIndex + line.length
+        if (first.inputIndex < line.inputIndex || end > lineEnd) return false
+        return text.substring(line.inputIndex, first.inputIndex).isBlank() && text.substring(end, lineEnd).isBlank()
+    }
+
     fun isEmbeddedLine(line: Int): Boolean {
         var low = 0
         var high = embeddedBlocks.lastIndex
