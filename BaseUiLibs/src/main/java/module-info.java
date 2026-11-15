@@ -15,5 +15,4 @@ module atools.baseuilibs {
     exports com.allan.uilibs.controls;
     exports com.allan.uilibs.richtexts;
     exports com.allan.uilibs.jfoenix;
-    exports com.allan.uilibs.image;
 }

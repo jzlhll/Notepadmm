@@ -4,6 +4,7 @@ import com.allan.baseparty.handler.TextUtils;
 import com.allan.atools.tools.AllStagesManager;
 import com.allan.atools.ui.SnackbarUtils;
 import com.allan.baseparty.ActionR0;
+import javafx.application.Platform;
 import javafx.stage.FileChooser;
 
 import javax.imageio.ImageIO;
@@ -56,14 +57,6 @@ public final class Utils {
         }
     }
 
-    public static void openTerminal() {
-        if (ResLocation.isWindow) {
-            openWindowsTerminal();
-        } else {
-            openUnixTerminal();
-        }
-    }
-
     public static String getStrBetween(String s, String left, String right) {
         //    src: url("font_custom34.ttf");
         var index1 = s.indexOf(left);
@@ -71,65 +64,29 @@ public final class Utils {
         return s.substring(index1 + left.length(), index2);
     }
 
-    public static void openTerminalHere(File file) {
-        if (ResLocation.isWindow) {
-            openWindowsTerminalHere(file);
-        } else {
-            openUnixTerminalHere(file);
-        }
-    }
-
-    private static void openWindowsTerminal() {
+    /** 在系统终端中打开目录，路径通过独立参数或工作目录传递。 */
+    public static void openTerminalHere(File directory) {
         try {
-            Runtime runtime = Runtime.getRuntime();
-            runtime.exec("cmd.exe /c start", null);
-        } catch (IOException e) {
-            final String errorMessage = "Can't Launch Windows Terminal";
-            //Debugging Console
-            //Warning UI
-            SnackbarUtils.show(errorMessage);
-        }
-    }
-
-    /**
-     * @param file : open windows terminal in file path
-     */
-    private static void openWindowsTerminalHere(File file) {
-        try {
-            Runtime runtime = Runtime.getRuntime();
-            runtime.exec("cmd.exe /c start", null, file);
-        } catch (IOException e) {
-            final String errorMessage = "Can't Launch Windows Terminal Here";
-            //Debugging Console
-            //Warning UI
-            SnackbarUtils.show(errorMessage);
-        }
-    }
-
-    private static void openUnixTerminal() {
-        try {
-            Runtime runtime = Runtime.getRuntime();
-            runtime.exec("bash -c start", null);
-        } catch (IOException e) {
-            final String errorMessage = "Can't Launch Unix Based Terminal";
-            //Debugging Console
-            //Warning UI
-            SnackbarUtils.show(errorMessage);
-        }
-    }
-
-    /**
-     * @param file : open Unix terminal in file path
-     */
-    private static void openUnixTerminalHere(File file) {
-        try {
-            Runtime runtime = Runtime.getRuntime();
-            runtime.exec("bash -c start", null, file);
-        } catch (IOException e) {
-            final String errorMessage = "Can't Launch Unix Based Terminal Here";
-            //Debugging Console
-            //Warning UI
-            SnackbarUtils.show(errorMessage);
+            if (!directory.isDirectory()) throw new IOException("Terminal directory does not exist: " + directory);
+            ProcessBuilder builder;
+            if (ResLocation.isWindow) {
+                builder = new ProcessBuilder("cmd.exe", "/c", "start", "\"\"", "cmd.exe").directory(directory);
+            } else if (ResLocation.isOsx) {
+                builder = new ProcessBuilder("/usr/bin/open", "-a", "Terminal", directory.getAbsolutePath());
+            } else {
+                throw new IOException("Unsupported terminal platform");
+            }
+            builder.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start().onExit().thenAccept(process -> {
+                        if (process.exitValue() != 0) {
+                            Log.e("Open terminal failed, exit code: " + process.exitValue() + ", directory: " + directory);
+                            Platform.runLater(() -> SnackbarUtils.show(Locales.str("editor.openTerminalFailed")));
+                        }
+                    });
+        } catch (IOException | SecurityException e) {
+            Log.e("Open terminal failed, directory: " + directory, e);
+            SnackbarUtils.show(Locales.str("editor.openTerminalFailed"));
         }
     }
 

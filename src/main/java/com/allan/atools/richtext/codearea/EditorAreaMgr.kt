@@ -14,7 +14,6 @@ import com.allan.atools.GlobalCfgStores
 import com.allan.atools.SettingPreferences
 import com.allan.atools.SettingPreferences.editorLineNumberVisibleKey
 import com.allan.atools.tools.modulenotepad.Highlight
-import com.allan.atools.tools.modulejson.JsonFormatLog
 import com.allan.atools.UIContext
 import com.allan.atools.tools.modulenotepad.base.ITextFindAndReplace
 import com.allan.atools.tools.modulenotepad.manager.AllEditorsManager
@@ -670,7 +669,8 @@ open class EditorAreaMgr(
                 TabTitleCreatorImpl.EVENT_MODIFY_NAME -> rename()
                 TabTitleCreatorImpl.EVENT_MOVE_TO_FRONT -> TabTitleCreatorImpl.moveToFront(tab)
                 TabTitleCreatorImpl.EVENT_CLOSE_OTHERS -> AllEditorsManager.Instance.removeAllOtherTabs(tab)
-                TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE -> openCurrentFolder(null)
+                TabTitleCreatorImpl.EVENT_OPEN_TO_EXPLORE -> sourceFile?.let(Utils::openFolderExplore)
+                TabTitleCreatorImpl.EVENT_OPEN_TERMINAL_HERE -> sourceFile?.absoluteFile?.parentFile?.let(Utils::openTerminalHere)
                 TabTitleCreatorImpl.EVENT_COPY_FULL_PATH -> {
                     val path = sourceFile?.absolutePath.orEmpty()
                     if (path.isNotEmpty()) {
@@ -683,6 +683,10 @@ open class EditorAreaMgr(
                     SnackbarUtils.show(Locales.str(if (pinnedNow) "editor.pinnedRecentFileDone" else "editor.unpinnedRecentFileDone"))
                 }
                 TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA -> TyporaManager.getInstance().openEditor(this)
+                TabTitleCreatorImpl.EVENT_EXPORT_HTML -> if (MarkdownEditorSupport.supportsMarkdown(area)) area.markdownClipboard.exportHtml()
+                TabTitleCreatorImpl.EVENT_EXPORT_PDF -> if (MarkdownEditorSupport.supportsMarkdown(area)) {
+                    com.allan.atools.tools.modulenotepad.manager.MarkdownPdfExport.export(area)
+                }
             }
         }
         titleMenu.setBeforeShow {
@@ -696,6 +700,11 @@ open class EditorAreaMgr(
                     TabTitleCreatorImpl.EVENT_PIN_RECENT_FILE -> item.text = Locales.str(if (pinned) "editor.unpinRecentFile" else "editor.pinRecentFile")
                     TabTitleCreatorImpl.EVENT_OPEN_IN_TYPORA -> item.isVisible = TyporaManager.getInstance().isAvailable()
                         && (sourceFile == null || TyporaManager.getInstance().supports(sourceFile))
+                    TabTitleCreatorImpl.EVENT_OPEN_TERMINAL_HERE -> item.isDisable = sourceFile?.absoluteFile?.parentFile?.isDirectory != true
+                    TabTitleCreatorImpl.EVENT_EXPORT_HTML, TabTitleCreatorImpl.EVENT_EXPORT_PDF -> {
+                        item.isVisible = MarkdownEditorSupport.supportsMarkdown(area)
+                        item.isDisable = area.markdownComposing || area.isDisabled || isDestroyed()
+                    }
                 }
             }
         }
@@ -790,49 +799,34 @@ open class EditorAreaMgr(
     }
 
     override fun createMenu(): ContextMenu {
-        val copy = MenuItem(Locales.str("editor.copySelect"))
-        val copyLine = MenuItem(Locales.str("editor.copyLine"))
-        val openFolder = MenuItem(Locales.str("editor.openHereDir"))
-        val openTerminal = MenuItem(Locales.str("editor.programTerminal"))
-        val openTerminalHere = MenuItem(Locales.str("editor.directoryTerminal"))
         val reload = MenuItem(Locales.str("editor.reload"))
-        val screenShot = MenuItem(Locales.str("editor.screenshot"))
-        val removeUnknownSymbols = MenuItem(Locales.str("removeUnknownSymbols"))
-        val formatJson = MenuItem(Locales.str("jsonFormat"))
-        val print = MenuItem(Locales.str("document.print"))
-        print.setOnAction { com.allan.atools.tools.modulenotepad.manager.TextPrintSupport.print(area) }
-        copyLine.setOnAction {
-            val text = area.getText(Highlight.getCurrentCaretLineNum(area))
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
-        }
-        copy.setOnAction { Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(area.selectedText), null) }
-        openFolder.setOnAction(::openCurrentFolder)
-        openTerminal.setOnAction(::openTerminal)
-        openTerminalHere.setOnAction(::openTerminalHere)
+        val undo = MenuItem(Locales.str("editor.undo"))
+        val redo = MenuItem(Locales.str("editor.redo"))
         reload.setOnAction { reloadFromDisk() }
-        screenShot.setOnAction(::captureScreenShot)
-        removeUnknownSymbols.setOnAction {
-            replaceSelectedTextWithPadding(JsonFormatLog().removeFanxieExtraQuote(area.selectedText))
+        undo.setOnAction { performUndoRedo(false) }
+        redo.setOnAction { performUndoRedo(true) }
+        return AppContextMenu(reload, undo, redo).apply {
+            setBeforeShow {
+                reload.isDisable = isDestroyed() || area.isDisabled || area.markdownComposing || sourceFile?.isFile != true
+                val editable = !isDestroyed() && area.isEditable && !area.isDisabled && !area.markdownComposing
+                undo.isDisable = !editable || !area.undoManager.isUndoAvailable
+                redo.isDisable = !editable || !area.undoManager.isRedoAvailable
+            }
         }
-        formatJson.setOnAction {
-            val formatter = JsonFormatLog()
-            replaceSelectedTextWithPadding(formatter.format(formatter.removeEnter(area.selectedText)))
+    }
+
+    private fun performUndoRedo(redo: Boolean) {
+        if (isDestroyed() || !area.isEditable || area.isDisabled || area.markdownComposing) return
+        val history = area.undoManager
+        if (!(if (redo) history.isRedoAvailable else history.isUndoAvailable)) return
+        history.preventMerge()
+        try {
+            if (redo) history.redo() else history.undo()
+        } finally {
+            history.preventMerge()
         }
-        val menu = AppContextMenu(copyLine, screenShot, copy, removeUnknownSymbols, formatJson, openTerminalHere, openFolder, reload, print)
-        menu.setBeforeShow {
-            val hasSelection = area.selectedText.isNotEmpty()
-            copy.isVisible = hasSelection
-            removeUnknownSymbols.isVisible = hasSelection
-            formatJson.isVisible = hasSelection
-            copyLine.isVisible = !hasSelection
-            screenShot.isVisible = !hasSelection
-            val named = sourceFile != null
-            openTerminalHere.isVisible = !hasSelection && named
-            openFolder.isVisible = !hasSelection && named
-            reload.isVisible = !hasSelection && named
-            print.isVisible = !MarkdownEditorSupport.supportsMarkdown(area)
-        }
-        return menu
+        area.requestFocus()
+        area.requestFollowCaret()
     }
 
     private fun reloadFromDisk() {
@@ -843,47 +837,6 @@ open class EditorAreaMgr(
         JfoenixDialogUtils.confirm(Locales.ALERT(), Locales.str("confirmReloadDiscard"), 0, 0,
             JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Accept, null, reload::run),
             JfoenixDialogUtils.DialogActionInfo(JfoenixDialogUtils.ConfirmMode.Cancel, null, null))
-    }
-
-    private fun replaceSelectedTextWithPadding(newText: String?) {
-        if (!area.isEditable) return
-        val selection = area.selection
-        if (selection.length == 0) return
-        val fullText = area.text
-        val before = fullText.substring(0, selection.start)
-        val after = fullText.substring(selection.end)
-        val replacement = StringBuilder()
-        if (before.isNotBlank()) {
-            val lineBreaks = countBoundaryLineBreaks(before, before.length - 1, -1)
-            if (lineBreaks < 4) replacement.append("\n".repeat(4 - lineBreaks))
-        }
-        replacement.append(newText)
-        if (after.isNotBlank()) {
-            val lineBreaks = countBoundaryLineBreaks(after, 0, 1)
-            if (lineBreaks < 4) replacement.append("\n".repeat(4 - lineBreaks))
-        }
-        area.replaceText(selection.start, selection.end, replacement.toString())
-    }
-
-    private fun countBoundaryLineBreaks(text: String, index: Int, step: Int): Int {
-        var lineBreaks = 0
-        var i = index
-        while (i >= 0 && i < text.length) {
-            if (text[i] == '\n') lineBreaks++ else if (!Character.isWhitespace(text[i])) break
-            i += step
-        }
-        return lineBreaks
-    }
-
-    private fun captureScreenShot(event: ActionEvent?) = Platform.runLater(Utils::captureScreenShot)
-    private fun openCurrentFolder(event: ActionEvent?) {
-        val sourceFile = sourceFile
-        if (sourceFile?.parentFile != null) Utils.openFolderExplore(sourceFile)
-    }
-    private fun openTerminal(event: ActionEvent?) = Utils.openTerminal()
-    private fun openTerminalHere(event: ActionEvent?) {
-        val sourceFile = sourceFile
-        if (sourceFile?.parentFile != null) Utils.openTerminalHere(sourceFile.parentFile)
     }
 
     override fun find(params: SearchParams, action: Action<OneFileSearchResults>) = findAdvance(arrayOf(params), action)

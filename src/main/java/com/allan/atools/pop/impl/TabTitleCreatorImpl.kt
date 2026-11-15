@@ -20,9 +20,12 @@ class TabTitleCreatorImpl {
             EVENT_MODIFY_NAME to "modifyName",
             EVENT_CLOSE_OTHERS to "closeOthers",
             EVENT_OPEN_TO_EXPLORE to "editor.openHereDir",
+            EVENT_OPEN_TERMINAL_HERE to "editor.directoryTerminal",
             EVENT_COPY_FULL_PATH to "editor.copyFullPath",
             EVENT_PIN_RECENT_FILE to "editor.pinRecentFile",
-            EVENT_OPEN_IN_TYPORA to "editor.openInTypora"
+            EVENT_OPEN_IN_TYPORA to "editor.openInTypora",
+            EVENT_EXPORT_HTML to "markdown.exportHtml",
+            EVENT_EXPORT_PDF to "markdown.exportPdf"
         ).forEach { (event, key) ->
             contextMenu.items.add(MenuItem(Locales.str(key)).apply {
                 userData = event
@@ -75,6 +78,9 @@ class TabTitleCreatorImpl {
         @kotlin.jvm.JvmField
         var EVENT_OPEN_TO_EXPLORE: String = "openFileToExplore"
 
+        @JvmField
+        val EVENT_OPEN_TERMINAL_HERE: String = "openTerminalHere"
+
         @kotlin.jvm.JvmField
         var EVENT_COPY_FULL_PATH: String = "copyFullPath"
 
@@ -83,6 +89,12 @@ class TabTitleCreatorImpl {
 
         @kotlin.jvm.JvmField
         val EVENT_OPEN_IN_TYPORA: String = "openInTypora"
+
+        @JvmField
+        val EVENT_EXPORT_HTML: String = "exportHtml"
+
+        @JvmField
+        val EVENT_EXPORT_PDF: String = "exportPdf"
     }
 
 }

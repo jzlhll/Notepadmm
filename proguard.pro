@@ -75,6 +75,9 @@
 # JNA 按反射读取回调方法和 Structure 字段，保留试验性输入法桥接的成员名称。
 -keep class com.allan.atools.toolsstartup.MacInputMethodPunctuation { *; }
 -keep class com.allan.atools.toolsstartup.MacInputMethodPunctuation$* { *; }
+# PasteHubImage 的 JNA 接口及结构体字段按原名反射读取。
+-keeppackagenames com.allan.atools.image
+-keep class com.allan.atools.image.PasteHubImageCodec$* { *; }
 -keeppackagenames com.allan.atools.richtext
 -keeppackagenames com.allan.atools.ui.controls
 -keeppackagenames com.allan.atools.bean
@@ -161,7 +164,6 @@
 -keeppackagenames com.allan.uilibs.controls
 -keeppackagenames com.allan.uilibs.richtexts
 -keeppackagenames com.allan.uilibs.jfoenix
--keeppackagenames com.allan.uilibs.image
 -dontnote com.allan.baseparty.**
 -dontnote com.allan.uilibs.**
 

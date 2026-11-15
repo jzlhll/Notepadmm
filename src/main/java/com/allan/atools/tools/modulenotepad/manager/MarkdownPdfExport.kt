@@ -109,8 +109,9 @@ object MarkdownPdfExport {
         private val width = Math.floor((paper.width - MARGIN * 2) / CSS_TO_POINT)
         private val height = Math.floor((paper.height - MARGIN * 2) / CSS_TO_POINT)
         private val web = WebView().apply {
-            minWidth = width; prefWidth = width; maxWidth = width
-            minHeight = height; prefHeight = height; maxHeight = height
+            setMinSize(this@ExportTask.width, this@ExportTask.height)
+            setPrefSize(this@ExportTask.width, this@ExportTask.height)
+            setMaxSize(this@ExportTask.width, this@ExportTask.height)
             isContextMenuEnabled = false
             isMouseTransparent = true
             engine.setCreatePopupHandler { null }

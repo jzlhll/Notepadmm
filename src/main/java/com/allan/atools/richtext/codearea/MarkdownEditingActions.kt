@@ -1,12 +1,8 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
-import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.uilibs.richtexts.CodeArea
-import javafx.scene.control.Menu
-import javafx.scene.control.MenuItem
-import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
@@ -366,92 +362,4 @@ class MarkdownEditingActions(private val area: EditorArea) {
         change(edit.start, edit.end, edit.text, edit.start, edit.start + edit.text.length)
     }
 
-    fun installMenu() {
-        val menu = Menu(Locales.str("markdown.format"))
-        fun add(key: String, action: () -> Unit) {
-            menu.items.add(MenuItem(Locales.str(key)).apply {
-                MarkdownShortcuts.entries.firstOrNull { it.labelKey == key }?.let { shortcut ->
-                    graphic = javafx.scene.control.Label(shortcut.display()).apply { styleClass.add("normal-desc-label") }
-                }
-                setOnAction { if (area.isEditable && !area.markdownComposing && !area.editor.isRealtimeProcessingLimitReached) area.markdownCommands.run(action) }
-            })
-        }
-        val headings = Menu(Locales.str("markdown.heading"))
-        for (level in 1..6) headings.items.add(MenuItem("H$level").apply {
-            graphic = javafx.scene.control.Label(MarkdownShortcuts.entries.first { it.heading == level }.display())
-            setOnAction { heading(level) }
-        })
-        menu.items.add(headings)
-        add("markdown.paragraph") { heading(0) }
-        add("markdown.bold") { wrap("**") }
-        add("markdown.italic") { wrap("*") }
-        add("markdown.strike") { wrap("~~") }
-        add("markdown.inlineCode") { wrap("`") }
-        add("markdown.quote") { prefixLines("> ") }
-        add("markdown.list") { prefixLines("- ") }
-        add("markdown.orderedList") { prefixLines("1. ") }
-        add("markdown.task") { prefixLines("- [ ] ") }
-        add("markdown.editLink") { editLink() }
-        menu.items.add(SeparatorMenuItem())
-        add("markdown.createCode") { area.markdownCodeActions.create() }
-        add("markdown.codeLanguage") { area.markdownCodeActions.chooseLanguage() }
-        add("markdown.copyCode") { area.markdownCodeActions.copyCode() }
-        add("markdown.exitCode") { area.markdownCodeActions.exitCode() }
-        add("markdown.createTable") { area.markdownCodeActions.createTable() }
-        add("markdown.insertImage") { area.markdownAttachments.chooseImage() }
-        add("markdown.imageWidth") { area.markdownAttachments.resizeImage() }
-        menu.items.add(SeparatorMenuItem())
-        add("markdown.pastePlain") { area.markdownClipboard.paste(true) }
-        val copyMenu = Menu(Locales.str("markdown.copyAs"))
-        for ((key, mode) in listOf("markdown.copySource" to "markdown", "markdown.copyPlain" to "plain", "markdown.copyFormatted" to "formatted")) {
-            copyMenu.items.add(MenuItem(Locales.str(key)).apply { setOnAction { area.markdownClipboard.copy(mode) } })
-        }
-        copyMenu.items.add(MenuItem(Locales.str("markdown.copyCode")).apply { setOnAction { area.markdownCodeActions.copyCode() } })
-        val copyAddress = MenuItem(Locales.str("markdown.copyLinkAddress"))
-        copyAddress.setOnAction {
-            area.markdownCommands.run {
-                if (!area.editor.isRealtimeProcessingLimitReached) area.markdownCommands.snapshot().linkAt(area.caretPosition)?.let { link ->
-                    javafx.scene.input.Clipboard.getSystemClipboard().setContent(javafx.scene.input.ClipboardContent().apply { putString(link.destination) })
-                }
-            }
-        }
-        copyMenu.items.add(copyAddress)
-        val export = MenuItem(Locales.str("markdown.exportHtml"))
-        export.setOnAction { area.markdownClipboard.exportHtml() }
-        val pdf = MenuItem(Locales.str("markdown.exportPdf"))
-        pdf.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPdfExport.export(area) }
-        val stats = MenuItem(Locales.str("markdown.wordCount"))
-        stats.setOnAction {
-            if (area.editor.isRealtimeProcessingLimitReached) { com.allan.atools.ui.SnackbarUtils.show(Locales.str("markdown.previewLimit")); return@setOnAction }
-            area.markdownCommands.run {
-                val document = area.markdownCommands.snapshot()
-                val selected = if (area.selection.length == 0) document else
-                    com.allan.atools.richtext.codearea.keywordhelper.MarkdownSelectionSnapshot.create(document, area.selection.start, area.selection.end)
-                val plain = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(selected.root)
-                val characters = plain.codePoints().filter { !Character.isWhitespace(it) }.count()
-                val words = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]|[\\p{L}\\p{N}_&&[^\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]]+").findAll(plain).count()
-                val dialog = javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION,
-                    String.format(Locales.str("markdown.wordCountValue"), characters, words))
-                dialog.headerText = Locales.str("markdown.wordCount")
-                dialog.withAppTheme().showAndWait()
-            }
-        }
-        val preview = MenuItem(Locales.str("markdown.toggleSource"))
-        preview.graphic = javafx.scene.control.Label(MarkdownShortcuts.SOURCE.display())
-        preview.setOnAction { if (!area.markdownComposing) area.toggleMarkdownPreview() }
-        val fullPreview = MenuItem(Locales.str("markdown.preview"))
-        fullPreview.setOnAction { com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.show(area) }
-        area.contextMenu.items.addAll(SeparatorMenuItem(), menu, copyMenu, export, pdf, stats, preview, fullPreview)
-        area.contextMenu.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWING) {
-            val enabled = MarkdownEditorSupport.supportsMarkdown(area)
-            menu.isVisible = enabled
-            menu.isDisable = !area.isEditable || area.editor.isRealtimeProcessingLimitReached
-            copyMenu.isVisible = enabled
-            export.isVisible = enabled
-            pdf.isVisible = enabled
-            stats.isVisible = enabled
-            preview.isVisible = enabled
-            fullPreview.isVisible = enabled
-        }
-    }
 }

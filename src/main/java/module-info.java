@@ -38,6 +38,7 @@ module atools {
     requires static org.jspecify;
     requires kotlin.stdlib;
     requires com.sun.jna;
+    opens com.allan.atools.image to com.sun.jna;
     exports com.allan.atools.bean;
     opens com.allan.atools.bean         to com.google.gson;
 

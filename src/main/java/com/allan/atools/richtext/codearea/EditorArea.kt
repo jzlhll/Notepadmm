@@ -173,7 +173,6 @@ class EditorArea @JvmOverloads constructor(
         editor = createEditorAreaMgr(this, sourceFile, tab, documentState)
         markdownCommands = MarkdownCommandRunner(this)
         markdownEditing = MarkdownEditingActions(this)
-        markdownEditing.installMenu()
         multiSelections = EditorAreaMultiSelectionsMgr(this)
         bottomSearchBtnsMgr = BottomSearchBtnsMgr(this)
         Highlight.initGenericAreaFont(this)

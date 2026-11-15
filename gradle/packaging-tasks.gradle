@@ -47,7 +47,7 @@ tasks.register('preparePackageLayout') {
             into packagingConfig.thirdLibsDir
         }
         copy {
-            from project(':app').file('main/resources')
+            from project(':app').tasks.named('processResources').get().destinationDir
             into packagingConfig.resourcesDir
         }
         logger.lifecycle('Package layout prepared.')
@@ -379,6 +379,8 @@ echo "  resources 同步完成"
 
 echo "[3/3] 对应用进行 codesign 签名..."
 echo "  签名证书: ''' + packagingConfig.macSigningKey + '''"
+/usr/bin/codesign --force --timestamp --sign ''' + signingKeyQuoted + ''' \\
+    "$APP_PATH/Contents/app/resources/native/macos/libPasteHubImage.dylib"
 /usr/bin/codesign --force --timestamp \\
     --preserve-metadata=identifier,entitlements,requirements,flags \\
     --sign ''' + signingKeyQuoted + ''' "$APP_PATH"

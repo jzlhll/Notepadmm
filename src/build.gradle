@@ -27,6 +27,32 @@ sourceSets {
     }
 }
 
+// Windows 编译与资源打包前必须具备对应架构的预编译 DLL。
+if (System.getProperty('os.name').toLowerCase().contains('win')) {
+    def hostArch = System.getProperty('os.arch').toLowerCase() in ['aarch64', 'arm64'] ? 'arm64' : 'x64'
+    def targetArch = rootProject.packagingConfig.target?.name?.endsWith('arm64') ? 'arm64' :
+            (rootProject.packagingConfig.target == null ? hostArch : 'x64')
+    def imageLibrary = file("main/resources/native/windows-${targetArch}/PasteHubImage.dll")
+    def checkPasteHubImage = tasks.register('checkPasteHubImage') {
+        group = 'verification'
+        description = '检查 Windows 目标架构的预编译图片处理 DLL 是否存在。'
+        doLast {
+            if (!imageLibrary.isFile() || imageLibrary.length() == 0) {
+                throw new GradleException("缺少或为空的 Windows ${targetArch} 图片处理库：${imageLibrary.absolutePath}。" +
+                        '请从 PasteHub 对应架构的构建产物中复制 PasteHubImage.dll 到该路径，' +
+                        '并同步 licenses/libwebp/ 授权文件后重新编译。')
+            }
+        }
+    }
+    tasks.matching { it.name in ['compileKotlin', 'compileJava', 'processResources'] }.configureEach {
+        dependsOn checkPasteHubImage
+    }
+    tasks.named('processResources') {
+        exclude 'native/macos/**'
+        exclude "native/windows-${targetArch == 'arm64' ? 'x64' : 'arm64'}/**"
+    }
+}
+
 application {
     mainModule = 'atools'
     mainClass = 'com.allan.atools.toolsstartup.ATools'

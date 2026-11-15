@@ -7,7 +7,6 @@ import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import com.allan.atools.utils.ResLocation
-import com.allan.uilibs.image.ImageCompressionHelper
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.binding.DoubleBinding
@@ -20,7 +19,6 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.Slider
-import javafx.scene.image.Image
 import javafx.scene.image.ImageView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -45,7 +43,6 @@ class MarkdownImageEditWindow(
     private val saved: (File) -> Unit,
     private val closed: () -> Unit
 ) {
-    private data class Preview(val options: ImageCompressionHelper.Options, val encoded: ImageCompressionHelper.EncodedImage)
     private val stage = Stage()
     private val qualities = listOf(60, 65, 70, 75, 80, 85, 90)
     private val quality = SegmentedControl(qualities.map(Int::toString))
@@ -59,7 +56,7 @@ class MarkdownImageEditWindow(
     private val processed = ImagePane(Locales.str("markdown.imageEditProcessed"))
     private val scheduler = LatestRefreshScheduler(120, 350, ::startPreview)
     private var source: MarkdownImageCompression? = null
-    private var preview: Preview? = null
+    private var preview: MarkdownImageCompression.EncodedImage? = null
     private var loadTask: Future<*>? = null
     private var renderTask: Future<*>? = null
     private var saveTask: Future<*>? = null
@@ -157,7 +154,7 @@ class MarkdownImageEditWindow(
         loadTask = MarkdownImageTasks.submit {
             try {
                 val snapshot = MarkdownImageCompression.read(file)
-                val image = snapshot.originalImage()
+                val image = snapshot.originalImage
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
                     if (disposed) return@runLater
@@ -183,15 +180,15 @@ class MarkdownImageEditWindow(
         }
     }
 
-    private fun currentOptions(): ImageCompressionHelper.Options = ImageCompressionHelper.Options(
-        quality = qualities[quality.selectedIndex()], scale = scale.value.roundToInt() / 100.0, roundLongEdgeTo = 10
+    private fun currentOptions(): MarkdownImageCompression.Options = MarkdownImageCompression.Options(
+        quality = qualities[quality.selectedIndex()], scale = scale.value.roundToInt() / 100.0
     )
 
     private fun requestPreview(immediate: Boolean = false) {
         val snapshot = source ?: return
         if (disposed || saving) return
         val options = currentOptions()
-        val size = ImageCompressionHelper().scaledSize(snapshot.info.width, snapshot.info.height, options.scale, options.roundLongEdgeTo)
+        val size = snapshot.scaledSize(options)
         dimensions.text = "${scale.value.roundToInt()}%   ${size.width} × ${size.height} px"
         save.isDisable = true
         status.text = Locales.str("markdown.imageEditRendering")
@@ -213,16 +210,16 @@ class MarkdownImageEditWindow(
         renderTask = MarkdownImageTasks.submit {
             try {
                 val encoded = snapshot.preview(options)
-                val image = Image(encoded.bytes.inputStream())
-                require(!image.isError && image.width > 0) { "JPEG preview decode failed" }
+                val image = encoded.image
+                require(!image.isError && image.width > 0) { "WebP preview decode failed" }
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
                     scheduler.complete(requestId) {
                         renderTask = null
                         if (!disposed && source === snapshot && options == currentOptions()) {
-                            preview = Preview(options, encoded)
+                            preview = encoded
                             processed.view.image = image
-                            processed.info.text = imageInfo(encoded.result.output)
+                            processed.info.text = imageInfo(encoded.output)
                             save.isDisable = !canSave()
                             status.text = ""
                         }
@@ -271,7 +268,7 @@ class MarkdownImageEditWindow(
         status.text = Locales.str("markdown.imageEditSaving")
         saveTask = MarkdownImageTasks.submit {
             try {
-                val output = snapshot.save(result.encoded, result.options)
+                val output = snapshot.save(result, result.options)
                 Platform.runLater {
                     if (!disposed) {
                         saveTask = null
@@ -318,7 +315,7 @@ class MarkdownImageEditWindow(
         closed()
     }
 
-    private fun imageInfo(info: ImageCompressionHelper.ImageInfo): String {
+    private fun imageInfo(info: MarkdownImageCompression.ImageInfo): String {
         val bytes = info.byteSize
         val size = when {
             bytes >= 1024 * 1024 -> String.format(Locale.getDefault(), "%.2f MiB", bytes / (1024.0 * 1024))
