@@ -73,6 +73,8 @@ abstract class CodeArea private constructor(
         const val MERMAID_PREVIEW_HEIGHT_PREFIX = "mermaid-preview-height:"
         const val DETAILS_PREVIEW_HEIGHT_PREFIX = "details-preview-height:"
         const val EMBEDDED_PREVIEW_HEIGHT_PREFIX = "embedded-preview-height:"
+        /** 技术片段排在原生文字下方，只增加高度，不隐藏正文或关闭鼠标命中。 */
+        const val EMBEDDED_CONTENT_HEIGHT_PREFIX = "embedded-content-height:"
         /** Mermaid 源码首段的操作栏留白，与预览占高分开维护。 */
         const val MERMAID_SOURCE_HEADER_HEIGHT_PREFIX = "mermaid-source-header-height:"
         /** 表格源码首段的操作栏留白，与正文段落的顶部间距合并。 */
@@ -96,6 +98,7 @@ abstract class CodeArea private constructor(
                     || style.startsWith(EMBEDDED_PREVIEW_HEIGHT_PREFIX)
                 if (previewHeight || style == "md-front-matter-delimiter-collapsed") preview = true
                 if (!previewHeight && !style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX)
+                    && !style.startsWith(EMBEDDED_CONTENT_HEIGHT_PREFIX)
                     && !style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX)
                     && !style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX) && !style.startsWith("md-layout:")
                 ) paragraph.styleClass.add(style)
@@ -131,6 +134,10 @@ abstract class CodeArea private constructor(
                     style.startsWith(DETAILS_PREVIEW_HEIGHT_PREFIX) -> previewHeight = style.substring(DETAILS_PREVIEW_HEIGHT_PREFIX.length) + "px"
                     style.startsWith(EMBEDDED_PREVIEW_HEIGHT_PREFIX) -> previewHeight = style.substring(EMBEDDED_PREVIEW_HEIGHT_PREFIX.length) + "px"
                     style.startsWith(PARAGRAPH_PREF_HEIGHT_PREFIX) -> inlineStyle = "-fx-pref-height: " + style.substring(PARAGRAPH_PREF_HEIGHT_PREFIX.length) + "px;"
+                    style.startsWith(EMBEDDED_CONTENT_HEIGHT_PREFIX) -> {
+                        val height = style.substring(EMBEDDED_CONTENT_HEIGHT_PREFIX.length)
+                        inlineStyle = "-fx-min-height: ${height}px;-fx-pref-height: ${height}px;"
+                    }
                     style.startsWith(MERMAID_SOURCE_HEADER_HEIGHT_PREFIX) || style.startsWith(TABLE_SOURCE_HEADER_HEIGHT_PREFIX) -> {
                         // 已提取操作栏高度，须与正文排版合并，避免内联 padding 覆盖顶部留白。
                     }

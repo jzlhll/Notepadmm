@@ -4,6 +4,7 @@ import javafx.beans.InvalidationListener
 import javafx.scene.Node
 import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
+import javafx.scene.shape.Rectangle
 import javafx.scene.text.Text
 import javafx.scene.text.TextFlow
 
@@ -17,11 +18,13 @@ class MarkdownImageGraphic(
     private val sourceLayoutChanged: (Double, Double, Double) -> Unit
 ) : Pane() {
     private var source: TextFlow? = null
+    private val imageClip = Rectangle()
     private val sourceChanged = InvalidationListener {
         if (source?.isNeedsLayout == true) requestLayout()
     }
 
     init {
+        image.clip = imageClip
         children.add(image)
         if (base != null) children.add(base)
         image.layoutY = fallbackSourceHeight + topGap
@@ -52,6 +55,9 @@ class MarkdownImageGraphic(
             flow.layoutY + textBottom + flow.insets.bottom + flow.lineSpacing / 2
         } else fallbackSourceHeight
         image.layoutY = sourceHeight + topGap
+        // 实际占高尚未回填时先裁剪图片，避免加载或折行的一帧覆盖相邻正文及其鼠标命中。
+        imageClip.width = image.layoutBounds.width
+        imageClip.height = Math.max(0.0, (flow?.height ?: height) - image.layoutY - bottomGap)
         if (base is Region) {
             val reserved = sourceHeight + topGap + image.prefHeight(-1.0) + bottomGap
             base.minHeight = reserved

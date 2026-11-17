@@ -19,6 +19,9 @@ import javafx.concurrent.Worker
 import javafx.embed.swing.SwingFXUtils
 import javafx.scene.Node
 import javafx.scene.layout.Pane
+import javafx.scene.shape.Rectangle
+import javafx.scene.text.Text
+import javafx.scene.text.TextFlow
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
 import org.jsoup.Jsoup
@@ -28,7 +31,7 @@ import java.util.Base64
 import java.util.concurrent.Future
 import javax.imageio.ImageIO
 
-/** 复杂块共用完整排版，保留全文源码坐标；离屏释放 WebView，选择、搜索及输入时回到源码。 */
+/** 技术片段独立排版，同行正文保留原生编辑；离屏释放 WebView，选择、搜索及输入时回到源码。 */
 class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private data class CachedFragment(val html: String, val comparable: String, val start: Int, val line: Int)
     private class Entry(var block: MarkdownEmbeddedBlocks.Block) {
@@ -39,6 +42,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         var renderedStart = block.start
         var renderedLine = block.firstLine
         var height = 0.0
+        var sourceHeight = 32.0
+        var leftInset: Double? = null
+        var rightInset = 10.0
         var preview = false
         var styledHeight: Double? = null
         var searchHit = false
@@ -94,9 +100,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         val previous = entries.associateBy { it.block.start }
         val next = state.embeddedBlocks.map { block ->
             (previous[block.start]?.also { entry ->
-                if (entry.block.firstLine != block.firstLine || entry.block.lastLine != block.lastLine) {
+                if (entry.block.firstLine != block.firstLine || entry.block.lastLine != block.lastLine ||
+                    entry.block.replacesSource != block.replacesSource) {
                     styles(entry, false)
                     entry.styledHeight = null
+                    entry.leftInset = null
                 }
                 entry.block = block
             } ?: Entry(block)).also { entry ->
@@ -152,46 +160,68 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 val blocks = state.embeddedBlocks
                 val blocksByStart = blocks.associateBy { it.start }
                 val pendingBlocks = blocks.filter { it.start !in reusable }
-                val nodes = ArrayList<org.commonmark.node.Node>()
-                var partial = state.htmlDependencies.none { it.kind == "note-reference" || it.kind == "note-definition" }
-                var node = state.root.firstChild
-                var blockIndex = 0
-                while (node != null) {
-                    val first = node.sourceSpans.firstOrNull()?.inputIndex
-                    val end = node.sourceSpans.lastOrNull()?.let { it.inputIndex + it.length }
-                    if (first != null && end != null) {
-                        while (blockIndex < pendingBlocks.size && pendingBlocks[blockIndex].end <= first) blockIndex++
-                        val block = pendingBlocks.getOrNull(blockIndex)
-                        if (block != null && first < block.end && end > block.start) {
-                            nodes.add(node)
-                            if (first < block.start || end > block.end) partial = false
+                val buffers = pendingBlocks.associate { it.start to StringBuilder() }
+                if (pendingBlocks.isNotEmpty()) {
+                    val nodeIds = HashMap<org.commonmark.node.Node, String>(state.elements.size)
+                    state.elements.forEachIndexed { index, element -> nodeIds[element.node] = index.toString() }
+                    val detached = LinkedHashSet<org.commonmark.node.Node>()
+                    val contextBlocks = ArrayList<MarkdownEmbeddedBlocks.Block>()
+                    for (block in pendingBlocks) {
+                        var context = block.detailStarts.isNotEmpty()
+                        for (source in block.nodes) {
+                            if (source in nodeIds) context = true else detached.add(source)
+                        }
+                        if (context) contextBlocks.add(block)
+                    }
+                    detached.forEachIndexed { index, source -> nodeIds[source] = "local-$index" }
+                    val nodes = ArrayList<org.commonmark.node.Node>()
+                    if (contextBlocks.isNotEmpty() && state.htmlDependencies.any { it.kind == "note-reference" || it.kind == "note-definition" }) {
+                        nodes.add(state.root)
+                    } else {
+                        var node = state.root.firstChild
+                        var blockIndex = 0
+                        while (node != null) {
+                            val first = node.sourceSpans.firstOrNull()?.inputIndex
+                            val end = node.sourceSpans.lastOrNull()?.let { it.inputIndex + it.length }
+                            if (first != null && end != null) {
+                                while (blockIndex < contextBlocks.size && contextBlocks[blockIndex].end <= first) blockIndex++
+                                val block = contextBlocks.getOrNull(blockIndex)
+                                if (block != null && first < block.end && end > block.start) nodes.add(node)
+                            }
+                            node = node.next
                         }
                     }
-                    node = node.next
-                }
-                // 全文 AST 保留引用解析和目录上下文；脚注编号及跨块 HTML 继续使用完整输出。
-                val document = Jsoup.parseBodyFragment(if (pendingBlocks.isEmpty()) "" else
-                    MarkdownHtmlRenderer.body(state, base, true, if (partial) nodes else null))
-                // 脚注库把第一条定义的坐标写到整组容器上；各定义必须按自己的源码范围拆开。
-                document.select("section.footnotes").removeAttr("data-source-start").removeAttr("data-source-line")
-                val sourceNodes = document.select("[data-source-start]")
-                val buffers = pendingBlocks.associate { it.start to StringBuilder() }
-                for (element in sourceNodes) {
-                    val offset = element.attr("data-source-start").toIntOrNull() ?: continue
-                    var low = 0
-                    var high = blocks.lastIndex
-                    while (low <= high) {
-                        val middle = (low + high) / 2
-                        if (blocks[middle].start <= offset) low = middle + 1 else high = middle - 1
+                    // 仅脚注需要全文编号；其余只渲染相交根节点，新建 HTML 片段共用同一索引及清理过程。
+                    nodes.addAll(detached)
+                    val document = MarkdownHtmlRenderer.document(state, base, true, nodes, nodeIds)
+                    // 脚注库把第一条定义的坐标写到整组容器上；各定义必须按自己的源码范围拆开。
+                    document.select("section.footnotes").removeAttr("data-source-start").removeAttr("data-source-line").removeAttr("data-source-node")
+                    val htmlByNode = document.select("[data-source-node]").groupBy { it.attr("data-source-node") }
+                    val details = document.select("details[data-source-start]").associateBy { it.attr("data-source-start").toIntOrNull() }
+                    for (block in pendingBlocks) {
+                        val contents = ArrayList<Pair<Int, String>>()
+                        for (source in block.nodes) {
+                            val elements = htmlByNode[nodeIds.getValue(source)]
+                            val element = if (source is org.commonmark.ext.footnotes.FootnoteDefinition)
+                                elements?.firstOrNull { it.normalName() == "li" } else elements?.firstOrNull()
+                            val fragment = element?.clone()
+                            fragment?.select("[data-source-node]")?.removeAttr("data-source-node")
+                            val html = if (fragment != null && element != null && fragment.normalName() == "li" && source is org.commonmark.ext.footnotes.FootnoteDefinition)
+                                "<section class=\"footnotes\"><ol start=\"${element.siblingIndex() + 1}\">${fragment.outerHtml()}</ol></section>"
+                            else fragment?.outerHtml().orEmpty()
+                            if (html.isNotEmpty()) contents.add(source.sourceSpans.first().inputIndex to html)
+                        }
+                        for (start in block.detailStarts) {
+                            // details 只取显式闭合的元素，不能按坐标范围顺带收进后面的段落。
+                            details[start]?.clone()?.let { fragment ->
+                                fragment.select("[data-source-node]").removeAttr("data-source-node")
+                                contents.add(start to fragment.outerHtml())
+                            }
+                        }
+                        contents.sortedBy { it.first }.forEach { (_, html) ->
+                            buffers.getValue(block.start).append("<div class=\"md-local-preview\">$html</div>")
+                        }
                     }
-                    val block = blocks.getOrNull(high) ?: continue
-                    if (block.start !in buffers || offset >= block.end || element.parents().any { parent ->
-                        parent.attr("data-source-start").toIntOrNull()?.let { it >= block.start && it < block.end } == true
-                    }) continue
-                    val html = if (element.normalName() == "li" && element.parent()?.parent()?.hasClass("footnotes") == true)
-                        "<section class=\"footnotes\"><ol start=\"${element.siblingIndex() + 1}\">${element.outerHtml()}</ol></section>"
-                    else element.outerHtml()
-                    buffers.getValue(block.start).append(html)
                 }
                 // HTML 归一化也留在后台，界面线程只比较结果并更新实际变化的页面。
                 val fragments = reusable.mapValues { (start, cached) ->
@@ -281,7 +311,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         val last = if (visible) area.lastVisibleParToAllParIndex() else -1
         if (visible) views.keys.toList().filter {
             val block = views.getValue(it).block
-            block.firstLine > last || block.lastLine < first
+            block.graphicLine > last || block.lastLine < first
         }.forEach { it.release() }
         val active = views.values.toSet()
         var available = Math.max(0, MAX_VIEWS - active.size)
@@ -293,8 +323,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 val editing = (area.isFocused || selection.length > 0) &&
                     if (selection.length == 0) area.caretPosition in block.start..block.end
                     else selection.start < block.end && selection.end > block.start
-                val eligible = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null && !editing && !entry.searchHit
-                val inViewport = visible && block.firstLine <= last && block.lastLine >= first
+                val eligible = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null &&
+                    (entry.html != "" || block.replacesSource) && !editing && !entry.searchHit
+                val inViewport = visible && block.graphicLine <= last && block.lastLine >= first
                 val hiddenComment = entry.html == ""
                 val preview = eligible && (hiddenComment || !inViewport || entry in active || available > 0)
                 if (preview && !hiddenComment && inViewport && entry !in active) available--
@@ -308,44 +339,48 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     private fun styles(entry: Entry, preview: Boolean): Boolean {
         val height = if (preview) {
-            if (entry.html == "") 0.0 else Math.max(32.0, entry.height)
+            if (entry.html == "") 0.0 else Math.max(32.0, entry.height) +
+                if (entry.block.replacesSource) 0.0 else entry.sourceHeight + CONTENT_GAP * 2
         } else -1.0
         if (entry.preview == preview && entry.styledHeight == height) return false
         val changed = entry.preview != preview || entry.styledHeight == null || (entry.styledHeight == 0.0) != (height == 0.0)
         entry.preview = preview
         entry.styledHeight = height
-        // 单纯测高只影响首行，余下源码行继续保持收起状态。
-        val last = if (changed) entry.block.lastLine else entry.block.firstLine
-        for (line in entry.block.firstLine..last) {
+        // 独立块只收起自己的源码；同行片段仅在文字下方增加占高，保留原生鼠标命中。
+        val anchor = entry.block.graphicLine
+        val last = if (changed && entry.block.replacesSource) entry.block.lastLine else anchor
+        for (line in anchor..last) {
             if (line !in area.paragraphs.indices) continue
             val old = area.getParagraph(line).paragraphStyle
-            val next = old.filterNot { it.startsWith(CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX) }.toMutableList()
-            if (preview) next.add(CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX + if (line == entry.block.firstLine)
-                height else 0.0)
+            val next = old.filterNot { it.startsWith(CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX) ||
+                it.startsWith(CodeArea.EMBEDDED_CONTENT_HEIGHT_PREFIX) }.toMutableList()
+            if (preview) next.add(if (entry.block.replacesSource)
+                CodeArea.EMBEDDED_PREVIEW_HEIGHT_PREFIX + if (line == anchor) height else 0.0
+                else CodeArea.EMBEDDED_CONTENT_HEIGHT_PREFIX + height)
             if (old != next) area.setParagraphStyle(line, next)
             if (changed) area.recreateParagraphGraphic(line)
         }
         return true
     }
 
-    private fun contentWidth(): Double = Math.max(1.0, area.width - area.insets.left - area.insets.right -
-        area.documentLayout.lineNumberWidth() - MarkdownEditorSupport.textLeftPadding(area) - 10.0)
+    private fun contentWidth(entry: Entry): Double = Math.max(1.0, area.width - area.insets.left - area.insets.right -
+        area.documentLayout.lineNumberWidth() - (entry.leftInset ?: MarkdownEditorSupport.textLeftPadding(area)) - entry.rightInset)
 
     private fun graphic(line: Int, base: Node?): Node? {
         var low = 0
         var high = entries.lastIndex
         while (low <= high) {
             val middle = (low + high) / 2
-            if (entries[middle].block.firstLine <= line) low = middle + 1 else high = middle - 1
+            if (entries[middle].block.graphicLine <= line) low = middle + 1 else high = middle - 1
         }
         val entry = entries.getOrNull(high)?.takeIf { it.preview && line <= it.block.lastLine } ?: return base
-        if (line != entry.block.firstLine || entry.html == "")
+        if (line != entry.block.graphicLine || entry.html == "")
             return Pane().apply { setMinSize(0.0, 0.0); setPrefSize(0.0, 0.0); setMaxSize(0.0, 0.0) }
         if (views.values.toSet().size >= MAX_VIEWS && entry !in views.values) {
             // 临时缺少控件时只展开源码，保留 HTML，等离屏控件释放后重新挂载。
             Platform.runLater {
                 if (!disposed && entry in entries && entry.preview && entry !in views.values) {
-                    if (views.values.toSet().size < MAX_VIEWS) area.recreateParagraphGraphic(entry.block.firstLine)
+                    if (views.values.toSet().size < MAX_VIEWS) area.recreateParagraphGraphic(entry.block.graphicLine)
                     else styles(entry, false)
                 }
             }
@@ -364,6 +399,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     private inner class BlockView(private val entry: Entry, private var base: Node?) : Pane() {
         private val web = WebView()
+        private val webClip = Rectangle()
         private val imageTasks = HashMap<Int, Future<*>>()
         private val loadedImages = HashSet<Int>()
         private var imageUrls = emptyList<String>()
@@ -373,11 +409,15 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         private var readonly: Boolean? = null
         private var pageTask: Future<*>? = null
         private val bridge = Bridge()
+        private var source: TextFlow? = null
+        private val sourceChanged = InvalidationListener { if (source?.isNeedsLayout == true) requestLayout() }
 
         init {
             views[this] = entry
+            isPickOnBounds = false
             styleClass.add("markdown-embedded-graphic")
             web.isManaged = false
+            web.clip = webClip
             web.setMinSize(0.0, 0.0)
             web.isContextMenuEnabled = false
             web.engine.setCreatePopupHandler { null }
@@ -428,6 +468,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     load()
                 }
             }
+            parentProperty().addListener { _, _, _ ->
+                source?.needsLayoutProperty()?.removeListener(sourceChanged)
+                source = null
+                requestLayout()
+            }
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED) { it.consume() }
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_RELEASED) { it.consume() }
             addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED) { it.consume() }
@@ -475,6 +520,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val themeCss = AppTheme.previewCss(dark)
             val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())},monospace}" +
                 "article{max-width:none;margin:0;padding:6px 0;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
+                ".md-local-preview+.md-local-preview{margin-top:12px}" +
                 "img[data-image-loading]{min-width:32px;min-height:24px}"
             val labels = Gson().toJson(listOf("markdown.imageBefore", "markdown.imageAfter", "markdown.imageZoom", "markdown.imageEdit").map(Locales::str))
             pageTask = ThreadUtils.submit {
@@ -588,7 +634,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
         fun resizeContent() {
             if (!live) return
-            web.resize(contentWidth(), Math.max(32.0, entry.height))
+            web.resize(contentWidth(entry), Math.max(32.0, entry.height))
             requestLayout()
         }
 
@@ -601,6 +647,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
         fun release() {
             saveReadingState()
+            source?.needsLayoutProperty()?.removeListener(sourceChanged)
+            source = null
             live = false
             ready = false
             revision++
@@ -663,8 +711,34 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         override fun computePrefWidth(height: Double): Double = base?.prefWidth(height) ?: 0.0
         override fun layoutChildren() {
             base?.resizeRelocate(0.0, 0.0, width, height)
-            web.resizeRelocate(width + MarkdownEditorSupport.textLeftPadding(area) - area.estimatedScrollXProperty().value, 0.0,
-                contentWidth(), Math.max(32.0, entry.height))
+            var top = 0.0
+            if (!entry.block.replacesSource) {
+                val flow = parent?.childrenUnmodifiable?.filterIsInstance<TextFlow>()?.firstOrNull()
+                if (source !== flow) {
+                    source?.needsLayoutProperty()?.removeListener(sourceChanged)
+                    source = flow
+                    source?.needsLayoutProperty()?.addListener(sourceChanged)
+                }
+                flow?.layout()
+                val bottom = flow?.children?.filterIsInstance<Text>()?.map { it.boundsInParent.maxY }?.maxOrNull()
+                if (flow != null && bottom != null) {
+                    val measured = flow.layoutY + bottom + flow.insets.bottom + flow.lineSpacing / 2
+                    val changed = kotlin.math.abs(entry.sourceHeight - measured) >= 0.5
+                    entry.sourceHeight = measured
+                    entry.leftInset = flow.insets.left
+                    entry.rightInset = flow.insets.right
+                    if (changed) Platform.runLater {
+                        if (!disposed && entry in entries && entry.preview) styles(entry, true)
+                    }
+                }
+                top = entry.sourceHeight + CONTENT_GAP
+            }
+            web.resizeRelocate(width + (entry.leftInset ?: MarkdownEditorSupport.textLeftPadding(area)) - area.estimatedScrollXProperty().value, top,
+                contentWidth(entry), Math.max(32.0, entry.height))
+            // 页面测高回填前只允许绘制在当前段落已分配的区域，不能遮住下一行正文。
+            webClip.width = web.width
+            webClip.height = Math.max(0.0, Math.min(web.height, height - top -
+                if (entry.block.replacesSource) 0.0 else CONTENT_GAP))
         }
     }
 
@@ -757,6 +831,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
 
     companion object {
         private const val MAX_VIEWS = 8
+        private const val CONTENT_GAP = 12.0
         private val SOURCE_COORDINATES = Regex("data-source-(start|line)=\"([0-9]+)\"")
         private val CHECKED_ATTRIBUTE = Regex("\\schecked(?:=\"[^\"]*\")?")
         private val INPUT_TAG = Regex("<input\\b[^>]*>")

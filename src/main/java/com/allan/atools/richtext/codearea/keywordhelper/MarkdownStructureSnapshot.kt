@@ -118,6 +118,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 val end = last.inputIndex + last.length
                 val markerStart = syntax.size
                 var keepsMarkerWidth = false
+                val inlineComment = node is HtmlInline && node.literal.startsWith("<!--") && node.literal.endsWith("-->")
                 val closedMetadata = node is YamlFrontMatterBlock && last.lineIndex > first.lineIndex
                     && metadataEnd.matches(text.substring(last.inputIndex, end))
                 if (node is YamlFrontMatterBlock) {
@@ -138,6 +139,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                     }
                 }
                 when (node) {
+                    is HtmlInline -> if (inlineComment) ranges.forEach { mark(it.start, it.end) }
                     is YamlFrontMatterBlock -> if (closedMetadata) {
                         mark(begin, begin + first.length)
                         mark(last.inputIndex, end)
@@ -237,7 +239,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                 // 列表保留可见项目符号；未闭合代码和未原生渲染的公式仍显示完整源码。
                 val collapsible = node is Heading || node is BlockQuote || node is Code || node is Emphasis || node is MarkdownEmoji ||
                     node is StrongEmphasis || node is Strikethrough || node is MarkdownDecoration && node.tag == "mark" ||
-                    node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null || closedMetadata
+                    node is Link || node is ThematicBreak || node is FencedCodeBlock && node.closingFenceLength != null || closedMetadata || inlineComment
                 if (collapsible && syntax.size > markerStart) {
                     groups.add(SyntaxGroup(begin, end, syntax.subList(markerStart, syntax.size).toList(), keepsMarkerWidth))
                 }

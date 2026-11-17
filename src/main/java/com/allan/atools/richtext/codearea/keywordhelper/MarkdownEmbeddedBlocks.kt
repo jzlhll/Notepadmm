@@ -6,49 +6,92 @@ import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.node.*
 import java.util.TreeMap
 
-/** 需要完整块布局的内容在编辑区内呈现，编辑、选择或搜索时恢复对应源码。 */
+/** 只收集技术内容自身；正文和容器始终保留原生段落，行内内容的预览另起一行。 */
 object MarkdownEmbeddedBlocks {
-    data class Block(val start: Int, val end: Int, val firstLine: Int, val lastLine: Int)
+    data class Block(
+        val start: Int, val end: Int, val firstLine: Int, val lastLine: Int,
+        val nodes: List<Node> = emptyList(), val replacesSource: Boolean = true,
+        val detailStarts: List<Int> = emptyList()
+    ) {
+        val graphicLine: Int get() = if (replacesSource) firstLine else lastLine
+    }
 
     fun collect(state: MarkdownStructureSnapshot): List<Block> {
         val result = TreeMap<Int, Block>()
-        state.details.forEach { result[it.start] = Block(it.start, it.end, it.firstLine, it.lastLine) }
-        fun technical(node: Node): Boolean {
-            // 图片独占源码一行时由原生图片管理器占高，不能连带前面的列表、引用和正文切成页面。
-            if (node is Image) return !state.isStandaloneImageLine(node) || node.destination.startsWith("data:", true)
-            if (node is MarkdownMath || node is MarkdownMathBlock || node is FootnoteReference || node is HtmlInline ||
-                node is HtmlBlock || node is TableBlock ||
-                node is MarkdownDecoration && node.tag in setOf("sub", "sup")) return true
-            if (node is Paragraph && node.firstChild is Text && node.firstChild.next == null &&
-                (node.firstChild as Text).literal.trim().equals("[TOC]", true)) return true
-            var child = node.firstChild
-            while (child != null) { if (technical(child)) return true; child = child.next }
-            return false
+        state.details.forEach {
+            val replacesSource = state.text.substring(state.lines[it.firstLine].start, it.start).isBlank() &&
+                state.text.substring(it.end, state.lines[it.lastLine].end).isBlank()
+            result[it.start] = Block(it.start, it.end, it.firstLine, it.lastLine,
+                replacesSource = replacesSource, detailStarts = listOf(it.start))
         }
         val referencedNotes = state.elements.mapNotNull { (it.node as? FootnoteReference)?.label }.toSet()
-        var node = state.root.firstChild
-        while (node != null) {
-            val first = node.sourceSpans.firstOrNull()
-            val last = node.sourceSpans.lastOrNull()
-            if (first != null && last != null) {
-                val start = state.lines[first.lineIndex].start
-                val end = state.lines[last.lineIndex].end
-                val standaloneImage = node is Paragraph && (node.firstChild is Image || node.firstChild is HtmlInline &&
-                    (node.firstChild as HtmlInline).literal.trim().startsWith("<img", true)) && node.firstChild.next == null
-                // 普通列表、任务和引用由原生段落绘制，只有需要图文／技术排版的容器才创建页面。
-                val needed = (node is BlockQuote || node is ListBlock) && technical(node) ||
-                    node is FootnoteDefinition && node.label in referencedNotes || node is HtmlBlock ||
-                    node is MarkdownMathBlock && node.closed || node is Paragraph &&
-                    (!standaloneImage && technical(node) || state.text.substring(start, end).trim().equals("[TOC]", true))
-                // 已接受的块互不重叠，只需核对左右相邻范围，不逐次遍历之前的全部块。
-                if (needed && (result.floorEntry(start)?.value?.end ?: start) <= start &&
-                    (result.ceilingEntry(start)?.key ?: end) >= end) {
-                    result[start] = Block(start, end, first.lineIndex, last.lineIndex)
-                }
-            }
-            node = node.next
+
+        fun add(node: Node, endNode: Node = node, replace: Boolean = false) {
+            val first = node.sourceSpans.firstOrNull() ?: return
+            val last = endNode.sourceSpans.lastOrNull { it.length > 0 } ?: return
+            val start = first.inputIndex
+            val end = last.inputIndex + last.length
+            if (end <= start || end - start > 64_000 || last.lineIndex - first.lineIndex >= 500) return
+            if ((result.floorEntry(start)?.value?.end ?: start) > start ||
+                (result.ceilingEntry(start)?.key ?: end) < end) return
+            // 同行有正文或列表／引用前缀时不隐藏源码，预览放到本行文字下方。
+            val replacesSource = replace && state.text.substring(state.lines[first.lineIndex].start, start).isBlank() &&
+                state.text.substring(end, state.lines[last.lineIndex].end).isBlank()
+            result[start] = Block(start, end, first.lineIndex, last.lineIndex, listOf(node), replacesSource)
         }
-        // 大块保留源码，避免一个预览控件承载无界高度和大量 DOM。
-        return result.values.filter { it.end - it.start <= 64_000 && it.lastLine - it.firstLine < 500 }
+
+        fun tableNeedsWeb(node: Node): Boolean {
+            if (node is MarkdownMath || node is FootnoteReference ||
+                node is MarkdownDecoration && node.tag in setOf("sub", "sup")) return true
+            // 原生表格已经支持图片和 br，不能因此接管表格外的内容。
+            if (node is HtmlInline && !node.literal.trim().matches(Regex("(?is)<(?:br|img)\\b[^>]*?/?>"))) return true
+            var child = node.firstChild
+            while (child != null) { if (tableNeedsWeb(child)) return true; child = child.next }
+            return false
+        }
+
+        fun visit(parent: Node) {
+            var node = parent.firstChild
+            while (node != null) {
+                var next = node.next
+                val start = node.sourceSpans.firstOrNull()?.inputIndex
+                val covered = start != null && result.floorEntry(start)?.value?.let { start < it.end } == true
+                if (!covered) when (node) {
+                    is TableBlock -> if (tableNeedsWeb(node)) add(node, replace = true)
+                    is FencedCodeBlock, is IndentedCodeBlock, is Code -> Unit
+                    is FootnoteDefinition -> if (node.label in referencedNotes) add(node, replace = true)
+                    is MarkdownMathBlock -> if (node.closed) add(node, replace = true)
+                    is HtmlBlock -> collectMarkdownHtmlFragments(state, node).forEach { add(it, replace = true) }
+                    is Image -> if (!state.isStandaloneImageLine(node) || node.destination.startsWith("data:", true)) add(node)
+                    is MarkdownMath, is FootnoteReference -> add(node)
+                    is MarkdownDecoration -> if (node.tag in setOf("sub", "sup")) add(node) else visit(node)
+                    is HtmlInline -> {
+                        val end = markdownHtmlInlineEnd(node)
+                        if (end != null) { add(node, end); next = end.next }
+                    }
+                    is Paragraph -> {
+                        val source = node.sourceSpans.joinToString("\n") {
+                            state.text.substring(it.inputIndex, it.inputIndex + it.length)
+                        }
+                        if (source.trim().equals("[TOC]", true)) add(node, replace = true) else visit(node)
+                    }
+                    else -> visit(node)
+                }
+                node = next
+            }
+        }
+        visit(state.root)
+        val blocks = TreeMap<Int, Block>()
+        val supplements = TreeMap<Int, Block>()
+        for (block in result.values) {
+            if (block.replacesSource) blocks[block.start] = block else {
+                val previous = supplements[block.graphicLine]
+                supplements[block.graphicLine] = if (previous == null) block else previous.copy(
+                    end = block.end, nodes = previous.nodes + block.nodes, detailStarts = previous.detailStarts + block.detailStarts
+                )
+            }
+        }
+        supplements.values.forEach { blocks[it.start] = it }
+        return blocks.values.filter { it.end - it.start <= 64_000 && it.lastLine - it.firstLine < 500 }
     }
 }

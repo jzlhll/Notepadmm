@@ -9,6 +9,8 @@ import org.commonmark.renderer.NodeRenderer
 import org.commonmark.renderer.html.HtmlNodeRendererContext
 import org.commonmark.renderer.html.HtmlRenderer
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+import org.jsoup.safety.Cleaner
 import org.jsoup.safety.Safelist
 
 /** 预览、剪贴板和 HTML 导出共用正文输出及有限 HTML 范围。 */
@@ -16,7 +18,7 @@ object MarkdownHtmlRenderer {
     fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     private fun allowed() = Safelist.relaxed().addTags("details", "summary", "u", "sub", "sup", "mark", "input", "section", "nav", "hr", "del", "s")
-        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-text", "data-source-map", "data-display", "data-checked", "role", "aria-label", "title")
+        .addAttributes(":all", "id", "class", "data-source-start", "data-source-line", "data-source-node", "data-source-text", "data-source-map", "data-display", "data-checked", "role", "aria-label", "title")
         .addAttributes("input", "type", "checked", "disabled").addEnforcedAttribute("input", "type", "checkbox")
         .addAttributes("img", "width", "height").addAttributes("ol", "start").addAttributes("td", "align").addAttributes("th", "align")
         .addAttributes("details", "open")
@@ -25,11 +27,19 @@ object MarkdownHtmlRenderer {
 
     @JvmStatic
     fun body(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false, nodes: List<Node>? = null): String {
+        return document(state, base, sourceMap, nodes).body().html()
+    }
+
+    fun document(state: MarkdownStructureSnapshot, base: String? = null, sourceMap: Boolean = false,
+                 nodes: List<Node>? = null, sourceNodeIds: Map<Node, String>? = null): Document {
         val headings = state.headings.associateBy { it.line }
+        val nodeIds = if (sourceMap) sourceNodeIds ?:
+            state.elements.mapIndexed { index, element -> element.node to index.toString() }.toMap() else emptyMap()
         val renderer = HtmlRenderer.builder().extensions(MarkdownExtensions.all())
             .escapeHtml(false).sanitizeUrls(true).urlSanitizer(org.commonmark.renderer.html.DefaultUrlSanitizer(listOf("http", "https", "mailto", "file", "data"))).softbreak("<br>\n")
             .attributeProviderFactory {
                 org.commonmark.renderer.html.AttributeProvider { node, _, attributes ->
+                    nodeIds[node]?.let { attributes["data-source-node"] = it }
                     node.sourceSpans.firstOrNull()?.let { span ->
                         attributes["data-source-start"] = span.inputIndex.toString()
                         attributes["data-source-line"] = span.lineIndex.toString()
@@ -37,11 +47,9 @@ object MarkdownHtmlRenderer {
                     if (node is org.commonmark.node.Heading) headings[node.sourceSpans.firstOrNull()?.lineIndex]
                         ?.let { attributes["id"] = it.anchor }
                 }
-            }.nodeRendererFactory { context -> TechnicalRenderer(context, state, sourceMap) }.build()
+            }.nodeRendererFactory { context -> TechnicalRenderer(context, state, sourceMap, nodeIds) }.build()
         val output = if (nodes == null) renderer.render(state.root) else nodes.joinToString("") { renderer.render(it) }
-        val clean = Jsoup.clean(output, base ?: "file:///", allowed(),
-            org.jsoup.nodes.Document.OutputSettings().prettyPrint(false))
-        val document = Jsoup.parseBodyFragment(clean)
+        val document = Cleaner(allowed()).clean(Jsoup.parseBodyFragment(output, base ?: "file:///"))
         // CommonMark 的任务扩展只输出 input；给所属列表项明确分类，不能同时保留圆点。
         document.select("li > input[type=checkbox], li > p > input[type=checkbox]").forEach { input ->
             input.parents().firstOrNull { it.normalName() == "li" }?.addClass("task-list-item")
@@ -59,13 +67,14 @@ object MarkdownHtmlRenderer {
             if (!height.matches(Regex("[0-9]{1,5}"))) image.removeAttr("height")
         }
         document.outputSettings().prettyPrint(false)
-        return document.body().html()
+        return document
     }
 
     private class TechnicalRenderer(private val context: HtmlNodeRendererContext, private val state: MarkdownStructureSnapshot,
-                                    private val sourceMap: Boolean) : NodeRenderer {
+                                    private val sourceMap: Boolean, private val nodeIds: Map<Node, String>) : NodeRenderer {
         override fun getNodeTypes() = setOf(FencedCodeBlock::class.java, Paragraph::class.java, YamlFrontMatterBlock::class.java,
-            org.commonmark.node.HtmlBlock::class.java, org.commonmark.node.Text::class.java, org.commonmark.node.Code::class.java)
+            org.commonmark.node.HtmlBlock::class.java, org.commonmark.node.HtmlInline::class.java,
+            org.commonmark.node.Text::class.java, org.commonmark.node.Code::class.java)
 
         override fun render(node: Node) {
             val writer = context.writer
@@ -92,12 +101,14 @@ object MarkdownHtmlRenderer {
                     writer.text(node.literal)
                     if (mapping != null) writer.tag("/span")
                 }
-                is org.commonmark.node.HtmlBlock -> {
+                is org.commonmark.node.HtmlBlock, is org.commonmark.node.HtmlInline -> {
                     // HTML 容器可能跨越多个 AST 块；包装单个片段会提前关闭 details 等容器。
-                    val opening = Regex("^(\\s*<[a-zA-Z][\\w:-]*)(?=[\\s/>])").find(node.literal)
+                    val raw = if (node is org.commonmark.node.HtmlBlock) node.literal else (node as org.commonmark.node.HtmlInline).literal
+                    val opening = Regex("^(\\s*<[a-zA-Z][\\w:-]*)(?=[\\s/>])").find(raw)
                     val span = node.sourceSpans.firstOrNull()
-                    val literal = if (opening != null && span != null) node.literal.replaceRange(opening.range,
-                        "${opening.value} data-source-start=\"${span.inputIndex}\" data-source-line=\"${span.lineIndex}\"") else node.literal
+                    val id = nodeIds[node]?.let { " data-source-node=\"$it\"" }.orEmpty()
+                    val literal = if (opening != null && span != null && (sourceMap || node is org.commonmark.node.HtmlBlock)) raw.replaceRange(opening.range,
+                        "${opening.value} data-source-start=\"${span.inputIndex}\" data-source-line=\"${span.lineIndex}\"$id") else raw
                     writer.raw(literal)
                 }
                 is YamlFrontMatterBlock -> {
