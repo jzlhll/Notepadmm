@@ -71,8 +71,9 @@ install_package() (
             fi
         fi
         if [ -n "$mount_dir" ]; then
-            if /usr/bin/hdiutil detach "$mount_dir"; then
+            if /usr/bin/hdiutil detach -quiet "$mount_dir"; then
                 /bin/rmdir "$mount_dir" || true
+                echo "已移除 DMG 磁盘。"
             elif ! /bin/rmdir "$mount_dir" 2>/dev/null; then
                 echo "错误: 无法卸载 DMG，请手动卸载: $mount_dir"
                 install_status=1
@@ -95,7 +96,12 @@ install_package() (
 
     install_dir=$("${installer_command[@]}" /usr/bin/mktemp -d '/Applications/.ATools-install.XXXXXX')
     mount_dir=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/ATools-dmg.XXXXXX")
-    /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path"
+    echo "正在检查 ATools 安装包…"
+    /usr/bin/hdiutil attach -quiet -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path" || {
+        attach_status=$?
+        echo "错误: 无法挂载 DMG: $dmg_path" >&2
+        exit "$attach_status"
+    }
     if [ ! -d "$mount_dir/ATools.app" ]; then
         echo "错误: DMG 中找不到 ATools.app。"
         exit 1
