@@ -34,6 +34,8 @@ import java.util.concurrent.Future
 
 /** 完整排版预览保留源码定位；正文编辑、保存和撤销仍由原编辑器负责。 */
 class MarkdownPreviewWindow private constructor() {
+    private data class LivePreview(val fontSize: Double, val fontFamily: String, val readonly: Boolean)
+
     private val stage = Stage()
     private val view = WebView()
     private val hint = Label(Locales.str("markdown.previewHint"))
@@ -195,10 +197,10 @@ class MarkdownPreviewWindow private constructor() {
                 val formula = hasFormula(state)
                 val diagram = hasDiagram(state)
                 val update = canUpdate && (!formula || formulaLoaded) && (!diagram || diagramLoaded)
-                val content = if (update) gson.toJson(mapOf("body" to MarkdownHtmlRenderer.body(state, base),
+                val body = MarkdownHtmlRenderer.body(state, base)
+                val content = if (update) gson.toJson(mapOf("body" to body,
                     "fontSize" to fontSize, "fontFamily" to fontFamily, "readonly" to readonly))
-                else renderDocument(state, base, dark, themeCss)
-                    .replace("<body ", "<body data-readonly=\"$readonly\" style=\"font-size:${fontSize}px;font-family:${MarkdownHtmlRenderer.escape(fontFamily)}\" ")
+                else renderPage(body, base, dark, themeCss, formula, diagram, live = LivePreview(fontSize, fontFamily, readonly))
                 Platform.runLater {
                     scheduler.complete(requestId) {
                         task = null
@@ -314,12 +316,21 @@ class MarkdownPreviewWindow private constructor() {
         }
 
         fun renderFragment(body: String, base: String?, dark: Boolean, themeCss: String,
-                           formula: Boolean, diagram: Boolean, extraCss: String = "", extraScript: String = ""): String {
+                           formula: Boolean, diagram: Boolean, extraCss: String = "", extraScript: String = ""): String =
+            renderPage(body, base, dark, themeCss, formula, diagram, extraCss, extraScript)
+
+        private fun renderPage(
+            body: String, base: String?, dark: Boolean, themeCss: String, formula: Boolean, diagram: Boolean,
+            extraCss: String = "", extraScript: String = "", live: LivePreview? = null
+        ): String {
             val baseTag = if (base == null) "" else "<base href=\"${MarkdownHtmlRenderer.escape(base)}\">"
             val libraries = (if (formula) "<style>$katexCss</style><script>$katexLibrary</script>" else "") +
                 (if (diagram) "<script>$mermaidLibrary</script>" else "")
+            val liveAttributes = live?.let {
+                " data-preview-incremental data-readonly=\"${it.readonly}\" style=\"font-size:${it.fontSize}px;font-family:${MarkdownHtmlRenderer.escape(it.fontFamily)}\""
+            }.orEmpty()
             return "<!doctype html><html><head><meta charset=\"utf-8\">$baseTag<style>$previewStyle$themeCss$extraCss</style>$libraries</head>" +
-                "<body data-copy-label=\"${MarkdownHtmlRenderer.escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>$body</article><script>$previewScript</script><script>$extraScript</script></body></html>"
+                "<body$liveAttributes data-copy-label=\"${MarkdownHtmlRenderer.escape(Locales.str("markdown.copyCode"))}\" class=\"${if (dark) "dark" else "light"}\"><article>$body</article><script>$previewScript</script><script>$extraScript</script></body></html>"
         }
     }
 }

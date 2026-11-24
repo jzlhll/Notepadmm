@@ -10,7 +10,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.shape.Rectangle
 
 /** 图片操作栏随图片占高和滚动，导航只移动光标，缩放只更新视图状态。 */
-class MarkdownImageToolbar(area: EditorArea, destination: String, target: () -> MarkdownImageActions.Target?) : HBox(2.0) {
+class MarkdownImageToolbar(area: EditorArea, imageKey: String, local: Boolean, target: () -> MarkdownImageActions.Target?) : HBox(2.0) {
     companion object { const val HEIGHT = 28.0 }
 
     init {
@@ -29,9 +29,9 @@ class MarkdownImageToolbar(area: EditorArea, destination: String, target: () -> 
         children.add(button("markdown.imageBefore") { target()?.let { area.markdownImageActions.jump(it, false) } })
         children.add(button("markdown.imageAfter") { target()?.let { area.markdownImageActions.jump(it, true) } })
         children.add(button("markdown.imageZoom") { button -> target()?.let { area.markdownImageActions.showZoom(button, it) } }.apply {
-            text = "${Locales.str("markdown.imageZoom")}${area.markdownImageActions.percent(destination) ?: 100}%"
+            text = "${Locales.str("markdown.imageZoom")}${area.markdownImageActions.percentForKey(imageKey) ?: 100}%"
         })
-        if (area.markdownImageActions.localFile(destination) != null) {
+        if (local) {
             children.add(button("markdown.imageEdit") { target()?.let { area.markdownImageActions.editImage(it) } }.apply {
                 disableProperty().bind(area.editableProperty().not())
             })

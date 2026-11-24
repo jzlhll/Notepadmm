@@ -28,12 +28,13 @@ function installPreviewBridge() {
 }
 
 /* 只复用内容相同的顶层块；坐标单独更新，公式、图表及折叠状态留在原节点中。 */
-function previewBlocks(container) {
+function previewBlocks(container,indexSources) {
   return Array.from(container.childNodes).filter(function(node) {
     return node.nodeType===1 || node.textContent.trim();
   }).map(function(node) {
     var block=container.ownerDocument.createElement('div'); block.className='preview-block';
     container.replaceChild(block,node); block.appendChild(node);
+    if(!indexSources) return block;
     block.sourceNodes=Array.from(block.querySelectorAll('[data-source-start],[data-source-line]'));
     var clean=block.cloneNode(true);
     clean.querySelectorAll('[data-source-start],[data-source-line]').forEach(function(item) {
@@ -72,7 +73,7 @@ function updatePreview(content) {
   });
   // 模板中的图片不启动请求，只有真正新增的块插入页面后才加载。
   var incoming=document.createElement('template'); incoming.innerHTML=content.body;
-  var blocks=previewBlocks(incoming.content), cursor=article.firstChild;
+  var blocks=previewBlocks(incoming.content,true), cursor=article.firstChild;
   blocks.forEach(function(fresh) {
     var matches=known.get(fresh.sourceKey), block=matches && matches.length?matches.shift():fresh;
     if(block!==fresh) block.sourceNodes.forEach(function(node,index) {
@@ -175,6 +176,9 @@ function renderTechnicalContent() {
     });
   }
 }
-function initializePreview() {previewBlocks(document.querySelector('article')); renderTechnicalContent();}
+function initializePreview() {
+  previewBlocks(document.querySelector('article'),document.body.hasAttribute('data-preview-incremental'));
+  renderTechnicalContent();
+}
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initializePreview);
 else initializePreview();

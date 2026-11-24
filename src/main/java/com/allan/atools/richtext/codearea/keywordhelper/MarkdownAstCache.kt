@@ -1,8 +1,12 @@
 package com.allan.atools.richtext.codearea.keywordhelper
 
+import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.node.AbstractVisitor
+import org.commonmark.node.CustomNode
+import org.commonmark.node.Heading
 import org.commonmark.node.HtmlInline
 import org.commonmark.node.Node
+import org.commonmark.node.Paragraph
 import org.commonmark.node.SourceSpan
 import org.commonmark.node.Text
 import org.commonmark.parser.IncludeSourceSpans
@@ -71,12 +75,73 @@ class MarkdownAstCache {
     private fun entry(text: String): Parsed {
         versions[text]?.let { return it }
         inlineCache.beginDocument()
-        val value = Parsed(parser.parse(text))
+        val root = parser.parse(text)
+        restoreMarkdownTableInlineSourceSpans(text, root)
+        val value = Parsed(root)
         versions[text] = value
         // 保留相邻两个版本，避免不同功能的后台任务交错时反复挤掉同一版解析结果。
         if (versions.size > 2) versions.remove(versions.keys.iterator().next())
         return value
     }
+}
+
+fun restoreMarkdownTableInlineSourceSpans(text: String, root: Node) {
+    if ("\\|" !in text) return
+    root.accept(object : AbstractVisitor() {
+        override fun visit(node: Heading) = Unit
+        override fun visit(node: Paragraph) = Unit
+
+        override fun visit(node: CustomNode) {
+            if (node is TableCell) restoreTableCellSourceSpans(text, node) else super.visit(node)
+        }
+    })
+}
+
+/** 表格扩展会在行内解析前移除 \| 中的反斜杠。用单元格的原始范围还原子节点的源码坐标。 */
+private fun restoreTableCellSourceSpans(text: String, cell: TableCell) {
+    val cellSpan = cell.sourceSpans.singleOrNull() ?: return
+    val cellStart = cellSpan.inputIndex
+    val cellEnd = cellStart + cellSpan.length
+    if (cellStart < 0 || cellEnd > text.length || cell.firstChild == null) return
+
+    var firstEscape = cellStart
+    while (firstEscape + 1 < cellEnd && (text[firstEscape] != '\\' || text[firstEscape + 1] != '|')) {
+        firstEscape++
+    }
+    if (firstEscape + 1 >= cellEnd) return
+
+    val rawBoundaries = IntArray(cellEnd - firstEscape + 1)
+    rawBoundaries[0] = firstEscape
+    var raw = firstEscape
+    var parsedLength = 0
+    while (raw < cellEnd) {
+        if (raw + 1 < cellEnd && text[raw] == '\\' && text[raw + 1] == '|') raw++
+        raw++
+        parsedLength++
+        rawBoundaries[parsedLength] = raw
+    }
+
+    fun restoreChildren(parent: Node) {
+        var child = parent.firstChild
+        while (child != null) {
+            val spans = child.sourceSpans
+            if (spans.isNotEmpty()) child.sourceSpans = spans.map { span ->
+                val start = span.inputIndex - firstEscape
+                val end = start + span.length
+                if (span.lineIndex != cellSpan.lineIndex || span.inputIndex < cellStart || end <= 0 || end > parsedLength) {
+                    span
+                } else {
+                    val rawStart = if (start > 0) rawBoundaries[start] else span.inputIndex
+                    SourceSpan.of(span.lineIndex, span.columnIndex + rawStart - span.inputIndex,
+                        rawStart, rawBoundaries[end] - rawStart)
+                }
+            }
+            restoreChildren(child)
+            child = child.next
+        }
+    }
+
+    restoreChildren(cell)
 }
 
 private data class CjkEmphasisCandidate(val line: Int, val column: Int, val input: Int, val punctuation: Char)

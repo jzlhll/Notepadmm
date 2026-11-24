@@ -7,6 +7,8 @@ import com.allan.atools.SettingPreferences
 import com.allan.atools.UIContext
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownEmbeddedBlocks
 import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownStructureSnapshot.Range
+import com.allan.atools.richtext.codearea.keywordhelper.normalizeHtmlImageDestination
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.*
 import com.allan.atools.utils.Locales
@@ -16,7 +18,6 @@ import com.google.gson.Gson
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.concurrent.Worker
-import javafx.embed.swing.SwingFXUtils
 import javafx.scene.Node
 import javafx.scene.layout.Pane
 import javafx.scene.shape.Rectangle
@@ -25,22 +26,21 @@ import javafx.scene.text.TextFlow
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
 import org.jsoup.Jsoup
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.Base64
 import java.util.concurrent.Future
-import javax.imageio.ImageIO
 
 /** 技术片段独立排版，同行正文保留原生编辑；离屏释放 WebView，选择、搜索及输入时回到源码。 */
 class MarkdownEmbeddedPresentation(private val area: EditorArea) {
-    private data class CachedFragment(val html: String, val comparable: String, val start: Int, val line: Int)
+    private data class CachedFragment(val ranges: List<Range>, val anchors: Map<String, Int>)
+    private data class RenderedFragment(val html: String, val comparable: String, val anchors: Map<String, Int>, val source: String)
     private class Entry(var block: MarkdownEmbeddedBlocks.Block) {
         // 空字符串表示注释没有可见内容，null 表示尚未渲染或需要回退源码。
         var html: String? = null
         var comparableHtml: String? = null
         var source: String? = null
-        var renderedStart = block.start
+        var renderedRanges = block.sourceRanges
         var renderedLine = block.firstLine
+        var renderedAnchors = emptyMap<String, Int>()
         var height = 0.0
         var sourceHeight = 32.0
         var leftInset: Double? = null
@@ -50,6 +50,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         var searchHit = false
         var readingState: String? = null
         val taskStates = HashMap<Int, Boolean>()
+
+        fun matchesSource(text: String): Boolean {
+            val current = source ?: return false
+            return current.length == block.end - block.start && text.regionMatches(block.start, current, 0, current.length)
+        }
     }
     // 可见块在段落样式重建、临时脱离场景时仍保留同一个页面，离屏或展开源码后才释放。
     private val views = LinkedHashMap<BlockView, Entry>()
@@ -61,6 +66,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private var generation = 0L
     private var renderTask: Future<*>? = null
     private var anchors = emptyMap<String, Int>()
+    private var headingAnchors = emptyMap<String, Int>()
     private var renderedDependencies: List<MarkdownStructureSnapshot.HtmlDependency>? = null
     private var renderedBlockCount = 0
     private var renderingRequired = false
@@ -71,13 +77,22 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     private val selectionChanged = InvalidationListener { requestRefresh() }
     private val viewportChanged = InvalidationListener { requestRefresh() }
     private val sceneChanged = InvalidationListener { requestRefresh() }
-    private val zoomChanged = Runnable { views.keys.toList().forEach { it.syncImages() } }
+    private val zoomChanged: (Set<String>) -> Unit = { keys -> views.keys.toList().forEach { it.syncImages(keys) } }
     private val layoutChanged = InvalidationListener {
         // 保留上次测量高度，等页面回报新高度后再调整，避免滚动文档先收缩再展开。
         views.keys.toList().forEach { it.resizeContent() }
         requestRefresh()
     }
-    private val themeChanged = InvalidationListener { snapshot?.let { render(it, true) } }
+    private val themeChanged = InvalidationListener {
+        val state = snapshot ?: return@InvalidationListener
+        if (taskPositionsCurrent && version == area.editor.contentVersion && file == area.editor.sourceFile &&
+            state === (area.editor as EditorAreaMgrCode).currentMarkdownSnapshot()) {
+            render(state, true)
+        } else {
+            renderingRequired = true
+            forceReload = true
+        }
+    }
 
     fun apply(state: MarkdownStructureSnapshot) {
         if (disposed) return
@@ -99,7 +114,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
         val previous = entries.associateBy { it.block.start }
         val next = state.embeddedBlocks.map { block ->
-            (previous[block.start]?.also { entry ->
+            (previous[block.start]?.takeIf { it.block.sourceRanges == block.sourceRanges }?.also { entry ->
                 if (entry.block.firstLine != block.firstLine || entry.block.lastLine != block.lastLine ||
                     entry.block.replacesSource != block.replacesSource) {
                     styles(entry, false)
@@ -108,8 +123,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 }
                 entry.block = block
             } ?: Entry(block)).also { entry ->
-                entry.searchHit = area.getStyleSpans(block.start, block.end).any {
-                    "search" in it.style || "temporary" in it.style
+                entry.searchHit = block.sourceRanges.any { range ->
+                    area.getStyleSpans(range.start, range.end).any { "search" in it.style || "temporary" in it.style }
                 }
             }
         }
@@ -118,19 +133,22 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         removed.forEach { styles(it, false) }
         views.keys.toList().filter { views[it] in removed }.forEach { it.release() }
         entries = next
-        val changedFile = file != area.editor.sourceFile
-        val changed = snapshot !== state || changedFile
+        val currentFile = area.editor.sourceFile
+        val currentVersion = area.editor.contentVersion
+        val changedFile = file != currentFile
+        val changed = snapshot !== state || changedFile || version != currentVersion || !taskPositionsCurrent
         snapshot = state
         taskPositionsCurrent = true
-        version = area.editor.contentVersion
-        file = area.editor.sourceFile
-        if (changed && (renderingRequired || changedFile || renderedDependencies != state.htmlDependencies || renderedBlockCount != entries.size ||
-            entries.any { entry ->
-                val source = entry.source
-                source == null || source.length != entry.block.end - entry.block.start ||
-                    !state.text.regionMatches(entry.block.start, source, 0, source.length)
-            })) render(state, changedFile)
-        anchors = anchors + state.headings.associate { it.anchor to state.lines[it.line].start }
+        version = currentVersion
+        file = currentFile
+        if (changed) headingAnchors = state.headings.associate { it.anchor to state.lines[it.line].start }
+        val needsRender = if (renderingRequired) {
+            changed || renderTask == null
+        } else {
+            changed && (changedFile || renderedDependencies != state.htmlDependencies || renderedBlockCount != entries.size ||
+                entries.any { !it.matchesSource(state.text) })
+        }
+        if (needsRender) render(state, changedFile)
         refresh()
     }
 
@@ -140,6 +158,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         val reload = forceReload
         val token = ++generation
         renderTask?.cancel(true)
+        renderTask = null
         if (entries.isEmpty()) {
             renderingRequired = false
             forceReload = false
@@ -148,17 +167,19 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             anchors = emptyMap()
             return
         }
-        val base = file?.parentFile?.toURI()?.toASCIIString()
-        val reusable = if (!reload && renderedDependencies == state.htmlDependencies) entries.filter { entry ->
-            val source = entry.source
-            source != null && entry.html != null && entry.comparableHtml != null &&
-                source.length == entry.block.end - entry.block.start && state.text.regionMatches(entry.block.start, source, 0, source.length)
-        }.associate { entry -> entry.block.start to CachedFragment(entry.html!!, entry.comparableHtml!!, entry.renderedStart, entry.renderedLine) }
-        else emptyMap()
+        val requestedFile = file
+        val requestedVersion = version
+        val base = requestedFile?.parentFile?.toURI()?.toASCIIString()
+        val reusable: Map<Int, CachedFragment> = if (reload || renderedDependencies != state.htmlDependencies) emptyMap() else buildMap {
+            for (entry in this@MarkdownEmbeddedPresentation.entries) {
+                if (entry.html != null && entry.matchesSource(state.text)) {
+                    put(entry.block.start, CachedFragment(entry.renderedRanges, entry.renderedAnchors))
+                }
+            }
+        }
         renderTask = ThreadUtils.submit {
             try {
                 val blocks = state.embeddedBlocks
-                val blocksByStart = blocks.associateBy { it.start }
                 val pendingBlocks = blocks.filter { it.start !in reusable }
                 val buffers = pendingBlocks.associate { it.start to StringBuilder() }
                 if (pendingBlocks.isNotEmpty()) {
@@ -194,6 +215,14 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     // 仅脚注需要全文编号；其余只渲染相交根节点，新建 HTML 片段共用同一索引及清理过程。
                     nodes.addAll(detached)
                     val document = MarkdownHtmlRenderer.document(state, base, true, nodes, nodeIds)
+                    // 原生 HTML 图片与源码采集共用地址规则，保留 Markdown 图片解析所得的地址。
+                    for (image in document.select("img[src]")) {
+                        val index = image.attr("data-source-node").toIntOrNull()
+                        if (index != null && state.elements.getOrNull(index)?.node is org.commonmark.node.Image) continue
+                        val url = image.attr("src")
+                        val normalized = normalizeHtmlImageDestination(url)
+                        if (url != normalized) image.attr("src", normalized)
+                    }
                     // 脚注库把第一条定义的坐标写到整组容器上；各定义必须按自己的源码范围拆开。
                     document.select("section.footnotes").removeAttr("data-source-start").removeAttr("data-source-line").removeAttr("data-source-node")
                     val htmlByNode = document.select("[data-source-node]").groupBy { it.attr("data-source-node") }
@@ -223,51 +252,46 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                         }
                     }
                 }
-                // HTML 归一化也留在后台，界面线程只比较结果并更新实际变化的页面。
-                val fragments = reusable.mapValues { (start, cached) ->
-                    val line = blocksByStart.getValue(start).firstLine
-                    val html = SOURCE_COORDINATES.replace(cached.html) { match ->
-                        val delta = if (match.groupValues[1] == "start") start - cached.start else line - cached.line
-                        "data-source-${match.groupValues[1]}=\"${match.groupValues[2].toInt() + delta}\""
-                    }
-                    html to cached.comparable
-                } + buffers.mapValues { (_, buffer) ->
-                    val html = buffer.toString()
-                    html to stableHtml(html)
-                }
-                val targets = state.headings.associate { it.anchor to state.lines[it.line].start }.toMutableMap()
+                val fragments = HashMap<Int, RenderedFragment>(buffers.size)
+                val targets = HashMap<String, Int>()
+                // 按源码顺序合并锚点，重名时后面的块覆盖前面的块。
                 for (block in blocks) {
-                    val fragment = fragments[block.start]?.first ?: continue
-                    Jsoup.parseBodyFragment(fragment).select("[id]").forEach { element ->
-                        val source = element.parents().firstOrNull { it.hasAttr("data-source-start") }
-                        val position = element.attr("data-source-start").toIntOrNull()
-                            ?: source?.attr("data-source-start")?.toIntOrNull()
-                        if (position != null) targets[element.id()] = position
+                    if (Thread.currentThread().isInterrupted) return@submit
+                    val buffer = buffers[block.start]
+                    if (buffer != null) {
+                        val html = buffer.toString()
+                        val fragment = RenderedFragment(html, stableHtml(html, block), htmlAnchors(html),
+                            state.text.substring(block.start, block.end))
+                        fragments[block.start] = fragment
+                        targets.putAll(fragment.anchors)
+                        continue
+                    }
+                    // 页面复用时，锚点继续以实际挂载的 HTML 坐标为基准。
+                    val cached = reusable.getValue(block.start)
+                    cached.anchors.forEach { (id, position) ->
+                        targets[id] = sourcePosition(position, cached.ranges, block.sourceRanges)
                     }
                 }
                 if (Thread.currentThread().isInterrupted) return@submit
                 Platform.runLater {
-                    if (disposed || token != generation || snapshot !== state ||
-                        version != area.editor.contentVersion || file != area.editor.sourceFile) return@runLater
-                    renderTask = null
+                    if (!finishRender(token, state, requestedVersion, requestedFile)) return@runLater
                     renderingRequired = false
                     forceReload = false
                     anchors = targets
                     renderedDependencies = state.htmlDependencies
                     renderedBlockCount = entries.size
                     for (entry in entries) {
-                        val source = state.text.substring(entry.block.start, entry.block.end)
-                        entry.source = source
-                        val fragment = fragments[entry.block.start]
-                        val html = fragment?.first.orEmpty()
-                        if (html.isEmpty() && !source.trimStart().startsWith("<!--")) { entry.html = null; continue }
-                        val comparable = fragment?.second ?: stableHtml(html)
-                        if (!reload && entry.html != null && entry.comparableHtml == comparable) continue
+                        val fragment = fragments[entry.block.start] ?: continue
+                        val html = fragment.html
+                        entry.source = fragment.source
+                        if (html.isEmpty() && !fragment.source.trimStart().startsWith("<!--")) { entry.html = null; continue }
+                        if (!reload && entry.html != null && entry.comparableHtml == fragment.comparable) continue
                         entry.html = html
-                        entry.comparableHtml = comparable
+                        entry.comparableHtml = fragment.comparable
                         entry.taskStates.clear()
-                        entry.renderedStart = entry.block.start
+                        entry.renderedRanges = entry.block.sourceRanges
                         entry.renderedLine = entry.block.firstLine
+                        entry.renderedAnchors = fragment.anchors
                         views.keys.toList().filter { views[it] === entry }.forEach {
                             if (html.isEmpty()) it.release() else it.load()
                         }
@@ -275,16 +299,56 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     refresh()
                 }
             } catch (error: Exception) {
-                if (!Thread.currentThread().isInterrupted) Log.e("Render embedded markdown failed", error)
+                if (Thread.currentThread().isInterrupted) return@submit
+                Log.e("Render embedded markdown failed", error)
                 Platform.runLater {
-                    if (token == generation) { entries.forEach { it.html = null }; refresh() }
+                    if (!finishRender(token, state, requestedVersion, requestedFile)) return@runLater
+                    entries.forEach { it.html = null }
+                    refresh()
                 }
             }
         }
     }
 
-    private fun stableHtml(html: String): String {
-        return INPUT_TAG.replace(html.replace(SOURCE_COORDINATES, "")) { tag ->
+    private fun finishRender(token: Long, state: MarkdownStructureSnapshot, requestedVersion: Long, requestedFile: File?): Boolean {
+        if (disposed || token != generation) return false
+        renderTask = null
+        return taskPositionsCurrent && snapshot === state && version == requestedVersion &&
+            version == area.editor.contentVersion && file == requestedFile && file == area.editor.sourceFile
+    }
+
+    private fun htmlAnchors(html: String): Map<String, Int> {
+        if (html.isEmpty()) return emptyMap()
+        return buildMap {
+            Jsoup.parseBodyFragment(html).select("[id]").forEach { element ->
+                val position = element.attr("data-source-start").toIntOrNull()
+                    ?: element.parents().firstOrNull { it.hasAttr("data-source-start") }
+                        ?.attr("data-source-start")?.toIntOrNull()
+                if (position != null) put(element.id(), position)
+            }
+        }
+    }
+
+    private fun sourceRangeIndex(ranges: List<Range>, position: Int): Int {
+        val index = ranges.binarySearchBy(position) { it.start }
+        return if (index >= 0) index else Math.max(0, -index - 2)
+    }
+
+    private fun sourcePosition(position: Int, from: List<Range>, to: List<Range>): Int {
+        val index = sourceRangeIndex(from, position)
+        return position + to[index].start - from[index].start
+    }
+
+    private fun stableHtml(html: String, block: MarkdownEmbeddedBlocks.Block): String {
+        // 修改片段间的正文只平移后续片段，片段内部的坐标变化仍需要更新页面。
+        val normalized = SOURCE_COORDINATES.replace(html) { match ->
+            val value = match.groupValues[2].toIntOrNull() ?: return@replace match.value
+            if (match.groupValues[1] == "start") {
+                val index = sourceRangeIndex(block.sourceRanges, value)
+                "data-source-start=\"$index:${value - block.sourceRanges[index].start}\""
+            } else "data-source-line=\"${value - block.firstLine}\""
+        }
+        return INPUT_TAG.replace(normalized) { tag ->
             tag.value.replace(CHECKED_ATTRIBUTE, "")
         }
     }
@@ -320,9 +384,10 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             for (entry in entries) {
                 val block = entry.block
                 val selection = area.selection
-                val editing = (area.isFocused || selection.length > 0) &&
-                    if (selection.length == 0) area.caretPosition in block.start..block.end
-                    else selection.start < block.end && selection.end > block.start
+                val editing = (area.isFocused || selection.length > 0) && block.sourceRanges.any { range ->
+                    if (selection.length == 0) area.caretPosition in range.start..range.end
+                    else selection.start < range.end && selection.end > range.start
+                }
                 val eligible = area.markdownPreviewEnabled && !area.editor.isRealtimeProcessingLimitReached && entry.html != null &&
                     (entry.html != "" || block.replacesSource) && !editing && !entry.searchHit
                 val inViewport = visible && block.graphicLine <= last && block.lastLine >= first
@@ -406,6 +471,8 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         private var revision = 0L
         private var live = false
         private var ready = false
+        @Suppress("DEPRECATION")
+        private var scriptWindow: JSObject? = null
         private var readonly: Boolean? = null
         private var pageTask: Future<*>? = null
         private val bridge = Bridge()
@@ -448,12 +515,13 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                     // Kotlin 编译使用 JDK 25 的兼容接口，运行时由 JavaFX 提供未弃用的实现。
                     @Suppress("DEPRECATION")
                     val window = web.engine.executeScript("window") as JSObject
+                    scriptWindow = window
                     window.setMember("embeddedBridge", bridge)
                     web.engine.executeScript("embeddedReady()")
                     syncTasks()
                     syncReadonly()
                     syncImages()
-                    entry.readingState?.let { web.engine.executeScript("restorePreviewReadingState(${Gson().toJson(it)})") }
+                    entry.readingState?.let { web.engine.executeScript("restorePreviewReadingState(${gson.toJson(it)})") }
                     imageUrls.indices.forEach { loadImage(it) }
                 } else if (live && state == Worker.State.FAILED) {
                     entry.html = null
@@ -494,19 +562,16 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         }
 
         private fun syncTasks() {
-            val html = entry.html ?: return
-            val states = Jsoup.parseBodyFragment(html).select("li.task-list-item[data-source-line]").mapNotNull { item ->
-                val line = item.attr("data-source-line").toIntOrNull() ?: return@mapNotNull null
-                val input = item.selectFirst("input[type=checkbox]") ?: return@mapNotNull null
-                listOf(line, entry.taskStates[line] ?: input.hasAttr("checked"))
-            }
-            web.engine.executeScript("embeddedTasks(${Gson().toJson(states)})")
+            if (entry.taskStates.isEmpty()) return
+            val states = entry.taskStates.map { (line, checked) -> listOf(line, checked) }
+            web.engine.executeScript("embeddedTasks(${gson.toJson(states)})")
         }
 
         fun load() {
             if (!live || disposed || entry.html == null) return
             saveReadingState()
             ready = false
+            scriptWindow = null
             readonly = null
             revision++
             imageTasks.values.forEach(MarkdownImageTasks::cancel)
@@ -518,11 +583,11 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val baseUrl = file?.parentFile?.toURI()?.toASCIIString()
             val dark = Colors.isDark()
             val themeCss = AppTheme.previewCss(dark)
-            val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${Gson().toJson(FontTheme.fontFamily())},monospace}" +
+            val css = "body{overflow:hidden;font-size:${UIContext.getFontSizeProperty().get()}px;font-family:${gson.toJson(FontTheme.fontFamily())},monospace}" +
                 "article{max-width:none;margin:0;padding:6px 0;box-sizing:border-box}article>:first-child{margin-top:0}article>:last-child{margin-bottom:0}" +
                 ".md-local-preview+.md-local-preview{margin-top:12px}" +
                 "img[data-image-loading]{min-width:32px;min-height:24px}"
-            val labels = Gson().toJson(listOf("markdown.imageBefore", "markdown.imageAfter", "markdown.imageZoom", "markdown.imageEdit").map(Locales::str))
+            val labels = gson.toJson(listOf("markdown.imageBefore", "markdown.imageAfter", "markdown.imageZoom", "markdown.imageEdit").map(Locales::str))
             pageTask = ThreadUtils.submit {
                 try {
                     val body = Jsoup.parseBodyFragment(source)
@@ -537,10 +602,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                         Platform.runLater { if (live && expected == revision) { entry.html = null; requestRefresh() } }
                         return@submit
                     }
-                    val script = MarkdownEmbeddedPresentation::class.java.getResource("/markdown/embedded.js")!!.readText()
                     val html = MarkdownPreviewWindow.renderFragment(body.body().html(), baseUrl, dark, themeCss,
                         body.select(".md-math").isNotEmpty(), body.select(".mermaid-source").isNotEmpty(), css,
-                        script + "\nwindow.embeddedRevision=$expected;window.embeddedImageLabels=$labels;")
+                        embeddedScript + "\nwindow.embeddedRevision=$expected;window.embeddedImageLabels=$labels;")
                     Platform.runLater {
                         if (live && !disposed && expected == revision && entry in entries) {
                             pageTask = null
@@ -563,56 +627,48 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             val expected = revision
             val currentFile = file
             val url = imageUrls[index]
-            val diagnostic = MarkdownImageLoadLog("embedded", url, currentFile, entry.block.firstLine + 1)
+            val urlStart = url.indexOfFirst { !it.isWhitespace() }
+            val loggedUrl = if (url.regionMatches(urlStart, "data:", 0, 5, ignoreCase = true)) "data:(${url.length} chars)" else url
+            val diagnostic = MarkdownImageLoadLog("embedded", loggedUrl, currentFile, entry.block.firstLine + 1)
             lateinit var task: Future<*>
             task = MarkdownImageTasks.submit {
-                try {
+                val image = try {
                     val resolved = MarkdownImageLocation.resolve(currentFile, url) ?: error("Unsupported image location")
-                    val decoded = when (resolved.scheme.lowercase()) {
-                        "http", "https" -> MarkdownRemoteImageLoader.loadDecoded(resolved.toASCIIString(), diagnostic, 0.0, 0.0)
-                        "file" -> {
-                            val source = MarkdownImageLocation.file(resolved)
-                            require(source.length() <= 20L * 1024 * 1024) { "Image exceeds byte limit" }
-                            MarkdownImageDecoder.decode(source, 0.0, 0.0)
-                        }
-                        "data" -> {
-                            require(url.length <= 28 * 1024 * 1024 && url.substringBefore(',').endsWith(";base64")) { "Unsupported image data" }
-                            MarkdownImageDecoder.decode(Base64.getDecoder().decode(url.substringAfter(',')), 0.0, 0.0)
-                        }
+                    when (resolved.scheme.lowercase()) {
+                        "http", "https" -> MarkdownRemoteImageLoader.loadEmbedded(resolved.toASCIIString(), diagnostic)
+                        "file" -> MarkdownEmbeddedImageCache.load(MarkdownImageLocation.file(resolved), diagnostic)
+                        "data" -> MarkdownEmbeddedImageCache.loadData(url, diagnostic)
                         else -> error("Unsupported image protocol")
                     }
-                    diagnostic.complete(decoded.image)
-                    require(!decoded.image.isError) { "Image decode failed" }
-                    val output = ByteArrayOutputStream()
-                    ImageIO.write(SwingFXUtils.fromFXImage(decoded.image, null), "png", output)
-                    val data = "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray())
-                    if (Thread.currentThread().isInterrupted) return@submit
-                    Platform.runLater {
-                        if (live && expected == revision && imageTasks[index] === task && entry.preview && currentFile == file && currentFile == area.editor.sourceFile) {
-                            imageTasks.remove(index)
-                            loadedImages.add(index)
-                            web.engine.executeScript("embeddedImage($index,${Gson().toJson(data)},${decoded.width},${decoded.height})")
-                        }
-                    }
                 } catch (error: Exception) {
+                    if (Thread.currentThread().isInterrupted) return@submit
                     diagnostic.fail("embedded image load failed", error)
-                    Platform.runLater {
-                        if (live && expected == revision && imageTasks[index] === task) {
-                            imageTasks.remove(index)
-                            web.engine.executeScript("embeddedImage($index,null,0,0)")
-                        }
+                    null
+                }
+                if (Thread.currentThread().isInterrupted) return@submit
+                Platform.runLater {
+                    val window = scriptWindow
+                    if (window != null && live && ready && !disposed && expected == revision && imageTasks[index] === task &&
+                        entry.preview && currentFile == file && currentFile == area.editor.sourceFile) {
+                        imageTasks.remove(index)
+                        if (image != null) loadedImages.add(index)
+                        window.call("embeddedImage", index, image?.dataUrl, image?.width ?: 0.0, image?.height ?: 0.0)
                     }
                 }
             }
             imageTasks[index] = task
         }
 
-        fun syncImages() {
-            if (!live || !ready) return
-            val config = imageUrls.map { url ->
-                mapOf("percent" to area.markdownImageActions.percent(url), "local" to (area.markdownImageActions.localFile(url) != null))
+        fun syncImages(changedKeys: Set<String>? = null) {
+            if (!live || !ready || changedKeys?.isEmpty() == true) return
+            val actions = area.markdownImageActions
+            val config = imageUrls.mapIndexedNotNull { index, url ->
+                val key = actions.imageKey(url)
+                if (changedKeys != null && key !in changedKeys) return@mapIndexedNotNull null
+                val local = if (changedKeys == null) actions.localFile(url) != null else null
+                mapOf("index" to index, "percent" to actions.percentForKey(key), "local" to local)
             }
-            web.engine.executeScript("embeddedImageControls(${Gson().toJson(config)})")
+            if (config.isNotEmpty()) web.engine.executeScript("embeddedImageControls(${gson.toJson(config)})")
         }
 
         private fun imageTarget(index: Int): MarkdownImageActions.Target? {
@@ -651,6 +707,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             source = null
             live = false
             ready = false
+            scriptWindow = null
             revision++
             pageTask?.cancel(true)
             pageTask = null
@@ -675,13 +732,13 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
             }
             fun edit(position: Int) {
                 if (live && ready && entry in entries) this@MarkdownEmbeddedPresentation.edit(
-                    if (position < 0) entry.block.start else position + entry.block.start - entry.renderedStart)
+                    if (position < 0) entry.block.start else sourcePosition(position, entry.renderedRanges, entry.block.sourceRanges))
             }
             fun open(destination: String) {
                 if (!live || !ready || entry !in entries || version != area.editor.contentVersion || file != area.editor.sourceFile) return
                 if (destination.startsWith('#')) {
                     val id = try { java.net.URLDecoder.decode(destination.substring(1).replace("+", "%2B"), "UTF-8") } catch (_: Exception) { destination.substring(1) }
-                    anchors[id]?.let { this@MarkdownEmbeddedPresentation.edit(it); return }
+                    (anchors[id] ?: headingAnchors[id])?.let { this@MarkdownEmbeddedPresentation.edit(it); return }
                 }
                 (area.editor as EditorAreaMgrCode).openMarkdownDestination(destination)
             }
@@ -746,6 +803,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
     fun onTextChanged(position: Int, removed: String, inserted: String): Boolean {
         generation++
         renderTask?.cancel(true)
+        renderTask = null
         val state = snapshot
         if (taskPositionsCurrent && state != null && removed.length == 1 && inserted.length == 1 &&
             removed[0] in " xX" && inserted[0] in " xX") {
@@ -754,7 +812,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
                 // 任务状态不改变块结构、坐标或高度，保留页面并只更新 checkbox。
                 val checked = inserted != " "
                 for (entry in entries) {
-                    if (position !in entry.block.start until entry.block.end) continue
+                    if (entry.block.sourceRanges.none { position in it.start until it.end }) continue
                     val renderedLine = line - entry.block.firstLine + entry.renderedLine
                     entry.taskStates[renderedLine] = checked
                     entry.source = entry.source?.replaceRange(position - entry.block.start,
@@ -768,6 +826,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         taskPositionsCurrent = false
         val delta = inserted.length - removed.length
         val lines = inserted.count { it == '\n' } - removed.count { it == '\n' }
+        val changesLines = '\n' in inserted || '\n' in removed || '\r' in inserted || '\r' in removed
         val end = position + removed.length
         anchors = anchors.mapNotNull { (id, offset) ->
             when {
@@ -780,11 +839,22 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         for (entry in entries) {
             val block = entry.block
             if (end < block.start || end == block.start && inserted.endsWith('\n')) {
-                entry.block = block.copy(start = block.start + delta, end = block.end + delta,
+                entry.block = block.copy(sourceRanges = block.sourceRanges.map { Range(it.start + delta, it.end + delta) },
                     firstLine = block.firstLine + lines, lastLine = block.lastLine + lines)
                 retained.add(entry)
-            } else if (position > block.end) retained.add(entry)
-            else {
+            } else if (position > block.end) {
+                retained.add(entry)
+            } else if (!changesLines && block.sourceRanges.size > 1 && position > block.start && end < block.end &&
+                block.sourceRanges.none { range ->
+                    if (removed.isEmpty()) position in range.start..range.end
+                    else position < range.end && end > range.start
+                }) {
+                // 只移动间隙之后的片段，保持现有页面和图片加载状态，等新快照核对结构。
+                entry.block = block.copy(sourceRanges = block.sourceRanges.map {
+                    if (it.start >= end) Range(it.start + delta, it.end + delta) else it
+                })
+                retained.add(entry)
+            } else {
                 entry.block = block.copy(lastLine = Math.max(block.firstLine, block.lastLine + lines))
                 styles(entry, false)
                 views.keys.toList().filter { views[it] === entry }.forEach { it.release() }
@@ -806,6 +876,7 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         renderingRequired = false
         forceReload = false
         anchors = emptyMap()
+        headingAnchors = emptyMap()
         taskPositionsCurrent = false
         views.keys.toList().forEach { it.release() }
     }
@@ -835,5 +906,9 @@ class MarkdownEmbeddedPresentation(private val area: EditorArea) {
         private val SOURCE_COORDINATES = Regex("data-source-(start|line)=\"([0-9]+)\"")
         private val CHECKED_ATTRIBUTE = Regex("\\schecked(?:=\"[^\"]*\")?")
         private val INPUT_TAG = Regex("<input\\b[^>]*>")
+        private val gson = Gson()
+        private val embeddedScript by lazy {
+            MarkdownEmbeddedPresentation::class.java.getResource("/markdown/embedded.js")!!.readText()
+        }
     }
 }

@@ -14,6 +14,7 @@ import javafx.application.Platform;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -54,7 +55,7 @@ public final class EditorSessionManager {
     private static final String TAG = "EditorSession";
     private static final int MANIFEST_VERSION = 1;
     private static final long SNAPSHOT_DEBOUNCE_MS = 1_000L;
-    private static final long SNAPSHOT_INTERVAL_MS = 120_000L;
+    private static final long SNAPSHOT_INTERVAL_MS = 12_000L;
     private static final Pattern BACKUP_NAME = Pattern.compile("^[0-9a-fA-F-]+-\\d+\\.txt$");
     private static final Pattern LEGACY_HIDDEN_NAME = Pattern.compile("^\\.temp\\d{2}_\\d{2}_\\d{2}(?:_\\d+)*\\.txt$");
     private static final EditorSessionManager INSTANCE = new EditorSessionManager();
@@ -80,6 +81,7 @@ public final class EditorSessionManager {
         return thread;
     });
     private final Map<String, TrackedDocument> trackedDocuments = new ConcurrentHashMap<>();
+    private final Map<String, BackupStatus> pendingBackups = new ConcurrentHashMap<>();
     private final AtomicBoolean closing = new AtomicBoolean();
     private final Object manifestWriteLock = new Object();
     private volatile ScheduledFuture<?> manifestDebounce;
@@ -244,13 +246,13 @@ public final class EditorSessionManager {
         closing.set(true);
         cancel(manifestDebounce);
         long deadline = System.nanoTime() + timeout.toNanos();
+        var writes = new LinkedHashMap<TrackedDocument, CompletableFuture<BackupData>>();
         try {
             long remaining = deadline - System.nanoTime();
             CompletableFuture.runAsync(() -> { }, manifestExecutor)
                     .get(remaining, TimeUnit.NANOSECONDS);
 
             var areas = AllEditorsManager.Instance.getAllAreas();
-            var writes = new LinkedHashMap<TrackedDocument, CompletableFuture<BackupData>>();
             for (var area : areas) {
                 var state = area.getEditor().getDocumentState();
                 var tracked = trackedDocuments.get(state.getSessionId());
@@ -275,24 +277,19 @@ public final class EditorSessionManager {
                 if (owner.backupVersion == backup.version) {
                     applyBackup(owner, backup);
                 } else {
-                    deleteQuietly(backupsDir.resolve(backup.fileName));
+                    discardUnappliedBackup(backup);
                 }
             }
-            var manifest = captureManifest();
             remaining = deadline - System.nanoTime();
             if (remaining <= 0L) {
                 throw new TimeoutException();
             }
-            CompletableFuture.runAsync(() -> {
-                try {
-                    writeManifest(manifest, false);
-                    cleanupBackups();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }, manifestExecutor).get(remaining, TimeUnit.NANOSECONDS);
-            return FlushResult.SUCCESS;
+            var result = commitCurrentState(false).toCompletableFuture().get(remaining, TimeUnit.NANOSECONDS);
+            return result == SessionCommitResult.SUCCESS ? FlushResult.SUCCESS : FlushResult.FAILED;
         } catch (Exception e) {
+            for (var write : writes.values()) {
+                write.thenAccept(this::discardUnappliedBackup);
+            }
             Log.e("flush session failed", e);
             return FlushResult.FAILED;
         }
@@ -342,7 +339,7 @@ public final class EditorSessionManager {
                             || tracked.backupVersion != backup.version
                             || tracked.area.getEditor().getContentVersion() != contentVersion
                             || !tracked.area.getEditor().getDocumentState().isDirty()) {
-                        deleteQuietly(backupsDir.resolve(backup.fileName));
+                        discardUnappliedBackup(backup);
                         return;
                     }
                     applyBackup(tracked, backup);
@@ -387,10 +384,14 @@ public final class EditorSessionManager {
 
     private CompletionStage<SessionCommitResult> commitCurrentState(boolean synchronizePrevious) {
         var manifest = captureManifest();
+        // 只解除本次捕获前已应用的快照保护，避免较早排队的清单误删新快照。
+        var appliedBackups = pendingBackups.entrySet().stream()
+                .filter(entry -> entry.getValue() == BackupStatus.APPLIED)
+                .map(Map.Entry::getKey)
+                .toList();
         return CompletableFuture.supplyAsync(() -> {
             try {
-                writeManifest(manifest, synchronizePrevious);
-                cleanupBackups();
+                writeManifest(manifest, synchronizePrevious, appliedBackups);
                 return SessionCommitResult.SUCCESS;
             } catch (Exception e) {
                 Log.e("commit session failed", e);
@@ -714,27 +715,33 @@ public final class EditorSessionManager {
                 }
             }
         }
-        int newIndex = 1;
-        for (var legacy : legacyFiles) {
-            String text = Files.readString(legacy, StandardCharsets.UTF_8);
-            var tab = new SessionTab();
-            tab.sessionId = UUID.randomUUID().toString();
-            tab.order = order++;
-            tab.displayName = "New" + newIndex++;
-            tab.untitled = true;
-            tab.dirty = true;
-            tab.encoding = StandardCharsets.UTF_8.name();
-            var backup = writeBackup(tab.sessionId, 1L, text);
-            tab.backupVersion = backup.version;
-            tab.backupFile = backup.fileName;
-            tab.backupByteSize = backup.byteSize;
-            tab.backupSha256 = backup.sha256;
-            manifest.tabs.add(tab);
+        var importedBackups = new ArrayList<String>();
+        try {
+            int newIndex = 1;
+            for (var legacy : legacyFiles) {
+                String text = Files.readString(legacy, StandardCharsets.UTF_8);
+                var tab = new SessionTab();
+                tab.sessionId = UUID.randomUUID().toString();
+                tab.order = order++;
+                tab.displayName = "New" + newIndex++;
+                tab.untitled = true;
+                tab.dirty = true;
+                tab.encoding = StandardCharsets.UTF_8.name();
+                var backup = writeBackup(tab.sessionId, 1L, text);
+                importedBackups.add(backup.fileName);
+                tab.backupVersion = backup.version;
+                tab.backupFile = backup.fileName;
+                tab.backupByteSize = backup.byteSize;
+                tab.backupSha256 = backup.sha256;
+                manifest.tabs.add(tab);
+            }
+            if (!manifest.tabs.isEmpty()) {
+                manifest.activeSessionId = manifest.tabs.get(0).sessionId;
+            }
+            writeManifest(manifest, true, importedBackups);
+        } finally {
+            pendingBackups.keySet().removeAll(importedBackups);
         }
-        if (!manifest.tabs.isEmpty()) {
-            manifest.activeSessionId = manifest.tabs.get(0).sessionId;
-        }
-        writeManifest(manifest, true);
         for (var legacy : legacyFiles) {
             Files.deleteIfExists(legacy);
         }
@@ -750,17 +757,29 @@ public final class EditorSessionManager {
     }
 
     private BackupData writeBackup(String sessionId, long version, String text) {
+        // 重新跟踪会话时备份版本可能重新计数，独立文件名避免旧写入覆盖新快照。
+        String fileName = sessionId + "-" + UUID.randomUUID() + "-" + version + ".txt";
+        var target = backupsDir.resolve(fileName);
+        pendingBackups.put(fileName, BackupStatus.UNAPPLIED);
+        Path temporary = null;
         try {
             Files.createDirectories(backupsDir);
             byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
-            String fileName = sessionId + "-" + version + ".txt";
-            var target = backupsDir.resolve(fileName);
-            var temporary = Files.createTempFile(backupsDir, sessionId + "-", ".tmp");
+            String digest = sha256(bytes);
+            temporary = Files.createTempFile(backupsDir, fileName + ".", ".tmp");
             Files.write(temporary, bytes);
             moveReplace(temporary, target);
-            return new BackupData(version, fileName, bytes.length, sha256(bytes), null);
+            return new BackupData(version, fileName, bytes.length, digest, null);
         } catch (Exception e) {
+            if (temporary != null) deleteQuietly(temporary);
+            pendingBackups.remove(fileName);
             throw new RuntimeException(e);
+        }
+    }
+
+    private void discardUnappliedBackup(BackupData backup) {
+        if (pendingBackups.remove(backup.fileName, BackupStatus.UNAPPLIED)) {
+            deleteQuietly(backupsDir.resolve(backup.fileName));
         }
     }
 
@@ -770,6 +789,7 @@ public final class EditorSessionManager {
         tracked.backupByteSize = backup.byteSize;
         tracked.backupSha256 = backup.sha256;
         tracked.backupLogState = backup.logState;
+        pendingBackups.replace(backup.fileName, BackupStatus.APPLIED);
     }
 
     private static void clearBackupReference(TrackedDocument tracked) {
@@ -780,7 +800,8 @@ public final class EditorSessionManager {
         tracked.backupLogState = null;
     }
 
-    private void writeManifest(SessionManifest manifest, boolean synchronizePrevious) throws IOException {
+    private void writeManifest(SessionManifest manifest, boolean synchronizePrevious,
+                               List<String> publishedBackups) throws IOException {
         synchronized (manifestWriteLock) {
             Files.createDirectories(sessionDir);
             if (Files.isRegularFile(manifestFile)) {
@@ -791,6 +812,8 @@ public final class EditorSessionManager {
             if (synchronizePrevious) {
                 writeAtomic(previousManifestFile, json);
             }
+            pendingBackups.keySet().removeAll(publishedBackups);
+            cleanupBackups();
         }
     }
 
@@ -810,10 +833,16 @@ public final class EditorSessionManager {
             }
             try (var stream = Files.list(backupsDir)) {
                 stream.filter(Files::isRegularFile)
-                        .filter(path -> !referenced.contains(path.getFileName().toString()))
+                        .filter(path -> {
+                            String name = path.getFileName().toString();
+                            int temporarySuffixStart = name.indexOf(".txt.");
+                            String backupName = temporarySuffixStart >= 0 && name.endsWith(".tmp")
+                                    ? name.substring(0, temporarySuffixStart + ".txt".length()) : name;
+                            return !referenced.contains(name) && !pendingBackups.containsKey(backupName);
+                        })
                         .forEach(EditorSessionManager::deleteQuietly);
             }
-        } catch (IOException e) {
+        } catch (IOException | UncheckedIOException e) {
             Log.e("cleanup backups failed", e);
         }
     }
@@ -930,6 +959,8 @@ public final class EditorSessionManager {
             dirty = area.getEditor().getDocumentState().isDirty();
         }
     }
+
+    private enum BackupStatus { UNAPPLIED, APPLIED }
 
     private record BackupData(long version, String fileName, long byteSize, String sha256,
                               com.allan.atools.tools.modulenotepad.log.LogReadState logState) {

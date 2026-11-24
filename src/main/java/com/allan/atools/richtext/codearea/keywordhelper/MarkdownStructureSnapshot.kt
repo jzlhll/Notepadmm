@@ -104,7 +104,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
                             when { first == last -> "single"; index == first -> "first"; index == last -> "last"; else -> "mid" }
                         } else old.codeEdge,
                         codeEmpty = old.codeEmpty || ((node is FencedCodeBlock || node is IndentedCodeBlock)
-                            && text.substring(old.start, old.end).isBlank()),
+                            && isBlankRange(old.start, old.end)),
                         rule = old.rule || node is ThematicBreak,
                         blockStart = old.blockStart || (index == first && node is Paragraph),
                         blockEnd = old.blockEnd || (index == last && node is Paragraph)
@@ -287,6 +287,30 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         element.node is Link && element.ranges.any { position >= it.start && position < it.end }
     }?.node as? Link
 
+    fun isBlankRange(start: Int, end: Int): Boolean {
+        for (index in start until end) {
+            if (!text[index].isWhitespace()) return false
+        }
+        return true
+    }
+
+    fun isTocParagraph(paragraph: Paragraph): Boolean {
+        val marker = "[TOC]"
+        var found = false
+        // 源码段之间有换行，只有一个段可以包含非空白字符。
+        for (span in paragraph.sourceSpans) {
+            var start = span.inputIndex
+            val end = start + span.length
+            while (start < end && text[start].isWhitespace()) start++
+            if (start == end) continue
+            if (found || end - start < marker.length ||
+                !text.regionMatches(start, marker, 0, marker.length, ignoreCase = true) ||
+                !isBlankRange(start + marker.length, end)) return false
+            found = true
+        }
+        return found
+    }
+
     /** 按段落的源码行判断图片是否独占一行，容器前缀不算正文，不要求前后空行。 */
     fun isStandaloneImageLine(image: Image): Boolean {
         val paragraph = image.parent as? Paragraph ?: return false
@@ -298,7 +322,7 @@ class MarkdownStructureSnapshot(val text: String, val root: Node) {
         val end = last.inputIndex + last.length
         val lineEnd = line.inputIndex + line.length
         if (first.inputIndex < line.inputIndex || end > lineEnd) return false
-        return text.substring(line.inputIndex, first.inputIndex).isBlank() && text.substring(end, lineEnd).isBlank()
+        return isBlankRange(line.inputIndex, first.inputIndex) && isBlankRange(end, lineEnd)
     }
 
     fun isEmbeddedLine(line: Int): Boolean {

@@ -95,6 +95,8 @@ object MarkdownSelectionSnapshot {
             val copy = parsed.firstChild as? LinkReferenceDefinition ?: continue
             appendDefinition(copy, raw)
         }
-        return MarkdownStructureSnapshot(source.toString(), root)
+        val text = source.toString()
+        restoreMarkdownTableInlineSourceSpans(text, root)
+        return MarkdownStructureSnapshot(text, root)
     }
 }

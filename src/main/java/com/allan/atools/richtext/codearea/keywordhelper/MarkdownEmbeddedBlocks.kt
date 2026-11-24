@@ -9,19 +9,21 @@ import java.util.TreeMap
 /** 只收集技术内容自身；正文和容器始终保留原生段落，行内内容的预览另起一行。 */
 object MarkdownEmbeddedBlocks {
     data class Block(
-        val start: Int, val end: Int, val firstLine: Int, val lastLine: Int,
+        val sourceRanges: List<MarkdownStructureSnapshot.Range>, val firstLine: Int, val lastLine: Int,
         val nodes: List<Node> = emptyList(), val replacesSource: Boolean = true,
         val detailStarts: List<Int> = emptyList()
     ) {
+        val start: Int get() = sourceRanges.first().start
+        val end: Int get() = sourceRanges.last().end
         val graphicLine: Int get() = if (replacesSource) firstLine else lastLine
     }
 
     fun collect(state: MarkdownStructureSnapshot): List<Block> {
         val result = TreeMap<Int, Block>()
         state.details.forEach {
-            val replacesSource = state.text.substring(state.lines[it.firstLine].start, it.start).isBlank() &&
-                state.text.substring(it.end, state.lines[it.lastLine].end).isBlank()
-            result[it.start] = Block(it.start, it.end, it.firstLine, it.lastLine,
+            val replacesSource = state.isBlankRange(state.lines[it.firstLine].start, it.start) &&
+                state.isBlankRange(it.end, state.lines[it.lastLine].end)
+            result[it.start] = Block(listOf(MarkdownStructureSnapshot.Range(it.start, it.end)), it.firstLine, it.lastLine,
                 replacesSource = replacesSource, detailStarts = listOf(it.start))
         }
         val referencedNotes = state.elements.mapNotNull { (it.node as? FootnoteReference)?.label }.toSet()
@@ -35,9 +37,10 @@ object MarkdownEmbeddedBlocks {
             if ((result.floorEntry(start)?.value?.end ?: start) > start ||
                 (result.ceilingEntry(start)?.key ?: end) < end) return
             // 同行有正文或列表／引用前缀时不隐藏源码，预览放到本行文字下方。
-            val replacesSource = replace && state.text.substring(state.lines[first.lineIndex].start, start).isBlank() &&
-                state.text.substring(end, state.lines[last.lineIndex].end).isBlank()
-            result[start] = Block(start, end, first.lineIndex, last.lineIndex, listOf(node), replacesSource)
+            val replacesSource = replace && state.isBlankRange(state.lines[first.lineIndex].start, start) &&
+                state.isBlankRange(end, state.lines[last.lineIndex].end)
+            result[start] = Block(listOf(MarkdownStructureSnapshot.Range(start, end)), first.lineIndex, last.lineIndex,
+                listOf(node), replacesSource)
         }
 
         fun tableNeedsWeb(node: Node): Boolean {
@@ -69,29 +72,27 @@ object MarkdownEmbeddedBlocks {
                         val end = markdownHtmlInlineEnd(node)
                         if (end != null) { add(node, end); next = end.next }
                     }
-                    is Paragraph -> {
-                        val source = node.sourceSpans.joinToString("\n") {
-                            state.text.substring(it.inputIndex, it.inputIndex + it.length)
-                        }
-                        if (source.trim().equals("[TOC]", true)) add(node, replace = true) else visit(node)
-                    }
+                    is Paragraph -> if (state.isTocParagraph(node)) add(node, replace = true) else visit(node)
                     else -> visit(node)
                 }
                 node = next
             }
         }
         visit(state.root)
-        val blocks = TreeMap<Int, Block>()
-        val supplements = TreeMap<Int, Block>()
+        val supplements = HashMap<Int, MutableList<Block>>()
         for (block in result.values) {
-            if (block.replacesSource) blocks[block.start] = block else {
-                val previous = supplements[block.graphicLine]
-                supplements[block.graphicLine] = if (previous == null) block else previous.copy(
-                    end = block.end, nodes = previous.nodes + block.nodes, detailStarts = previous.detailStarts + block.detailStarts
+            if (!block.replacesSource) supplements.getOrPut(block.graphicLine) { ArrayList() }.add(block)
+        }
+        return result.values.mapNotNull { block ->
+            val merged = if (block.replacesSource) block else {
+                val group = supplements.remove(block.graphicLine) ?: return@mapNotNull null
+                if (group.size == 1) block else block.copy(
+                    sourceRanges = group.flatMap { it.sourceRanges },
+                    nodes = group.flatMap { it.nodes },
+                    detailStarts = group.flatMap { it.detailStarts }
                 )
             }
+            merged.takeIf { it.end - it.start <= 64_000 && it.lastLine - it.firstLine < 500 }
         }
-        supplements.values.forEach { blocks[it.start] = it }
-        return blocks.values.filter { it.end - it.start <= 64_000 && it.lastLine - it.firstLine < 500 }
     }
 }

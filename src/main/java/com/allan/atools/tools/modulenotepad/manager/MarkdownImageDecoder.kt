@@ -19,6 +19,8 @@ import kotlin.math.sqrt
 
 /** 图片先读取原始尺寸，再限制解码像素；排版继续使用原始尺寸。 */
 object MarkdownImageDecoder {
+    const val MAX_SVG_BYTES = 20 * 1024 * 1024
+
     data class Result(val image: Image, val width: Double, val height: Double)
 
     @JvmStatic
@@ -28,17 +30,23 @@ object MarkdownImageDecoder {
         }
 
     @JvmStatic
-    fun decode(file: File, requestedWidth: Double, requestedHeight: Double): Result =
-        FileImageInputStream(file).use { input ->
+    fun decode(file: File, requestedWidth: Double, requestedHeight: Double): Result {
+        if (!file.isFile) throw IOException("Local image file missing")
+        return FileImageInputStream(file).use { input ->
             decode(input, { file.inputStream() }, requestedWidth, requestedHeight)
         }
+    }
+
+    fun hasRasterReader(file: File): Boolean =
+        FileImageInputStream(file).use { ImageIO.getImageReaders(it).hasNext() }
 
     private fun decode(input: ImageInputStream, open: () -> InputStream, requestedWidth: Double, requestedHeight: Double): Result {
         if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
         val readers = ImageIO.getImageReaders(input)
         if (!readers.hasNext()) {
-            val bytes = open().use { it.readNBytes(20 * 1024 * 1024 + 1) }
-            if (bytes.size > 20 * 1024 * 1024) throw IOException("Image exceeds byte limit")
+            if (input.length() > MAX_SVG_BYTES) throw IOException("SVG image exceeds $MAX_SVG_BYTES byte limit")
+            val bytes = open().use { it.readNBytes(MAX_SVG_BYTES + 1) }
+            if (bytes.size > MAX_SVG_BYTES) throw IOException("SVG image exceeds $MAX_SVG_BYTES byte limit")
             return MarkdownSvgDecoder.decode(bytes, requestedWidth, requestedHeight)
         }
         val reader = readers.next()
@@ -74,7 +82,6 @@ object MarkdownImageTasks {
 
     @JvmStatic fun submit(action: Runnable): Future<*> = workers.submit(action)
     @JvmStatic fun cancel(task: Future<*>?) {
-        task?.cancel(true)
-        workers.purge()
+        if (task?.cancel(true) == true && task is Runnable) workers.remove(task)
     }
 }

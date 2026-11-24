@@ -441,7 +441,7 @@ open class EditorAreaMgr(
     }
 
     private fun updateTabTitle() {
-        tab?.text = documentState.displayName + if (documentState.isDirty) " *" else ""
+        tab?.text = documentState.displayName + if (documentState.isUntitled || documentState.isDirty) " *" else ""
     }
 
     private fun markCurrentFileTs() {

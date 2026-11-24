@@ -123,8 +123,7 @@ object MarkdownHtmlRenderer {
                     }
                 }
                 is Paragraph -> {
-                    val source = node.sourceSpans.joinToString("\n") { state.text.substring(it.inputIndex, it.inputIndex + it.length) }.trim()
-                    if (source.equals("[TOC]", true)) {
+                    if (state.isTocParagraph(node)) {
                         writer.tag("nav", context.extendAttributes(node, "nav", mapOf("class" to "md-toc")))
                         state.headings.forEach { heading ->
                             writer.tag("p", mapOf("class" to "toc-level-${heading.level}"))
@@ -155,14 +154,20 @@ object MarkdownHtmlRenderer {
 
         /** 转义和实体可能多对一，按 UTF-16 边界映射到原文；无法精确映射时保留块级定位。 */
         private fun textMap(node: org.commonmark.node.Text): String? {
+            val spans = node.sourceSpans
+            val first = spans.first()
+            val begin = first.inputIndex
+            val literal = node.literal
+            if (spans.size == 1 && first.length == literal.length &&
+                state.text.regionMatches(begin, literal, 0, literal.length)) return ""
+
             val raw = StringBuilder()
             val offsets = ArrayList<Int>()
-            val begin = node.sourceSpans.first().inputIndex
-            for (span in node.sourceSpans) {
+            for (span in spans) {
                 raw.append(state.text, span.inputIndex, span.inputIndex + span.length)
                 repeat(span.length) { offsets.add(span.inputIndex + it - begin) }
             }
-            if (raw.toString() == node.literal && offsets.withIndex().all { it.index == it.value }) return ""
+            if (raw.toString() == literal && offsets.withIndex().all { it.index == it.value }) return ""
             val visible = StringBuilder()
             val positions = ArrayList<Int>()
             var index = 0
@@ -174,7 +179,7 @@ object MarkdownHtmlRenderer {
                     index += 2
                     raw[index - 1].toString()
                 } else if (character == '&') {
-                    val entity = entityPattern.find(raw, index)?.takeIf { it.range.first == index }
+                    val entity = entityPattern.matchAt(raw, index)
                     val value = entity?.let { org.jsoup.parser.Parser.unescapeEntities(it.value, false) }
                     if (entity != null && value != entity.value) { index += entity.value.length; value!! }
                     else { index++; character.toString() }
@@ -182,8 +187,8 @@ object MarkdownHtmlRenderer {
                 visible.append(token)
                 repeat(token.length) { positions.add(offsets[from]) }
             }
-            if (visible.toString() != node.literal) return null
-            positions.add(node.sourceSpans.last().let { it.inputIndex + it.length - begin })
+            if (visible.toString() != literal) return null
+            positions.add(spans.last().let { it.inputIndex + it.length - begin })
             return positions.joinToString(",")
         }
 

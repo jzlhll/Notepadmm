@@ -2,7 +2,7 @@
 var embeddedObserver;
 var embeddedHeightPending=false, embeddedLastHeight=-1;
 function embeddedTask(line,checked) {
-  var item=document.querySelector('li[data-source-line="'+line+'"]');
+  var item=document.querySelector('li.task-list-item[data-source-line="'+line+'"]');
   var input=item && item.querySelector('input[type=checkbox]');
   if(input) {input.checked=checked;input.defaultChecked=checked;}
 }
@@ -39,7 +39,8 @@ function embeddedImageSize(image) {
   image.style.width=display+'px';
 }
 function embeddedImageControls(config) {
-  config.forEach(function(item,index) {
+  config.forEach(function(item) {
+    var index=item.index;
     var image=document.querySelector('img[data-image-id="'+index+'"]');
     if(!image) return;
     if(!image.embeddedFrame) {

@@ -1,10 +1,12 @@
 package com.allan.atools.richtext.codearea
 
 import com.allan.atools.UIContext
+import com.allan.atools.richtext.codearea.keywordhelper.MarkdownHtmlImage
+import com.allan.atools.richtext.codearea.keywordhelper.collectMarkdownHtmlImages
 import com.allan.atools.threads.ThreadUtils
 import com.allan.atools.tools.modulenotepad.manager.MarkdownHtmlRenderer
+import com.allan.atools.tools.modulenotepad.manager.MarkdownImageDecoder
 import com.allan.atools.ui.SnackbarUtils
-import com.allan.atools.ui.withAppTheme
 import com.allan.atools.utils.Locales
 import com.allan.atools.utils.Log
 import javafx.application.Platform
@@ -13,13 +15,19 @@ import javafx.scene.image.Image
 import javafx.stage.FileChooser
 import org.commonmark.node.Image as MarkdownImage
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.util.UUID
 import javax.imageio.ImageIO
 
 /** 图片附件后台写入，完成后仅向原版本选区插入路径，避免覆盖后来输入。 */
 class MarkdownAttachments(private val area: EditorArea) {
+    private class AttachmentSizeException(val fileName: String, val limitBytes: Long) :
+        IOException("Image exceeds $limitBytes byte attachment limit")
+
     companion object {
+        private const val MAX_ATTACHMENT_BYTES = 50L * 1024 * 1024
+
         @JvmStatic
         fun isImage(file: File) = file.isFile && file.extension.lowercase(java.util.Locale.ROOT) in
             setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg")
@@ -31,13 +39,17 @@ class MarkdownAttachments(private val area: EditorArea) {
 
         @JvmStatic
         fun applyRebaseForSaveAs(area: EditorArea, previous: File?, target: File) {
-            val plan = rebasePlan(area, previous, target)
-            if (plan.edits.isEmpty()) return
+            applySourceEdits(area, rebasePlan(area, previous, target).edits)
+        }
+
+        fun applySourceEdits(area: EditorArea, edits: List<Triple<Int, Int, String>>) {
+            if (edits.isEmpty()) return
+            val ordered = edits.sortedBy { it.first }
             fun mapped(position: Int): Int {
                 var shift = 0
-                for ((start, end, value) in plan.edits.sortedBy { it.first }) {
+                for ((start, end, value) in ordered) {
                     if (position < start) break
-                    if (position <= end) return start + shift + Math.min(position - start, value.length)
+                    if (position < end) return start + shift + Math.min(position - start, value.length)
                     shift += value.length - (end - start)
                 }
                 return position + shift
@@ -45,18 +57,21 @@ class MarkdownAttachments(private val area: EditorArea) {
             val anchor = mapped(area.anchor)
             val caret = mapped(area.caretPosition)
             area.undoManager.preventMerge()
-            val changes = area.createMultiChange(plan.edits.size)
-            plan.edits.sortedByDescending { it.first }.forEach { (start, end, value) -> changes.replaceTextAbsolutely(start, end, value) }
-            changes.commit()
-            area.selectRange(anchor, caret)
-            area.undoManager.preventMerge()
+            try {
+                val changes = area.createMultiChange(ordered.size)
+                ordered.asReversed().forEach { (start, end, value) -> changes.replaceTextAbsolutely(start, end, value) }
+                changes.commit()
+                area.selectRange(anchor, caret)
+            } finally {
+                area.undoManager.preventMerge()
+            }
         }
 
         private fun rebasePlan(area: EditorArea, previous: File?, target: File): RebasePlan {
             val source = area.text
             if (previous == null || previous.parentFile == target.parentFile || !MarkdownEditorSupport.isMarkdownFile(previous)
                 || area.editor.isRealtimeProcessingLimitReached) return RebasePlan(source, emptyList())
-            val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
+            val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(source)
             val replacements = ArrayList<Triple<Int, Int, String>>()
             fun rebased(destination: String): String? {
                 if (destination.isBlank() || destination.startsWith('#') || destination.startsWith("//")
@@ -70,26 +85,13 @@ class MarkdownAttachments(private val area: EditorArea) {
                 val encoded = if (relative.startsWith("file:")) relative else java.net.URI(null, null, relative, null).toASCIIString()
                 return encoded + (uri.rawQuery?.let { "?$it" } ?: "") + (uri.rawFragment?.let { "#$it" } ?: "")
             }
+            for (image in collectMarkdownHtmlImages(state, 0, source.length)) {
+                val sourceValue = image.sourceValue ?: continue
+                val encoded = rebased(image.destination) ?: continue
+                replacements.addAll(htmlDestinationEdits(sourceValue, encoded))
+            }
             for (entry in state.elements) {
                 val node = entry.node
-                val first = node.sourceSpans.firstOrNull() ?: continue
-                val last = node.sourceSpans.last()
-                val raw = state.text.substring(first.inputIndex, last.inputIndex + last.length)
-                if (node is org.commonmark.node.HtmlInline || node is org.commonmark.node.HtmlBlock) {
-                    // 只迁移 img 的 src；其他 HTML 内容与属性保持原样。
-                    val tags = Regex("(?is)<!--.*?-->|<img\\b[^>]*>")
-                    val attributes = Regex("(?i)\\bsrc\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))")
-                    for (tag in tags.findAll(raw)) {
-                        if (tag.value.startsWith("<!--")) continue
-                        val match = attributes.find(tag.value) ?: continue
-                        val group = (1..3).mapNotNull { match.groups[it] }.firstOrNull() ?: continue
-                        val destination = org.jsoup.parser.Parser.unescapeEntities(group.value, true)
-                        val encoded = rebased(destination) ?: continue
-                        val start = first.inputIndex + tag.range.first + group.range.first
-                        replacements.add(Triple(start, start + group.value.length, MarkdownHtmlRenderer.escape(encoded)))
-                    }
-                    continue
-                }
                 val destination = when (node) {
                     is MarkdownImage -> node.destination
                     is org.commonmark.node.Link -> node.destination
@@ -97,6 +99,9 @@ class MarkdownAttachments(private val area: EditorArea) {
                     else -> continue
                 }
                 val encoded = rebased(destination) ?: continue
+                val first = node.sourceSpans.firstOrNull() ?: continue
+                val last = node.sourceSpans.last()
+                val raw = state.text.substring(first.inputIndex, last.inputIndex + last.length)
                 val reference = node is org.commonmark.node.LinkReferenceDefinition
                 val range = destinationRange(raw, reference) ?: continue
                 val original = raw.substring(range.first, range.last + 1)
@@ -109,11 +114,30 @@ class MarkdownAttachments(private val area: EditorArea) {
                 replacements.add(Triple(first.inputIndex + range.first, first.inputIndex + range.last + 1, markdownDestination))
             }
             if (replacements.isEmpty()) return RebasePlan(source, emptyList())
-            val original = state.text
-            val value = StringBuilder(original)
-            replacements.distinctBy { it.first }.sortedByDescending { it.first }.forEach { value.replace(it.first, it.second, it.third) }
-            return RebasePlan(value.toString(), replacements.distinctBy { it.first })
+            val edits = replacements.distinctBy { it.first }
+            val value = StringBuilder(state.text)
+            edits.sortedByDescending { it.first }.forEach { (start, end, replacement) -> value.replace(start, end, replacement) }
+            return RebasePlan(value.toString(), edits)
         }
+
+        fun htmlDestinationEdits(source: MarkdownHtmlImage.SourceValue, destination: String): List<Triple<Int, Int, String>> {
+            val escaped = MarkdownHtmlRenderer.escape(destination)
+            val value = when (source.quote) {
+                '"' -> escaped
+                '\'' -> escaped.replace("'", "&#39;")
+                else -> escaped.replace("'", "&#39;").replace("=", "&#61;")
+            }
+            return source.segments.mapIndexed { index, (range, fillsLine) ->
+                val replacement = when {
+                    index == 0 -> value
+                    // Tab 会被 URL 解析忽略，同时让 CommonMark 保持 HTML 标签跨行连续。
+                    fillsLine -> "&#9;"
+                    else -> ""
+                }
+                Triple(range.start, range.end, replacement)
+            }
+        }
+
         /** 定位原始图片／链接中的地址，供迁移与图片转换保留其余源码格式。 */
         fun destinationRange(raw: String, definition: Boolean): IntRange? {
             var index = 0
@@ -179,9 +203,15 @@ class MarkdownAttachments(private val area: EditorArea) {
                 Files.createDirectories(folder.toPath())
                 val labels = ArrayList<Pair<String, String>>()
                 for (file in files) {
-                    if (file.length() > 50L * 1024 * 1024) throw java.io.IOException("Image exceeds attachment limit")
+                    val source = file.toPath()
+                    val size = Files.size(source)
+                    if (size > MAX_ATTACHMENT_BYTES) throw AttachmentSizeException(file.name, MAX_ATTACHMENT_BYTES)
+                    val svgLimit = MarkdownImageDecoder.MAX_SVG_BYTES.toLong()
+                    if (size > svgLimit && !MarkdownImageDecoder.hasRasterReader(file)) {
+                        throw AttachmentSizeException(file.name, svgLimit)
+                    }
                     val target = File(folder, UUID.randomUUID().toString() + "." + file.extension.lowercase(java.util.Locale.ROOT))
-                    Files.copy(file.toPath(), target.toPath())
+                    Files.copy(source, target.toPath())
                     created.add(target)
                     labels.add(file.nameWithoutExtension to target.name)
                 }
@@ -215,54 +245,16 @@ class MarkdownAttachments(private val area: EditorArea) {
             } catch (error: Exception) {
                 created.forEach { try { Files.deleteIfExists(it.toPath()) } catch (_: Exception) { } }
                 Log.e("Import markdown image failed", error)
-                Platform.runLater { SnackbarUtils.show(Locales.str("markdown.imageInsertFailed")) }
+                Platform.runLater {
+                    val message = if (error is AttachmentSizeException) {
+                        Locales.str("markdown.imageInsertTooLarge")
+                            .replace("{limit}", (error.limitBytes / (1024 * 1024)).toString())
+                            .replace("{name}", error.fileName)
+                    } else Locales.str("markdown.imageInsertFailed")
+                    SnackbarUtils.show(message)
+                }
             }
         }
-    }
-
-    fun resizeImage() {
-        if (!area.isEditable || area.markdownComposing || area.editor.isRealtimeProcessingLimitReached) return
-        val state = (area.editor as EditorAreaMgrCode).markdownSnapshot(area.text)
-        val entry = state.elements.firstOrNull { it.node is MarkdownImage && it.ranges.any { range -> area.caretPosition in range.start until range.end } }
-        var from: Int
-        var to: Int
-        var destination: String
-        var alt: String
-        var title: String
-        var initialWidth = "640"
-        val image = entry?.node as? MarkdownImage
-        if (image != null) {
-            from = image.sourceSpans.first().inputIndex
-            to = image.sourceSpans.last().let { it.inputIndex + it.length }
-            destination = image.destination
-            alt = com.allan.atools.richtext.codearea.keywordhelper.MarkdownPlainText.render(image)
-            title = image.title.orEmpty()
-        } else {
-            val html = state.elements.firstOrNull { (it.node is org.commonmark.node.HtmlInline || it.node is org.commonmark.node.HtmlBlock)
-                && it.ranges.any { range -> area.caretPosition in range.start until range.end } } ?: return
-            val start = html.node.sourceSpans.first().inputIndex
-            val end = html.node.sourceSpans.last().let { it.inputIndex + it.length }
-            val tag = Regex("(?is)<!--.*?-->|<img\\b[^>]*>").findAll(state.text.substring(start, end))
-                .firstOrNull { !it.value.startsWith("<!--") && area.caretPosition in (start + it.range.first)..(start + it.range.last) } ?: return
-            val parsed = org.jsoup.Jsoup.parseBodyFragment(tag.value).selectFirst("img[src]") ?: return
-            from = start + tag.range.first
-            to = start + tag.range.last + 1
-            destination = parsed.attr("src")
-            alt = parsed.attr("alt")
-            title = parsed.attr("title")
-            initialWidth = parsed.attr("width").ifEmpty { "640" }
-        }
-        val dialog = javafx.scene.control.TextInputDialog(initialWidth)
-        dialog.title = Locales.str("markdown.imageWidth")
-        dialog.headerText = Locales.str("markdown.imageWidth")
-        val width = dialog.withAppTheme().showAndWait().orElse(null)?.toIntOrNull() ?: return
-        if (width !in 1..10000 || state.text != area.text || !area.isEditable || area.markdownComposing) return
-        val titleAttribute = if (title.isEmpty()) "" else " title=\"${MarkdownHtmlRenderer.escape(title)}\""
-        val result = "<img src=\"${MarkdownHtmlRenderer.escape(destination)}\" alt=\"${MarkdownHtmlRenderer.escape(alt)}\" width=\"$width\"$titleAttribute>"
-        area.undoManager.preventMerge()
-        area.replaceText(from, to, result)
-        area.moveTo(from + result.length)
-        area.undoManager.preventMerge()
     }
 
 }

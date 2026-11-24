@@ -132,10 +132,13 @@ class MarkdownImageManager(area: EditorArea) {
     private var cachedLineHeight = -1.0
     private var layoutPending = false
     private val structureChanged = InvalidationListener { removeEmbeddedImages() }
-    private val zoomChanged = Runnable {
-        val area = currentArea
-        if (area != null && runtimeActive) area.suspendVisibleParsWhileInvoke {
-            imageByLine.values.forEach { info ->
+    private val zoomChanged: (Set<String>) -> Unit = zoomChanged@{ keys ->
+        val area = currentArea ?: return@zoomChanged
+        if (!runtimeActive) return@zoomChanged
+        val affected = imageByLine.values.filter { it.key in keys }
+        if (affected.isEmpty()) return@zoomChanged
+        area.suspendVisibleParsWhileInvoke {
+            for (info in affected) {
                 applyImageParagraphStyle(area, info.lineIndex, info)
                 area.recreateParagraphGraphic(info.lineIndex)
             }
@@ -197,10 +200,18 @@ class MarkdownImageManager(area: EditorArea) {
             return
         }
         activateRuntime()
+        if (imageByLine.isEmpty()) {
+            refreshScheduler.request()
+            return
+        }
         val area = currentArea!!
         val first = area.offsetToPosition(Math.min(position, area.length), org.fxmisc.richtext.model.TwoDimensional.Bias.Forward).major
         val removedLines = removed.count { it == '\n' }
         val insertedLines = inserted.count { it == '\n' }
+        if (removedLines == 0 && insertedLines == 0 && first !in imageByLine) {
+            refreshScheduler.request()
+            return
+        }
         val delta = insertedLines - removedLines
         val next = LinkedHashMap<Int, MarkdownImage>()
         val changed = sortedSetOf<Int>()
@@ -334,7 +345,7 @@ class MarkdownImageManager(area: EditorArea) {
         val area = currentArea ?: return base
         val info = imageByLine[index] ?: return base
         if ((area.editor as EditorAreaMgrCode).currentMarkdownSnapshot()?.isEmbeddedLine(index) == true) return base
-        val imageNode = VBox(0.0, MarkdownImageToolbar(area, info.key) {
+        val imageNode = VBox(0.0, MarkdownImageToolbar(area, info.key, info.resolved.file != null) {
             if (info.lineIndex !in area.paragraphs.indices) null else {
                 val start = area.getAbsolutePosition(info.lineIndex, 0)
                 area.markdownImageActions.targets(start, start + area.getParagraph(info.lineIndex).length())
@@ -425,7 +436,7 @@ class MarkdownImageManager(area: EditorArea) {
             }
         }
         val aspect = if (info.imageWidth > 0 && info.imageHeight > 0) info.imageWidth / info.imageHeight else 4.0 / 3.0
-        val percent = area.markdownImageActions.percent(info.key)
+        val percent = area.markdownImageActions.percentForKey(info.key)
         var height = if (info.imageHeight > 0) info.imageHeight * (percent?.div(100.0) ?: info.styleZoom) else PLACEHOLDER_IMAGE_HEIGHT
         if (percent == null && info.width > 0) height = info.width / aspect
         val maxWidth = availableImageWidth(area, info)
@@ -517,8 +528,7 @@ class MarkdownImageManager(area: EditorArea) {
     private fun loadImage(info: MarkdownImage, diagnostic: MarkdownImageLoadLog): MarkdownImageDecoder.Result? {
         val resolved = info.resolved
         if (resolved.remote) return MarkdownRemoteImageLoader.loadDecoded(resolved.url, diagnostic, 0.0, 0.0)
-        val file = resolved.file
-        if (file == null || !file.isFile) throw IOException("Local image file missing")
+        val file = resolved.file ?: throw IOException("Local image file missing")
         return MarkdownImageDecoder.decode(file, 0.0, 0.0)
     }
 
@@ -581,11 +591,16 @@ class MarkdownImageManager(area: EditorArea) {
         private fun addHtmlImgs(literal: String?, startLine: Int, found: MutableList<FoundImage>) {
             if (literal == null) return
             val matcher = HTML_IMG_TAG.matcher(literal)
+            var scanned = 0
+            var line = startLine
             while (matcher.find()) {
                 val parsed = parseImgTag(matcher.group(1)) ?: continue
-                var count = 0
-                for (index in 0 until matcher.start()) if (literal[index] == '\n') count++
-                found.add(FoundImage(startLine + count, parsed.src, parsed.alt, parsed.zoom, parsed.width))
+                val tagStart = matcher.start()
+                while (scanned < tagStart) {
+                    if (literal[scanned] == '\n') line++
+                    scanned++
+                }
+                found.add(FoundImage(line, parsed.src, parsed.alt, parsed.zoom, parsed.width))
             }
         }
 

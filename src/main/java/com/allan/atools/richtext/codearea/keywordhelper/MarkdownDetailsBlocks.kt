@@ -8,7 +8,7 @@ import org.commonmark.node.Node
 
 /** 只配对 AST 中的 HTML 标签，代码示例及未闭合结构保持源码显示。 */
 object MarkdownDetailsBlocks {
-    data class Block(val start: Int, val end: Int, val firstLine: Int, val lastLine: Int, val source: String)
+    data class Block(val start: Int, val end: Int, val firstLine: Int, val lastLine: Int)
     private data class Tag(val offset: Int, val literal: String, val container: Node?)
 
     private val tags = Regex("<!--[\\s\\S]*?(?:-->|$)|<(pre|code|script|style)\\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>[\\s\\S]*?(?:</\\1\\s*>|$)|</?[a-z][\\w:-]*(?=[\\s/>])(?:[^>\"']|\"[^\"]*\"|'[^']*')*>", RegexOption.IGNORE_CASE)
@@ -42,7 +42,7 @@ object MarkdownDetailsBlocks {
                 val end = tag.offset + tag.literal.length
                 val firstLine = state.lineAt(start)
                 val lastLine = state.lineAt(end)
-                blocks.add(Block(start, end, firstLine, lastLine, state.text.substring(start, end)))
+                blocks.add(Block(start, end, firstLine, lastLine))
             }
         }
         return blocks

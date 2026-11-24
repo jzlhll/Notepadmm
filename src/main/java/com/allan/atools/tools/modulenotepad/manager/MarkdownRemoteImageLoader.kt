@@ -19,6 +19,8 @@ object MarkdownRemoteImageLoader {
     private data class ImageSize(val width: Double, val height: Double)
 
     private class CachedImage(val bytes: ByteArray) {
+        // 重定向别名共用标记，转码缓存持有标记时不会延长远程字节及像素的生命周期。
+        val embeddedKey = Any()
         val decoded = HashMap<ImageSize, MarkdownImageDecoder.Result>()
         @Volatile var memoryBytes = bytes.size.toLong()
     }
@@ -34,10 +36,16 @@ object MarkdownRemoteImageLoader {
     fun loadBytes(destination: String, diagnostic: MarkdownImageLoadLog): ByteArray =
         imageData(imageUri(destination), diagnostic).bytes
 
+    fun loadEmbedded(destination: String, diagnostic: MarkdownImageLoadLog): MarkdownEmbeddedImageCache.Result {
+        val data = imageData(imageUri(destination), diagnostic)
+        return MarkdownEmbeddedImageCache.getOrEncode(data.embeddedKey, diagnostic) { decode(data, diagnostic, 0.0, 0.0) }
+    }
+
     @JvmStatic
-    fun loadDecoded(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): MarkdownImageDecoder.Result {
-        val uri = imageUri(destination)
-        val data = imageData(uri, diagnostic)
+    fun loadDecoded(destination: String, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): MarkdownImageDecoder.Result =
+        decode(imageData(imageUri(destination), diagnostic), diagnostic, width, height)
+
+    private fun decode(data: CachedImage, diagnostic: MarkdownImageLoadLog, width: Double, height: Double): MarkdownImageDecoder.Result {
         try {
             val image = synchronized(data) {
                 if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image request interrupted")
