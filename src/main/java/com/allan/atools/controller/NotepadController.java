@@ -8,6 +8,7 @@ import com.allan.atools.bases.XmlPaths;
 import com.allan.atools.controllerwindow.NotepadFindWindow;
 import com.allan.atools.pop.impl.EncodingChooseCreatorImpl;
 import com.allan.atools.pop.impl.JSONChooseCreatorImpl;
+import com.allan.atools.richtext.codearea.CodexSelectionPanel;
 import com.allan.atools.richtext.codearea.EditorArea;
 import com.allan.atools.threads.ThreadUtils;
 import com.allan.atools.SettingPreferences;
@@ -54,6 +55,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.MouseButton;
@@ -139,6 +141,8 @@ public final class NotepadController extends AbstractMainController {
     public HBox workspaceTabSwitchBox;
     public ToggleButton workspaceFilesTabBtn;
     public ToggleButton workspaceDocTabBtn;
+    public ToggleButton workspaceCodexTabBtn;
+    public Tab workspaceCodexTab;
     public AppMenuButton workspaceText;
     public HBox workspaceToolbarBox;
     public VBox workspaceEmptyBox;
@@ -161,9 +165,13 @@ public final class NotepadController extends AbstractMainController {
     private MarkdownTablePreviewManager markdownTablePreviewManager;
     private MarkdownImageManager markdownImageManager;
     private MarkdownMermaidManager markdownMermaidManager;
+    private CodexSelectionPanel codexSelectionPanel;
     private final ChangeListener<EditorArea> currentDocumentAreaChanged =
             (observable, oldValue, newValue) -> {
                 refreshCurrentDocumentPath();
+                if (codexSelectionPanel != null) {
+                    codexSelectionPanel.followSelection(newValue);
+                }
                 MarkdownSearchSupport.refresh();
                 updateMarkdownTablePreviewManager(newValue);
                 updateMarkdownImageManager(newValue);
@@ -296,6 +304,10 @@ public final class NotepadController extends AbstractMainController {
     @Override
     public void destroy() {
         Log.d("DESTROY: notepad controller");
+        if (codexSelectionPanel != null) {
+            codexSelectionPanel.dispose();
+            codexSelectionPanel = null;
+        }
         com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.close();
         if (markdownOutlineManager != null) {
             markdownOutlineManager.destroy();
@@ -498,6 +510,10 @@ public final class NotepadController extends AbstractMainController {
         var workspaceTabSwitchGroup = new ToggleGroup();
         workspaceFilesTabBtn.setToggleGroup(workspaceTabSwitchGroup);
         workspaceDocTabBtn.setToggleGroup(workspaceTabSwitchGroup);
+        workspaceCodexTabBtn.setToggleGroup(workspaceTabSwitchGroup);
+        codexSelectionPanel = new CodexSelectionPanel();
+        workspaceCodexTab.setContent(codexSelectionPanel.getView());
+        codexSelectionPanel.followSelection(UIContext.currentAreaProp.get());
         workspaceFilesTabBtn.setSelected(true);
         workspaceTabSwitchGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue == null && oldValue != null) {
@@ -506,6 +522,8 @@ public final class NotepadController extends AbstractMainController {
                 workspaceTabPane.getSelectionModel().select(0);
             } else if (newValue == workspaceDocTabBtn) {
                 workspaceTabPane.getSelectionModel().select(1);
+            } else if (newValue == workspaceCodexTabBtn) {
+                workspaceTabPane.getSelectionModel().select(workspaceCodexTab);
             }
         });
         UIContext.currentAreaProp.addListener(currentDocumentAreaChanged);
@@ -548,6 +566,9 @@ public final class NotepadController extends AbstractMainController {
 
     public void refreshCurrentDocumentInfo() {
         refreshCurrentDocumentPath();
+        if (codexSelectionPanel != null) {
+            codexSelectionPanel.followSelection(UIContext.currentAreaProp.get());
+        }
         MarkdownSearchSupport.refresh();
         com.allan.atools.tools.modulenotepad.manager.MarkdownPreviewWindow.refreshCurrentFile(UIContext.currentAreaProp.get());
         BottomMarkdownControls.refresh();

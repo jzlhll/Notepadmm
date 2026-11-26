@@ -332,6 +332,144 @@
    -fx-font-size: 17;
 }
 
+.codex-sidebar {
+   -fx-background-color: -au-workspace-bg-color;
+}
+
+.codex-sidebar .codex-header {
+   -fx-padding: 8 10;
+   -fx-border-color: transparent transparent -au-main-window-border-color transparent;
+}
+
+.codex-sidebar .codex-scroll,
+.codex-sidebar .codex-scroll > .viewport {
+   -fx-background-color: transparent;
+   -fx-padding: 0;
+}
+
+.codex-sidebar .codex-messages {
+   -fx-padding: 12 10;
+}
+
+.codex-sidebar .codex-user-message {
+   -fx-background-color: -au-tab-select-region-color;
+   -fx-background-radius: 10 10 3 10;
+   -fx-text-fill: -au-tab-select-region-text-color;
+   -fx-padding: 7 9;
+}
+
+.codex-sidebar .codex-reply {
+   -fx-text-fill: -au-default-text-color;
+   -fx-padding: 2 1;
+}
+
+.codex-sidebar .codex-composer {
+   -fx-padding: 9 10 10;
+   -fx-border-color: -au-main-window-border-color transparent transparent transparent;
+}
+
+.codex-sidebar .codex-entry {
+   -fx-padding: 6;
+   -fx-background-color: -au-editor-bg-color;
+   -fx-background-radius: 10;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 10;
+}
+
+.codex-sidebar .codex-reference {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-background-radius: 7;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-border-radius: 7;
+   -fx-graphic-text-gap: 5;
+   -fx-padding: 4 6;
+   -fx-font-size: 11;
+   -fx-text-fill: -au-default-text-color;
+}
+
+.codex-sidebar .codex-reference > .label {
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.codex-sidebar .codex-input,
+.codex-sidebar .codex-input:focused,
+.codex-sidebar .codex-input .content {
+   -fx-background-color: transparent;
+   -fx-background-insets: 0;
+   -fx-padding: 2;
+}
+
+.codex-sidebar .codex-send,
+.codex-sidebar .codex-quiet-button {
+   -fx-background-insets: 0;
+   -fx-background-radius: 7;
+   -fx-border-radius: 7;
+   -fx-font-size: 12;
+   -fx-cursor: hand;
+}
+
+.codex-sidebar .codex-send {
+   -fx-min-height: 30;
+   -fx-min-width: 49;
+   -fx-padding: 5 8;
+   -fx-background-color: -au-main-color;
+   -fx-text-fill: -au-on-accent-color;
+   -fx-font-weight: bold;
+}
+
+.codex-sidebar .codex-send:hover {
+   -fx-background-color: derive(-au-main-color, -9%);
+}
+
+.codex-sidebar .codex-send:stopping,
+.codex-sidebar .codex-quiet-button {
+   -fx-background-color: -au-main-bg-color2;
+   -fx-border-color: -au-main-window-border-color;
+   -fx-text-fill: -au-default-text-color;
+}
+
+.codex-sidebar .codex-send:stopping:hover,
+.codex-sidebar .codex-quiet-button:hover {
+   -fx-background-color: -au-small-button-bg-color;
+}
+
+.codex-sidebar .codex-send:focused,
+.codex-sidebar .codex-quiet-button:focused {
+   -fx-border-color: -au-main-color;
+}
+
+.codex-sidebar .codex-quiet-button {
+   -fx-padding: 3 7;
+}
+
+.codex-sidebar .codex-status,
+.codex-sidebar .codex-empty {
+   -fx-text-fill: -au-default-desc-color;
+}
+
+.codex-sidebar .codex-status,
+.codex-sidebar .codex-locate {
+   -fx-font-size: 11;
+}
+
+.codex-sidebar .codex-status:error {
+   -fx-text-fill: -au-red-color;
+}
+
+.codex-sidebar .codex-progress {
+   -fx-progress-color: -au-main-color;
+}
+
+.codex-sidebar .codex-locate {
+   -fx-padding: 0;
+}
+
+.codex-sidebar .codex-empty {
+   -fx-padding: 14 16;
+   -fx-alignment: center;
+   -fx-text-alignment: center;
+}
+
 .workspace-toolbar {
    -fx-padding: 6 8 6 10;
 }

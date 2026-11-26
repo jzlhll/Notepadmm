@@ -123,6 +123,8 @@
                                       styleClass="workspace-tab-switch-btn"/>
                         <ToggleButton fx:id="workspaceDocTabBtn" text="%currentDocumentTab"
                                       styleClass="workspace-tab-switch-btn"/>
+                        <ToggleButton fx:id="workspaceCodexTabBtn" text="Codex"
+                                      styleClass="workspace-tab-switch-btn"/>
                     </HBox>
                     <JFXTabPane fx:id="workspaceTabPane" VBox.vgrow="ALWAYS" styleClass="workspace-tab-pane"
                                 tabMinHeight="0" tabMaxHeight="0">
@@ -184,6 +186,7 @@
                             </VBox>
                             </StackPane>
                         </Tab>
+                        <Tab fx:id="workspaceCodexTab" closable="false" text="Codex"/>
                     </JFXTabPane>
                 </VBox>
                 <JFXTabPane fx:id="tabPane" styleClass="editor-tab-pane"/>
