@@ -1,5 +1,6 @@
 package com.allan.atools.richtext.codearea
 
+import com.allan.atools.pop.impl.StringChooseCreatorImpl
 import com.allan.atools.GlobalCfgStores
 import com.allan.atools.tools.modulenotepad.session.CodexFileHistory
 import com.allan.atools.tools.modulenotepad.session.CodexFileRange
@@ -11,6 +12,7 @@ import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.css.PseudoClass
 import javafx.geometry.Pos
+import javafx.geometry.Side
 import javafx.scene.control.Button
 import javafx.scene.control.Hyperlink
 import javafx.scene.control.Label
@@ -36,11 +38,12 @@ import java.util.UUID
 /** 跟随当前编辑器选区，并保留已发送请求的原始写回位置。 */
 class CodexSelectionPanel {
     private companion object {
-        const val EXECUTABLE_KEY = "codexExecutable"
+        const val ASSISTANT_KEY = "selectionAssistant"
         const val EXCERPT_LENGTH = 12
         const val HISTORY_LOAD_FAILED = "editor.codex.historyLoadFailed"
         val ERROR: PseudoClass = PseudoClass.getPseudoClass("error")
         val STOPPING: PseudoClass = PseudoClass.getPseudoClass("stopping")
+        val EDITING: PseudoClass = PseudoClass.getPseudoClass("editing")
     }
 
     private data class Selection(
@@ -65,7 +68,9 @@ class CodexSelectionPanel {
     private data class Session(val threadId: String, val context: Context)
     private data class Status(val key: String, val error: Boolean = false, val detail: String? = null)
 
-    private class FileChat(val fileKey: String?) {
+    private class FileChat(val assistant: SelectionAssistant, val fileKey: String?) {
+        // Codex 沿用原缓存键，OpenCode 另存，保证旧会话可直接恢复。
+        val historyKey = fileKey?.let { if (assistant == SelectionAssistant.CODEX) it else "opencode\u0000$it" }
         val history = mutableListOf<CodexFileHistory.Message>()
         var draft = ""
         var session: Session? = null
@@ -88,13 +93,38 @@ class CodexSelectionPanel {
     private var selectionRefreshPending = false
     private val selectionChanged = InvalidationListener { scheduleSelectionRefresh() }
     private var selected: Selection? = null
-    private val chats = mutableMapOf<String, FileChat>()
+    private var assistant = SelectionAssistant.entries.firstOrNull {
+        it.name == GlobalCfgStores.user().getString(ASSISTANT_KEY, "")
+    } ?: SelectionAssistant.CODEX
+    private val chats = mutableMapOf<Pair<SelectionAssistant, String>, FileChat>()
     private var activeChat: FileChat? = null
     private var disposed = false
+    private var modelLoader: Thread? = null
+    private val options = CodexOptionsButton()
 
     private val clearHistoryButton = Button(Locales.str("editor.codex.clearHistory")).apply {
+        tooltip = Tooltip(Locales.str("editor.codex.resetChat"))
         styleClass.add("codex-quiet-button")
         setOnAction { activeChat?.let(::clearHistory) }
+    }
+    private val assistantName = Label(assistant.title).apply { styleClass.add("codex-assistant-name") }
+    private val settings = Button("⚙").apply {
+        styleClass.addAll("codex-quiet-button", "codex-settings")
+        accessibleText = Locales.str("editor.codex.chooseAssistant")
+        tooltip = Tooltip(accessibleText)
+        setOnAction {
+            val choices = SelectionAssistant.entries
+            StringChooseCreatorImpl(choices.map { it.title }, choices.indexOf(assistant)).createMenu { index ->
+                val choice = choices[index]
+                if (assistant != choice) {
+                    assistant = choice
+                    GlobalCfgStores.user().setString(ASSISTANT_KEY, choice.name)
+                    assistantName.text = choice.title
+                    followSelection(observedArea)
+                    refreshModels()
+                }
+            }.show(this, Side.BOTTOM, 0.0, 0.0)
+        }
     }
     private val messages = VBox(12.0).apply { styleClass.add("codex-messages") }
     private val scroll = ScrollPane(messages).apply {
@@ -124,7 +154,7 @@ class CodexSelectionPanel {
         managedProperty().bind(visibleProperty())
     }
     private val instructions = TextArea().apply {
-        prefRowCount = 2
+        prefRowCount = 3
         minWidth = 0.0
         isWrapText = true
         styleClass.add("codex-input")
@@ -160,7 +190,7 @@ class CodexSelectionPanel {
         styleClass.add("codex-progress")
         managedProperty().bind(visibleProperty())
     }
-    private val locate = Hyperlink(Locales.str("editor.codex.locate")).apply {
+    private val locate = Hyperlink().apply {
         setOnAction { locateExecutable() }
         styleClass.add("codex-locate")
         managedProperty().bind(visibleProperty())
@@ -169,18 +199,18 @@ class CodexSelectionPanel {
         alignment = Pos.CENTER_LEFT
         HBox.setHgrow(status, Priority.ALWAYS)
     }, locate).apply { managedProperty().bind(visibleProperty()) }
-    private val composition = VBox(4.0, referenceRow, HBox(6.0, instructions, sendButton).apply {
-        alignment = Pos.BOTTOM_RIGHT
-        HBox.setHgrow(instructions, Priority.ALWAYS)
+    private val composition = VBox(7.0, referenceRow, instructions, HBox(4.0, options,
+        Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, sendButton).apply {
+        alignment = Pos.CENTER_LEFT
+        styleClass.add("codex-entry-actions")
     }).apply {
         styleClass.add("codex-entry")
+        instructions.focusedProperty().addListener { _, _, focused -> pseudoClassStateChanged(EDITING, focused) }
     }
     val view = VBox(
-        HBox(clearHistoryButton).apply {
+        HBox(5.0, assistantName, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, clearHistoryButton, settings).apply {
             alignment = Pos.CENTER_RIGHT
             styleClass.add("codex-header")
-            visibleProperty().bind(clearHistoryButton.visibleProperty())
-            managedProperty().bind(visibleProperty())
         },
         StackPane(scroll, empty).apply { VBox.setVgrow(this, Priority.ALWAYS) },
         VBox(6.0, feedback, composition).apply { styleClass.add("codex-composer") }
@@ -192,6 +222,38 @@ class CodexSelectionPanel {
     init {
         renderChat()
         refreshSelection()
+    }
+
+    private fun executable(tool: SelectionAssistant): File? {
+        val configured = File(GlobalCfgStores.user().getString(tool.executableKey, ""))
+        return configured.takeIf { it.isAbsolute && it.isFile && it.canExecute() } ?: when (tool) {
+            SelectionAssistant.CODEX -> CodexSelectionCli.findExecutable()
+            SelectionAssistant.OPENCODE -> OpenCodeSelectionCli.findExecutable()
+        }
+    }
+
+    fun refreshModels() {
+        modelLoader?.interrupt()
+        options.isDisable = true
+        val tool = assistant
+        modelLoader = Thread.startVirtualThread {
+            val worker = Thread.currentThread()
+            val models = runCatching {
+                when (tool) {
+                    SelectionAssistant.CODEX -> CodexSelectionCli.readModels(executable(tool))
+                    SelectionAssistant.OPENCODE -> OpenCodeSelectionCli.readModels(executable(tool))
+                }
+            }.getOrDefault(emptyList())
+            Platform.runLater {
+                if (!disposed && modelLoader === worker) {
+                    options.setCatalog(tool, models)
+                    options.isDisable = false
+                    modelLoader = null
+                    updateControls()
+                }
+            }
+        }
+        updateControls()
     }
 
     fun followSelection(area: EditorArea?) {
@@ -206,17 +268,18 @@ class CodexSelectionPanel {
         }
         val next = area?.let {
             val key = it.editor.sourceFile?.let(::fileKey)
-            val identity = key ?: "untitled:" + it.editor.documentState.sessionId
-            chats.getOrPut(identity) { FileChat(key).also(::loadHistory) }
+            val untitled = "untitled:" + it.editor.documentState.sessionId
+            val chat = chats.getOrPut(assistant to (key ?: untitled)) { FileChat(assistant, key).also(::loadHistory) }
+            // 未命名文档首次保存后，各助手在下次进入时各自接回输入草稿。
+            if (key != null) {
+                val previous = chats.remove(assistant to untitled)
+                if (previous != null && chat.draft.isEmpty()) chat.draft = previous.draft
+            }
+            chat
         }
         val previous = activeChat
         if (next !== previous) {
             if (previous != null) previous.scrollPosition = scroll.vvalue
-            // 未命名文档首次保存后沿用输入草稿，磁盘对话仍按路径恢复。
-            if (sameEditor && area != null && previous != null && previous.fileKey == null && next?.fileKey != null) {
-                if (next.draft.isEmpty()) next.draft = previous.draft
-                chats.remove("untitled:" + area.editor.documentState.sessionId)
-            }
             activeChat = next
             renderChat()
         }
@@ -225,6 +288,7 @@ class CodexSelectionPanel {
 
     fun dispose() {
         disposed = true
+        modelLoader?.interrupt()
         observedArea?.selectionProperty()?.removeListener(selectionChanged)
         textChanges?.unsubscribe()
         observedArea = null
@@ -243,7 +307,7 @@ class CodexSelectionPanel {
     }
 
     private fun loadHistory(chat: FileChat) {
-        val key = chat.fileKey ?: return
+        val key = chat.historyKey ?: return
         CodexFileHistory.load(key) { result ->
             if (disposed) return@load
             chat.loading = false
@@ -252,8 +316,11 @@ class CodexSelectionPanel {
                     chat.history.addAll(snapshot.messages)
                     chat.session = snapshot.session?.let { cached ->
                         runCatching {
-                            val id = UUID.fromString(cached.threadId).toString()
-                            if (fileKey(File(cached.range.filePath)) == key) Session(id, Context(null, cached.range)) else null
+                            val id = when (chat.assistant) {
+                                SelectionAssistant.CODEX -> UUID.fromString(cached.threadId).toString()
+                                SelectionAssistant.OPENCODE -> cached.threadId.takeIf(OpenCodeSelectionCli.sessionIdPattern::matches)
+                            }
+                            if (id != null && fileKey(File(cached.range.filePath)) == chat.fileKey) Session(id, Context(null, cached.range)) else null
                         }.getOrNull()
                     }
                 }
@@ -265,7 +332,7 @@ class CodexSelectionPanel {
     }
 
     private fun saveHistory(chat: FileChat) {
-        val key = chat.fileKey ?: return
+        val key = chat.historyKey ?: return
         val session = chat.session?.let { CodexFileHistory.Session(it.threadId, it.context.range) }
         CodexFileHistory.save(key, CodexFileHistory.Snapshot(chat.history.toList(), session)) { result ->
             if (disposed || chat.clearing) return@save
@@ -297,7 +364,7 @@ class CodexSelectionPanel {
                 if (activeChat === chat) renderChat()
             }
         }
-        val key = chat.fileKey
+        val key = chat.historyKey
         if (key == null) finished(Result.success(Unit)) else CodexFileHistory.clear(key, finished)
     }
 
@@ -332,7 +399,7 @@ class CodexSelectionPanel {
             reference.text = String.format(Locales.str("editor.codex.reference"), current.firstLine, current.lastLine,
                 displayExcerpt(current.firstExcerpt), displayExcerpt(current.lastExcerpt))
             reference.tooltip = Tooltip(listOfNotNull(current.file?.absolutePath, reference.text,
-                Locales.str("editor.codex.data")).joinToString("\n"))
+                Locales.str(if (assistant == SelectionAssistant.CODEX) "editor.codex.data" else "editor.opencode.data")).joinToString("\n"))
         } else {
             reference.text = ""
             reference.tooltip = null
@@ -370,6 +437,7 @@ class CodexSelectionPanel {
         val chat = activeChat ?: return
         val userText = instructions.text
         if (chat.turn != null || chat.loading || chat.clearing || chat.cacheError == HISTORY_LOAD_FAILED || userText.isBlank()) return
+        if (modelLoader != null) return
         val previous = chat.session
         val currentSelection = selected
         val continued = previous?.takeIf { currentSelection == null || it.context.target?.matches(currentSelection) == true }
@@ -380,7 +448,13 @@ class CodexSelectionPanel {
         } else {
             readContext(chat, currentSelection ?: return) ?: return
         }
+        val tool = chat.assistant
+        val source = if (tool == SelectionAssistant.OPENCODE && continued == null) {
+            val target = context.target ?: return
+            target.editor.get()?.getText(target.start, target.end) ?: return
+        } else null
         val current = Turn(userText, context)
+        val requestOptions = options.snapshot()
         chat.turn = current
         instructions.clear()
         appendMessage(chat, CodexFileHistory.Message(userText, true))
@@ -388,13 +462,16 @@ class CodexSelectionPanel {
         setStatus(chat, "editor.codex.connecting")
         current.worker = Thread.startVirtualThread {
             val result = runCatching {
-                val configured = File(GlobalCfgStores.user().getString(EXECUTABLE_KEY, ""))
-                val executable = configured.takeIf { it.isAbsolute && it.isFile && it.canExecute() }
-                    ?: CodexSelectionCli.findExecutable()
-                CodexSelectionCli.rewrite(executable, previous?.threadId, context.range, userText, continued != null) { phase ->
+                val onPhase: (CodexSelectionCli.Phase) -> Unit = { phase ->
                     Platform.runLater {
                         if (chat.turn === current && !current.stopRequested) setStatus(chat, phase.messageKey)
                     }
+                }
+                when (tool) {
+                    SelectionAssistant.CODEX -> CodexSelectionCli.rewrite(executable(tool), previous?.threadId, context.range,
+                        userText, continued != null, requestOptions, onPhase)
+                    SelectionAssistant.OPENCODE -> OpenCodeSelectionCli.rewrite(executable(tool), previous?.threadId,
+                        context.range, source, userText, requestOptions.model, onPhase)
                 }
             }
             Platform.runLater {
@@ -472,7 +549,7 @@ class CodexSelectionPanel {
                 if (activeChat === chat) instructions.text = chat.draft
             }
             val failure = it as? CodexSelectionCli.Failure
-            setStatus(chat, failure?.messageKey ?: "editor.codex.failed", error = true, detail = failure?.message)
+            setStatus(chat, failure?.messageKey ?: "editor.codex.failed", error = true, detail = it.message)
         })
     }
 
@@ -521,7 +598,8 @@ class CodexSelectionPanel {
         val chat = activeChat
         val current = chat?.status ?: chat?.cacheError?.let { Status(it, error = true) }
         val key = current?.key
-        status.text = key?.let { Locales.str(it) }.orEmpty()
+        status.text = key?.let { String.format(Locales.str(it), assistant.title) }.orEmpty()
+        locate.text = String.format(Locales.str("editor.codex.locate"), assistant.title)
         status.pseudoClassStateChanged(ERROR, current?.error == true)
         status.tooltip = current?.detail?.let(::Tooltip)
         locate.isVisible = current?.error == true && (key == "editor.codex.notFound" || key == "editor.codex.failed")
@@ -536,9 +614,10 @@ class CodexSelectionPanel {
         sendButton.text = Locales.str(if (current == null) "editor.codex.send" else "editor.codex.stop")
         sendButton.pseudoClassStateChanged(STOPPING, current != null)
         sendButton.isDisable = waiting || chat?.cacheError == HISTORY_LOAD_FAILED ||
-            (current?.stopRequested ?: (instructions.text.isBlank() || (selected == null && chat?.session == null)))
+            (current?.stopRequested ?: (modelLoader != null || instructions.text.isBlank() || (selected == null && chat?.session == null)))
         replace.isDisable = waiting || current != null || chat?.replacement == null
         instructions.isDisable = chat == null || chat.clearing
+        clearHistoryButton.isManaged = chat != null
         clearHistoryButton.isVisible = chat != null
         clearHistoryButton.isDisable = waiting || (chat?.history.isNullOrEmpty() && chat?.draft.isNullOrEmpty() && chat?.cacheError == null)
         progress.isVisible = current != null || chat?.clearing == true
@@ -579,10 +658,11 @@ class CodexSelectionPanel {
 
     private fun locateExecutable() {
         val executable = FileChooser().apply {
-            title = Locales.str("editor.codex.locate")
-            if (ResLocation.isWindow) extensionFilters.add(FileChooser.ExtensionFilter("Codex CLI (*.exe)", "*.exe"))
+            title = String.format(Locales.str("editor.codex.locate"), assistant.title)
+            if (ResLocation.isWindow) extensionFilters.add(FileChooser.ExtensionFilter("${assistant.title} CLI (*.exe)", "*.exe"))
         }.showOpenDialog(view.scene.window) ?: return
-        GlobalCfgStores.user().setString(EXECUTABLE_KEY, executable.absolutePath)
+        GlobalCfgStores.user().setString(assistant.executableKey, executable.absolutePath)
         send()
+        refreshModels()
     }
 }

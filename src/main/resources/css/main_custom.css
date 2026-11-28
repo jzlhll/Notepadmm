@@ -341,6 +341,11 @@
    -fx-border-color: transparent transparent -au-main-window-border-color transparent;
 }
 
+.codex-sidebar .codex-assistant-name {
+   -fx-text-fill: -au-default-text-color;
+   -fx-font-weight: bold;
+}
+
 .codex-sidebar .codex-scroll,
 .codex-sidebar .codex-scroll > .viewport {
    -fx-background-color: transparent;
@@ -369,11 +374,20 @@
 }
 
 .codex-sidebar .codex-entry {
-   -fx-padding: 6;
+   -fx-padding: 9 8 7;
    -fx-background-color: -au-editor-bg-color;
-   -fx-background-radius: 10;
+   -fx-background-radius: 12;
    -fx-border-color: -au-main-window-border-color;
-   -fx-border-radius: 10;
+   -fx-border-radius: 12;
+}
+
+.codex-sidebar .codex-entry:editing {
+   -fx-border-color: -au-main-color;
+}
+
+.codex-sidebar .codex-entry-actions {
+   -fx-padding: 5 0 0;
+   -fx-border-color: -au-main-window-border-color transparent transparent transparent;
 }
 
 .codex-sidebar .codex-reference {
@@ -393,10 +407,50 @@
 
 .codex-sidebar .codex-input,
 .codex-sidebar .codex-input:focused,
+.codex-sidebar .codex-input .scroll-pane,
+.codex-sidebar .codex-input .viewport,
 .codex-sidebar .codex-input .content {
    -fx-background-color: transparent;
    -fx-background-insets: 0;
-   -fx-padding: 2;
+   -fx-border-width: 0;
+   -fx-padding: 0;
+}
+
+.codex-sidebar .codex-input {
+   -fx-text-fill: -au-editor-text-color;
+   -fx-prompt-text-fill: -au-default-desc-color;
+   -fx-font-size: 13;
+}
+
+.codex-sidebar .codex-options {
+   -fx-background-color: transparent;
+   -fx-background-radius: 6;
+   -fx-border-color: transparent;
+   -fx-border-radius: 6;
+   -fx-text-fill: -au-default-text-color;
+   -fx-font-size: 12;
+   -fx-padding: 4 5;
+   -fx-graphic-text-gap: 4;
+   -fx-cursor: hand;
+}
+
+.codex-sidebar .codex-options:hover {
+   -fx-background-color: -au-main-bg-color2;
+}
+
+.codex-sidebar .codex-options:focused {
+   -fx-border-color: -au-main-color;
+}
+
+.codex-sidebar .codex-options-arrow {
+   -fx-shape: "M 0 0 L 8 0 L 4 4 Z";
+   -fx-background-color: -au-default-desc-color;
+   -fx-min-width: 7;
+   -fx-pref-width: 7;
+   -fx-max-width: 7;
+   -fx-min-height: 4;
+   -fx-pref-height: 4;
+   -fx-max-height: 4;
 }
 
 .codex-sidebar .codex-send,
@@ -440,6 +494,12 @@
 
 .codex-sidebar .codex-quiet-button {
    -fx-padding: 3 7;
+}
+
+.codex-sidebar .codex-settings {
+   -fx-font-size: 16;
+   -fx-min-width: 27;
+   -fx-padding: 1 5;
 }
 
 .codex-sidebar .codex-status,

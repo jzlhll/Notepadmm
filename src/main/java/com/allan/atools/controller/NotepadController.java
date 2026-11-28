@@ -524,6 +524,7 @@ public final class NotepadController extends AbstractMainController {
                 workspaceTabPane.getSelectionModel().select(1);
             } else if (newValue == workspaceCodexTabBtn) {
                 workspaceTabPane.getSelectionModel().select(workspaceCodexTab);
+                codexSelectionPanel.refreshModels();
             }
         });
         UIContext.currentAreaProp.addListener(currentDocumentAreaChanged);
